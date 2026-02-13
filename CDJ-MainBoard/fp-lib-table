@@ -1,0 +1,5 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "kicad-thirdparty-footprints")(type "KiCad")(uri "/Users/sam1902/Documents/CustomDJ/kicad-thirdparty-footprints")(options "")(descr ""))
+  (lib (name "JLC2KiCad_lib-footprints")(type "KiCad")(uri "/Users/sam1902/Documents/CustomDJ/JLC2KiCad_lib/footprint")(options "")(descr ""))
+)
