@@ -8,7 +8,9 @@
       "Bash(git -C /Users/sam1902/Documents/CustomDJ push)",
       "Bash(git -C /Users/sam1902/Documents/CustomDJ log --oneline -3)",
       "Bash(git -C /Users/sam1902/Documents/CustomDJ add .gitignore)",
-      "Bash(git -C /Users/sam1902/Documents/CustomDJ commit -m \"$\\(cat <<''EOF''\nAdd .gitignore for KiCad, macOS, Linux, and Windows\n\nGenerated from gitignore.io with KiCad-specific additions from\ngithub/gitignore. Keeps .net files \\(used as revision snapshots\\)\nand .csv files \\(BOM exports\\) tracked.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")"
+      "Bash(git -C /Users/sam1902/Documents/CustomDJ commit -m \"$\\(cat <<''EOF''\nAdd .gitignore for KiCad, macOS, Linux, and Windows\n\nGenerated from gitignore.io with KiCad-specific additions from\ngithub/gitignore. Keeps .net files \\(used as revision snapshots\\)\nand .csv files \\(BOM exports\\) tracked.\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(python3:*)",
+      "Bash(pip3 install:*)"
     ]
   }
 }
