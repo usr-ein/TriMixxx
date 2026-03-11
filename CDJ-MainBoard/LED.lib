@@ -1,0 +1,4 @@
+* Generic LED SPICE Model
+* Forward voltage ~2.0V (green), 20mA typical
+* For use with KiCad / ngspice
+.model LED D (IS=1e-20 N=1.8 RS=2 BV=5 IBV=10u EG=2.3 XTI=2)

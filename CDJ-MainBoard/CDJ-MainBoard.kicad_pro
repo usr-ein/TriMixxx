@@ -890,6 +890,14 @@
       "version": 1
     },
     "net_format_name": "KiCad",
+    "ngspice": {
+      "fix_include_paths": true,
+      "meta": {
+        "version": 0
+      },
+      "model_mode": 4,
+      "workbook_filename": "CDJ-MainBoard-sim-dac.wbk"
+    },
     "page_layout_descr_file": "",
     "plot_directory": "",
     "space_save_all_events": true,
@@ -930,6 +938,18 @@
     [
       "73c6762a-885b-46bb-a26f-196c571f1a90",
       "Arduino MIDI"
+    ],
+    [
+      "2c58c456-80df-4d51-9833-733db3c5a28f",
+      "Sim_Buck"
+    ],
+    [
+      "1698d124-b773-4573-99c0-ad09fa2fae4f",
+      "Compute Module"
+    ],
+    [
+      "b78ec0ce-0ea7-4e81-bc06-3286ad54835a",
+      "Sim_DAC"
     ]
   ],
   "text_variables": {}

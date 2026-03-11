@@ -1,0 +1,105 @@
+* ============================================================
+* SY8368AQQC - Behavioral SPICE Model
+* Silergy 8A Synchronous Step-Down Regulator
+* For use with KiCad / ngspice
+* ============================================================
+*
+* Behavioral model capturing key electrical characteristics:
+*   - Voltage-mode PWM switching at 800kHz
+*   - Synchronous rectification with RDS(on) losses
+*   - Internal 0.6V reference
+*   - Enable / UVLO (3.9V)
+*   - Internal 3.3V LDO on VCC pin
+*   - Power Good open-drain output
+*   - Soft start (~600us)
+*
+* Limitations:
+*   - Simplified feedback loop (no detailed compensation)
+*   - No thermal modeling
+*   - No detailed gate drive timing / dead time
+*   - ILMT current limiting not enforced
+*
+* Subcircuit pins match QFN-12 package pinout 1:1:
+*   Pin 1  = GND1
+*   Pin 2  = LX
+*   Pin 3  = GND2
+*   Pin 4  = IN1
+*   Pin 5  = IN2
+*   Pin 6  = IN3
+*   Pin 7  = BS
+*   Pin 8  = VCC
+*   Pin 9  = FB
+*   Pin 10 = ILMT
+*   Pin 11 = PG
+*   Pin 12 = EN
+*
+* Usage:
+*   X1 GND1 LX GND2 IN1 IN2 IN3 BS VCC FB ILMT PG EN SY8368AQQC
+*
+* ============================================================
+
+.subckt SY8368AQQC GND1 LX GND2 IN1 IN2 IN3 BS VCC FB ILMT PG EN
+
+* --- Tie duplicate pins together internally ---
+R_gnd12 GND1 GND2 0.001
+R_in12 IN1 IN2 0.001
+R_in23 IN2 IN3 0.001
+
+* --- Use GND1 as the internal ground reference, IN1 as VIN ---
+
+* --- Parameters ---
+.param Fsw=800k
+.param Tperiod={1/Fsw}
+.param Vref=0.6
+.param Rdson_hs=20m
+.param Rdson_ls=10m
+.param Vcc_int=3.3
+.param Vuvlo=3.9
+
+* --- Internal 3.3V LDO (VCC pin) ---
+B_vcc VCC GND1 V = V(IN1,GND1) > Vuvlo ? Vcc_int : 0
+
+* --- Enable and UVLO logic ---
+B_en en_int GND1 V = (V(EN,GND1) > 0.8 && V(IN1,GND1) > Vuvlo) ? 1 : 0
+
+* --- Soft Start Ramp ---
+* RC charge toward 1V, ~600us time constant
+R_ss1 ss_drv ss_node 1k
+C_ss ss_node GND1 600n IC=0
+B_ss_src ss_drv GND1 V = V(en_int,GND1) > 0.5 ? 1.0 : 0
+
+* Effective reference: min of soft-start ramp and 0.6V
+B_vref vref_eff GND1 V = min(V(ss_node,GND1), Vref)
+
+* --- Error Amplifier (behavioral) ---
+* High-gain comparison: FB vs reference -> duty cycle
+B_ea ea_out GND1 V = V(en_int,GND1) > 0.5 ? min(max(200*(V(vref_eff,GND1) - V(FB,GND1)) + 0.25, 0.0), 0.95) : 0
+
+* --- PWM Sawtooth + Comparator ---
+V_saw saw_node GND1 PULSE(0 1 0 {Tperiod} 1n 1n {Tperiod})
+B_pwm pwm_out GND1 V = V(ea_out,GND1) > V(saw_node,GND1) ? 5 : 0
+
+* --- Power Stage (Synchronous Buck) ---
+* High-side switch: VIN to LX when PWM high
+S_hs IN1 LX pwm_out GND1 SW_HS
+.model SW_HS SW VT=2.5 VH=0.5 RON={Rdson_hs} ROFF=10MEG
+
+* Low-side needs inverted control
+B_pwm_inv pwm_inv GND1 V = 5.0 - V(pwm_out,GND1)
+S_ls LX GND1 pwm_inv GND1 SW_LS
+.model SW_LS SW VT=2.5 VH=0.5 RON={Rdson_ls} ROFF=10MEG
+
+* --- Bootstrap ---
+R_bs_ext BS bs_mid 1
+B_bs_chg bs_mid GND1 V = V(LX,GND1) + Vcc_int
+
+* --- Power Good (open-drain output) ---
+* PG is open drain: LOW when FB is outside 90%-120% of Vref
+B_pg_ctrl pg_ctrl GND1 V = (V(FB,GND1) < 0.54 || V(FB,GND1) > 0.72) ? 5 : 0
+S_pg PG GND1 pg_ctrl GND1 SW_PG
+.model SW_PG SW VT=2.5 VH=0.5 RON=50 ROFF=10MEG
+
+* --- ILMT pin (netlist compatibility) ---
+R_ilmt ILMT GND1 1MEG
+
+.ends SY8368AQQC

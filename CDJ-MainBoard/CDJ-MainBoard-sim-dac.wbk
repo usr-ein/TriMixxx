@@ -1,0 +1,97 @@
+{
+  "last_sch_text_sim_command": ".tran 1u 5m",
+  "tabs": [
+    {
+      "analysis": "TRAN",
+      "commands": [
+        ".tran 1u 5m",
+        ".kicad adjustpaths",
+        ".save all",
+        ".probe alli",
+        ".probe allp"
+      ],
+      "dottedSecondary": false,
+      "margins": {
+        "bottom": 45,
+        "left": 70,
+        "right": 70,
+        "top": 30
+      },
+      "measurements": [
+        {
+          "expr": "RMS V(/Sim_DAC/OUT_L)",
+          "format": "3~V"
+        },
+        {
+          "expr": "RMS V(/Sim_DAC/OUT_R)",
+          "format": "3~V"
+        },
+        {
+          "expr": "PP V(/Sim_DAC/OUT_L)",
+          "format": "3~V"
+        },
+        {
+          "expr": "PP V(/Sim_DAC/OUT_R)",
+          "format": "3~V"
+        },
+        {
+          "expr": "PP V(/Sim_DAC/COUPLED_R)",
+          "format": "3~V"
+        },
+        {
+          "expr": "PP V(/Sim_DAC/COUPLED_L)",
+          "format": "3~V"
+        }
+      ],
+      "showGrid": true,
+      "traces": [
+        {
+          "color": "rgb(255, 127, 0)",
+          "signal": "V(/Sim_DAC/AVDD)",
+          "trace_type": 257
+        },
+        {
+          "color": "rgb(255, 255, 51)",
+          "signal": "V(/Sim_DAC/COUPLED_L)",
+          "trace_type": 1
+        },
+        {
+          "color": "rgb(166, 86, 40)",
+          "signal": "V(/Sim_DAC/COUPLED_R)",
+          "trace_type": 1
+        },
+        {
+          "color": "rgb(247, 129, 191)",
+          "signal": "V(/Sim_DAC/DVDD)",
+          "trace_type": 257
+        },
+        {
+          "color": "rgb(102, 194, 165)",
+          "cursor1": {
+            "position": 0.0024558823529411767,
+            "x_format": "3~s",
+            "y_format": "3~V"
+          },
+          "cursor2": {
+            "position": 0.0029852941176470586,
+            "x_format": "3~s",
+            "y_format": "3~V"
+          },
+          "cursorD": {
+            "x_format": "3~s",
+            "y_format": "3~V"
+          },
+          "signal": "V(/Sim_DAC/OUT_L)",
+          "trace_type": 1
+        },
+        {
+          "color": "rgb(252, 141, 98)",
+          "signal": "V(/Sim_DAC/OUT_R)",
+          "trace_type": 1
+        }
+      ]
+    }
+  ],
+  "user_defined_signals": [],
+  "version": 6
+}

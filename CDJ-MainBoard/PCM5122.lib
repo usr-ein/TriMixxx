@@ -1,0 +1,99 @@
+* ============================================================
+* PCM5122 - Behavioral SPICE Model (28-pin TSSOP)
+* Texas Instruments 2Vrms DirectPath Audio Stereo DAC
+* For use with KiCad / ngspice
+* ============================================================
+*
+* Behavioral model of the analog output stage.
+* Digital pins (I2S, I2C, GPIO) are present for netlist
+* compatibility but are modeled as simple pull-down resistors.
+*
+* Pin mapping matches TSSOP-28 datasheet pinout 1:1.
+*
+* ============================================================
+
+.subckt PCM5122
++ CPVDD CAPP CPGND CAPM VNEG OUTL OUTR AVDD AGND VCOM_DEMP
++ SDA SCL GPIO5 GPIO4 GPIO3 ADR2 MODE1 MODE2 GPIO6 SCK
++ BCK DIN LRCK ADR1 XSMT LDOO DGND DVDD
+
+* --- Tie CPGND to AGND internally ---
+R_cpgnd CPGND AGND 0.001
+
+* --- Parameters ---
+.param Vfs=2.97         ; Full-scale peak voltage (2.1Vrms)
+.param Rout=200         ; Output impedance per channel (estimated)
+.param Vldo=1.8         ; Internal LDO output voltage
+.param Vneg_v=-1.8      ; Negative charge pump rail
+.param Vcom_v=0         ; Common mode (ground-centered, VREF mode)
+.param Fsig=1000        ; Default test tone frequency (1kHz)
+
+* --- Supply current modeling ---
+* AVDD: ~10mA typical analog supply
+R_avdd AVDD avdd_int 0.1
+I_avdd avdd_int AGND DC 10m
+
+* DVDD: ~15mA typical digital supply
+R_dvdd DVDD dvdd_int 0.1
+I_dvdd dvdd_int DGND DC 15m
+
+* CPVDD: ~5mA charge pump supply
+R_cpvdd CPVDD cpvdd_int 0.1
+I_cpvdd cpvdd_int AGND DC 5m
+
+* --- Power-on detection ---
+* DAC operates when AVDD > 2.8V and DVDD > 2.8V
+B_pon pon AGND V = (V(AVDD,AGND) > 2.8 && V(DVDD,DGND) > 2.8 && V(CPVDD,AGND) > 2.8) ? 1 : 0
+
+* --- Mute control ---
+* XSMT pin: HIGH = unmuted, LOW = muted
+B_unmute unmute AGND V = (V(pon,AGND) > 0.5 && V(XSMT,AGND) > 1.5) ? 1 : 0
+
+* --- Internal LDO (LDOO pin) ---
+* 1.8V output when DVDD = 3.3V, needs 10uF external bypass cap
+B_ldoo LDOO AGND V = V(pon,AGND) > 0.5 ? Vldo : 0
+
+* --- Charge Pump ---
+* Generates VNEG rail (~-1.8V) from CPVDD
+B_vneg VNEG AGND V = V(pon,AGND) > 0.5 ? Vneg_v : 0
+
+* Charge pump flying capacitor terminals
+R_capp CAPP cp_mid 10
+R_capm CAPM cp_mid 10
+
+* --- VCOM / DEMP output ---
+* Ground-centered common mode reference (VREF mode)
+B_vcom VCOM_DEMP AGND V = Vcom_v
+
+* --- Audio Output: Left Channel ---
+* Ground-centered, 200 ohm output impedance
+* Built-in 1kHz test tone at full scale
+V_audio_l audio_l_int AGND SIN(0 {Vfs} {Fsig})
+B_outl outl_buffered AGND V = V(unmute,AGND) > 0.5 ? V(audio_l_int,AGND) : 0
+R_outl outl_buffered OUTL {Rout}
+
+* --- Audio Output: Right Channel ---
+* Same as left, 90 degree phase offset for stereo testing
+V_audio_r audio_r_int AGND SIN(0 {Vfs} {Fsig} 0 0 90)
+B_outr outr_buffered AGND V = V(unmute,AGND) > 0.5 ? V(audio_r_int,AGND) : 0
+R_outr outr_buffered OUTR {Rout}
+
+* --- Digital pins (stubs for netlist compatibility) ---
+* These don't affect analog simulation but prevent
+* "floating node" errors in ngspice.
+R_sda SDA DGND 100k
+R_scl SCL DGND 100k
+R_gpio5 GPIO5 DGND 100k
+R_gpio4 GPIO4 DGND 100k
+R_gpio3 GPIO3 DGND 100k
+R_adr2 ADR2 DGND 100k
+R_mode1 MODE1 DGND 100k
+R_mode2 MODE2 DGND 100k
+R_gpio6 GPIO6 DGND 100k
+R_sck SCK DGND 100k
+R_bck BCK DGND 100k
+R_din DIN DGND 100k
+R_lrck LRCK DGND 100k
+R_adr1 ADR1 DGND 100k
+
+.ends PCM5122

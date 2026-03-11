@@ -1,0 +1,37 @@
+* ============================================================
+* Ferrite Bead SPICE Model
+* Generic 600ohm @ 100MHz ferrite bead (0402/0603)
+* For use with KiCad / ngspice
+* ============================================================
+*
+* Models a ferrite bead as an RLC equivalent:
+*   - DC resistance: ~0.1 ohm
+*   - Peak impedance: ~600 ohm at 100MHz
+*   - Inductive at low frequencies
+*   - Resistive (lossy) at high frequencies
+*
+* The subcircuit avoids the ngspice "FB" reserved keyword
+* conflict. Use reference designator L or XFB in KiCad.
+*
+* Pins: 1 = input, 2 = output
+*
+* Usage:
+*   X1 in out FERRITE_BEAD
+*
+* ============================================================
+
+.subckt FERRITE_BEAD 1 2
+
+* DC resistance
+R_dc 1 mid1 0.1
+
+* Inductive component (dominates at low/mid frequencies)
+L_bead mid1 mid2 1u
+
+* Parallel resistance (models core loss at high frequencies)
+R_loss mid1 mid2 600
+
+* Small parasitic capacitance
+C_par 1 2 0.5p
+
+.ends FERRITE_BEAD
