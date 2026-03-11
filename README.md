@@ -123,6 +123,16 @@ kicad-thirdparty-footprints/    Third-party footprints (CM5, DAC, RCA jacks)
 ### Top Case 3D Render
 ![Top case 3D render — chassis with jog wheel and button cutouts](screenshots/top_case_3d_2026-02-17.png)
 
+## SPICE Simulations
+
+### DAC Output (PCM5242)
+![DAC SPICE simulation — stereo output waveforms and supply rail](screenshots/dac_spice.png)
+
+![DAC SPICE simulator — full view with RMS and peak-to-peak measurements](screenshots/screenshot_%202026-03-11%20at%2021.01.34.png)
+
+### Buck Converter (TPS54560BDDA)
+![Buck converter simulation schematic — TPS54560BDDA 20V to 5V](small_buck.png)
+
 ## Bill of Materials by Module
 
 *Auto-generated from the KiCad netlist — 160 components total.*
