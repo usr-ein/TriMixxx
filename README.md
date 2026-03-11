@@ -128,10 +128,8 @@ kicad-thirdparty-footprints/    Third-party footprints (CM5, DAC, RCA jacks)
 ### DAC Output (PCM5242)
 ![DAC SPICE simulation — stereo output waveforms and supply rail](screenshots/dac_spice.png)
 
-![DAC SPICE simulator — full view with RMS and peak-to-peak measurements](screenshots/screenshot_%202026-03-11%20at%2021.01.34.png)
-
 ### Buck Converter (TPS54560BDDA)
-![Buck converter simulation schematic — TPS54560BDDA 20V to 5V](small_buck.png)
+![Buck converter SPICE simulation](screenshots/buck_converter_spice.png)
 
 ## Bill of Materials by Module
 
