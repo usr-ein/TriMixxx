@@ -48,7 +48,7 @@
 		(instances
 			(project "CDJ-MainBoard"
 				(path "/9b0e9ffe-08d2-4443-a3c7-7a8dbde036a8"
-					(page "9")
+					(page "8")
 				)
 			)
 		)
@@ -132,7 +132,7 @@
 		(instances
 			(project "CDJ-MainBoard"
 				(path "/9b0e9ffe-08d2-4443-a3c7-7a8dbde036a8"
-					(page "8")
+					(page "9")
 				)
 			)
 		)

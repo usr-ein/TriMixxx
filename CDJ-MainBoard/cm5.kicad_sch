@@ -6689,7 +6689,7 @@
 		)
 		(uuid "ef6dd79b-cabf-4051-b654-092d0be1553f")
 	)
-	(label "S_WIFI_UP"
+	(label "S_WIFI_GND"
 		(at 41.91 148.59 180)
 		(effects
 			(font
@@ -6699,7 +6699,7 @@
 		)
 		(uuid "437677cc-f8c4-431e-8682-02231f50eb66")
 	)
-	(label "S_BT_UP"
+	(label "S_BT_GND"
 		(at 41.91 151.13 180)
 		(effects
 			(font
@@ -6749,7 +6749,7 @@
 		)
 		(uuid "899166bd-386a-41db-8375-333b32cd64aa")
 	)
-	(label "S_BOOT_UP"
+	(label "S_BOOT_GND"
 		(at 41.91 153.67 180)
 		(effects
 			(font
@@ -6759,7 +6759,7 @@
 		)
 		(uuid "f165ca37-346b-487b-b4a3-fb02f5660fd0")
 	)
-	(label "S_EEPROM_WP_UP"
+	(label "S_EEPROM_WP_GND"
 		(at 41.91 156.21 180)
 		(effects
 			(font

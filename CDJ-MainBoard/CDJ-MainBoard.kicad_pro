@@ -853,6 +853,42 @@
           "label": "#",
           "name": "${ITEM_NUMBER}",
           "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Sim.Params",
+          "name": "Sim.Params",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Sim.Pins",
+          "name": "Sim.Pins",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Sim.Type",
+          "name": "Sim.Type",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Sim.Device",
+          "name": "Sim.Device",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Sim.Library",
+          "name": "Sim.Library",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Sim.Name",
+          "name": "Sim.Name",
+          "show": false
         }
       ],
       "filter_string": "",
@@ -940,12 +976,12 @@
       "Arduino MIDI"
     ],
     [
-      "2c58c456-80df-4d51-9833-733db3c5a28f",
-      "Sim_Buck"
-    ],
-    [
       "1698d124-b773-4573-99c0-ad09fa2fae4f",
       "Compute Module"
+    ],
+    [
+      "2c58c456-80df-4d51-9833-733db3c5a28f",
+      "Sim_Buck"
     ],
     [
       "b78ec0ce-0ea7-4e81-bc06-3286ad54835a",
