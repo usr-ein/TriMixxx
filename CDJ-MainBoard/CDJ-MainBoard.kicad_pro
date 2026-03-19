@@ -37,9 +37,9 @@
         "other_text_thickness": 0.15,
         "other_text_upright": false,
         "pads": {
-          "drill": 0.8,
-          "height": 1.27,
-          "width": 2.54
+          "drill": 0.0,
+          "height": 1.45,
+          "width": 1.0
         },
         "silk_line_width": 0.1,
         "silk_text_italic": false,
@@ -187,7 +187,10 @@
         }
       ],
       "track_widths": [
-        0.0
+        0.0,
+        0.2,
+        0.25,
+        0.5
       ],
       "tuning_pattern_settings": {
         "diff_pair_defaults": {
@@ -219,6 +222,10 @@
         {
           "diameter": 0.0,
           "drill": 0.0
+        },
+        {
+          "diameter": 0.45,
+          "drill": 0.2
         }
       ],
       "zones_allow_external_fillets": false
@@ -490,22 +497,40 @@
       {
         "name": "Audio",
         "pcb_color": "rgb(194, 194, 0)",
-        "priority": 0,
+        "priority": 3,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.2
       },
       {
+        "name": "ButtonsLEDs",
+        "pcb_color": "rgb(0, 0, 255)",
+        "priority": 1,
+        "schematic_color": "rgba(0, 0, 0, 0.000)"
+      },
+      {
+        "name": "HDMI_Eth",
+        "pcb_color": "rgb(255, 153, 0)",
+        "priority": 0,
+        "schematic_color": "rgba(0, 0, 0, 0.000)"
+      },
+      {
         "name": "Power",
-        "pcb_color": "rgb(194, 0, 0)",
-        "priority": 2,
+        "pcb_color": "rgb(132, 0, 0)",
+        "priority": 5,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.5
+      },
+      {
+        "name": "SignalBus",
+        "pcb_color": "rgb(0, 255, 0)",
+        "priority": 2,
+        "schematic_color": "rgba(0, 0, 0, 0.000)"
       },
       {
         "clearance": 0.15,
         "name": "USB",
         "pcb_color": "rgb(0, 194, 194)",
-        "priority": 1,
+        "priority": 4,
         "schematic_color": "rgba(0, 0, 0, 0.000)",
         "track_width": 0.2
       }
@@ -513,9 +538,33 @@
     "meta": {
       "version": 4
     },
-    "net_colors": null,
+    "net_colors": {
+      "+3.3V_ANALOG": "rgb(255, 0, 255)",
+      "GND": "rgb(132, 132, 132)"
+    },
     "netclass_assignments": null,
-    "netclass_patterns": []
+    "netclass_patterns": [
+      {
+        "netclass": "Power",
+        "pattern": "(GND|\\+5V|\\+3.3V|\\+3.3V_ANALOG|\\+20V_USB.*)|.*J15.*|.*U12-VBUS.*|.*U12-VDD.*|.*D3.*"
+      },
+      {
+        "netclass": "SignalBus",
+        "pattern": "(.*I2.*|.*ISP.*)"
+      },
+      {
+        "netclass": "ButtonsLEDs",
+        "pattern": "/Arduino MIDI/(BTN_.*|LED_.*|JOG.*|FADER.*)"
+      },
+      {
+        "netclass": "USB",
+        "pattern": "(/.*/USB.*)|.*J9.*|.*DN\\d.*|.*DP\\d.*|.*CC.*"
+      },
+      {
+        "netclass": "HDMI_Eth",
+        "pattern": "(/.*/eth.*)|(.*J1(3|4).*)"
+      }
+    ]
   },
   "pcbnew": {
     "last_paths": {

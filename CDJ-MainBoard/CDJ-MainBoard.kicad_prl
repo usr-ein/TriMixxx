@@ -1,10 +1,47 @@
 {
   "board": {
-    "active_layer": 25,
+    "active_layer": 0,
     "active_layer_preset": "",
     "auto_track_width": true,
-    "hidden_netclasses": [],
-    "hidden_nets": [],
+    "hidden_netclasses": [
+      "ButtonsLEDs"
+    ],
+    "hidden_nets": [
+      "/Arduino MIDI/JOG1",
+      "/Arduino MIDI/LED_CUE",
+      "/Arduino MIDI/BTN_BACK",
+      "/Arduino MIDI/LED_RELOOP",
+      "/Arduino MIDI/BTN_LOOP_IN",
+      "/Arduino MIDI/BTN_LOOP_OUT",
+      "/Arduino MIDI/BTN_RELOOP",
+      "/Arduino MIDI/LED_LOOP_OUT",
+      "/Arduino MIDI/LED_LOOP_IN",
+      "/Arduino MIDI/BTN_MTEMPO",
+      "/Arduino MIDI/LED_MTEMPO",
+      "/Arduino MIDI/LED_TEMPO_RST",
+      "/Arduino MIDI/FADER_ADIN",
+      "/Arduino MIDI/BTN_TEMPO_RST",
+      "/Arduino MIDI/JOG_TOUCH",
+      "/Arduino MIDI/BTN_HOTCUE_1",
+      "/Arduino MIDI/LED_HOTCUE2",
+      "/Arduino MIDI/LED_HOTCUE1",
+      "/Arduino MIDI/BTN_HOTCUE_2",
+      "/Arduino MIDI/LED_HOTCUE3",
+      "/Arduino MIDI/BTN_HOTCUE_3",
+      "/Arduino MIDI/BTN_TRACK_R",
+      "/Arduino MIDI/BTN_SEARCH_L",
+      "/Arduino MIDI/BTN_TRACK_L",
+      "/Arduino MIDI/LED_PLAY",
+      "/Arduino MIDI/BTN_CUE",
+      "/Arduino MIDI/BTN_PLAY",
+      "/Arduino MIDI/BTN_SEARCH_R",
+      "/Arduino MIDI/LED_JOG_MODE_2",
+      "/Arduino MIDI/LED_JOG_MODE_1",
+      "/Arduino MIDI/BTN_JOG_MODE",
+      "/Arduino MIDI/BTN_TEMPO_RANGE",
+      "/Arduino MIDI/LED_DIRECTION",
+      "/Arduino MIDI/BTN_DIRECTION"
+    ],
     "high_contrast_mode": 0,
     "net_color_mode": 1,
     "opacity": {
@@ -16,17 +53,17 @@
       "zones": 0.6
     },
     "selection_filter": {
-      "dimensions": true,
+      "dimensions": false,
       "footprints": true,
-      "graphics": true,
-      "keepouts": true,
+      "graphics": false,
+      "keepouts": false,
       "lockedItems": false,
-      "otherItems": true,
+      "otherItems": false,
       "pads": true,
-      "text": true,
+      "text": false,
       "tracks": true,
       "vias": true,
-      "zones": true
+      "zones": false
     },
     "visible_items": [
       "vias",
@@ -50,8 +87,8 @@
       "conflict_shadows",
       "shapes"
     ],
-    "visible_layers": "ffffffff_ffffffff_ffffffff_ffffffff",
-    "zone_display_mode": 0
+    "visible_layers": "ffffffff_ffffffff_fffffff7_ffffffff",
+    "zone_display_mode": 1
   },
   "git": {
     "repo_type": "",

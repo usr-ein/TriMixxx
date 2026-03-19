@@ -1,4 +1,4 @@
-(module "USB-C-SMD_TYPE-C-6PIN-2MD-073" (layer F.Cu) (tedit 6989C145)
+(module "USB-C-SMD_TYPE-C-6PIN-2MD-073" (layer F.Cu) (tedit 69B2ED53)
   (descr "USB-C-SMD_TYPE-C-6PIN-2MD-073 footprint")
   (tags "USB-C-SMD_TYPE-C-6PIN-2MD-073 footprint C2765186")
   (attr through_hole)

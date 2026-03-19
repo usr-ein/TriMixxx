@@ -1,4 +1,4 @@
-27538628533843845
+27542184653707499
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -70490,6 +70490,13 @@ R0603 footprint C22966
 2
 2
 JLC2KiCad_lib-footprints
+RJ45-TH_HR911105A
+RJ45-TH_HR911105A footprint
+RJ45-TH_HR911105A footprint C12074
+0
+14
+14
+JLC2KiCad_lib-footprints
 RJ45-TH_HR911130A
 RJ45-TH_HR911130A footprint
 RJ45-TH_HR911130A footprint C54408
@@ -70615,6 +70622,13 @@ USB-C-SMD_TYPE-C-6PIN-2MD-073 footprint C2765186
 0
 16
 14
+JLC2KiCad_lib-footprints
+USB-C_SMD-TYPE-C-31-M-12_1
+USB-C_SMD-TYPE-C-31-M-12_1 footprint
+USB-C_SMD-TYPE-C-31-M-12_1 footprint C165948
+0
+16
+16
 JLC2KiCad_lib-footprints
 VQFN-32_L5.0-W5.0-P0.50-BL-EP
 VQFN-32_L5.0-W5.0-P0.50-BL-EP footprint

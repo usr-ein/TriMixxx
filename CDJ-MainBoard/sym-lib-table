@@ -64,4 +64,6 @@
   (lib (name "DSWB05LHGET")(type "KiCad")(uri "/Users/sam1902/Documents/CustomDJ/JLC2KiCad_lib/symbol/DSWB05LHGET.kicad_sym")(options "")(descr ""))
   (lib (name "74HC4067PW,118")(type "KiCad")(uri "/Users/sam1902/Documents/CustomDJ/JLC2KiCad_lib/symbol/74HC4067PW,118.kicad_sym")(options "")(descr ""))
   (lib (name "MCP23017T-E/SS")(type "KiCad")(uri "/Users/sam1902/Documents/CustomDJ/JLC2KiCad_lib/symbol/MCP23017T-E{slash}SS.kicad_sym")(options "")(descr ""))
+  (lib (name "TYPE-C-31-M-12")(type "KiCad")(uri "/Users/sam1902/Documents/CustomDJ/JLC2KiCad_lib/symbol/TYPE-C-31-M-12.kicad_sym")(options "")(descr ""))
+  (lib (name "HR911105A_C12074")(type "KiCad")(uri "/Users/sam1902/Documents/CustomDJ/JLC2KiCad_lib/symbol/HR911105A_C12074.kicad_sym")(options "")(descr ""))
 )
