@@ -10683,7 +10683,7 @@
 				)
 			)
 		)
-		(property "Footprint" "JLC2KiCad_lib-footprints:RJ45-TH_HR911105A"
+		(property "Footprint" "JLC2KiCad_lib-footprints:RJ45-TH_HR911130A"
 			(at 67.31 59.69 0)
 			(effects
 				(font
