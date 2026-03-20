@@ -3209,7 +3209,7 @@
 				)
 			)
 		)
-		(property "Footprint" "footprint:QFN-12_L3.0-W3.0-P0.45-TL-EP"
+		(property "Footprint" ""
 			(at 162.56 52.07 0)
 			(effects
 				(font

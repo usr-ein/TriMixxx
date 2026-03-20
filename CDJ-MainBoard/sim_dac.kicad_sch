@@ -3878,7 +3878,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "Package_SO:TSSOP-28_4.4x9.7mm_P0.65mm"
+		(property "Footprint" ""
 			(at 80.01 69.85 0)
 			(effects
 				(font
