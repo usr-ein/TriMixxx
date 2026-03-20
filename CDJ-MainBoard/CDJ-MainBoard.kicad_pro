@@ -38,8 +38,8 @@
         "other_text_upright": false,
         "pads": {
           "drill": 0.0,
-          "height": 1.45,
-          "width": 1.0
+          "height": 0.840005,
+          "width": 0.2
         },
         "silk_line_width": 0.1,
         "silk_text_italic": false,
@@ -508,10 +508,12 @@
         "schematic_color": "rgba(0, 0, 0, 0.000)"
       },
       {
+        "clearance": 0.1,
         "name": "HDMI_Eth",
         "pcb_color": "rgb(255, 153, 0)",
         "priority": 0,
-        "schematic_color": "rgba(0, 0, 0, 0.000)"
+        "schematic_color": "rgba(0, 0, 0, 0.000)",
+        "track_width": 0.127
       },
       {
         "name": "Power",
