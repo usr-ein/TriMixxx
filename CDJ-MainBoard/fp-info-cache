@@ -1,4 +1,4 @@
-27542184653707499
+27543958668861790
 Audio_Module
 Reverb_BTDR-1H
 Digital Reverberation Unit, http://www.belton.co.kr/inc/downfile.php?seq=17&file=pdf (footprint from http://www.uk-electronic.de/PDF/BTDR-1.pdf)
@@ -70587,6 +70587,13 @@ SW-TH_XKB5858-Z-E footprint C780038
 0
 6
 6
+JLC2KiCad_lib-footprints
+TF-SMD_TF-15-15
+TF-SMD_TF-15-15 footprint
+TF-SMD_TF-15-15 footprint C111196
+0
+13
+13
 JLC2KiCad_lib-footprints
 TSSOP-24_L7.8-W4.4-P0.65-LS6.4-BL
 TSSOP-24_L7.8-W4.4-P0.65-LS6.4-BL footprint
