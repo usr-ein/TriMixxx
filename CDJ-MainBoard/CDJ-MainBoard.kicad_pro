@@ -577,7 +577,7 @@
       "plot": "../../../Downloads/",
       "pos_files": "",
       "specctra_dsn": "",
-      "step": "../3d_models/2026-03-26_CDJ-MainBoard-v1_fully_routed.step",
+      "step": "../3d_models/2026-03-26_CDJ-MainBoard-v1_fewcomps.step",
       "svg": "",
       "vrml": ""
     },
