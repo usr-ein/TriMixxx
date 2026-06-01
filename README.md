@@ -2,6 +2,9 @@
 
 A custom CDJ (Compact Disc Jockey) unit built from scratch around a Raspberry Pi CM5, designed to run [Mixxx](https://mixxx.org/) DJ software. Features a custom PCB, a custom 3D-printed chassis, and reuses original CDJ buttons and jog wheel for an authentic DJ experience. Reads Rekordbox-formatted USB sticks — no laptop required.
 
+![Front](screenshots/CDJ-TriMixxx-master-doc_v117_front.png)
+![Back](screenshots/CDJ-TriMixxx-master-doc_v117_back.png)
+
 ![PCB routing timelapse](screenshots/pcb_routing_1min.gif)
 
 ![PCB 3D render](screenshots/pcb-3d-render.png)
