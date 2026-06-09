@@ -1,0 +1,27 @@
+Drill report for loop_btn.kicad_pcb
+Created on 2026-06-08T17:05:09
+
+Copper Layer Stackup:
+    =============================================================
+    L1 :  F.Cu                      front
+    L2 :  B.Cu                      back
+
+
+Drill file 'loop_btn-PTH-drl.gbr' contains
+    plated through holes:
+    =============================================================
+    T1  0.800mm  0.0315"  (12 holes))
+    T2  0.900mm  0.0354"  (4 holes))
+    T3  0.950mm  0.0374"  (7 holes))
+    T4  1.100mm  0.0433"  (12 holes))
+
+    Total plated holes count 35
+
+
+Drill file 'loop_btn-NPTH-drl.gbr' contains
+    unplated through holes:
+    =============================================================
+    T1  1.200mm  0.0472"  (1 hole)
+    T2  3.200mm  0.1260"  (4 holes))
+
+    Total unplated holes count 5

@@ -73,9 +73,11 @@ Angles are when looking downward, towards the top side of the jogwheel.
 - `jw_tighten_angle` angle of the dial to tighten the jog: -37.7deg
 	- V4: Jog test fit revealed we were **too low by 1.7mm**. So I did some maths where I turned `jw_tighten_dist` and `jw_tighten_angle` into polar coordinates for the position, then turned those to cartesian, then added 1.7mm to the y component, then turned that back to polar to get the new angle and distance. The new angle is `-36.94deg`
 	- V5: I adjusted 1.7mm the wrong fucking way (classic me), the new angle is `-38.456deg`
+	- PETG-CF print: I think it's good to move it a bit to the left (CCW) so let's do `-38.0deg`
 - `jw_tighten_dist` dist from center to tighten dial 128mm
 	- V4: See above, the new distance is now `128.227 mm` 
 	- V5: Fucked up the adjustement direction, new distance is `127.795mm`
+	- PETG-CF print: okay so it needs to be like 1.2mm less. New dist is `126.5mm`
 - `jw_tighten_btn_dia` the dial's knob diameter 13mm
 - `jw_tighten_btn_h` the dial's knob height 8mm
 - `jw_tighten_btn_stem_dia` the dial's knob's stem's diameter 9mm
@@ -136,6 +138,7 @@ Derived from modelling:
 - `btn_loop_start_end_dist` between centres of the buttons 32mm (orig 36mm)
 - `btn_loop_end_reloop_dist` between centres of the buttons 35mm (orig 51mm)
 
+- `btn_pcb_screw_off_wall` how far from the pcb edges are the screws that hold the button pcbs to the top plate. The screw holes are M3 + loose fit, so 3+0.4, the dist from edge is `4mm`
 - `btn_pcb_standoff_h` the height between the pcb surface and the top plate's bottom face. These PCB carry buttons and need to be away from the bottom face to make space for the jogwheel assembly: 12mm
 - The height of a tacticle THT button switch. I have many, but let's pick the smallest button that way I can shorten the plastic button I print later if need be.
   - `btn_switch_free_h` h=4.8mm soldered to the board but NOT DEPRESSED
