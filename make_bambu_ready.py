@@ -48,9 +48,34 @@ Pipeline
    - `select-by-id:<bg>,<combined>`   exactly two paths
    - `path-difference`                bottom minus top = bg with the
                                       copper geometry cut out
+   - `select-by-id:<clip>`            add the injected viewBox rect to the
+                                      selection left by path-difference
+   - `path-intersection`              clip the sheet to the page (see below)
    - export plain SVG as `{stem}-bambu-ready.svg` next to the original
 5. Post-process the exported file with lxml: rewrite every black fill
    (style declaration or `fill=` attribute) to `OUTPUT_FILL` (#046307).
+
+Why the page clip (step 4)
+--------------------------
+KiCad's background rect is not the board outline: it's inflated ~10mm
+beyond the page on every side, and it overhangs the SVG viewBox unevenly.
+Worse, the B.Cu plot is mirrored, so that rect is shifted horizontally
+relative to F.Cu — the left/right overhangs swap between the two layers.
+A spec-compliant viewer clips everything to the viewBox, so the overhang
+is invisible and the two layers look aligned. Bambu Suite's SVG importer
+does NOT clip to the viewBox; it takes the real geometry bounding box (the
+inflated rect) as the object extent. That overhang becomes an uneven,
+layer-dependent border, and because it differs between F.Cu and B.Cu their
+top-left corners no longer coincide — destroying double-sided alignment.
+
+The fix is to make the output's geometry bbox equal the viewBox. We do the
+actual clipping with Inkscape (`path-intersection` against a viewBox-sized
+rectangle), not by editing coordinates in XML. The one thing Inkscape's
+action API cannot do is synthesize a rectangle at given coordinates, so
+`annotate()` injects a single `<rect>` matching the viewBox (id `bambu_clip`,
+filled a neutral red so it's never mistaken for the black bg or white copper)
+and the intersection consumes it. The copper geometry sits comfortably inside
+the viewBox, so the holes are untouched by the clip.
 
 The two-pass design is deliberate: `path-difference` in Inkscape only
 gives the intended bottom-minus-top result on a 2-object selection;
@@ -73,6 +98,7 @@ Usage
 -----
     ./make_bambu_ready.py midi-laser-pcb-F_Cu.svg
     ./make_bambu_ready.py *.svg
+    ./make_bambu_ready.py --rotate 90 *.svg   # rotate outputs 90° clockwise
 """
 from __future__ import annotations
 
@@ -96,6 +122,7 @@ _WHITE = {"#fff", "#ffffff", "white"}
 _BLACK = {"#000", "#000000", "black"}
 
 OUTPUT_FILL = "#046307"
+CLIP_ID = "bambu_clip"
 
 console = Console(stderr=False, highlight=False)
 
@@ -157,8 +184,13 @@ def _resolve_render_color(elem: etree._Element) -> str | None:
 # ---------- annotation ----------
 
 
-def annotate(input_path: Path, working_path: Path) -> tuple[str, list[str]]:
-    """Assign IDs to geometric elements, returning (black_id, white_ids)."""
+def annotate(input_path: Path, working_path: Path) -> tuple[str, list[str], str | None]:
+    """Assign IDs to geometric elements, returning (black_id, white_ids, clip_id).
+
+    Also injects a viewBox-sized rectangle (`clip_id`) used later to clip the
+    sheet to the page — see the module docstring for why. `clip_id` is None
+    when the SVG has no viewBox, in which case the clip step is skipped.
+    """
     tree = etree.parse(str(input_path))
     root = tree.getroot()
 
@@ -183,8 +215,37 @@ def annotate(input_path: Path, working_path: Path) -> tuple[str, list[str]]:
     if not white_ids:
         raise typer.Exit(code=1)
 
+    clip_id = _inject_viewbox_clip(root)
+
     tree.write(str(working_path), xml_declaration=True, encoding="UTF-8")
-    return black_id, white_ids
+    return black_id, white_ids, clip_id
+
+
+def _inject_viewbox_clip(root: etree._Element) -> str | None:
+    """Append a viewBox-sized rect to use as the page-clip shape.
+
+    Inkscape's action API has no verb to create a rectangle at given
+    coordinates, so this single element is built in XML; the actual clipping
+    is done by Inkscape (`path-intersection`). The rect is filled neutral red
+    so `_resolve_render_color` never confuses it with the black background or
+    the white copper, and it is added after the annotation loop so it never
+    becomes `black_id`.
+    """
+    viewbox = root.get("viewBox")
+    if not viewbox:
+        return None
+    try:
+        minx, miny, width, height = (float(v) for v in viewbox.split())
+    except ValueError:
+        return None
+    clip = etree.SubElement(root, f"{{{SVG_NS}}}rect")
+    clip.set("id", CLIP_ID)
+    clip.set("x", f"{minx:.6f}")
+    clip.set("y", f"{miny:.6f}")
+    clip.set("width", f"{width:.6f}")
+    clip.set("height", f"{height:.6f}")
+    clip.set("style", "fill:#FF0000;stroke:none")
+    return CLIP_ID
 
 
 # ---------- inkscape orchestration ----------
@@ -248,8 +309,57 @@ def recolor_output(svg_path: Path, new_fill: str = OUTPUT_FILL) -> None:
     tree.write(str(svg_path), xml_declaration=True, encoding="UTF-8")
 
 
+def rotate_output(svg_path: Path, degrees: int) -> None:
+    """Rotate the finished sheet clockwise by 90/180/270°, as the final step.
+
+    Runs dead last — after recolor, on the saved file — so nothing downstream
+    can undo it. Inkscape rotates the geometry and `page-fit-to-selection`
+    refits the page, so the output bbox still equals the viewBox (width/height
+    swap for 90/270, keeping double-sided alignment intact). `page-fit` emits a
+    unitless width/height, so we re-assert them in mm from the new viewBox
+    afterwards (1 user unit == 1 mm, the KiCad convention). 0 is a no-op.
+    """
+    if degrees == 0:
+        return
+    rotations = {
+        90: ["object-rotate-90-cw"],
+        180: ["object-rotate-90-cw", "object-rotate-90-cw"],
+        270: ["object-rotate-90-ccw"],
+    }
+    actions = [
+        "select-all:all",
+        *rotations[degrees],
+        "page-fit-to-selection",
+        "export-plain-svg",
+        f"export-filename:{svg_path}",
+        "export-overwrite", "export-do",
+    ]
+    _run_inkscape(svg_path, actions)
+    _restore_mm_dimensions(svg_path)
+
+
+def _restore_mm_dimensions(svg_path: Path) -> None:
+    """Re-assert width/height in mm from the viewBox (page-fit emits unitless)."""
+    tree = etree.parse(str(svg_path))
+    root = tree.getroot()
+    viewbox = root.get("viewBox")
+    if not viewbox:
+        return
+    try:
+        _, _, width, height = (float(v) for v in viewbox.split())
+    except ValueError:
+        return
+    root.set("width", f"{width:.6f}mm")
+    root.set("height", f"{height:.6f}mm")
+    tree.write(str(svg_path), xml_declaration=True, encoding="UTF-8")
+
+
 def run_inkscape(
-    working_svg: Path, black_id: str, white_ids: list[str], output: Path
+    working_svg: Path,
+    black_id: str,
+    white_ids: list[str],
+    clip_id: str | None,
+    output: Path,
 ) -> None:
     intermediate = working_svg.with_name("step1.svg")
 
@@ -274,6 +384,12 @@ def run_inkscape(
         "select-clear",
         f"select-by-id:{black_id},{combined_id}",
         "path-difference",
+    ]
+    # path-difference leaves its result selected; add the viewBox rect to that
+    # selection and intersect to clip the sheet to the page (see docstring).
+    if clip_id:
+        pass2 += [f"select-by-id:{clip_id}", "path-intersection"]
+    pass2 += [
         "export-plain-svg",
         f"export-filename:{output}",
         "export-overwrite", "export-do",
@@ -292,7 +408,7 @@ def _humanize_bytes(n: int) -> str:
     return f"{n:.1f} GiB"
 
 
-def process(input_path: Path) -> tuple[Path, int, int, float]:
+def process(input_path: Path, rotate: int = 0) -> tuple[Path, int, int, float]:
     if not input_path.is_file():
         console.print(f"[red]Not a file:[/red] {input_path}")
         raise typer.Exit(code=1)
@@ -301,9 +417,10 @@ def process(input_path: Path) -> tuple[Path, int, int, float]:
     t0 = time.monotonic()
     with tempfile.TemporaryDirectory() as tmpdir:
         working = Path(tmpdir) / input_path.name
-        black_id, white_ids = annotate(input_path, working)
-        run_inkscape(working, black_id, white_ids, output)
+        black_id, white_ids, clip_id = annotate(input_path, working)
+        run_inkscape(working, black_id, white_ids, clip_id, output)
     recolor_output(output)
+    rotate_output(output, rotate)
     elapsed = time.monotonic() - t0
 
     return output, 1, len(white_ids), elapsed
@@ -340,7 +457,19 @@ def main(
             resolve_path=True,
         ),
     ],
+    rotate: Annotated[
+        int,
+        typer.Option(
+            "--rotate",
+            "-r",
+            help="Rotate each output clockwise by 0, 90, 180, or 270 degrees. "
+            "Applied as the very last step, after the page clip and recolor.",
+        ),
+    ] = 0,
 ) -> None:
+    if rotate not in (0, 90, 180, 270):
+        console.print("[red]--rotate must be one of: 0, 90, 180, 270[/red]")
+        raise typer.Exit(code=1)
     if shutil.which("inkscape") is None:
         console.print("[red]inkscape not found on PATH[/red]")
         raise typer.Exit(code=1)
@@ -362,7 +491,7 @@ def main(
 
     for path in inputs:
         with console.status(f"[cyan]Processing[/cyan] {path.name}…"):
-            output, _blacks, whites, elapsed = process(path)
+            output, _blacks, whites, elapsed = process(path, rotate)
         table.add_row(
             path.name,
             str(whites),
