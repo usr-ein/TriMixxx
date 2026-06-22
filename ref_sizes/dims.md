@@ -141,13 +141,22 @@ Derived from modelling:
 - `btn_pcb_screw_off_wall` how far from the pcb edges are the screws that hold the button pcbs to the top plate. The screw holes are M3 + loose fit, so 3+0.4, the dist from edge is `4mm`
 - `btn_pcb_standoff_h` the height between the pcb surface and the top plate's bottom face. These PCB carry buttons and need to be away from the bottom face to make space for the jogwheel assembly: 12mm
 - The height of a tacticle THT button switch. I have many, but let's pick the smallest button that way I can shorten the plastic button I print later if need be.
-  - `btn_switch_free_h` h=4.8mm soldered to the board but NOT DEPRESSED
-  - `btn_switch_pressed_h` h=4.5mm soldered to the board when PRESSED
+  - `btn_switch_free_h` h=4.44mm soldered to the board but NOT DEPRESSED
+  - `btn_switch_pressed_h` h=4.25mm soldered to the board when PRESSED
 - `btn_switch_width` 6mm, it's a square. The black press portion inside is slighlty smaller.
-- `btn_led_dia` 4.8mm
+- `btn_led_dia` 5.33mm
 - `btn_led_light_guide_wall` 2.5mm
 - `btn_led_h` 8.3mm (+3mm for solder) (flat soldered, but I can probably not reach to solder the top, and my bust ass custom PCBs don't have rivetted vias yet, so let's leave a bit extra room to fit the iron
 - `btn_led_dist` imagine a square around the central button, the square's centre is the button. The LEDs are in the corners. This is the square's side. 7.5mm
+- `btn_spring_od` The outer dia of the spring's coil. I have many springs (5,6,7 dia), but let's use 7mm dia. `7mm`
+- `btn_spring_len` Can be 10, 15, 20, 30. Compress to at least half the size. `10mm`
+- `btn_spring_revs` all my springs have 7 revolutions
+- `btn_spring_wire_dia` the dia of the wire the spring is made off:
+	- For spring_dia 7mm: 0.70mm or 0.65mm
+	- For spring_dia 6mm: 0.60mm or 0.55mm
+	- For spring_dia 5mm: 0.50mm or 0.45mm
+	- -- For Now I will use the 0.7mm wire dia.
+- `btn_spring_id` The inner dia of the spring's coil. Function of `btn_spring_wire_dia` = `btn_spring_od - 2* btn_spring_wire_dia`. Confirmed experimentally.
 
 ### Screen half (SH)
 
