@@ -1,0 +1,2222 @@
+(export
+	(version "E")
+	(design
+		(source "/Users/sam1902/Documents/CustomDJ/TriMiXxX_Arduino_MIDI_HID/one_button/OneButton.kicad_sch")
+		(date "2026-06-29T16:54:26")
+		(tool "Eeschema 10.0.1")
+		(sheet
+			(number "1")
+			(name "/")
+			(tstamps "/")
+			(title_block
+				(title)
+				(company)
+				(rev)
+				(date)
+				(source "OneButton.kicad_sch")
+				(comment
+					(number "1")
+					(value "")
+				)
+				(comment
+					(number "2")
+					(value "")
+				)
+				(comment
+					(number "3")
+					(value "")
+				)
+				(comment
+					(number "4")
+					(value "")
+				)
+				(comment
+					(number "5")
+					(value "")
+				)
+				(comment
+					(number "6")
+					(value "")
+				)
+				(comment
+					(number "7")
+					(value "")
+				)
+				(comment
+					(number "8")
+					(value "")
+				)
+				(comment
+					(number "9")
+					(value "")
+				)
+			)
+		)
+	)
+	(components
+		(comp
+			(ref "C1")
+			(value "10u")
+			(footprint "easyeda2kicad:C0603")
+			(datasheet "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_SAMSUNG_CL10A106MA8NRNC_10uF-106-20-25V_C96446.html")
+			(fields
+				(field
+					(name "Manufacturer") "SAMSUNG(三星)")
+				(field
+					(name "MPN") "CL10A106MA8NRNC")
+				(field
+					(name "LCSC Part") "C96446")
+				(field
+					(name "Footprint") "easyeda2kicad:C0603")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_SAMSUNG_CL10A106MA8NRNC_10uF-106-20-25V_C96446.html")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "CL10A106MA8NRNC")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "SAMSUNG(三星)")
+			)
+			(property
+				(name "MPN")
+				(value "CL10A106MA8NRNC")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C96446")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Multilayer Ceramic Capacitors MLCC - SMD/SMT")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "337ca2f1-e826-4471-8933-9395c2e9d112")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C2")
+			(value "100n")
+			(footprint "easyeda2kicad:C0603")
+			(datasheet "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html")
+			(description "100nF (104) ±10% 50V")
+			(fields
+				(field
+					(name "Manufacturer") "YAGEO(国巨)")
+				(field
+					(name "MPN") "CC0603KRX7R9BB104")
+				(field
+					(name "LCSC Part") "C14663")
+				(field
+					(name "Footprint") "easyeda2kicad:C0603")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html")
+				(field
+					(name "Description") "100nF (104) ±10% 50V")
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "CC0603KRX7R9BB104")
+				(description "100nF (104) ±10% 50V")
+			)
+			(property
+				(name "Manufacturer")
+				(value "YAGEO(国巨)")
+			)
+			(property
+				(name "MPN")
+				(value "CC0603KRX7R9BB104")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C14663")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Multilayer Ceramic Capacitors MLCC - SMD/SMT")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "e8268d5f-5395-405c-ab1b-3b2f05e7f325")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C3")
+			(value "100n")
+			(footprint "easyeda2kicad:C0603")
+			(datasheet "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html")
+			(description "100nF (104) ±10% 50V")
+			(fields
+				(field
+					(name "Manufacturer") "YAGEO(国巨)")
+				(field
+					(name "MPN") "CC0603KRX7R9BB104")
+				(field
+					(name "LCSC Part") "C14663")
+				(field
+					(name "Footprint") "easyeda2kicad:C0603")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html")
+				(field
+					(name "Description") "100nF (104) ±10% 50V")
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "CC0603KRX7R9BB104")
+				(description "100nF (104) ±10% 50V")
+			)
+			(property
+				(name "Manufacturer")
+				(value "YAGEO(国巨)")
+			)
+			(property
+				(name "MPN")
+				(value "CC0603KRX7R9BB104")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C14663")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Multilayer Ceramic Capacitors MLCC - SMD/SMT")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "fd317f78-8f9f-4384-ba4f-cd46a5e0a608")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C4")
+			(value "100n")
+			(footprint "easyeda2kicad:C0603")
+			(datasheet "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html")
+			(description "100nF (104) ±10% 50V")
+			(fields
+				(field
+					(name "Manufacturer") "YAGEO(国巨)")
+				(field
+					(name "MPN") "CC0603KRX7R9BB104")
+				(field
+					(name "LCSC Part") "C14663")
+				(field
+					(name "Footprint") "easyeda2kicad:C0603")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html")
+				(field
+					(name "Description") "100nF (104) ±10% 50V")
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "CC0603KRX7R9BB104")
+				(description "100nF (104) ±10% 50V")
+			)
+			(property
+				(name "Manufacturer")
+				(value "YAGEO(国巨)")
+			)
+			(property
+				(name "MPN")
+				(value "CC0603KRX7R9BB104")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C14663")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Multilayer Ceramic Capacitors MLCC - SMD/SMT")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "2d18dad3-1cb1-408e-89ad-fde7d3905f1e")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C5")
+			(value "100n")
+			(footprint "easyeda2kicad:C0603")
+			(datasheet "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html")
+			(description "100nF (104) ±10% 50V")
+			(fields
+				(field
+					(name "Manufacturer") "YAGEO(国巨)")
+				(field
+					(name "MPN") "CC0603KRX7R9BB104")
+				(field
+					(name "LCSC Part") "C14663")
+				(field
+					(name "Footprint") "easyeda2kicad:C0603")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html")
+				(field
+					(name "Description") "100nF (104) ±10% 50V")
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "CC0603KRX7R9BB104")
+				(description "100nF (104) ±10% 50V")
+			)
+			(property
+				(name "Manufacturer")
+				(value "YAGEO(国巨)")
+			)
+			(property
+				(name "MPN")
+				(value "CC0603KRX7R9BB104")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C14663")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Multilayer Ceramic Capacitors MLCC - SMD/SMT")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "3c3626d7-ccfd-4b1a-b388-59c5c4319f5f")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "D1")
+			(value "TZ-2020S2RGB-5V-I4-MS")
+			(footprint "easyeda2kicad:LED-SMD_4P-L2.0-W2.0_FZ_2020")
+			(datasheet "https://www.lcsc.com/datasheet/C26159668.pdf")
+			(fields
+				(field
+					(name "Manufacturer") "TUOZHAN(拓展光电)")
+				(field
+					(name "MPN") "TZ-2020S2RGB-5V-I4-MS")
+				(field
+					(name "LCSC Part") "C26159668")
+				(field
+					(name "Footprint") "easyeda2kicad:LED-SMD_4P-L2.0-W2.0_FZ_2020")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C26159668.pdf")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "TZ-2020S2RGB-5V-I4-MS")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "TUOZHAN(拓展光电)")
+			)
+			(property
+				(name "MPN")
+				(value "TZ-2020S2RGB-5V-I4-MS")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C26159668")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "9a626887-0a8f-4d23-ac8b-74259e3b49b5")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "D2")
+			(value "TZ-2020S2RGB-5V-I4-MS")
+			(footprint "easyeda2kicad:LED-SMD_4P-L2.0-W2.0_FZ_2020")
+			(datasheet "https://www.lcsc.com/datasheet/C26159668.pdf")
+			(fields
+				(field
+					(name "Manufacturer") "TUOZHAN(拓展光电)")
+				(field
+					(name "MPN") "TZ-2020S2RGB-5V-I4-MS")
+				(field
+					(name "LCSC Part") "C26159668")
+				(field
+					(name "Footprint") "easyeda2kicad:LED-SMD_4P-L2.0-W2.0_FZ_2020")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C26159668.pdf")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "TZ-2020S2RGB-5V-I4-MS")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "TUOZHAN(拓展光电)")
+			)
+			(property
+				(name "MPN")
+				(value "TZ-2020S2RGB-5V-I4-MS")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C26159668")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "cd1b0b56-516b-4913-8466-8ad22d9de69b")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "H1")
+			(value "MountingHole")
+			(footprint "MountingHole:MountingHole_2.7mm_M2.5_ISO7380")
+			(description "Mounting Hole without connection")
+			(fields
+				(field
+					(name "Footprint") "MountingHole:MountingHole_2.7mm_M2.5_ISO7380")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Mounting Hole without connection")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "MountingHole")
+				(description "Mounting Hole without connection")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "4d623354-8fec-48de-95dc-62b8cbba2502")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "H2")
+			(value "MountingHole")
+			(footprint "MountingHole:MountingHole_2.7mm_M2.5_ISO7380")
+			(description "Mounting Hole without connection")
+			(fields
+				(field
+					(name "Footprint") "MountingHole:MountingHole_2.7mm_M2.5_ISO7380")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Mounting Hole without connection")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "MountingHole")
+				(description "Mounting Hole without connection")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "7fc52b22-5448-4e11-9591-c98735b15403")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "H3")
+			(value "MountingHole")
+			(footprint "MountingHole:MountingHole_2.7mm_M2.5_ISO7380")
+			(description "Mounting Hole without connection")
+			(fields
+				(field
+					(name "Footprint") "MountingHole:MountingHole_2.7mm_M2.5_ISO7380")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Mounting Hole without connection")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "MountingHole")
+				(description "Mounting Hole without connection")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "cfe96511-911e-4ab4-8907-9a7042e94e85")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "H4")
+			(value "MountingHole")
+			(footprint "MountingHole:MountingHole_2.7mm_M2.5_ISO7380")
+			(description "Mounting Hole without connection")
+			(fields
+				(field
+					(name "Footprint") "MountingHole:MountingHole_2.7mm_M2.5_ISO7380")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Mounting Hole without connection")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "MountingHole")
+				(description "Mounting Hole without connection")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "20ebd5ac-8a89-468a-9dbe-e25081e53d13")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "J1")
+			(value "INPUT")
+			(footprint "easyeda2kicad:CONN-TH_B3B-PH-K-S")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST_B3B-PH-K-S-LF-SN_B3B-PH-K-S-LF-SN_C131339.html")
+			(fields
+				(field
+					(name "Manufacturer") "JST")
+				(field
+					(name "MPN") "B3B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C131339")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_B3B-PH-K-S")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_B3B-PH-K-S-LF-SN_B3B-PH-K-S-LF-SN_C131339.html")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "B3B-PH-K-S")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "B3B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C131339")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Wire To Board / Wire To Wire Connector")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "e3a38394-6e99-473a-bd37-fb62a308ddac")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J2")
+			(value "OUTPUT")
+			(footprint "easyeda2kicad:CONN-TH_B3B-PH-K-S")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST_B3B-PH-K-S-LF-SN_B3B-PH-K-S-LF-SN_C131339.html")
+			(fields
+				(field
+					(name "Manufacturer") "JST")
+				(field
+					(name "MPN") "B3B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C131339")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_B3B-PH-K-S")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_B3B-PH-K-S-LF-SN_B3B-PH-K-S-LF-SN_C131339.html")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "B3B-PH-K-S")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "B3B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C131339")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Wire To Board / Wire To Wire Connector")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "430180a4-2f00-452b-ba71-a17ca26be809")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "JP1")
+			(value "DIN/SWIO")
+			(footprint "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
+			(description "Jumper, 3-pole, both open")
+			(fields
+				(field
+					(name "Footprint") "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Jumper, 3-pole, both open")
+			)
+			(libsource
+				(lib "Jumper")
+				(part "Jumper_3_Open")
+				(description "Jumper, 3-pole, both open")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Jumper SPDT")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "Jumper* TestPoint*3Pads* TestPoint*Bridge*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "42f3cc7d-76ac-4250-9880-c4bf8b9620cd")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R1")
+			(value "330")
+			(footprint "easyeda2kicad:R0603")
+			(datasheet "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_330R-3300-1_C23138.html")
+			(description "330Ω (3300) ±1%")
+			(fields
+				(field
+					(name "Manufacturer") "UNI-ROYAL(厚声)")
+				(field
+					(name "MPN") "0603WAF3300T5E")
+				(field
+					(name "LCSC Part") "C23138")
+				(field
+					(name "Footprint") "easyeda2kicad:R0603")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_330R-3300-1_C23138.html")
+				(field
+					(name "Description") "330Ω (3300) ±1%")
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "0603WAF3300T5E")
+				(description "330Ω (3300) ±1%")
+			)
+			(property
+				(name "Manufacturer")
+				(value "UNI-ROYAL(厚声)")
+			)
+			(property
+				(name "MPN")
+				(value "0603WAF3300T5E")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C23138")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Resistors")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "c4d38548-b51c-4f32-8e9c-ac93b5f63da3")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "R2")
+			(value "10k")
+			(footprint "easyeda2kicad:R0402")
+			(datasheet "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_10KR-1002-1_C25744.html")
+			(description "10KΩ (1002) ±1%")
+			(fields
+				(field
+					(name "Manufacturer") "UNI-ROYAL(厚声)")
+				(field
+					(name "MPN") "0402WGF1002TCE")
+				(field
+					(name "LCSC Part") "C25744")
+				(field
+					(name "Footprint") "easyeda2kicad:R0402")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_10KR-1002-1_C25744.html")
+				(field
+					(name "Description") "10KΩ (1002) ±1%")
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "0402WGF1002TCE")
+				(description "10KΩ (1002) ±1%")
+			)
+			(property
+				(name "Manufacturer")
+				(value "UNI-ROYAL(厚声)")
+			)
+			(property
+				(name "MPN")
+				(value "0402WGF1002TCE")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C25744")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Resistors")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "60b24cb1-ad96-42b0-92a6-079c45a9e505")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "SW1")
+			(value "TS-1187A-B-A-B")
+			(footprint "easyeda2kicad:SW-SMD_4P-L5.1-W5.1-P3.70-LS6.5-TL_H1.5")
+			(datasheet "https://lcsc.com/product-detail/Tactile-Switches_XKB-Enterprise-TS-1187-B-A-A_C318884.html")
+			(fields
+				(field
+					(name "Manufacturer") "XKB Connection(中国星坤)")
+				(field
+					(name "MPN") "TS-1187A-B-A-B")
+				(field
+					(name "LCSC Part") "C318884")
+				(field
+					(name "Footprint") "easyeda2kicad:SW-SMD_4P-L5.1-W5.1-P3.70-LS6.5-TL_H1.5")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Tactile-Switches_XKB-Enterprise-TS-1187-B-A-A_C318884.html")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "TS-1187A-B-A-B")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "XKB Connection(中国星坤)")
+			)
+			(property
+				(name "MPN")
+				(value "TS-1187A-B-A-B")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C318884")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Tactile Switches")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "9fb253c8-4a80-450e-99d5-3e482cd7bed8")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "4")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "U1")
+			(value "CH32V003F4U6")
+			(footprint "easyeda2kicad:QFN-20_L3.0-W3.0-P0.40-TL-EP1.7")
+			(datasheet "https://www.lcsc.com/datasheet/C5299908.pdf")
+			(fields
+				(field
+					(name "Manufacturer") "WCH(南京沁恒)")
+				(field
+					(name "MPN") "CH32V003F4U6")
+				(field
+					(name "LCSC Part") "C5299908")
+				(field
+					(name "Footprint") "easyeda2kicad:QFN-20_L3.0-W3.0-P0.40-TL-EP1.7")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5299908.pdf")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "CH32V003F4U6")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "WCH(南京沁恒)")
+			)
+			(property
+				(name "MPN")
+				(value "CH32V003F4U6")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C5299908")
+			)
+			(property
+				(name "Sheetname")
+				(value "Root")
+			)
+			(property
+				(name "Sheetfile")
+				(value "OneButton.kicad_sch")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "eeafe6e5-03c3-44a0-95bb-1805de1afdd6")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
+						)
+						(pin
+							(num "7")
+						)
+						(pin
+							(num "8")
+						)
+						(pin
+							(num "9")
+						)
+						(pin
+							(num "10")
+						)
+						(pin
+							(num "21")
+						)
+						(pin
+							(num "20")
+						)
+						(pin
+							(num "19")
+						)
+						(pin
+							(num "18")
+						)
+						(pin
+							(num "17")
+						)
+						(pin
+							(num "16")
+						)
+						(pin
+							(num "15")
+						)
+						(pin
+							(num "14")
+						)
+						(pin
+							(num "13")
+						)
+						(pin
+							(num "12")
+						)
+						(pin
+							(num "11")
+						)
+					)
+				)
+			)
+		)
+	)
+	(groups)
+	(variants)
+	(libparts
+		(libpart
+			(lib "Jumper")
+			(part "Jumper_3_Open")
+			(description "Jumper, 3-pole, both open")
+			(footprints
+				(fp "Jumper*")
+				(fp "TestPoint*3Pads*")
+				(fp "TestPoint*Bridge*")
+			)
+			(fields
+				(field
+					(name "Reference") "JP")
+				(field
+					(name "Value") "Jumper_3_Open")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Jumper, 3-pole, both open")
+				(field
+					(name "KLC_S5.1") "This is a generic symbol, it has fp-filter, but no default footprint")
+				(field
+					(name "KLC_S3.3") "Graphical-Symbol: thickness is 6mm, fill is background")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "A")
+					(type "passive")
+				)
+				(pin
+					(num "2")
+					(name "C")
+					(type "passive")
+				)
+				(pin
+					(num "3")
+					(name "B")
+					(type "passive")
+				)
+			)
+		)
+		(libpart
+			(lib "Mechanical")
+			(part "MountingHole")
+			(description "Mounting Hole without connection")
+			(footprints
+				(fp "MountingHole*")
+			)
+			(fields
+				(field
+					(name "Reference") "H")
+				(field
+					(name "Value") "MountingHole")
+				(field
+					(name "Footprint")
+				)
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Mounting Hole without connection")
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "0402WGF1002TCE")
+			(description "10KΩ (1002) ±1%")
+			(docs "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_10KR-1002-1_C25744.html")
+			(fields
+				(field
+					(name "Reference") "R")
+				(field
+					(name "Value") "0402WGF1002TCE")
+				(field
+					(name "Footprint") "easyeda2kicad:R0402")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_10KR-1002-1_C25744.html")
+				(field
+					(name "Description") "10KΩ (1002) ±1%")
+				(field
+					(name "Manufacturer") "UNI-ROYAL(厚声)")
+				(field
+					(name "MPN") "0402WGF1002TCE")
+				(field
+					(name "LCSC Part") "C25744")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "input")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "input")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "0603WAF3300T5E")
+			(description "330Ω (3300) ±1%")
+			(docs "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_330R-3300-1_C23138.html")
+			(fields
+				(field
+					(name "Reference") "R")
+				(field
+					(name "Value") "0603WAF3300T5E")
+				(field
+					(name "Footprint") "easyeda2kicad:R0603")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_330R-3300-1_C23138.html")
+				(field
+					(name "Description") "330Ω (3300) ±1%")
+				(field
+					(name "Manufacturer") "UNI-ROYAL(厚声)")
+				(field
+					(name "MPN") "0603WAF3300T5E")
+				(field
+					(name "LCSC Part") "C23138")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "input")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "input")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "B3B-PH-K-S")
+			(docs "https://lcsc.com/product-detail/PH-Connectors_JST_B3B-PH-K-S-LF-SN_B3B-PH-K-S-LF-SN_C131339.html")
+			(fields
+				(field
+					(name "Reference") "CN")
+				(field
+					(name "Value") "B3B-PH-K-S")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_B3B-PH-K-S")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_B3B-PH-K-S-LF-SN_B3B-PH-K-S-LF-SN_C131339.html")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "JST")
+				(field
+					(name "MPN") "B3B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C131339")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+				(pin
+					(num "3")
+					(name "3")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "CC0603KRX7R9BB104")
+			(description "100nF (104) ±10% 50V")
+			(docs "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html")
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "CC0603KRX7R9BB104")
+				(field
+					(name "Footprint") "easyeda2kicad:C0603")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_100nF-104-10-50V_C14663.html")
+				(field
+					(name "Description") "100nF (104) ±10% 50V")
+				(field
+					(name "Manufacturer") "YAGEO(国巨)")
+				(field
+					(name "MPN") "CC0603KRX7R9BB104")
+				(field
+					(name "LCSC Part") "C14663")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "CH32V003F4U6")
+			(docs "https://www.lcsc.com/datasheet/C5299908.pdf")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "CH32V003F4U6")
+				(field
+					(name "Footprint") "easyeda2kicad:QFN-20_L3.0-W3.0-P0.40-TL-EP1.7")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5299908.pdf")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "WCH(南京沁恒)")
+				(field
+					(name "MPN") "CH32V003F4U6")
+				(field
+					(name "LCSC Part") "C5299908")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "PD7")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "PA1")
+					(type "unspecified")
+				)
+				(pin
+					(num "3")
+					(name "PA2")
+					(type "unspecified")
+				)
+				(pin
+					(num "4")
+					(name "VSS")
+					(type "unspecified")
+				)
+				(pin
+					(num "5")
+					(name "PD0")
+					(type "unspecified")
+				)
+				(pin
+					(num "6")
+					(name "VDD")
+					(type "unspecified")
+				)
+				(pin
+					(num "7")
+					(name "PC0")
+					(type "unspecified")
+				)
+				(pin
+					(num "8")
+					(name "PC1")
+					(type "unspecified")
+				)
+				(pin
+					(num "9")
+					(name "PC2")
+					(type "unspecified")
+				)
+				(pin
+					(num "10")
+					(name "PC3")
+					(type "unspecified")
+				)
+				(pin
+					(num "11")
+					(name "PC4")
+					(type "unspecified")
+				)
+				(pin
+					(num "12")
+					(name "PC5")
+					(type "unspecified")
+				)
+				(pin
+					(num "13")
+					(name "PC6")
+					(type "unspecified")
+				)
+				(pin
+					(num "14")
+					(name "PC7")
+					(type "unspecified")
+				)
+				(pin
+					(num "15")
+					(name "PD1")
+					(type "unspecified")
+				)
+				(pin
+					(num "16")
+					(name "PD2")
+					(type "unspecified")
+				)
+				(pin
+					(num "17")
+					(name "PD3")
+					(type "unspecified")
+				)
+				(pin
+					(num "18")
+					(name "PD4")
+					(type "unspecified")
+				)
+				(pin
+					(num "19")
+					(name "PD5")
+					(type "unspecified")
+				)
+				(pin
+					(num "20")
+					(name "PD6")
+					(type "unspecified")
+				)
+				(pin
+					(num "21")
+					(name "VSS")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "CL10A106MA8NRNC")
+			(docs "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_SAMSUNG_CL10A106MA8NRNC_10uF-106-20-25V_C96446.html")
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "CL10A106MA8NRNC")
+				(field
+					(name "Footprint") "easyeda2kicad:C0603")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Multilayer-Ceramic-Capacitors-MLCC-SMD-SMT_SAMSUNG_CL10A106MA8NRNC_10uF-106-20-25V_C96446.html")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "SAMSUNG(三星)")
+				(field
+					(name "MPN") "CL10A106MA8NRNC")
+				(field
+					(name "LCSC Part") "C96446")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "TS-1187A-B-A-B")
+			(docs "https://lcsc.com/product-detail/Tactile-Switches_XKB-Enterprise-TS-1187-B-A-A_C318884.html")
+			(fields
+				(field
+					(name "Reference") "SW")
+				(field
+					(name "Value") "TS-1187A-B-A-B")
+				(field
+					(name "Footprint") "easyeda2kicad:SW-SMD_4P-L5.1-W5.1-P3.70-LS6.5-TL_H1.5")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Tactile-Switches_XKB-Enterprise-TS-1187-B-A-A_C318884.html")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "XKB Connection(中国星坤)")
+				(field
+					(name "MPN") "TS-1187A-B-A-B")
+				(field
+					(name "LCSC Part") "C318884")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "A")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "B")
+					(type "unspecified")
+				)
+				(pin
+					(num "3")
+					(name "C")
+					(type "unspecified")
+				)
+				(pin
+					(num "4")
+					(name "D")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "TZ-2020S2RGB-5V-I4-MS")
+			(docs "https://www.lcsc.com/datasheet/C26159668.pdf")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "TZ-2020S2RGB-5V-I4-MS")
+				(field
+					(name "Footprint") "easyeda2kicad:LED-SMD_4P-L2.0-W2.0_FZ_2020")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C26159668.pdf")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "TUOZHAN(拓展光电)")
+				(field
+					(name "MPN") "TZ-2020S2RGB-5V-I4-MS")
+				(field
+					(name "LCSC Part") "C26159668")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "VDD")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "DOU")
+					(type "unspecified")
+				)
+				(pin
+					(num "3")
+					(name "GND")
+					(type "unspecified")
+				)
+				(pin
+					(num "4")
+					(name "DIN")
+					(type "unspecified")
+				)
+			)
+		)
+	)
+	(libraries
+		(library
+			(logical "Jumper")
+			(uri "${KICAD10_SYMBOL_DIR}/Jumper.kicad_sym")
+		)
+		(library
+			(logical "Mechanical")
+			(uri "${KICAD10_SYMBOL_DIR}/Mechanical.kicad_sym")
+		)
+		(library
+			(logical "easyeda2kicad")
+			(uri "${EASYEDA2KICAD}/easyeda2kicad.kicad_sym")
+		)
+	)
+	(nets
+		(net
+			(code "1")
+			(name "+5V")
+			(class "Power,Default")
+			(node
+				(ref "C1")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C2")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C3")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C4")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "D1")
+				(pin "1")
+				(pinfunction "VDD_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "D2")
+				(pin "1")
+				(pinfunction "VDD_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "J1")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "J2")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "R2")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "input")
+			)
+			(node
+				(ref "U1")
+				(pin "6")
+				(pinfunction "VDD_6")
+				(pintype "unspecified")
+			)
+		)
+		(net
+			(code "2")
+			(name "/DIN")
+			(class "Default")
+			(node
+				(ref "JP1")
+				(pin "3")
+				(pinfunction "B_3")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "20")
+				(pinfunction "PD6_20")
+				(pintype "unspecified")
+			)
+		)
+		(net
+			(code "3")
+			(name "/DOUT")
+			(class "Default")
+			(node
+				(ref "J2")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "U1")
+				(pin "19")
+				(pinfunction "PD5_19")
+				(pintype "unspecified")
+			)
+		)
+		(net
+			(code "4")
+			(name "/LED1_DIN")
+			(class "Default")
+			(node
+				(ref "D1")
+				(pin "4")
+				(pinfunction "DIN_4")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "R1")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "input")
+			)
+		)
+		(net
+			(code "5")
+			(name "/LED1_DOUT")
+			(class "Default")
+			(node
+				(ref "D1")
+				(pin "2")
+				(pinfunction "DOU_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "D2")
+				(pin "4")
+				(pinfunction "DIN_4")
+				(pintype "unspecified")
+			)
+		)
+		(net
+			(code "6")
+			(name "/SWIO")
+			(class "Default")
+			(node
+				(ref "JP1")
+				(pin "1")
+				(pinfunction "A_1")
+				(pintype "passive")
+			)
+			(node
+				(ref "U1")
+				(pin "15")
+				(pinfunction "PD1_15")
+				(pintype "unspecified")
+			)
+		)
+		(net
+			(code "7")
+			(name "GND")
+			(class "Default")
+			(node
+				(ref "C1")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C2")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C3")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C4")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C5")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "D1")
+				(pin "3")
+				(pinfunction "GND_3")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "D2")
+				(pin "3")
+				(pinfunction "GND_3")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "J1")
+				(pin "3")
+				(pinfunction "3_3")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "J2")
+				(pin "3")
+				(pinfunction "3_3")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "SW1")
+				(pin "3")
+				(pinfunction "C_3")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "SW1")
+				(pin "4")
+				(pinfunction "D_4")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "U1")
+				(pin "21")
+				(pinfunction "VSS_21")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "U1")
+				(pin "4")
+				(pinfunction "VSS_4")
+				(pintype "unspecified")
+			)
+		)
+		(net
+			(code "8")
+			(name "Net-(JP1-C)")
+			(class "Default")
+			(node
+				(ref "J1")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "JP1")
+				(pin "2")
+				(pinfunction "C_2")
+				(pintype "passive")
+			)
+		)
+		(net
+			(code "9")
+			(name "Net-(SW1-A)")
+			(class "Default")
+			(node
+				(ref "C5")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "R2")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "input")
+			)
+			(node
+				(ref "SW1")
+				(pin "1")
+				(pinfunction "A_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "SW1")
+				(pin "2")
+				(pinfunction "B_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "U1")
+				(pin "8")
+				(pinfunction "PC1_8")
+				(pintype "unspecified")
+			)
+		)
+		(net
+			(code "10")
+			(name "Net-(U1-PC0)")
+			(class "Default")
+			(node
+				(ref "R1")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "input")
+			)
+			(node
+				(ref "U1")
+				(pin "7")
+				(pinfunction "PC0_7")
+				(pintype "unspecified")
+			)
+		)
+		(net
+			(code "11")
+			(name "unconnected-(D2-DOU-Pad2)")
+			(class "Default")
+			(node
+				(ref "D2")
+				(pin "2")
+				(pinfunction "DOU_2")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "12")
+			(name "unconnected-(U1-PA1-Pad2)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "2")
+				(pinfunction "PA1_2")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "13")
+			(name "unconnected-(U1-PA2-Pad3)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "3")
+				(pinfunction "PA2_3")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "14")
+			(name "unconnected-(U1-PC2-Pad9)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "9")
+				(pinfunction "PC2_9")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "15")
+			(name "unconnected-(U1-PC3-Pad10)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "10")
+				(pinfunction "PC3_10")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "16")
+			(name "unconnected-(U1-PC4-Pad11)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "11")
+				(pinfunction "PC4_11")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "17")
+			(name "unconnected-(U1-PC5-Pad12)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "12")
+				(pinfunction "PC5_12")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "18")
+			(name "unconnected-(U1-PC6-Pad13)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "13")
+				(pinfunction "PC6_13")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "19")
+			(name "unconnected-(U1-PC7-Pad14)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "14")
+				(pinfunction "PC7_14")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "20")
+			(name "unconnected-(U1-PD0-Pad5)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "5")
+				(pinfunction "PD0_5")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "21")
+			(name "unconnected-(U1-PD2-Pad16)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "16")
+				(pinfunction "PD2_16")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "22")
+			(name "unconnected-(U1-PD3-Pad17)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "17")
+				(pinfunction "PD3_17")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "23")
+			(name "unconnected-(U1-PD4-Pad18)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "18")
+				(pinfunction "PD4_18")
+				(pintype "unspecified+no_connect")
+			)
+		)
+		(net
+			(code "24")
+			(name "unconnected-(U1-PD7-Pad1)")
+			(class "Default")
+			(node
+				(ref "U1")
+				(pin "1")
+				(pinfunction "PD7_1")
+				(pintype "unspecified+no_connect")
+			)
+		)
+	)
+)
