@@ -1718,6 +1718,160 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "easyeda2kicad:MFR0W4F1002A50"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 0 5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "MFR0W4F1002A50"
+				(at 0 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "easyeda2kicad:RES-TH_BD2.5-L6.5-P10.50-D0.6"
+				(at 0 -7.62 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_10KR-1002-1_C57436.html"
+				(at 0 -10.16 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "10KΩ (1002) ±1%"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "UNI-ROYAL(厚声)"
+				(at 0 -12.7 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "MPN" "MFR0W4F1002A50"
+				(at 0 -15.24 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "LCSC Part" "C57436"
+				(at 0 -17.78 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "Through Hole Resistors"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "MFR0W4F1002A50_0_1"
+				(rectangle
+					(start -2.54 1.02)
+					(end 2.54 -1.02)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(pin input line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 5.08 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "easyeda2kicad:MFR0W4F3301A50"
 			(exclude_from_sim no)
 			(in_bom yes)
@@ -3526,9 +3680,9 @@
 			(embedded_fonts no)
 		)
 	)
-	(text "TODO: Is the optical enc\nable to take \nin/output 3.3V, \nor only 5V?"
+	(text "Optical enc is used to be +5V,\njust should run fine at +3.3V\nTCH is normally opened,\nand GND when closed.\nClosed it has a 33ohms R to GND"
 		(exclude_from_sim no)
-		(at 199.898 105.918 0)
+		(at 87.376 121.158 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3539,7 +3693,7 @@
 	)
 	(text "The OneButton's CH32V003 has \nLVTTL for pin voltage detection,\nso it can read 3.3V in.\nV_IH min is 2.06V when powered by 5V\nV_IL max is 1.09 V (low side)\nWe're good sending it 3.3V TX, with margins"
 		(exclude_from_sim no)
-		(at 246.38 84.074 0)
+		(at 226.06 69.088 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3550,7 +3704,7 @@
 	)
 	(text "This comes back from the \nOneButton boards as 5V,\nand would fry the S3 so \nI have a divider down to 3.24V"
 		(exclude_from_sim no)
-		(at 258.572 49.53 0)
+		(at 234.442 36.322 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3558,9 +3712,20 @@
 		)
 		(uuid "78311c2a-5cf4-4282-9593-a4eb2e1fcaf8")
 	)
+	(text "This pinout matches\nthe encoder's pinout\nif I mount a JST-PH\nangled on its bottom \nside"
+		(exclude_from_sim no)
+		(at 194.056 115.824 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "9df43561-33aa-4fea-9b78-e7d8b9f38d20")
+	)
 	(text "Pi's layout is:\nFunction : GND | TX | RX\nGPIO     : 8   | 10 | 12\nPi sends in 3.3V and \nreceives ONLY 3.3V, \nso we natively good"
 		(exclude_from_sim no)
-		(at 186.182 19.558 0)
+		(at 164.592 65.024 0)
 		(effects
 			(font
 				(face "JetBrainsMono NF")
@@ -3570,9 +3735,9 @@
 		)
 		(uuid "c6f760c8-2acb-476d-9eaa-56ad4ab35274")
 	)
-	(text "TODO: check the pinout \norder of the tempo board"
+	(text "Originally meant for 5V, \nbut fully passive potentiometer, \nso works at 3.3V"
 		(exclude_from_sim no)
-		(at 172.72 87.884 0)
+		(at 49.53 154.432 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -3582,28 +3747,40 @@
 		(uuid "f43948bb-437f-4d5c-9d21-8918dcd36c62")
 	)
 	(junction
-		(at 240.03 107.95)
+		(at 214.63 86.36)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "3d3e4d14-8c6e-464b-b195-7655562cb8db")
 	)
 	(junction
-		(at 237.49 35.56)
+		(at 172.72 124.46)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "64f62f6e-be44-4e2a-ac79-5fb3eb859e68")
+	)
+	(junction
+		(at 163.83 127)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "ae980757-a567-430f-b57b-b0e86c88e023")
+	)
+	(junction
+		(at 210.82 50.8)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "b506bf1b-ceb6-49d5-904f-35832395311a")
 	)
 	(junction
-		(at 163.83 124.46)
+		(at 72.39 129.54)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "f1ecd1c2-c9a3-4f26-b206-09502a6ef3cc")
+		(uuid "c027a633-dece-4c71-9bd3-8fd821d10da1")
 	)
 	(junction
-		(at 172.72 127)
+		(at 69.85 129.54)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "fea5bb8e-8883-4491-aaf0-b8bab0c0372c")
+		(uuid "c0caa83c-afc1-4f51-8bf0-8f580c01157e")
 	)
 	(no_connect
 		(at 100.33 40.64)
@@ -3627,27 +3804,7 @@
 	)
 	(wire
 		(pts
-			(xy 180.34 73.66) (xy 180.34 76.2)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "1e1babb6-9475-46b8-8e77-b135a4334cd3")
-	)
-	(wire
-		(pts
-			(xy 180.34 99.06) (xy 180.34 101.6)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "25ae0516-a074-4d29-8be5-93fd5ed7d63f")
-	)
-	(wire
-		(pts
-			(xy 179.07 116.84) (xy 179.07 119.38)
+			(xy 179.07 114.3) (xy 179.07 116.84)
 		)
 		(stroke
 			(width 0)
@@ -3667,16 +3824,6 @@
 	)
 	(wire
 		(pts
-			(xy 163.83 124.46) (xy 179.07 124.46)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "3786c120-86c0-4469-bddd-0ec901cd5f4d")
-	)
-	(wire
-		(pts
 			(xy 143.51 80.01) (xy 146.05 80.01)
 		)
 		(stroke
@@ -3687,33 +3834,23 @@
 	)
 	(wire
 		(pts
-			(xy 179.07 104.14) (xy 180.34 104.14)
+			(xy 163.83 127) (xy 179.07 127)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "4116189d-5c32-4f59-a21b-4d4126ebaada")
+		(uuid "3ff5d965-db69-49da-ae56-bb5907aadf7f")
 	)
 	(wire
 		(pts
-			(xy 161.29 124.46) (xy 163.83 124.46)
+			(xy 161.29 127) (xy 163.83 127)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "42814fac-f1b0-43ad-93a7-b45b0f230c95")
-	)
-	(wire
-		(pts
-			(xy 172.72 127) (xy 179.07 127)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "437f1f1e-d3a2-4fb2-9b47-133d5630e262")
 	)
 	(wire
 		(pts
@@ -3727,7 +3864,7 @@
 	)
 	(wire
 		(pts
-			(xy 115.57 161.29) (xy 113.03 161.29)
+			(xy 48.26 130.81) (xy 45.72 130.81)
 		)
 		(stroke
 			(width 0)
@@ -3747,7 +3884,17 @@
 	)
 	(wire
 		(pts
-			(xy 176.53 119.38) (xy 177.8 119.38)
+			(xy 105.41 152.4) (xy 102.87 152.4)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5aa1a239-a301-4ee3-8cd9-ff79f875c9ab")
+	)
+	(wire
+		(pts
+			(xy 176.53 116.84) (xy 177.8 116.84)
 		)
 		(stroke
 			(width 0)
@@ -3767,7 +3914,7 @@
 	)
 	(wire
 		(pts
-			(xy 163.83 129.54) (xy 163.83 124.46)
+			(xy 163.83 129.54) (xy 163.83 127)
 		)
 		(stroke
 			(width 0)
@@ -3797,13 +3944,23 @@
 	)
 	(wire
 		(pts
-			(xy 236.22 107.95) (xy 240.03 107.95)
+			(xy 210.82 86.36) (xy 214.63 86.36)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "941654c7-5dbf-429c-a10d-f125d90f337a")
+	)
+	(wire
+		(pts
+			(xy 66.04 129.54) (xy 69.85 129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "962df684-f8ed-4018-9bdc-d79a101685e0")
 	)
 	(wire
 		(pts
@@ -3817,17 +3974,17 @@
 	)
 	(wire
 		(pts
-			(xy 181.61 130.81) (xy 179.07 130.81)
+			(xy 172.72 124.46) (xy 179.07 124.46)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "9acacdbc-c97e-4933-bd45-de0958daf923")
+		(uuid "99b102ce-b16b-4b65-a843-b67313c1289a")
 	)
 	(wire
 		(pts
-			(xy 177.8 119.38) (xy 177.8 121.92)
+			(xy 177.8 116.84) (xy 177.8 119.38)
 		)
 		(stroke
 			(width 0)
@@ -3837,7 +3994,7 @@
 	)
 	(wire
 		(pts
-			(xy 233.68 35.56) (xy 237.49 35.56)
+			(xy 207.01 50.8) (xy 210.82 50.8)
 		)
 		(stroke
 			(width 0)
@@ -3847,7 +4004,7 @@
 	)
 	(wire
 		(pts
-			(xy 237.49 35.56) (xy 243.84 35.56)
+			(xy 210.82 50.8) (xy 217.17 50.8)
 		)
 		(stroke
 			(width 0)
@@ -3857,23 +4014,13 @@
 	)
 	(wire
 		(pts
-			(xy 172.72 127) (xy 172.72 133.35)
+			(xy 172.72 124.46) (xy 172.72 133.35)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
 		(uuid "b70ad787-147a-443b-ab10-be0ff5f49a6e")
-	)
-	(wire
-		(pts
-			(xy 177.8 102.87) (xy 179.07 102.87)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b8c9b0a6-3669-4154-a5f7-f0a99b9e96bf")
 	)
 	(wire
 		(pts
@@ -3897,7 +4044,7 @@
 	)
 	(wire
 		(pts
-			(xy 177.8 121.92) (xy 179.07 121.92)
+			(xy 177.8 119.38) (xy 179.07 119.38)
 		)
 		(stroke
 			(width 0)
@@ -3907,27 +4054,17 @@
 	)
 	(wire
 		(pts
-			(xy 177.8 76.2) (xy 180.34 78.74)
+			(xy 91.44 152.4) (xy 92.71 152.4)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "d0a318b7-295c-4174-ae5e-205c5ab21ad4")
+		(uuid "ceee5bc4-416e-480b-bff9-07d39a08ec4e")
 	)
 	(wire
 		(pts
-			(xy 181.61 133.35) (xy 181.61 130.81)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d16f7b38-dfca-4b96-8637-bd00750df122")
-	)
-	(wire
-		(pts
-			(xy 254 35.56) (xy 257.81 35.56)
+			(xy 227.33 50.8) (xy 231.14 50.8)
 		)
 		(stroke
 			(width 0)
@@ -3947,16 +4084,6 @@
 	)
 	(wire
 		(pts
-			(xy 179.07 130.81) (xy 179.07 129.54)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "d8f2ad37-db4f-4d48-ba62-85d05da2549a")
-	)
-	(wire
-		(pts
 			(xy 67.31 58.42) (xy 68.58 58.42)
 		)
 		(stroke
@@ -3967,7 +4094,17 @@
 	)
 	(wire
 		(pts
-			(xy 101.6 161.29) (xy 102.87 161.29)
+			(xy 69.85 129.54) (xy 72.39 129.54)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "df0f20d1-7c4a-4c17-919e-77b07ddea2e5")
+	)
+	(wire
+		(pts
+			(xy 34.29 130.81) (xy 35.56 130.81)
 		)
 		(stroke
 			(width 0)
@@ -3987,7 +4124,7 @@
 	)
 	(wire
 		(pts
-			(xy 256.54 107.95) (xy 260.35 107.95)
+			(xy 231.14 86.36) (xy 234.95 86.36)
 		)
 		(stroke
 			(width 0)
@@ -4007,17 +4144,17 @@
 	)
 	(wire
 		(pts
-			(xy 179.07 102.87) (xy 179.07 104.14)
+			(xy 72.39 129.54) (xy 93.98 129.54)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "f9b21409-2490-4589-a32c-6e5e06ae0bbe")
+		(uuid "f8408402-180f-4877-adf8-3f1c658aa1d1")
 	)
 	(wire
 		(pts
-			(xy 161.29 127) (xy 172.72 127)
+			(xy 161.29 124.46) (xy 172.72 124.46)
 		)
 		(stroke
 			(width 0)
@@ -4027,7 +4164,7 @@
 	)
 	(wire
 		(pts
-			(xy 240.03 107.95) (xy 246.38 107.95)
+			(xy 214.63 86.36) (xy 220.98 86.36)
 		)
 		(stroke
 			(width 0)
@@ -4035,15 +4172,15 @@
 		)
 		(uuid "ff7dc864-e1d8-4d8a-95b6-af649f04baad")
 	)
-	(label "JOG_TCH"
-		(at 180.34 111.76 180)
+	(label "TEMPO_ADCT"
+		(at 100.33 73.66 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "00c31098-88be-487b-aa6d-6dd4eb95e71f")
+		(uuid "001cc361-9aa0-4f6a-9e32-95c20634d149")
 	)
 	(label "LED_CUE"
 		(at 133.35 133.35 180)
@@ -4056,7 +4193,7 @@
 		(uuid "10aaa833-2433-4e13-992d-a5f9b32c2526")
 	)
 	(label "UART_RX_FROM_PI"
-		(at 160.02 19.05 180)
+		(at 167.64 48.26 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4064,6 +4201,16 @@
 			(justify right bottom)
 		)
 		(uuid "2150781c-65bb-4869-bc21-2416c4d2f554")
+	)
+	(label "ENC_CLK"
+		(at 133.35 40.64 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "2767ea61-3483-46bc-b093-3fbcf1741b6b")
 	)
 	(label "LOOP_END_BTN"
 		(at 100.33 55.88 180)
@@ -4096,7 +4243,7 @@
 		(uuid "31f97ae0-18f9-4b7e-bd94-0dc1a04bfa71")
 	)
 	(label "UART_TX_TO_PI"
-		(at 160.02 16.51 180)
+		(at 167.64 45.72 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4105,18 +4252,18 @@
 		)
 		(uuid "322c6983-74bf-4b31-8adc-00912d8d671b")
 	)
-	(label "BTN_PLAY"
-		(at 133.35 66.04 0)
+	(label "JOG2"
+		(at 93.98 137.16 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left bottom)
+			(justify right bottom)
 		)
-		(uuid "3f3ced24-ef31-44b3-8ad7-75a5d9b4b366")
+		(uuid "341f5d97-ed6a-497d-b5f8-e3e212b471e4")
 	)
 	(label "TEMPO_ADIN"
-		(at 180.34 81.28 180)
+		(at 38.1 161.29 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4125,7 +4272,7 @@
 		)
 		(uuid "42e432a6-b584-49f6-afb8-ac39d24a40ee")
 	)
-	(label "BTN_CUE"
+	(label "BTN_PLAY"
 		(at 133.35 50.8 0)
 		(effects
 			(font
@@ -4133,7 +4280,7 @@
 			)
 			(justify left bottom)
 		)
-		(uuid "47845fef-90b7-4ca8-bed9-b2f40f6a292a")
+		(uuid "4851dc9e-d8a8-4861-abc5-67a415b36b23")
 	)
 	(label "BTN_CUE"
 		(at 133.35 130.81 180)
@@ -4146,7 +4293,7 @@
 		(uuid "49a2fc04-d287-41bc-aa91-b381c7537171")
 	)
 	(label "LOOP_START_BTN"
-		(at 92.71 125.73 180)
+		(at 34.29 105.41 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4156,17 +4303,7 @@
 		(uuid "4b82d2e0-e281-420d-8d9e-cf1b8d15b5d5")
 	)
 	(label "ENC_DT"
-		(at 133.35 43.18 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "4bf4a8d0-2000-4d62-acea-1910ce7030e4")
-	)
-	(label "ENC_DT"
-		(at 161.29 127 180)
+		(at 161.29 124.46 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4174,16 +4311,6 @@
 			(justify right bottom)
 		)
 		(uuid "5275bfec-0d91-4d13-8571-adfddc2acfd8")
-	)
-	(label "ENC_SW"
-		(at 181.61 133.35 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "546e1401-41c9-454c-9166-a90ad06f0349")
 	)
 	(label "LED_PLAY"
 		(at 133.35 128.27 180)
@@ -4196,7 +4323,7 @@
 		(uuid "596dd090-278c-4d12-8d3a-61dc0b8faaa6")
 	)
 	(label "1BTNA_TX"
-		(at 257.81 67.31 180)
+		(at 261.62 49.53 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4204,6 +4331,26 @@
 			(justify right bottom)
 		)
 		(uuid "6115c202-39f9-449e-904f-01ee060abede")
+	)
+	(label "ENC_SW"
+		(at 133.35 45.72 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "6503ed9c-b70f-4565-ac6d-a0581e84ad26")
+	)
+	(label "TEMPO_ADIN"
+		(at 100.33 76.2 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "686d3fd2-d9b5-4233-831d-3095c1f558af")
 	)
 	(label "LOOP_START_BTN"
 		(at 100.33 60.96 180)
@@ -4225,15 +4372,15 @@
 		)
 		(uuid "7c3f6f97-cc67-4860-9b9f-496f67b2c4cb")
 	)
-	(label "JOG1"
-		(at 180.34 106.68 180)
+	(label "ENC_SW"
+		(at 179.07 121.92 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "832c990e-4cc7-4b2f-a84e-df92c0495cfb")
+		(uuid "868808be-d51c-47c4-af1e-8a115ca6676e")
 	)
 	(label "BTN_PLAY"
 		(at 133.35 125.73 180)
@@ -4275,18 +4422,28 @@
 		)
 		(uuid "9d31b468-8ffa-486d-bcb8-7df95459b7c4")
 	)
-	(label "TEMPO_ADCT"
-		(at 100.33 76.2 180)
+	(label "ENC_DT"
+		(at 133.35 43.18 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify right bottom)
+			(justify left bottom)
 		)
-		(uuid "9e54ab23-70ad-4e42-9cac-1830127dcced")
+		(uuid "9db06341-0eb5-46a2-ad5d-162e0f35366d")
+	)
+	(label "LED_CUE"
+		(at 133.35 66.04 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "a04126e3-c4bb-4bda-ae1f-026340c49c96")
 	)
 	(label "ENC_CLK"
-		(at 161.29 124.46 180)
+		(at 161.29 127 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4294,6 +4451,16 @@
 			(justify right bottom)
 		)
 		(uuid "a2b8e8ae-75b7-4821-97a6-664030698566")
+	)
+	(label "BTN_CUE"
+		(at 133.35 68.58 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "a3f354ca-fc56-4274-9a83-4c22d9bf2fff")
 	)
 	(label "UART_RX_FROM_PI"
 		(at 133.35 63.5 0)
@@ -4305,18 +4472,8 @@
 		)
 		(uuid "a5bd27f1-792e-4c70-b020-d13f72a18eab")
 	)
-	(label "TEMPO_ADIN"
-		(at 100.33 73.66 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "a6fe175a-d9dc-44d2-839a-7c9ce1d572fa")
-	)
 	(label "RELOOP_BTN"
-		(at 92.71 135.89 180)
+		(at 34.29 115.57 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4335,25 +4492,25 @@
 		)
 		(uuid "a922c2e3-08d9-495a-9d61-c4639c920451")
 	)
-	(label "TEMPO_ADCT"
-		(at 180.34 83.82 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "afd8cc82-2ec8-49c5-a50f-47354f270faf")
-	)
-	(label "ENC_CLK"
-		(at 133.35 40.64 0)
+	(label "LED_PLAY"
+		(at 133.35 71.12 0)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify left bottom)
 		)
-		(uuid "c0661c35-1fc8-4e6a-bb7c-c6c1b316bb9d")
+		(uuid "b1fa3f8f-436d-4ade-9b42-549af43befc7")
+	)
+	(label "JOG_TCH"
+		(at 66.04 129.54 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "ba84cea9-fe33-4239-a0aa-feb06abcbadc")
 	)
 	(label "JOG1"
 		(at 100.33 68.58 180)
@@ -4365,18 +4522,8 @@
 		)
 		(uuid "ca68e20c-dfc7-4035-b648-503b3426550c")
 	)
-	(label "LED_PLAY"
-		(at 133.35 68.58 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "ccb01d70-309c-4868-95b0-8a16c9cd0908")
-	)
 	(label "LOOP_END_LED"
-		(at 92.71 133.35 180)
+		(at 34.29 113.03 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4386,7 +4533,7 @@
 		(uuid "cd523316-902d-4e1d-a279-d9026ca18cc9")
 	)
 	(label "LOOP_END_BTN"
-		(at 92.71 130.81 180)
+		(at 34.29 110.49 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4396,7 +4543,7 @@
 		(uuid "ce393b78-1880-46c4-b01f-a02bd9e0a162")
 	)
 	(label "1BTNA_RX"
-		(at 233.68 35.56 180)
+		(at 207.01 50.8 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4415,18 +4562,8 @@
 		)
 		(uuid "e10c0d4c-8e69-447c-a0d1-34b5e88211b4")
 	)
-	(label "JOG2"
-		(at 180.34 109.22 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "e5b1d10a-a03e-4de6-a7c4-84005590c3d7")
-	)
 	(label "1BTNB_RX"
-		(at 236.22 107.95 180)
+		(at 210.82 86.36 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4434,16 +4571,6 @@
 			(justify right bottom)
 		)
 		(uuid "e5ccdc46-784e-4f49-81ff-7940eb336fbb")
-	)
-	(label "LED_CUE"
-		(at 133.35 71.12 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "e9ca1344-8bc7-4c00-ab0f-6d872fd8ae0d")
 	)
 	(label "JOG2"
 		(at 100.33 71.12 180)
@@ -4456,7 +4583,7 @@
 		(uuid "ef01fdb8-6010-40e6-966f-f3d87aca970f")
 	)
 	(label "1BTNB_TX"
-		(at 248.92 128.27 180)
+		(at 256.54 97.79 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4475,18 +4602,28 @@
 		)
 		(uuid "f28be494-c017-45db-a210-af7c5ee4323c")
 	)
-	(label "ENC_SW"
-		(at 133.35 45.72 0)
+	(label "JOG1"
+		(at 93.98 139.7 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left bottom)
+			(justify right bottom)
 		)
-		(uuid "f4263066-fbe9-4891-9417-a570a09cf57e")
+		(uuid "f74b5266-7760-4b19-935c-b03ca5fa852d")
+	)
+	(label "TEMPO_ADCT"
+		(at 38.1 158.75 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "f8f978c1-b6da-48d9-bb72-fa2c46ea2d26")
 	)
 	(label "LOOP_START_LED"
-		(at 92.71 128.27 180)
+		(at 34.29 107.95 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -4497,7 +4634,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:S5B-PH-K-S-")
-		(at 184.15 124.46 0)
+		(at 184.15 121.92 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -4507,8 +4644,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "010a5dd6-3c25-4786-844c-e119cc659a83")
-		(property "Reference" "J5"
-			(at 190.5 123.1899 0)
+		(property "Reference" "J9"
+			(at 190.5 120.6499 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4519,7 +4656,7 @@
 			)
 		)
 		(property "Value" "TRACK_ENC"
-			(at 190.5 125.7299 0)
+			(at 190.5 123.1899 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4530,7 +4667,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:CONN-TH_S5B-PH-K-S-LF-SN"
-			(at 184.15 137.16 0)
+			(at 184.15 134.62 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4541,7 +4678,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/PH-Connectors_JST_S5B-PH-K-S-LF-SN_PHsocket-1-5P-Curved-needle-pitch2mm_C157923.html"
-			(at 184.15 139.7 0)
+			(at 184.15 137.16 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4552,7 +4689,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 184.15 124.46 0)
+			(at 184.15 121.92 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4563,7 +4700,7 @@
 			)
 		)
 		(property "Manufacturer" "JST"
-			(at 184.15 142.24 0)
+			(at 184.15 139.7 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4574,7 +4711,7 @@
 			)
 		)
 		(property "MPN" "S5B-PH-K-S(LF)(SN)"
-			(at 184.15 144.78 0)
+			(at 184.15 142.24 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4585,7 +4722,7 @@
 			)
 		)
 		(property "LCSC Part" "C157923"
-			(at 184.15 147.32 0)
+			(at 184.15 144.78 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4613,15 +4750,15 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "J5")
+					(reference "J9")
 					(unit 1)
 				)
 			)
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 237.49 45.72 0)
+		(lib_id "power:+5V")
+		(at 83.82 17.78 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -4630,9 +4767,9 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "02c17b6d-793b-45b5-8315-b5a6a25e4894")
-		(property "Reference" "#PWR038"
-			(at 237.49 52.07 0)
+		(uuid "0274994d-3efb-4b83-b511-9b79369e62b4")
+		(property "Reference" "#PWR01"
+			(at 83.82 21.59 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4642,8 +4779,8 @@
 				)
 			)
 		)
-		(property "Value" "GND"
-			(at 237.49 50.8 0)
+		(property "Value" "+5V"
+			(at 83.82 12.7 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4653,7 +4790,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 237.49 45.72 0)
+			(at 83.82 17.78 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4664,7 +4801,85 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 237.49 45.72 0)
+			(at 83.82 17.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+5V\""
+			(at 83.82 17.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "9350dc8a-5d0c-4d83-8d33-9c50f5499dab")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "#PWR01")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 210.82 60.96 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "02c17b6d-793b-45b5-8315-b5a6a25e4894")
+		(property "Reference" "#PWR018"
+			(at 210.82 67.31 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 210.82 66.04 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 210.82 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 210.82 60.96 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4675,7 +4890,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 237.49 45.72 0)
+			(at 210.82 60.96 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4691,7 +4906,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR038")
+					(reference "#PWR018")
 					(unit 1)
 				)
 			)
@@ -4709,7 +4924,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "0e0165ee-4448-4147-8816-8c6e24239154")
-		(property "Reference" "#PWR06"
+		(property "Reference" "#PWR04"
 			(at 60.96 27.94 0)
 			(hide yes)
 			(show_name no)
@@ -4769,7 +4984,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR06")
+					(reference "#PWR04")
 					(unit 1)
 				)
 			)
@@ -4787,7 +5002,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "1017a697-da19-45a7-a01d-da7262aee512")
-		(property "Reference" "C7"
+		(property "Reference" "C12"
 			(at 138.43 144.78 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4882,7 +5097,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C7")
+					(reference "C12")
 					(unit 1)
 				)
 			)
@@ -4890,7 +5105,7 @@
 	)
 	(symbol
 		(lib_id "power:+3.3V")
-		(at 177.8 76.2 90)
+		(at 69.85 119.38 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -4899,9 +5114,9 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "161f8d48-0e19-4f23-aaf0-d0222eea9843")
-		(property "Reference" "#PWR031"
-			(at 181.61 76.2 0)
+		(uuid "18947aee-68ce-4e6e-9475-9c3f288c95f5")
+		(property "Reference" "#PWR036"
+			(at 69.85 123.19 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4912,18 +5127,17 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 173.99 76.1999 90)
+			(at 69.85 114.3 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
 			)
 		)
 		(property "Footprint" ""
-			(at 177.8 76.2 0)
+			(at 69.85 119.38 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4934,7 +5148,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 177.8 76.2 0)
+			(at 69.85 119.38 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4945,7 +5159,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 177.8 76.2 0)
+			(at 69.85 119.38 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -4956,20 +5170,20 @@
 			)
 		)
 		(pin "1"
-			(uuid "80c11535-67ab-4702-995c-f48f7b3f0d09")
+			(uuid "0ed4e8ff-9f36-4018-9ba2-a1fefc3b5249")
 		)
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR031")
+					(reference "#PWR036")
 					(unit 1)
 				)
 			)
 		)
 	)
 	(symbol
-		(lib_id "easyeda2kicad:S3B-PH-K-S-")
-		(at 262.89 35.56 0)
+		(lib_id "easyeda2kicad:S2B-PH-K-S")
+		(at 88.9 19.05 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -4978,9 +5192,9 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "1b8a7562-9060-4ddb-8114-412aab823dbd")
-		(property "Reference" "J9"
-			(at 269.24 34.2899 0)
+		(uuid "1b10f237-428c-4604-a350-af90107c4649")
+		(property "Reference" "J1"
+			(at 95.25 17.7799 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -4990,8 +5204,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "OneButtonA_RX"
-			(at 269.24 36.8299 0)
+		(property "Value" "Power2"
+			(at 95.25 20.3199 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5001,8 +5215,8 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN"
-			(at 262.89 45.72 0)
+		(property "Footprint" "easyeda2kicad:CONN-TH_S2B-PH-K-S-LF-SN"
+			(at 88.9 27.94 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5012,8 +5226,8 @@
 				)
 			)
 		)
-		(property "Datasheet" "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html"
-			(at 262.89 48.26 0)
+		(property "Datasheet" "https://lcsc.com/product-detail/PH-Connectors_JST-Sales-America_S2B-PH-K-S-LF-SN_JST-Sales-America-S2B-PH-K-S-LF-SN_C173752.html"
+			(at 88.9 30.48 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5024,7 +5238,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 262.89 35.56 0)
+			(at 88.9 19.05 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5035,7 +5249,122 @@
 			)
 		)
 		(property "Manufacturer" "JST"
-			(at 262.89 50.8 0)
+			(at 88.9 33.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "S2B-PH-K-S(LF)(SN)"
+			(at 88.9 35.56 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C173752"
+			(at 88.9 38.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "81854b46-4203-402a-891e-2df7f0ee1c40")
+		)
+		(pin "1"
+			(uuid "add12181-3b26-4760-9825-1316c0da77b3")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "J1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "easyeda2kicad:S3B-PH-K-S-")
+		(at 236.22 50.8 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "1b8a7562-9060-4ddb-8114-412aab823dbd")
+		(property "Reference" "J5"
+			(at 242.57 49.5299 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "OneButtonA_RX"
+			(at 242.57 52.0699 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN"
+			(at 236.22 60.96 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html"
+			(at 236.22 63.5 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 236.22 50.8 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "JST"
+			(at 236.22 66.04 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5046,7 +5375,7 @@
 			)
 		)
 		(property "MPN" "S3B-PH-K-S(LF)(SN)"
-			(at 262.89 53.34 0)
+			(at 236.22 68.58 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5057,7 +5386,7 @@
 			)
 		)
 		(property "LCSC Part" "C157929"
-			(at 262.89 55.88 0)
+			(at 236.22 71.12 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5079,7 +5408,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "J9")
+					(reference "J5")
 					(unit 1)
 				)
 			)
@@ -5097,7 +5426,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "1ff33d8c-55a8-4f43-b94d-356e8cb671ce")
-		(property "Reference" "#PWR09"
+		(property "Reference" "#PWR024"
 			(at 78.74 87.63 0)
 			(hide yes)
 			(show_name no)
@@ -5157,7 +5486,85 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR09")
+					(reference "#PWR024")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 72.39 139.7 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "2039cb32-ed71-4bb4-b0e8-9c3609ee1aa9")
+		(property "Reference" "#PWR043"
+			(at 72.39 146.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 72.39 144.78 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 72.39 139.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 72.39 139.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 72.39 139.7 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "d84767b4-750c-4263-a1af-3ed009435efa")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "#PWR043")
 					(unit 1)
 				)
 			)
@@ -5244,7 +5651,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:MFR0W4F3301A50")
-		(at 240.03 113.03 90)
+		(at 214.63 91.44 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -5254,8 +5661,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2a94667c-89a3-44bc-ac45-bf5ba4427a5c")
-		(property "Reference" "R2"
-			(at 242.57 111.7599 90)
+		(property "Reference" "R4"
+			(at 217.17 90.1699 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5266,7 +5673,7 @@
 			)
 		)
 		(property "Value" "3.3k"
-			(at 242.57 114.2999 90)
+			(at 217.17 92.7099 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5277,7 +5684,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:RES-TH_BD2.2-L6.5-P10.50-D0.6"
-			(at 247.65 113.03 0)
+			(at 222.25 91.44 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5288,7 +5695,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_3-3KR-3301-1_C58610.html"
-			(at 250.19 113.03 0)
+			(at 224.79 91.44 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5299,7 +5706,7 @@
 			)
 		)
 		(property "Description" "3.3KΩ (3301) ±1%"
-			(at 240.03 113.03 0)
+			(at 214.63 91.44 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5310,7 +5717,7 @@
 			)
 		)
 		(property "Manufacturer" "UNI-ROYAL(厚声)"
-			(at 252.73 113.03 0)
+			(at 227.33 91.44 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5321,7 +5728,7 @@
 			)
 		)
 		(property "MPN" "MFR0W4F3301A50"
-			(at 255.27 113.03 0)
+			(at 229.87 91.44 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5332,7 +5739,7 @@
 			)
 		)
 		(property "LCSC Part" "C58610"
-			(at 257.81 113.03 0)
+			(at 232.41 91.44 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5351,7 +5758,85 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R2")
+					(reference "R4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 83.82 20.32 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "2c55795e-ebfc-489b-b2d9-57c96d899c80")
+		(property "Reference" "#PWR03"
+			(at 83.82 26.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 83.82 25.4 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 83.82 20.32 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 83.82 20.32 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 83.82 20.32 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "1173b2a0-0e6a-4d29-8fb4-153527907cf7")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "#PWR03")
 					(unit 1)
 				)
 			)
@@ -5369,7 +5854,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2fcaabda-abfb-4959-9570-b6083762e1e5")
-		(property "Reference" "C4"
+		(property "Reference" "C3"
 			(at 73.66 52.07 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5464,7 +5949,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C4")
+					(reference "C3")
 					(unit 1)
 				)
 			)
@@ -5472,7 +5957,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 240.03 118.11 0)
+		(at 214.63 96.52 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -5482,8 +5967,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3233b260-9bc5-4934-935d-e72958eaee94")
-		(property "Reference" "#PWR039"
-			(at 240.03 124.46 0)
+		(property "Reference" "#PWR030"
+			(at 214.63 102.87 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5494,7 +5979,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 240.03 123.19 0)
+			(at 214.63 101.6 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5504,7 +5989,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 240.03 118.11 0)
+			(at 214.63 96.52 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5515,7 +6000,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 240.03 118.11 0)
+			(at 214.63 96.52 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5526,7 +6011,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 240.03 118.11 0)
+			(at 214.63 96.52 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5542,7 +6027,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR039")
+					(reference "#PWR030")
 					(unit 1)
 				)
 			)
@@ -5550,7 +6035,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 179.07 116.84 270)
+		(at 179.07 114.3 270)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -5561,7 +6046,7 @@
 		(fields_autoplaced yes)
 		(uuid "361a4fe9-a652-4499-88f0-ab76aa4597fd")
 		(property "Reference" "#PWR033"
-			(at 172.72 116.84 0)
+			(at 172.72 114.3 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5572,7 +6057,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 175.26 116.8399 90)
+			(at 175.26 114.2999 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5583,7 +6068,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 179.07 116.84 0)
+			(at 179.07 114.3 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5594,7 +6079,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 179.07 116.84 0)
+			(at 179.07 114.3 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5605,7 +6090,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 179.07 116.84 0)
+			(at 179.07 114.3 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5742,7 +6227,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:S4B-PH-K-S-")
-		(at 185.42 80.01 0)
+		(at 43.18 160.02 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -5752,8 +6237,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3a0c00e5-7209-4f3b-babb-2d5c59ff1e1e")
-		(property "Reference" "J6"
-			(at 191.77 78.7399 0)
+		(property "Reference" "J12"
+			(at 49.53 158.7499 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5764,7 +6249,7 @@
 			)
 		)
 		(property "Value" "TEMPO"
-			(at 191.77 81.2799 0)
+			(at 49.53 161.2899 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -5775,7 +6260,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:CONN-TH_4P-P2.00_S4B-PH-K-S-LF-SN"
-			(at 185.42 91.44 0)
+			(at 43.18 171.45 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5786,7 +6271,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/PH-Connectors_JST_S4B-PH-K-S-LF-SN_PHsocket-1-4P-Curved-needle-pitch2mm_C157926.html"
-			(at 185.42 93.98 0)
+			(at 43.18 173.99 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5797,7 +6282,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 185.42 80.01 0)
+			(at 43.18 160.02 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5808,7 +6293,7 @@
 			)
 		)
 		(property "Manufacturer" "JST"
-			(at 185.42 96.52 0)
+			(at 43.18 176.53 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5819,7 +6304,7 @@
 			)
 		)
 		(property "MPN" "S4B-PH-K-S(LF)(SN)"
-			(at 185.42 99.06 0)
+			(at 43.18 179.07 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5830,7 +6315,7 @@
 			)
 		)
 		(property "LCSC Part" "C157926"
-			(at 185.42 101.6 0)
+			(at 43.18 181.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -5855,86 +6340,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "J6")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:GND")
-		(at 180.34 73.66 270)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "3ab94b67-6644-4335-8d7b-526a476ee09d")
-		(property "Reference" "#PWR034"
-			(at 173.99 73.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 176.53 73.6599 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" ""
-			(at 180.34 73.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 180.34 73.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 180.34 73.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "d1ed7015-9608-4216-b09e-bb2f843bc0e5")
-		)
-		(instances
-			(project "midi_s3_mini"
-				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR034")
+					(reference "J12")
 					(unit 1)
 				)
 			)
@@ -5952,7 +6358,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3d20c0ea-c162-4dfd-9fd8-1c286776c4d7")
-		(property "Reference" "#PWR022"
+		(property "Reference" "#PWR042"
 			(at 133.35 142.24 0)
 			(hide yes)
 			(show_name no)
@@ -6012,7 +6418,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR022")
+					(reference "#PWR042")
 					(unit 1)
 				)
 			)
@@ -6030,7 +6436,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3e5712ff-09bd-4389-9007-f158ddc67793")
-		(property "Reference" "#PWR018"
+		(property "Reference" "#PWR014"
 			(at 139.7 55.88 0)
 			(hide yes)
 			(show_name no)
@@ -6091,7 +6497,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR018")
+					(reference "#PWR014")
 					(unit 1)
 				)
 			)
@@ -6099,7 +6505,7 @@
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 106.68 17.78 0)
+		(at 273.05 15.24 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -6109,8 +6515,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3e8eceaf-0f50-47ed-b4a8-418b27daccca")
-		(property "Reference" "H2"
-			(at 109.22 16.5099 0)
+		(property "Reference" "H1"
+			(at 275.59 13.9699 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6121,7 +6527,7 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 109.22 19.0499 0)
+			(at 275.59 16.5099 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6132,7 +6538,7 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_4.3mm_M4_ISO7380"
-			(at 106.68 17.78 0)
+			(at 273.05 15.24 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6143,7 +6549,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 106.68 17.78 0)
+			(at 273.05 15.24 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6154,7 +6560,7 @@
 			)
 		)
 		(property "Description" "Mounting Hole without connection"
-			(at 106.68 17.78 0)
+			(at 273.05 15.24 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6167,7 +6573,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "H2")
+					(reference "H1")
 					(unit 1)
 				)
 			)
@@ -6175,7 +6581,7 @@
 	)
 	(symbol
 		(lib_id "power:+3.3V")
-		(at 115.57 161.29 0)
+		(at 48.26 130.81 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -6185,8 +6591,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3f594368-ceb6-46f2-a1c5-bb3de088fb05")
-		(property "Reference" "#PWR015"
-			(at 115.57 165.1 0)
+		(property "Reference" "#PWR039"
+			(at 48.26 134.62 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6197,7 +6603,7 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 115.57 156.21 0)
+			(at 48.26 125.73 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6207,7 +6613,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 115.57 161.29 0)
+			(at 48.26 130.81 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6218,7 +6624,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 115.57 161.29 0)
+			(at 48.26 130.81 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6229,7 +6635,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 115.57 161.29 0)
+			(at 48.26 130.81 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6245,7 +6651,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR015")
+					(reference "#PWR039")
 					(unit 1)
 				)
 			)
@@ -6253,7 +6659,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 248.92 130.81 0)
+		(at 256.54 100.33 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -6263,8 +6669,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3f7fbfd8-02ed-46ea-b5d1-1f7bc96dc2a2")
-		(property "Reference" "#PWR041"
-			(at 248.92 137.16 0)
+		(property "Reference" "#PWR031"
+			(at 256.54 106.68 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6275,7 +6681,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 248.92 135.89 0)
+			(at 256.54 105.41 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6285,7 +6691,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 248.92 130.81 0)
+			(at 256.54 100.33 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6296,7 +6702,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 248.92 130.81 0)
+			(at 256.54 100.33 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6307,7 +6713,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 248.92 130.81 0)
+			(at 256.54 100.33 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6323,7 +6729,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR041")
+					(reference "#PWR031")
 					(unit 1)
 				)
 			)
@@ -6331,7 +6737,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:MFR0W4F3301A50")
-		(at 237.49 40.64 90)
+		(at 210.82 55.88 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -6341,8 +6747,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3fb6bd3b-0fc8-48d1-8123-51264fb19c6c")
-		(property "Reference" "R1"
-			(at 240.03 39.3699 90)
+		(property "Reference" "R2"
+			(at 213.36 54.6099 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6353,7 +6759,7 @@
 			)
 		)
 		(property "Value" "3.3k"
-			(at 240.03 41.9099 90)
+			(at 213.36 57.1499 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6364,7 +6770,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:RES-TH_BD2.2-L6.5-P10.50-D0.6"
-			(at 245.11 40.64 0)
+			(at 218.44 55.88 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6375,7 +6781,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_3-3KR-3301-1_C58610.html"
-			(at 247.65 40.64 0)
+			(at 220.98 55.88 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6386,7 +6792,7 @@
 			)
 		)
 		(property "Description" "3.3KΩ (3301) ±1%"
-			(at 237.49 40.64 0)
+			(at 210.82 55.88 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6397,7 +6803,7 @@
 			)
 		)
 		(property "Manufacturer" "UNI-ROYAL(厚声)"
-			(at 250.19 40.64 0)
+			(at 223.52 55.88 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6408,7 +6814,7 @@
 			)
 		)
 		(property "MPN" "MFR0W4F3301A50"
-			(at 252.73 40.64 0)
+			(at 226.06 55.88 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6419,7 +6825,7 @@
 			)
 		)
 		(property "LCSC Part" "C58610"
-			(at 255.27 40.64 0)
+			(at 228.6 55.88 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6438,7 +6844,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R1")
+					(reference "R2")
 					(unit 1)
 				)
 			)
@@ -6456,7 +6862,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "431ffa17-5e1b-4b32-b3da-35065b75637e")
-		(property "Reference" "#PWR01"
+		(property "Reference" "#PWR05"
 			(at 34.29 30.48 0)
 			(hide yes)
 			(show_name no)
@@ -6516,7 +6922,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR01")
+					(reference "#PWR05")
 					(unit 1)
 				)
 			)
@@ -6534,7 +6940,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "47e09fc4-beac-4e6c-8be3-ba0e32cc18f5")
-		(property "Reference" "#PWR021"
+		(property "Reference" "#PWR037"
 			(at 133.35 127 0)
 			(hide yes)
 			(show_name no)
@@ -6594,7 +7000,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR021")
+					(reference "#PWR037")
 					(unit 1)
 				)
 			)
@@ -6717,7 +7123,7 @@
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 85.09 19.05 0)
+		(at 251.46 16.51 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -6727,8 +7133,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "4930486a-30cb-4677-8be6-98598cf2333e")
-		(property "Reference" "H1"
-			(at 87.63 17.7799 0)
+		(property "Reference" "H2"
+			(at 254 15.2399 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6739,7 +7145,7 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 87.63 20.3199 0)
+			(at 254 17.7799 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6750,7 +7156,7 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_4.3mm_M4_ISO7380"
-			(at 85.09 19.05 0)
+			(at 251.46 16.51 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6761,7 +7167,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 85.09 19.05 0)
+			(at 251.46 16.51 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6772,7 +7178,7 @@
 			)
 		)
 		(property "Description" "Mounting Hole without connection"
-			(at 85.09 19.05 0)
+			(at 251.46 16.51 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6785,7 +7191,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "H1")
+					(reference "H2")
 					(unit 1)
 				)
 			)
@@ -6905,8 +7311,121 @@
 		)
 	)
 	(symbol
+		(lib_id "easyeda2kicad:178MU0006")
+		(at 97.79 152.4 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "4f4d0a4a-03d3-4970-8201-054974a57c42")
+		(property "Reference" "C13"
+			(at 97.79 146.05 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100n"
+			(at 97.79 148.59 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5"
+			(at 97.79 160.02 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C5632430.pdf"
+			(at 97.79 162.56 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 97.79 152.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "KNSCHA(科尼盛)"
+			(at 97.79 165.1 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "178MU0006"
+			(at 97.79 167.64 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C5632430"
+			(at 97.79 170.18 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "c5325fa7-385d-4275-aa6e-598ebdd2d417")
+		)
+		(pin "2"
+			(uuid "c8462659-7221-40e6-8370-376da73a6d1a")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "C13")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:+3.3V")
-		(at 92.71 123.19 0)
+		(at 34.29 102.87 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -6916,8 +7435,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "54b2fbb4-594c-4e04-a88e-835c17baaa05")
-		(property "Reference" "#PWR011"
-			(at 92.71 127 0)
+		(property "Reference" "#PWR032"
+			(at 34.29 106.68 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6928,7 +7447,7 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 92.71 118.11 0)
+			(at 34.29 97.79 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6938,7 +7457,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 92.71 123.19 0)
+			(at 34.29 102.87 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6949,7 +7468,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 92.71 123.19 0)
+			(at 34.29 102.87 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6960,7 +7479,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 92.71 123.19 0)
+			(at 34.29 102.87 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6976,7 +7495,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR011")
+					(reference "#PWR032")
 					(unit 1)
 				)
 			)
@@ -6994,7 +7513,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5b097bc2-1413-413a-966b-2fa15f0e7bf9")
-		(property "Reference" "#PWR025"
+		(property "Reference" "#PWR049"
 			(at 147.32 154.94 0)
 			(hide yes)
 			(show_name no)
@@ -7054,7 +7573,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR025")
+					(reference "#PWR049")
 					(unit 1)
 				)
 			)
@@ -7072,7 +7591,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5e25b647-8bbe-4fe8-8608-5ce9d3197317")
-		(property "Reference" "J1"
+		(property "Reference" "J2"
 			(at 72.39 19.0499 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7083,7 +7602,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "Power"
+		(property "Value" "Power1"
 			(at 72.39 21.5899 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7169,7 +7688,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "J1")
+					(reference "J2")
 					(unit 1)
 				)
 			)
@@ -7177,7 +7696,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 101.6 161.29 0)
+		(at 34.29 130.81 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -7187,8 +7706,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6afc7bc3-55d5-46e0-8fa9-522ef4b89258")
-		(property "Reference" "#PWR014"
-			(at 101.6 167.64 0)
+		(property "Reference" "#PWR038"
+			(at 34.29 137.16 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7199,7 +7718,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 101.6 166.37 0)
+			(at 34.29 135.89 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7209,7 +7728,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 101.6 161.29 0)
+			(at 34.29 130.81 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7220,7 +7739,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 101.6 161.29 0)
+			(at 34.29 130.81 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7231,7 +7750,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 101.6 161.29 0)
+			(at 34.29 130.81 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7247,7 +7766,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR014")
+					(reference "#PWR038")
 					(unit 1)
 				)
 			)
@@ -7265,7 +7784,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6df57a9a-119f-432f-a298-86facaffa2dc")
-		(property "Reference" "#PWR02"
+		(property "Reference" "#PWR07"
 			(at 34.29 44.45 0)
 			(hide yes)
 			(show_name no)
@@ -7325,7 +7844,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR02")
+					(reference "#PWR07")
 					(unit 1)
 				)
 			)
@@ -7333,7 +7852,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 257.81 38.1 0)
+		(at 231.14 53.34 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -7343,8 +7862,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "72ce10a7-6833-44ef-9799-47f0c4623ceb")
-		(property "Reference" "#PWR043"
-			(at 257.81 44.45 0)
+		(property "Reference" "#PWR013"
+			(at 231.14 59.69 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7355,7 +7874,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 257.81 43.18 0)
+			(at 231.14 58.42 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7365,7 +7884,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 257.81 38.1 0)
+			(at 231.14 53.34 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7376,7 +7895,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 257.81 38.1 0)
+			(at 231.14 53.34 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7387,7 +7906,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 257.81 38.1 0)
+			(at 231.14 53.34 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7403,7 +7922,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR043")
+					(reference "#PWR013")
 					(unit 1)
 				)
 			)
@@ -7421,7 +7940,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "78847eb6-ddca-40bf-8483-20ed07a2a06d")
-		(property "Reference" "#PWR08"
+		(property "Reference" "#PWR015"
 			(at 67.31 64.77 0)
 			(hide yes)
 			(show_name no)
@@ -7481,7 +8000,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR08")
+					(reference "#PWR015")
 					(unit 1)
 				)
 			)
@@ -7499,7 +8018,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7ae7b104-85c9-43d6-853e-5622cf432beb")
-		(property "Reference" "#PWR026"
+		(property "Reference" "#PWR023"
 			(at 156.21 83.82 0)
 			(hide yes)
 			(show_name no)
@@ -7559,7 +8078,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR026")
+					(reference "#PWR023")
 					(unit 1)
 				)
 			)
@@ -7567,7 +8086,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:S5B-PH-K-S-")
-		(at 185.42 106.68 0)
+		(at 99.06 134.62 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -7577,8 +8096,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "80d4c9b5-861b-4c6a-a301-0ad97e0eca52")
-		(property "Reference" "J7"
-			(at 191.77 105.4099 0)
+		(property "Reference" "J11"
+			(at 105.41 133.3499 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7589,7 +8108,7 @@
 			)
 		)
 		(property "Value" "JOG"
-			(at 191.77 107.9499 0)
+			(at 105.41 135.8899 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7600,7 +8119,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:CONN-TH_S5B-PH-K-S-LF-SN"
-			(at 185.42 119.38 0)
+			(at 99.06 147.32 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7611,7 +8130,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/PH-Connectors_JST_S5B-PH-K-S-LF-SN_PHsocket-1-5P-Curved-needle-pitch2mm_C157923.html"
-			(at 185.42 121.92 0)
+			(at 99.06 149.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7622,7 +8141,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 185.42 106.68 0)
+			(at 99.06 134.62 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7633,7 +8152,7 @@
 			)
 		)
 		(property "Manufacturer" "JST"
-			(at 185.42 124.46 0)
+			(at 99.06 152.4 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7644,7 +8163,7 @@
 			)
 		)
 		(property "MPN" "S5B-PH-K-S(LF)(SN)"
-			(at 185.42 127 0)
+			(at 99.06 154.94 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7655,7 +8174,7 @@
 			)
 		)
 		(property "LCSC Part" "C157923"
-			(at 185.42 129.54 0)
+			(at 99.06 157.48 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7683,7 +8202,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "J7")
+					(reference "J11")
 					(unit 1)
 				)
 			)
@@ -7691,7 +8210,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:S7B-PH-K-S-")
-		(at 97.79 130.81 0)
+		(at 39.37 110.49 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -7701,8 +8220,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "91b7f4fe-5d27-46ac-bb00-568a575f5ad8")
-		(property "Reference" "J2"
-			(at 104.14 129.5399 0)
+		(property "Reference" "J8"
+			(at 45.72 109.2199 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7713,7 +8232,7 @@
 			)
 		)
 		(property "Value" "LOOP"
-			(at 104.14 132.0799 0)
+			(at 45.72 111.7599 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7724,7 +8243,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:CONN-TH_7P-P2.00_S7B-PH-K-S-LF-SN"
-			(at 97.79 146.05 0)
+			(at 39.37 125.73 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7735,7 +8254,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/PH-Connectors_JST_S7B-PH-K-S-LF-SN_PHsocket-1-7P-Curved-needle-pitch2mm_C157917.html"
-			(at 97.79 148.59 0)
+			(at 39.37 128.27 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7746,7 +8265,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 97.79 130.81 0)
+			(at 39.37 110.49 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7757,7 +8276,7 @@
 			)
 		)
 		(property "Manufacturer" "JST"
-			(at 97.79 151.13 0)
+			(at 39.37 130.81 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7768,7 +8287,7 @@
 			)
 		)
 		(property "MPN" "S7B-PH-K-S(LF)(SN)"
-			(at 97.79 153.67 0)
+			(at 39.37 133.35 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7779,7 +8298,7 @@
 			)
 		)
 		(property "LCSC Part" "C157917"
-			(at 97.79 156.21 0)
+			(at 39.37 135.89 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7813,92 +8332,14 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "J2")
+					(reference "J8")
 					(unit 1)
 				)
 			)
 		)
 	)
 	(symbol
-		(lib_id "power:GND")
-		(at 92.71 138.43 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "97c0d45b-0f8c-4816-8cd2-e003a9ee6d90")
-		(property "Reference" "#PWR012"
-			(at 92.71 144.78 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "GND"
-			(at 92.71 143.51 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 92.71 138.43 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 92.71 138.43 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 92.71 138.43 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "d33eb96b-8835-4755-bbef-b6231c925e17")
-		)
-		(instances
-			(project "midi_s3_mini"
-				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR012")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+5V")
+		(lib_id "power:+3.3V")
 		(at 201.93 139.7 0)
 		(unit 1)
 		(body_style 1)
@@ -7908,8 +8349,8 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "981c990e-14ec-421b-bc0d-9b07fe2b1a2a")
-		(property "Reference" "#PWR037"
+		(uuid "9788406f-88aa-44fc-ae19-0e9232291fc6")
+		(property "Reference" "#PWR046"
 			(at 201.93 143.51 0)
 			(hide yes)
 			(show_name no)
@@ -7920,7 +8361,7 @@
 				)
 			)
 		)
-		(property "Value" "+5V"
+		(property "Value" "+3.3V"
 			(at 201.93 134.62 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7952,7 +8393,7 @@
 				)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name \"+5V\""
+		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
 			(at 201.93 139.7 0)
 			(hide yes)
 			(show_name no)
@@ -7964,12 +8405,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "533de48e-d9bf-4a8a-a2da-13182bac6f14")
+			(uuid "0f67bf0b-b9f5-447c-a3f9-d19af58cf006")
 		)
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR037")
+					(reference "#PWR046")
 					(unit 1)
 				)
 			)
@@ -7977,7 +8418,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 260.35 110.49 0)
+		(at 34.29 118.11 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -7986,9 +8427,9 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "985465e3-d6a4-4ff4-9914-ebde1db5bd87")
-		(property "Reference" "#PWR047"
-			(at 260.35 116.84 0)
+		(uuid "97c0d45b-0f8c-4816-8cd2-e003a9ee6d90")
+		(property "Reference" "#PWR035"
+			(at 34.29 124.46 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7999,7 +8440,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 260.35 115.57 0)
+			(at 34.29 123.19 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -8009,7 +8450,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 260.35 110.49 0)
+			(at 34.29 118.11 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8020,7 +8461,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 260.35 110.49 0)
+			(at 34.29 118.11 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8031,7 +8472,164 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 260.35 110.49 0)
+			(at 34.29 118.11 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "d33eb96b-8835-4755-bbef-b6231c925e17")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "#PWR035")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 93.98 132.08 270)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "97fc87b9-30d3-4f8f-9e9f-c8bf83a1c631")
+		(property "Reference" "#PWR040"
+			(at 87.63 132.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 90.17 132.0799 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" ""
+			(at 93.98 132.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 93.98 132.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 93.98 132.08 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "3512c34a-fa45-4080-acfc-19c8efea5e1b")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "#PWR040")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 234.95 88.9 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "985465e3-d6a4-4ff4-9914-ebde1db5bd87")
+		(property "Reference" "#PWR026"
+			(at 234.95 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 234.95 93.98 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 234.95 88.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 234.95 88.9 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 234.95 88.9 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8047,7 +8645,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR047")
+					(reference "#PWR026")
 					(unit 1)
 				)
 			)
@@ -8065,7 +8663,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "99566cd0-21e4-4d26-be03-d74613eba479")
-		(property "Reference" "#PWR07"
+		(property "Reference" "#PWR020"
 			(at 64.77 82.55 0)
 			(hide yes)
 			(show_name no)
@@ -8125,7 +8723,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR07")
+					(reference "#PWR020")
 					(unit 1)
 				)
 			)
@@ -8133,7 +8731,7 @@
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 107.95 24.13 0)
+		(at 274.32 21.59 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -8144,7 +8742,7 @@
 		(fields_autoplaced yes)
 		(uuid "99f40671-98e0-43c9-9bf0-7ceac7ed86cc")
 		(property "Reference" "H3"
-			(at 110.49 22.8599 0)
+			(at 276.86 20.3199 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -8155,7 +8753,7 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 110.49 25.3999 0)
+			(at 276.86 22.8599 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -8166,7 +8764,7 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_4.3mm_M4_ISO7380"
-			(at 107.95 24.13 0)
+			(at 274.32 21.59 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8177,7 +8775,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 107.95 24.13 0)
+			(at 274.32 21.59 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8188,7 +8786,7 @@
 			)
 		)
 		(property "Description" "Mounting Hole without connection"
-			(at 107.95 24.13 0)
+			(at 274.32 21.59 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8208,6 +8806,85 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+3.3V")
+		(at 38.1 156.21 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "9b1a3b83-4dde-411e-8f82-4d0e691e5b10")
+		(property "Reference" "#PWR052"
+			(at 41.91 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 34.29 156.2099 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 38.1 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 38.1 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+			(at 38.1 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "8c785431-020e-4932-807f-26d8b3c1efac")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "#PWR052")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 172.72 143.51 0)
 		(unit 1)
@@ -8219,7 +8896,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "9dbed843-f220-487e-a34d-b2b57f4dd40d")
-		(property "Reference" "#PWR029"
+		(property "Reference" "#PWR047"
 			(at 172.72 149.86 0)
 			(hide yes)
 			(show_name no)
@@ -8279,86 +8956,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR029")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+3.3V")
-		(at 177.8 102.87 90)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "a1e18e1c-9ba9-4443-998b-db4d9c3b4ff6")
-		(property "Reference" "#PWR032"
-			(at 181.61 102.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3.3V"
-			(at 173.99 102.8699 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
-			)
-		)
-		(property "Footprint" ""
-			(at 177.8 102.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 177.8 102.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 177.8 102.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "6c5cdba3-2d07-4768-950d-0cc2e37b17bb")
-		)
-		(instances
-			(project "midi_s3_mini"
-				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR032")
+					(reference "#PWR047")
 					(unit 1)
 				)
 			)
@@ -8376,7 +8974,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "a2a40e4c-a645-4896-a499-b5efa863a054")
-		(property "Reference" "#PWR03"
+		(property "Reference" "#PWR06"
 			(at 48.26 27.94 0)
 			(hide yes)
 			(show_name no)
@@ -8436,7 +9034,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR03")
+					(reference "#PWR06")
 					(unit 1)
 				)
 			)
@@ -8559,7 +9157,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:S3B-PH-K-S-")
-		(at 265.43 107.95 0)
+		(at 240.03 86.36 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -8569,8 +9167,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "a3e60db8-239b-41bf-9c81-6f0eea2b3c73")
-		(property "Reference" "J11"
-			(at 271.78 106.6799 0)
+		(property "Reference" "J6"
+			(at 246.38 85.0899 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -8581,7 +9179,7 @@
 			)
 		)
 		(property "Value" "OneButtonB_RX"
-			(at 271.78 109.2199 0)
+			(at 246.38 87.6299 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -8592,7 +9190,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN"
-			(at 265.43 118.11 0)
+			(at 240.03 96.52 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8603,7 +9201,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html"
-			(at 265.43 120.65 0)
+			(at 240.03 99.06 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8614,7 +9212,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 265.43 107.95 0)
+			(at 240.03 86.36 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8625,7 +9223,7 @@
 			)
 		)
 		(property "Manufacturer" "JST"
-			(at 265.43 123.19 0)
+			(at 240.03 101.6 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8636,7 +9234,7 @@
 			)
 		)
 		(property "MPN" "S3B-PH-K-S(LF)(SN)"
-			(at 265.43 125.73 0)
+			(at 240.03 104.14 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8647,7 +9245,7 @@
 			)
 		)
 		(property "LCSC Part" "C157929"
-			(at 265.43 128.27 0)
+			(at 240.03 106.68 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8669,7 +9267,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "J11")
+					(reference "J6")
 					(unit 1)
 				)
 			)
@@ -8687,7 +9285,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "a43f6b17-ed4c-431c-94c1-20a36656da22")
-		(property "Reference" "#PWR017"
+		(property "Reference" "#PWR048"
 			(at 132.08 157.48 0)
 			(hide yes)
 			(show_name no)
@@ -8747,7 +9345,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR017")
+					(reference "#PWR048")
 					(unit 1)
 				)
 			)
@@ -8755,7 +9353,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:S3B-PH-K-S-")
-		(at 254 128.27 0)
+		(at 261.62 97.79 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -8765,8 +9363,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "a98a2626-224c-42d3-9856-8c963bec2288")
-		(property "Reference" "J8"
-			(at 260.35 126.9999 0)
+		(property "Reference" "J7"
+			(at 267.97 96.5199 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -8777,7 +9375,7 @@
 			)
 		)
 		(property "Value" "OneButtonB_TX"
-			(at 260.35 129.5399 0)
+			(at 267.97 99.0599 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -8788,7 +9386,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN"
-			(at 254 138.43 0)
+			(at 261.62 107.95 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8799,7 +9397,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html"
-			(at 254 140.97 0)
+			(at 261.62 110.49 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8810,7 +9408,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 254 128.27 0)
+			(at 261.62 97.79 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8821,7 +9419,7 @@
 			)
 		)
 		(property "Manufacturer" "JST"
-			(at 254 143.51 0)
+			(at 261.62 113.03 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8832,7 +9430,7 @@
 			)
 		)
 		(property "MPN" "S3B-PH-K-S(LF)(SN)"
-			(at 254 146.05 0)
+			(at 261.62 115.57 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8843,7 +9441,7 @@
 			)
 		)
 		(property "LCSC Part" "C157929"
-			(at 254 148.59 0)
+			(at 261.62 118.11 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8865,7 +9463,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "J8")
+					(reference "J7")
 					(unit 1)
 				)
 			)
@@ -8873,7 +9471,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 180.34 99.06 270)
+		(at 38.1 163.83 270)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -8882,9 +9480,9 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "aa7986bf-9a79-436c-837e-cf48b7003b04")
-		(property "Reference" "#PWR035"
-			(at 173.99 99.06 0)
+		(uuid "ab6291f3-c2f1-42f7-8de1-5cd602e7c2ef")
+		(property "Reference" "#PWR053"
+			(at 31.75 163.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8895,7 +9493,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 176.53 99.0599 90)
+			(at 34.29 163.8299 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -8906,7 +9504,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 180.34 99.06 0)
+			(at 38.1 163.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8917,7 +9515,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 180.34 99.06 0)
+			(at 38.1 163.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8928,7 +9526,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 180.34 99.06 0)
+			(at 38.1 163.83 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8939,12 +9537,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "15a52785-1ee7-415d-9d6c-b868a9f33b77")
+			(uuid "c3d0b080-cf60-489d-b076-74015a91e974")
 		)
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR035")
+					(reference "#PWR053")
 					(unit 1)
 				)
 			)
@@ -8962,7 +9560,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "b288494b-a1e6-4adf-9706-4f7318df2559")
-		(property "Reference" "#PWR036"
+		(property "Reference" "#PWR045"
 			(at 186.69 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -9022,7 +9620,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR036")
+					(reference "#PWR045")
 					(unit 1)
 				)
 			)
@@ -9040,7 +9638,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "b28b65e2-d08b-4380-8c18-eca358744a4c")
-		(property "Reference" "C8"
+		(property "Reference" "C4"
 			(at 151.13 73.66 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9135,7 +9733,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C8")
+					(reference "C4")
 					(unit 1)
 				)
 			)
@@ -9143,7 +9741,7 @@
 	)
 	(symbol
 		(lib_id "Mechanical:MountingHole")
-		(at 86.36 25.4 0)
+		(at 252.73 22.86 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -9154,7 +9752,7 @@
 		(fields_autoplaced yes)
 		(uuid "b4762b29-8ea5-4400-bcff-b740f8c4cc27")
 		(property "Reference" "H4"
-			(at 88.9 24.1299 0)
+			(at 255.27 21.5899 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9165,7 +9763,7 @@
 			)
 		)
 		(property "Value" "MountingHole"
-			(at 88.9 26.6699 0)
+			(at 255.27 24.1299 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9176,7 +9774,7 @@
 			)
 		)
 		(property "Footprint" "MountingHole:MountingHole_4.3mm_M4_ISO7380"
-			(at 86.36 25.4 0)
+			(at 252.73 22.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9187,7 +9785,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 86.36 25.4 0)
+			(at 252.73 22.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9198,7 +9796,7 @@
 			)
 		)
 		(property "Description" "Mounting Hole without connection"
-			(at 86.36 25.4 0)
+			(at 252.73 22.86 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9219,7 +9817,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 257.81 33.02 0)
+		(at 231.14 48.26 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -9229,8 +9827,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "b99aa023-6fd9-4a4e-958d-905fc738b422")
-		(property "Reference" "#PWR042"
-			(at 257.81 36.83 0)
+		(property "Reference" "#PWR010"
+			(at 231.14 52.07 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9241,7 +9839,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 257.81 27.94 0)
+			(at 231.14 43.18 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9251,7 +9849,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 257.81 33.02 0)
+			(at 231.14 48.26 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9262,7 +9860,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 257.81 33.02 0)
+			(at 231.14 48.26 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9273,7 +9871,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 257.81 33.02 0)
+			(at 231.14 48.26 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9289,7 +9887,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR042")
+					(reference "#PWR010")
 					(unit 1)
 				)
 			)
@@ -9297,7 +9895,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:S3B-PH-K-S-")
-		(at 262.89 67.31 0)
+		(at 266.7 49.53 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -9307,8 +9905,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "ba666f10-98b0-4f88-ba84-e4456c604fac")
-		(property "Reference" "J10"
-			(at 269.24 66.0399 0)
+		(property "Reference" "J4"
+			(at 273.05 48.2599 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9319,7 +9917,7 @@
 			)
 		)
 		(property "Value" "OneButtonA_TX"
-			(at 269.24 68.5799 0)
+			(at 273.05 50.7999 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9330,7 +9928,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN"
-			(at 262.89 77.47 0)
+			(at 266.7 59.69 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9341,7 +9939,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html"
-			(at 262.89 80.01 0)
+			(at 266.7 62.23 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9352,7 +9950,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 262.89 67.31 0)
+			(at 266.7 49.53 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9363,7 +9961,7 @@
 			)
 		)
 		(property "Manufacturer" "JST"
-			(at 262.89 82.55 0)
+			(at 266.7 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9374,7 +9972,7 @@
 			)
 		)
 		(property "MPN" "S3B-PH-K-S(LF)(SN)"
-			(at 262.89 85.09 0)
+			(at 266.7 67.31 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9385,7 +9983,7 @@
 			)
 		)
 		(property "LCSC Part" "C157929"
-			(at 262.89 87.63 0)
+			(at 266.7 69.85 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9407,7 +10005,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "J10")
+					(reference "J4")
 					(unit 1)
 				)
 			)
@@ -9425,7 +10023,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "c2352c97-c472-476d-958e-1f3d3b38f831")
-		(property "Reference" "C3"
+		(property "Reference" "C5"
 			(at 74.295 73.66 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9520,7 +10118,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C3")
+					(reference "C5")
 					(unit 1)
 				)
 			)
@@ -9528,7 +10126,7 @@
 	)
 	(symbol
 		(lib_id "power:+3.3V")
-		(at 176.53 119.38 90)
+		(at 93.98 134.62 90)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -9537,9 +10135,9 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "c4598e53-5dc0-4be3-869a-bad1adc3b176")
-		(property "Reference" "#PWR030"
-			(at 180.34 119.38 0)
+		(uuid "c24a7681-6cbf-4a5e-b619-8c8b9d75d25a")
+		(property "Reference" "#PWR041"
+			(at 97.79 134.62 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9550,7 +10148,7 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 172.72 119.3799 90)
+			(at 90.17 134.6199 90)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9561,7 +10159,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 176.53 119.38 0)
+			(at 93.98 134.62 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9572,7 +10170,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 176.53 119.38 0)
+			(at 93.98 134.62 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9583,7 +10181,86 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 176.53 119.38 0)
+			(at 93.98 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a903501b-264e-4899-a621-ce5530f8fe10")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "#PWR041")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3.3V")
+		(at 176.53 116.84 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "c4598e53-5dc0-4be3-869a-bad1adc3b176")
+		(property "Reference" "#PWR034"
+			(at 180.34 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 172.72 116.8399 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" ""
+			(at 176.53 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 176.53 116.84 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+			(at 176.53 116.84 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9599,7 +10276,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR030")
+					(reference "#PWR034")
 					(unit 1)
 				)
 			)
@@ -9617,7 +10294,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "c4f13238-5055-4c4e-be18-f90d15b28648")
-		(property "Reference" "#PWR048"
+		(property "Reference" "#PWR016"
 			(at 81.28 62.23 0)
 			(hide yes)
 			(show_name no)
@@ -9677,7 +10354,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR048")
+					(reference "#PWR016")
 					(unit 1)
 				)
 			)
@@ -9685,7 +10362,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 257.81 64.77 0)
+		(at 261.62 46.99 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -9695,8 +10372,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "ca5cff8b-9313-4ddf-9a76-2bf532147a6b")
-		(property "Reference" "#PWR044"
-			(at 257.81 68.58 0)
+		(property "Reference" "#PWR09"
+			(at 261.62 50.8 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9707,7 +10384,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 257.81 59.69 0)
+			(at 261.62 41.91 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9717,7 +10394,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 257.81 64.77 0)
+			(at 261.62 46.99 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9728,7 +10405,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 257.81 64.77 0)
+			(at 261.62 46.99 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9739,7 +10416,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 257.81 64.77 0)
+			(at 261.62 46.99 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9755,7 +10432,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR044")
+					(reference "#PWR09")
 					(unit 1)
 				)
 			)
@@ -9763,7 +10440,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 248.92 125.73 0)
+		(at 256.54 95.25 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -9773,8 +10450,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "cf392afe-c2de-4d7d-b170-f145ca567bca")
-		(property "Reference" "#PWR040"
-			(at 248.92 129.54 0)
+		(property "Reference" "#PWR029"
+			(at 256.54 99.06 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9785,7 +10462,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 248.92 120.65 0)
+			(at 256.54 90.17 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -9795,7 +10472,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 248.92 125.73 0)
+			(at 256.54 95.25 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9806,7 +10483,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 248.92 125.73 0)
+			(at 256.54 95.25 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9817,7 +10494,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 248.92 125.73 0)
+			(at 256.54 95.25 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9833,7 +10510,85 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR040")
+					(reference "#PWR029")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3.3V")
+		(at 105.41 152.4 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "d3e45f74-977c-40fc-ae30-95e304d46884")
+		(property "Reference" "#PWR051"
+			(at 105.41 156.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 105.41 147.32 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 105.41 152.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 105.41 152.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+			(at 105.41 152.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "5cf2c4c5-b3c3-4ae5-804f-76c68e91e1ff")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "#PWR051")
 					(unit 1)
 				)
 			)
@@ -9851,7 +10606,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "d59b79bc-ad63-4758-a055-cc3d33a805f1")
-		(property "Reference" "#PWR023"
+		(property "Reference" "#PWR028"
 			(at 138.43 100.33 0)
 			(hide yes)
 			(show_name no)
@@ -9911,7 +10666,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR023")
+					(reference "#PWR028")
 					(unit 1)
 				)
 			)
@@ -9929,7 +10684,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "d71f1084-127e-428b-aeff-5d4bc569703e")
-		(property "Reference" "J3"
+		(property "Reference" "J10"
 			(at 147.32 128.2699 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10038,7 +10793,85 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "J3")
+					(reference "J10")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 91.44 152.4 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "e07476ba-ee2e-47d5-a4c1-218d3cdfeee6")
+		(property "Reference" "#PWR050"
+			(at 91.44 158.75 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 91.44 157.48 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 91.44 152.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 91.44 152.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 91.44 152.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "94eb8835-fcb5-4ed0-9821-8879eb18bc3d")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "#PWR050")
 					(unit 1)
 				)
 			)
@@ -10056,7 +10889,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e08c0227-e397-459d-807a-c1d2b55301ea")
-		(property "Reference" "#PWR028"
+		(property "Reference" "#PWR044"
 			(at 163.83 146.05 0)
 			(hide yes)
 			(show_name no)
@@ -10116,7 +10949,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR028")
+					(reference "#PWR044")
 					(unit 1)
 				)
 			)
@@ -10294,7 +11127,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 257.81 69.85 0)
+		(at 261.62 52.07 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -10304,8 +11137,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e35fb100-6325-43d0-999e-ce14c418ae9a")
-		(property "Reference" "#PWR045"
-			(at 257.81 76.2 0)
+		(property "Reference" "#PWR012"
+			(at 261.62 58.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10316,7 +11149,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 257.81 74.93 0)
+			(at 261.62 57.15 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -10326,7 +11159,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 257.81 69.85 0)
+			(at 261.62 52.07 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10337,7 +11170,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 257.81 69.85 0)
+			(at 261.62 52.07 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10348,7 +11181,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 257.81 69.85 0)
+			(at 261.62 52.07 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10364,7 +11197,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR045")
+					(reference "#PWR012")
 					(unit 1)
 				)
 			)
@@ -10372,7 +11205,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:S3B-PH-K-S-")
-		(at 165.1 19.05 0)
+		(at 172.72 48.26 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -10382,8 +11215,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e4c0bec6-c059-469d-8c2e-ad5d4fd43c02")
-		(property "Reference" "J4"
-			(at 171.45 17.7799 0)
+		(property "Reference" "J3"
+			(at 179.07 46.9899 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -10394,7 +11227,7 @@
 			)
 		)
 		(property "Value" "UART_PI"
-			(at 171.45 20.3199 0)
+			(at 179.07 49.5299 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -10405,7 +11238,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN"
-			(at 165.1 29.21 0)
+			(at 172.72 58.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10416,7 +11249,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html"
-			(at 165.1 31.75 0)
+			(at 172.72 60.96 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10427,7 +11260,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 165.1 19.05 0)
+			(at 172.72 48.26 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10438,7 +11271,7 @@
 			)
 		)
 		(property "Manufacturer" "JST"
-			(at 165.1 34.29 0)
+			(at 172.72 63.5 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10449,7 +11282,7 @@
 			)
 		)
 		(property "MPN" "S3B-PH-K-S(LF)(SN)"
-			(at 165.1 36.83 0)
+			(at 172.72 66.04 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10460,7 +11293,7 @@
 			)
 		)
 		(property "LCSC Part" "C157929"
-			(at 165.1 39.37 0)
+			(at 172.72 68.58 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10482,7 +11315,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "J4")
+					(reference "J3")
 					(unit 1)
 				)
 			)
@@ -10490,7 +11323,7 @@
 	)
 	(symbol
 		(lib_id "power:+5V")
-		(at 260.35 105.41 0)
+		(at 234.95 83.82 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -10500,8 +11333,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e5042ee8-7def-4c69-aa8d-126e5bf806d4")
-		(property "Reference" "#PWR046"
-			(at 260.35 109.22 0)
+		(property "Reference" "#PWR025"
+			(at 234.95 87.63 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10512,7 +11345,7 @@
 			)
 		)
 		(property "Value" "+5V"
-			(at 260.35 100.33 0)
+			(at 234.95 78.74 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -10522,7 +11355,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 260.35 105.41 0)
+			(at 234.95 83.82 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10533,7 +11366,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 260.35 105.41 0)
+			(at 234.95 83.82 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10544,7 +11377,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 260.35 105.41 0)
+			(at 234.95 83.82 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10560,7 +11393,122 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR046")
+					(reference "#PWR025")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "easyeda2kicad:MFR0W4F1002A50")
+		(at 69.85 124.46 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "e5105bbb-a567-4734-8c9b-f7233b6b95ec")
+		(property "Reference" "R5"
+			(at 72.39 123.1899 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "10k"
+			(at 72.39 125.7299 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:RES-TH_BD2.5-L6.5-P10.50-D0.6"
+			(at 77.47 124.46 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_10KR-1002-1_C57436.html"
+			(at 80.01 124.46 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "10KΩ (1002) ±1%"
+			(at 69.85 124.46 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
+			(at 82.55 124.46 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "MFR0W4F1002A50"
+			(at 85.09 124.46 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C57436"
+			(at 87.63 124.46 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "c4cbf901-ec03-4458-bc1e-c7e4e369ec06")
+		)
+		(pin "2"
+			(uuid "e2bcc5a2-7e2d-43a7-81f8-3a880bac8ba5")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "R5")
 					(unit 1)
 				)
 			)
@@ -10691,7 +11639,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e827dd89-9f85-4021-9d05-de989c474e76")
-		(property "Reference" "#PWR020"
+		(property "Reference" "#PWR021"
 			(at 129.54 78.74 0)
 			(hide yes)
 			(show_name no)
@@ -10752,7 +11700,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR020")
+					(reference "#PWR021")
 					(unit 1)
 				)
 			)
@@ -10770,7 +11718,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e894fa67-79da-4646-8dcb-26470b9ae78b")
-		(property "Reference" "#PWR05"
+		(property "Reference" "#PWR02"
 			(at 60.96 22.86 0)
 			(hide yes)
 			(show_name no)
@@ -10830,7 +11778,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR05")
+					(reference "#PWR02")
 					(unit 1)
 				)
 			)
@@ -10848,7 +11796,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "ead4fc9f-c5df-41c3-9e86-af2dffebac44")
-		(property "Reference" "#PWR013"
+		(property "Reference" "#PWR017"
 			(at 104.14 58.42 0)
 			(hide yes)
 			(show_name no)
@@ -10909,7 +11857,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR013")
+					(reference "#PWR017")
 					(unit 1)
 				)
 			)
@@ -10917,7 +11865,7 @@
 	)
 	(symbol
 		(lib_id "power:GND")
-		(at 160.02 21.59 0)
+		(at 167.64 50.8 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -10927,8 +11875,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "ee705450-47ed-41d8-af74-f2065107ccd0")
-		(property "Reference" "#PWR027"
-			(at 160.02 27.94 0)
+		(property "Reference" "#PWR011"
+			(at 167.64 57.15 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10939,7 +11887,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 160.02 26.67 0)
+			(at 167.64 55.88 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -10949,7 +11897,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 160.02 21.59 0)
+			(at 167.64 50.8 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10960,7 +11908,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 160.02 21.59 0)
+			(at 167.64 50.8 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10971,7 +11919,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 160.02 21.59 0)
+			(at 167.64 50.8 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10987,7 +11935,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR027")
+					(reference "#PWR011")
 					(unit 1)
 				)
 			)
@@ -10995,7 +11943,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:MFR-25FTE52-1K8")
-		(at 251.46 107.95 0)
+		(at 226.06 86.36 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -11005,8 +11953,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f26fa735-f4e1-489d-a83f-ae6d8054f847")
-		(property "Reference" "R4"
-			(at 251.46 101.6 0)
+		(property "Reference" "R3"
+			(at 226.06 80.01 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11016,7 +11964,7 @@
 			)
 		)
 		(property "Value" "1.8k"
-			(at 251.46 104.14 0)
+			(at 226.06 82.55 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11026,7 +11974,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:RES-TH_BD2.4-L6.3-P10.30-D0.6"
-			(at 251.46 115.57 0)
+			(at 226.06 93.98 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11037,7 +11985,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_YAGEO-MFR-25FTE52-1K8_C172980.html"
-			(at 251.46 118.11 0)
+			(at 226.06 96.52 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11048,7 +11996,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 251.46 107.95 0)
+			(at 226.06 86.36 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11059,7 +12007,7 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO(国巨)"
-			(at 251.46 120.65 0)
+			(at 226.06 99.06 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11070,7 +12018,7 @@
 			)
 		)
 		(property "MPN" "MFR-25FTE52-1K8"
-			(at 251.46 123.19 0)
+			(at 226.06 101.6 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11081,7 +12029,7 @@
 			)
 		)
 		(property "LCSC Part" "C172980"
-			(at 251.46 125.73 0)
+			(at 226.06 104.14 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11100,7 +12048,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R4")
+					(reference "R3")
 					(unit 1)
 				)
 			)
@@ -11118,7 +12066,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f8fc0a53-ba5b-4651-8f9d-e812476bab51")
-		(property "Reference" "#PWR024"
+		(property "Reference" "#PWR022"
 			(at 143.51 86.36 0)
 			(hide yes)
 			(show_name no)
@@ -11178,7 +12126,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR024")
+					(reference "#PWR022")
 					(unit 1)
 				)
 			)
@@ -11196,7 +12144,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f9c8a542-c252-48e4-8425-e97e3bbb7acb")
-		(property "Reference" "#PWR016"
+		(property "Reference" "#PWR027"
 			(at 125.73 97.79 0)
 			(hide yes)
 			(show_name no)
@@ -11256,7 +12204,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR016")
+					(reference "#PWR027")
 					(unit 1)
 				)
 			)
@@ -11387,7 +12335,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "fb73ab59-ed36-4dfb-b172-80f25c0a6f31")
-		(property "Reference" "#PWR04"
+		(property "Reference" "#PWR08"
 			(at 48.26 50.8 0)
 			(hide yes)
 			(show_name no)
@@ -11447,7 +12395,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR04")
+					(reference "#PWR08")
 					(unit 1)
 				)
 			)
@@ -11455,7 +12403,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:178MU0006")
-		(at 107.95 161.29 0)
+		(at 40.64 130.81 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -11465,8 +12413,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "fc5fba3f-6152-45d5-aa18-3af146b832ed")
-		(property "Reference" "C5"
-			(at 107.95 154.94 0)
+		(property "Reference" "C7"
+			(at 40.64 124.46 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11476,7 +12424,7 @@
 			)
 		)
 		(property "Value" "100n"
-			(at 107.95 157.48 0)
+			(at 40.64 127 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11486,7 +12434,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5"
-			(at 107.95 168.91 0)
+			(at 40.64 138.43 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11497,7 +12445,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/C5632430.pdf"
-			(at 107.95 171.45 0)
+			(at 40.64 140.97 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11508,7 +12456,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 107.95 161.29 0)
+			(at 40.64 130.81 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11519,7 +12467,7 @@
 			)
 		)
 		(property "Manufacturer" "KNSCHA(科尼盛)"
-			(at 107.95 173.99 0)
+			(at 40.64 143.51 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11530,7 +12478,7 @@
 			)
 		)
 		(property "MPN" "178MU0006"
-			(at 107.95 176.53 0)
+			(at 40.64 146.05 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11541,7 +12489,7 @@
 			)
 		)
 		(property "LCSC Part" "C5632430"
-			(at 107.95 179.07 0)
+			(at 40.64 148.59 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11560,7 +12508,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C5")
+					(reference "C7")
 					(unit 1)
 				)
 			)
@@ -11568,7 +12516,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:MFR-25FTE52-1K8")
-		(at 248.92 35.56 0)
+		(at 222.25 50.8 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -11578,8 +12526,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "ff4a740d-447e-45c7-963e-b3bbc9fbb1cd")
-		(property "Reference" "R3"
-			(at 248.92 29.21 0)
+		(property "Reference" "R1"
+			(at 222.25 44.45 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11589,7 +12537,7 @@
 			)
 		)
 		(property "Value" "1.8k"
-			(at 248.92 31.75 0)
+			(at 222.25 46.99 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -11599,7 +12547,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:RES-TH_BD2.4-L6.3-P10.30-D0.6"
-			(at 248.92 43.18 0)
+			(at 222.25 58.42 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11610,7 +12558,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_YAGEO-MFR-25FTE52-1K8_C172980.html"
-			(at 248.92 45.72 0)
+			(at 222.25 60.96 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11621,7 +12569,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 248.92 35.56 0)
+			(at 222.25 50.8 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11632,7 +12580,7 @@
 			)
 		)
 		(property "Manufacturer" "YAGEO(国巨)"
-			(at 248.92 48.26 0)
+			(at 222.25 63.5 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11643,7 +12591,7 @@
 			)
 		)
 		(property "MPN" "MFR-25FTE52-1K8"
-			(at 248.92 50.8 0)
+			(at 222.25 66.04 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11654,7 +12602,7 @@
 			)
 		)
 		(property "LCSC Part" "C172980"
-			(at 248.92 53.34 0)
+			(at 222.25 68.58 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11673,7 +12621,122 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R3")
+					(reference "R1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "easyeda2kicad:178MU0006")
+		(at 72.39 134.62 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "ffed784d-eced-4dac-b254-126e41391c14")
+		(property "Reference" "C8"
+			(at 76.2 133.3499 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "100n"
+			(at 76.2 135.8899 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5"
+			(at 80.01 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C5632430.pdf"
+			(at 82.55 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 72.39 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "KNSCHA(科尼盛)"
+			(at 85.09 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "178MU0006"
+			(at 87.63 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C5632430"
+			(at 90.17 134.62 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b8f657c9-f4a1-476a-a1e9-6a487b9f0484")
+		)
+		(pin "2"
+			(uuid "10446660-6575-4215-9cff-74641990fdc7")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "C8")
 					(unit 1)
 				)
 			)

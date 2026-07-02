@@ -2,7 +2,7 @@
 	(version "E")
 	(design
 		(source "/Users/sam1902/Documents/CustomDJ/TriMiXxX_Arduino_MIDI_HID/midi_s3_mini/midi_s3_mini/midi_s3_mini.kicad_sch")
-		(date "2026-06-29T23:37:58")
+		(date "2026-07-03T00:17:10")
 		(tool "Eeschema 10.0.1")
 		(sheet
 			(number "1")
@@ -57,21 +57,39 @@
 		(comp
 			(ref "C1")
 			(value "100n")
-			(description "Unpolarized capacitor, small symbol")
+			(footprint "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+			(datasheet "https://www.lcsc.com/datasheet/C5632430.pdf")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "KNSCHA(科尼盛)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "178MU0006")
 				(field
-					(name "Description") "Unpolarized capacitor, small symbol")
+					(name "LCSC Part") "C5632430")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5632430.pdf")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Device")
-				(part "C_Small")
-				(description "Unpolarized capacitor, small symbol")
+				(lib "easyeda2kicad")
+				(part "178MU0006")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "KNSCHA(科尼盛)")
+			)
+			(property
+				(name "MPN")
+				(value "178MU0006")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C5632430")
 			)
 			(property
 				(name "Sheetname")
@@ -83,17 +101,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "capacitor cap")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "C_*")
+				(value "Multilayer Ceramic Capacitors MLCC - Leaded")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "73233892-9528-48a8-95c5-7272c65e5928")
+			(tstamps "37944a3f-0fe9-45ce-99ec-990f48879328")
 			(units
 				(unit
 					(name "A")
@@ -110,22 +124,40 @@
 		)
 		(comp
 			(ref "C2")
-			(value "100n")
-			(description "Unpolarized capacitor, small symbol")
+			(value "1000uF / 35 V")
+			(footprint "easyeda2kicad:CAP-TH_BD10.0-P5.00-D1.0-FD")
+			(datasheet "https://lcsc.com/product-detail/Aluminum-Electrolytic-Capacitors-Leaded_Aihua-Group-ERR1VM102G20OT_C398835.html")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "AISHI(艾华集团)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "ERR1VM102G20OT")
 				(field
-					(name "Description") "Unpolarized capacitor, small symbol")
+					(name "LCSC Part") "C398835")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_BD10.0-P5.00-D1.0-FD")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Aluminum-Electrolytic-Capacitors-Leaded_Aihua-Group-ERR1VM102G20OT_C398835.html")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Device")
-				(part "C_Small")
-				(description "Unpolarized capacitor, small symbol")
+				(lib "easyeda2kicad")
+				(part "ERR1VM102G20OT")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "AISHI(艾华集团)")
+			)
+			(property
+				(name "MPN")
+				(value "ERR1VM102G20OT")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C398835")
 			)
 			(property
 				(name "Sheetname")
@@ -137,17 +169,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "capacitor cap")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "C_*")
+				(value "Aluminum Electrolytic Capacitors - Leaded")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "e09a9f95-1260-44d3-9311-4ca7e6f6b7f7")
+			(tstamps "e5adcfa2-59b0-44ff-a3c9-b7c864ef2dd6")
 			(units
 				(unit
 					(name "A")
@@ -164,22 +192,40 @@
 		)
 		(comp
 			(ref "C3")
-			(value "22u")
-			(description "Unpolarized capacitor")
+			(value "100n")
+			(footprint "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+			(datasheet "https://www.lcsc.com/datasheet/C5632430.pdf")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "KNSCHA(科尼盛)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "178MU0006")
 				(field
-					(name "Description") "Unpolarized capacitor")
+					(name "LCSC Part") "C5632430")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5632430.pdf")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Device")
-				(part "C")
-				(description "Unpolarized capacitor")
+				(lib "easyeda2kicad")
+				(part "178MU0006")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "KNSCHA(科尼盛)")
+			)
+			(property
+				(name "MPN")
+				(value "178MU0006")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C5632430")
 			)
 			(property
 				(name "Sheetname")
@@ -191,17 +237,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "cap capacitor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "C_*")
+				(value "Multilayer Ceramic Capacitors MLCC - Leaded")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "48e2ca16-32af-4d1a-9d94-f3f51141db6a")
+			(tstamps "2fcaabda-abfb-4959-9570-b6083762e1e5")
 			(units
 				(unit
 					(name "A")
@@ -219,21 +261,39 @@
 		(comp
 			(ref "C4")
 			(value "100n")
-			(description "Unpolarized capacitor, small symbol")
+			(footprint "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+			(datasheet "https://www.lcsc.com/datasheet/C5632430.pdf")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "KNSCHA(科尼盛)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "178MU0006")
 				(field
-					(name "Description") "Unpolarized capacitor, small symbol")
+					(name "LCSC Part") "C5632430")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5632430.pdf")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Device")
-				(part "C_Small")
-				(description "Unpolarized capacitor, small symbol")
+				(lib "easyeda2kicad")
+				(part "178MU0006")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "KNSCHA(科尼盛)")
+			)
+			(property
+				(name "MPN")
+				(value "178MU0006")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C5632430")
 			)
 			(property
 				(name "Sheetname")
@@ -245,17 +305,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "capacitor cap")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "C_*")
+				(value "Multilayer Ceramic Capacitors MLCC - Leaded")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "41531cac-dfb8-44d1-b73d-a44c2aa13528")
+			(tstamps "b28b65e2-d08b-4380-8c18-eca358744a4c")
 			(units
 				(unit
 					(name "A")
@@ -272,22 +328,40 @@
 		)
 		(comp
 			(ref "C5")
-			(value "100n")
-			(description "Unpolarized capacitor, small symbol")
+			(value "10u / 50 V")
+			(footprint "easyeda2kicad:CAP-TH_BD5.0-P2.00-D0.8-FD")
+			(datasheet "https://lcsc.com/product-detail/Aluminum-Electrolytic-Capacitors-Leaded_KNSCHA-01EC1809SHC10UF50V_C503219.html")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "KNSCHA(科尼盛)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "01EC1809SHC10UF50V")
 				(field
-					(name "Description") "Unpolarized capacitor, small symbol")
+					(name "LCSC Part") "C503219")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_BD5.0-P2.00-D0.8-FD")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Aluminum-Electrolytic-Capacitors-Leaded_KNSCHA-01EC1809SHC10UF50V_C503219.html")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Device")
-				(part "C_Small")
-				(description "Unpolarized capacitor, small symbol")
+				(lib "easyeda2kicad")
+				(part "01EC1809SHC10UF50V")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "KNSCHA(科尼盛)")
+			)
+			(property
+				(name "MPN")
+				(value "01EC1809SHC10UF50V")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C503219")
 			)
 			(property
 				(name "Sheetname")
@@ -299,17 +373,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "capacitor cap")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "C_*")
+				(value "Aluminum Electrolytic Capacitors - Leaded")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "673bfaf3-0613-4b2b-a60d-280d2dda708f")
+			(tstamps "c2352c97-c472-476d-958e-1f3d3b38f831")
 			(units
 				(unit
 					(name "A")
@@ -326,22 +396,40 @@
 		)
 		(comp
 			(ref "C6")
-			(value "10u")
-			(description "Unpolarized capacitor, small symbol")
+			(value "22u 50V")
+			(footprint "easyeda2kicad:CAP-TH_BD5.0-P2.00-D0.5-FD")
+			(datasheet "https://www.lcsc.com/datasheet/C47344185.pdf")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "JIERR(捷而瑞)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "ERG50V22M5X11")
 				(field
-					(name "Description") "Unpolarized capacitor, small symbol")
+					(name "LCSC Part") "C47344185")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_BD5.0-P2.00-D0.5-FD")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C47344185.pdf")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Device")
-				(part "C_Small")
-				(description "Unpolarized capacitor, small symbol")
+				(lib "easyeda2kicad")
+				(part "ERG50V22M5X11")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JIERR(捷而瑞)")
+			)
+			(property
+				(name "MPN")
+				(value "ERG50V22M5X11")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C47344185")
 			)
 			(property
 				(name "Sheetname")
@@ -351,19 +439,11 @@
 				(name "Sheetfile")
 				(value "midi_s3_mini.kicad_sch")
 			)
-			(property
-				(name "ki_keywords")
-				(value "capacitor cap")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "C_*")
-			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "3ce53daf-ebc0-49d9-b810-48cb6aa44081")
+			(tstamps "4a4b41d1-1088-4dfa-a9e4-6b7a6a63237f")
 			(units
 				(unit
 					(name "A")
@@ -381,21 +461,39 @@
 		(comp
 			(ref "C7")
 			(value "100n")
-			(description "Unpolarized capacitor, small symbol")
+			(footprint "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+			(datasheet "https://www.lcsc.com/datasheet/C5632430.pdf")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "KNSCHA(科尼盛)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "178MU0006")
 				(field
-					(name "Description") "Unpolarized capacitor, small symbol")
+					(name "LCSC Part") "C5632430")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5632430.pdf")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Device")
-				(part "C_Small")
-				(description "Unpolarized capacitor, small symbol")
+				(lib "easyeda2kicad")
+				(part "178MU0006")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "KNSCHA(科尼盛)")
+			)
+			(property
+				(name "MPN")
+				(value "178MU0006")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C5632430")
 			)
 			(property
 				(name "Sheetname")
@@ -407,17 +505,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "capacitor cap")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "C_*")
+				(value "Multilayer Ceramic Capacitors MLCC - Leaded")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "ebbff503-9efe-4128-9860-367ca4c15634")
+			(tstamps "fc5fba3f-6152-45d5-aa18-3af146b832ed")
 			(units
 				(unit
 					(name "A")
@@ -435,21 +529,39 @@
 		(comp
 			(ref "C8")
 			(value "100n")
-			(description "Unpolarized capacitor, small symbol")
+			(footprint "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+			(datasheet "https://www.lcsc.com/datasheet/C5632430.pdf")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "KNSCHA(科尼盛)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "178MU0006")
 				(field
-					(name "Description") "Unpolarized capacitor, small symbol")
+					(name "LCSC Part") "C5632430")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5632430.pdf")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Device")
-				(part "C_Small")
-				(description "Unpolarized capacitor, small symbol")
+				(lib "easyeda2kicad")
+				(part "178MU0006")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "KNSCHA(科尼盛)")
+			)
+			(property
+				(name "MPN")
+				(value "178MU0006")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C5632430")
 			)
 			(property
 				(name "Sheetname")
@@ -461,17 +573,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "capacitor cap")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "C_*")
+				(value "Multilayer Ceramic Capacitors MLCC - Leaded")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "de42a56d-6e84-4d95-b6f9-fb8ac152a169")
+			(tstamps "ffed784d-eced-4dac-b254-126e41391c14")
 			(units
 				(unit
 					(name "A")
@@ -489,21 +597,39 @@
 		(comp
 			(ref "C9")
 			(value "100n")
-			(description "Unpolarized capacitor, small symbol")
+			(footprint "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+			(datasheet "https://www.lcsc.com/datasheet/C5632430.pdf")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "KNSCHA(科尼盛)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "178MU0006")
 				(field
-					(name "Description") "Unpolarized capacitor, small symbol")
+					(name "LCSC Part") "C5632430")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5632430.pdf")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Device")
-				(part "C_Small")
-				(description "Unpolarized capacitor, small symbol")
+				(lib "easyeda2kicad")
+				(part "178MU0006")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "KNSCHA(科尼盛)")
+			)
+			(property
+				(name "MPN")
+				(value "178MU0006")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C5632430")
 			)
 			(property
 				(name "Sheetname")
@@ -515,17 +641,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "capacitor cap")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "C_*")
+				(value "Multilayer Ceramic Capacitors MLCC - Leaded")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "d2d7a3b4-dfc7-4229-a866-a802a15a2974")
+			(tstamps "a36dde6a-eaba-48b6-a4e6-cc757fba71fe")
 			(units
 				(unit
 					(name "A")
@@ -541,23 +663,41 @@
 			)
 		)
 		(comp
-			(ref "J1")
-			(value "Power")
-			(description "Generic connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			(ref "C10")
+			(value "100n")
+			(footprint "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+			(datasheet "https://www.lcsc.com/datasheet/C5632430.pdf")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "KNSCHA(科尼盛)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "178MU0006")
 				(field
-					(name "Description") "Generic connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)")
+					(name "LCSC Part") "C5632430")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5632430.pdf")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x02")
-				(description "Generic connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)")
+				(lib "easyeda2kicad")
+				(part "178MU0006")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "KNSCHA(科尼盛)")
+			)
+			(property
+				(name "MPN")
+				(value "178MU0006")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C5632430")
 			)
 			(property
 				(name "Sheetname")
@@ -569,17 +709,485 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
+				(value "Multilayer Ceramic Capacitors MLCC - Leaded")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "b4eae227-e29d-4f79-8fbc-c7d66c0ef41f")
+			(tstamps "48e9a156-ab15-4add-bd1a-77c3cf86a2c2")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C11")
+			(value "100n")
+			(footprint "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+			(datasheet "https://www.lcsc.com/datasheet/C5632430.pdf")
+			(fields
+				(field
+					(name "Manufacturer") "KNSCHA(科尼盛)")
+				(field
+					(name "MPN") "178MU0006")
+				(field
+					(name "LCSC Part") "C5632430")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5632430.pdf")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "178MU0006")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "KNSCHA(科尼盛)")
+			)
+			(property
+				(name "MPN")
+				(value "178MU0006")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C5632430")
+			)
+			(property
+				(name "Sheetname")
+				(value "midi_s3_mini")
+			)
+			(property
+				(name "Sheetfile")
+				(value "midi_s3_mini.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Multilayer Ceramic Capacitors MLCC - Leaded")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "fa87caa3-c0e1-4c9b-bc86-8a11045f6226")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C12")
+			(value "100n")
+			(footprint "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+			(datasheet "https://www.lcsc.com/datasheet/C5632430.pdf")
+			(fields
+				(field
+					(name "Manufacturer") "KNSCHA(科尼盛)")
+				(field
+					(name "MPN") "178MU0006")
+				(field
+					(name "LCSC Part") "C5632430")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5632430.pdf")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "178MU0006")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "KNSCHA(科尼盛)")
+			)
+			(property
+				(name "MPN")
+				(value "178MU0006")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C5632430")
+			)
+			(property
+				(name "Sheetname")
+				(value "midi_s3_mini")
+			)
+			(property
+				(name "Sheetfile")
+				(value "midi_s3_mini.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Multilayer Ceramic Capacitors MLCC - Leaded")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "1017a697-da19-45a7-a01d-da7262aee512")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "C13")
+			(value "100n")
+			(footprint "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+			(datasheet "https://www.lcsc.com/datasheet/C5632430.pdf")
+			(fields
+				(field
+					(name "Manufacturer") "KNSCHA(科尼盛)")
+				(field
+					(name "MPN") "178MU0006")
+				(field
+					(name "LCSC Part") "C5632430")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5632430.pdf")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "178MU0006")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "KNSCHA(科尼盛)")
+			)
+			(property
+				(name "MPN")
+				(value "178MU0006")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C5632430")
+			)
+			(property
+				(name "Sheetname")
+				(value "midi_s3_mini")
+			)
+			(property
+				(name "Sheetfile")
+				(value "midi_s3_mini.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Multilayer Ceramic Capacitors MLCC - Leaded")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "4f4d0a4a-03d3-4970-8201-054974a57c42")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "H1")
+			(value "MountingHole")
+			(footprint "MountingHole:MountingHole_4.3mm_M4_ISO7380")
+			(description "Mounting Hole without connection")
+			(fields
+				(field
+					(name "Footprint") "MountingHole:MountingHole_4.3mm_M4_ISO7380")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Mounting Hole without connection")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "MountingHole")
+				(description "Mounting Hole without connection")
+			)
+			(property
+				(name "Sheetname")
+				(value "midi_s3_mini")
+			)
+			(property
+				(name "Sheetfile")
+				(value "midi_s3_mini.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "3e8eceaf-0f50-47ed-b4a8-418b27daccca")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "H2")
+			(value "MountingHole")
+			(footprint "MountingHole:MountingHole_4.3mm_M4_ISO7380")
+			(description "Mounting Hole without connection")
+			(fields
+				(field
+					(name "Footprint") "MountingHole:MountingHole_4.3mm_M4_ISO7380")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Mounting Hole without connection")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "MountingHole")
+				(description "Mounting Hole without connection")
+			)
+			(property
+				(name "Sheetname")
+				(value "midi_s3_mini")
+			)
+			(property
+				(name "Sheetfile")
+				(value "midi_s3_mini.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "4930486a-30cb-4677-8be6-98598cf2333e")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "H3")
+			(value "MountingHole")
+			(footprint "MountingHole:MountingHole_4.3mm_M4_ISO7380")
+			(description "Mounting Hole without connection")
+			(fields
+				(field
+					(name "Footprint") "MountingHole:MountingHole_4.3mm_M4_ISO7380")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Mounting Hole without connection")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "MountingHole")
+				(description "Mounting Hole without connection")
+			)
+			(property
+				(name "Sheetname")
+				(value "midi_s3_mini")
+			)
+			(property
+				(name "Sheetfile")
+				(value "midi_s3_mini.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "99f40671-98e0-43c9-9bf0-7ceac7ed86cc")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "H4")
+			(value "MountingHole")
+			(footprint "MountingHole:MountingHole_4.3mm_M4_ISO7380")
+			(description "Mounting Hole without connection")
+			(fields
+				(field
+					(name "Footprint") "MountingHole:MountingHole_4.3mm_M4_ISO7380")
+				(field
+					(name "Datasheet")
+				)
+				(field
+					(name "Description") "Mounting Hole without connection")
+			)
+			(libsource
+				(lib "Mechanical")
+				(part "MountingHole")
+				(description "Mounting Hole without connection")
+			)
+			(property
+				(name "Sheetname")
+				(value "midi_s3_mini")
+			)
+			(property
+				(name "Sheetfile")
+				(value "midi_s3_mini.kicad_sch")
+			)
+			(property
+				(name "exclude_from_bom")
+			)
+			(property
+				(name "ki_keywords")
+				(value "mounting hole")
+			)
+			(property
+				(name "ki_fp_filters")
+				(value "MountingHole*")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "b4762b29-8ea5-4400-bcff-b740f8c4cc27")
+			(units
+				(unit
+					(name "A")
+					(pins)
+				)
+			)
+		)
+		(comp
+			(ref "J1")
+			(value "Power2")
+			(footprint "easyeda2kicad:CONN-TH_S2B-PH-K-S-LF-SN")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST-Sales-America_S2B-PH-K-S-LF-SN_JST-Sales-America-S2B-PH-K-S-LF-SN_C173752.html")
+			(fields
+				(field
+					(name "Manufacturer") "JST")
+				(field
+					(name "MPN") "S2B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C173752")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_S2B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST-Sales-America_S2B-PH-K-S-LF-SN_JST-Sales-America-S2B-PH-K-S-LF-SN_C173752.html")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "S2B-PH-K-S")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "S2B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C173752")
+			)
+			(property
+				(name "Sheetname")
+				(value "midi_s3_mini")
+			)
+			(property
+				(name "Sheetfile")
+				(value "midi_s3_mini.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Wire To Board / Wire To Wire Connector")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "1b10f237-428c-4604-a350-af90107c4649")
 			(units
 				(unit
 					(name "A")
@@ -596,22 +1204,40 @@
 		)
 		(comp
 			(ref "J2")
-			(value "OneButtonA_TX")
-			(description "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			(value "Power1")
+			(footprint "easyeda2kicad:CONN-TH_S2B-PH-K-S-LF-SN")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST-Sales-America_S2B-PH-K-S-LF-SN_JST-Sales-America-S2B-PH-K-S-LF-SN_C173752.html")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "JST")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "S2B-PH-K-S(LF)(SN)")
 				(field
-					(name "Description") "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+					(name "LCSC Part") "C173752")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_S2B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST-Sales-America_S2B-PH-K-S-LF-SN_JST-Sales-America-S2B-PH-K-S-LF-SN_C173752.html")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x03")
-				(description "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+				(lib "easyeda2kicad")
+				(part "S2B-PH-K-S")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "S2B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C173752")
 			)
 			(property
 				(name "Sheetname")
@@ -623,17 +1249,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
+				(value "Wire To Board / Wire To Wire Connector")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "49ca5c8b-64ad-4783-98d7-5901bd387089")
+			(tstamps "5e25b647-8bbe-4fe8-8608-5ce9d3197317")
 			(units
 				(unit
 					(name "A")
@@ -644,31 +1266,46 @@
 						(pin
 							(num "2")
 						)
-						(pin
-							(num "3")
-						)
 					)
 				)
 			)
 		)
 		(comp
 			(ref "J3")
-			(value "OneButtonA_RX")
-			(description "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			(value "UART_PI")
+			(footprint "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "JST")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "S3B-PH-K-S(LF)(SN)")
 				(field
-					(name "Description") "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+					(name "LCSC Part") "C157929")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x03")
-				(description "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+				(lib "easyeda2kicad")
+				(part "S3B-PH-K-S-")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "S3B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C157929")
 			)
 			(property
 				(name "Sheetname")
@@ -680,17 +1317,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
+				(value "Wire To Board / Wire To Wire Connector")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "abb91de6-f57c-4c8c-9f71-0479951381e7")
+			(tstamps "e4c0bec6-c059-469d-8c2e-ad5d4fd43c02")
 			(units
 				(unit
 					(name "A")
@@ -710,22 +1343,40 @@
 		)
 		(comp
 			(ref "J4")
-			(value "UART_PI")
-			(description "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			(value "OneButtonA_TX")
+			(footprint "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "JST")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "S3B-PH-K-S(LF)(SN)")
 				(field
-					(name "Description") "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+					(name "LCSC Part") "C157929")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x03")
-				(description "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+				(lib "easyeda2kicad")
+				(part "S3B-PH-K-S-")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "S3B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C157929")
 			)
 			(property
 				(name "Sheetname")
@@ -737,17 +1388,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
+				(value "Wire To Board / Wire To Wire Connector")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "3fd385c2-4da2-427e-a634-4feb8887d35b")
+			(tstamps "ba666f10-98b0-4f88-ba84-e4456c604fac")
 			(units
 				(unit
 					(name "A")
@@ -767,22 +1414,40 @@
 		)
 		(comp
 			(ref "J5")
-			(value "TEMPO")
-			(description "Generic connector, single row, 01x04, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			(value "OneButtonA_RX")
+			(footprint "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "JST")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "S3B-PH-K-S(LF)(SN)")
 				(field
-					(name "Description") "Generic connector, single row, 01x04, script generated (kicad-library-utils/schlib/autogen/connector/)")
+					(name "LCSC Part") "C157929")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x04")
-				(description "Generic connector, single row, 01x04, script generated (kicad-library-utils/schlib/autogen/connector/)")
+				(lib "easyeda2kicad")
+				(part "S3B-PH-K-S-")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "S3B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C157929")
 			)
 			(property
 				(name "Sheetname")
@@ -794,17 +1459,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
+				(value "Wire To Board / Wire To Wire Connector")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "498a214f-29b5-49ea-b587-35c90161bbf0")
+			(tstamps "1b8a7562-9060-4ddb-8114-412aab823dbd")
 			(units
 				(unit
 					(name "A")
@@ -817,9 +1478,6 @@
 						)
 						(pin
 							(num "3")
-						)
-						(pin
-							(num "4")
 						)
 					)
 				)
@@ -827,22 +1485,40 @@
 		)
 		(comp
 			(ref "J6")
-			(value "JOG")
-			(description "Generic connector, single row, 01x05, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			(value "OneButtonB_RX")
+			(footprint "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "JST")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "S3B-PH-K-S(LF)(SN)")
 				(field
-					(name "Description") "Generic connector, single row, 01x05, script generated (kicad-library-utils/schlib/autogen/connector/)")
+					(name "LCSC Part") "C157929")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x05")
-				(description "Generic connector, single row, 01x05, script generated (kicad-library-utils/schlib/autogen/connector/)")
+				(lib "easyeda2kicad")
+				(part "S3B-PH-K-S-")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "S3B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C157929")
 			)
 			(property
 				(name "Sheetname")
@@ -854,17 +1530,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
+				(value "Wire To Board / Wire To Wire Connector")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "4108e02c-9fe4-42b2-af6e-1d20a52c5d30")
+			(tstamps "a3e60db8-239b-41bf-9c81-6f0eea2b3c73")
 			(units
 				(unit
 					(name "A")
@@ -877,12 +1549,6 @@
 						)
 						(pin
 							(num "3")
-						)
-						(pin
-							(num "4")
-						)
-						(pin
-							(num "5")
 						)
 					)
 				)
@@ -890,22 +1556,40 @@
 		)
 		(comp
 			(ref "J7")
-			(value "TRACK_ENC")
-			(description "Generic connector, single row, 01x05, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			(value "OneButtonB_TX")
+			(footprint "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "JST")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "S3B-PH-K-S(LF)(SN)")
 				(field
-					(name "Description") "Generic connector, single row, 01x05, script generated (kicad-library-utils/schlib/autogen/connector/)")
+					(name "LCSC Part") "C157929")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x05")
-				(description "Generic connector, single row, 01x05, script generated (kicad-library-utils/schlib/autogen/connector/)")
+				(lib "easyeda2kicad")
+				(part "S3B-PH-K-S-")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "S3B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C157929")
 			)
 			(property
 				(name "Sheetname")
@@ -917,17 +1601,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
+				(value "Wire To Board / Wire To Wire Connector")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "ba2eea6d-b330-44f5-ac87-a34fe7023e9f")
+			(tstamps "a98a2626-224c-42d3-9856-8c963bec2288")
 			(units
 				(unit
 					(name "A")
@@ -940,12 +1620,6 @@
 						)
 						(pin
 							(num "3")
-						)
-						(pin
-							(num "4")
-						)
-						(pin
-							(num "5")
 						)
 					)
 				)
@@ -953,88 +1627,40 @@
 		)
 		(comp
 			(ref "J8")
-			(value "PLAY_CUE")
-			(footprint "Connector_JST:JST_PH_B6B-PH-K_1x06_P2.00mm_Vertical")
-			(description "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			(fields
-				(field
-					(name "Footprint") "Connector_JST:JST_PH_B6B-PH-K_1x06_P2.00mm_Vertical")
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			)
-			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x06")
-				(description "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			)
-			(property
-				(name "Sheetname")
-				(value "midi_s3_mini")
-			)
-			(property
-				(name "Sheetfile")
-				(value "midi_s3_mini.kicad_sch")
-			)
-			(property
-				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
-			)
-			(sheetpath
-				(names "/")
-				(tstamps "/")
-			)
-			(tstamps "e16c104e-42d4-40fe-a8a5-d71e4daab5cc")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-						(pin
-							(num "2")
-						)
-						(pin
-							(num "3")
-						)
-						(pin
-							(num "4")
-						)
-						(pin
-							(num "5")
-						)
-						(pin
-							(num "6")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "J9")
 			(value "LOOP")
-			(footprint "Connector_JST:JST_XH_B7B-XH-AM_1x07_P2.50mm_Vertical")
-			(description "Generic connector, single row, 01x07, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			(footprint "easyeda2kicad:CONN-TH_7P-P2.00_S7B-PH-K-S-LF-SN")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST_S7B-PH-K-S-LF-SN_PHsocket-1-7P-Curved-needle-pitch2mm_C157917.html")
 			(fields
 				(field
-					(name "Footprint") "Connector_JST:JST_XH_B7B-XH-AM_1x07_P2.50mm_Vertical")
+					(name "Manufacturer") "JST")
 				(field
-					(name "Datasheet")
+					(name "MPN") "S7B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C157917")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_7P-P2.00_S7B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S7B-PH-K-S-LF-SN_PHsocket-1-7P-Curved-needle-pitch2mm_C157917.html")
+				(field
+					(name "Description")
 				)
-				(field
-					(name "Description") "Generic connector, single row, 01x07, script generated (kicad-library-utils/schlib/autogen/connector/)")
 			)
 			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x07")
-				(description "Generic connector, single row, 01x07, script generated (kicad-library-utils/schlib/autogen/connector/)")
+				(lib "easyeda2kicad")
+				(part "S7B-PH-K-S-")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "S7B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C157917")
 			)
 			(property
 				(name "Sheetname")
@@ -1046,17 +1672,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
+				(value "Wire To Board / Wire To Wire Connector")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "a53c8386-7484-4858-9fd7-3f583e1248fe")
+			(tstamps "91b7f4fe-5d27-46ac-bb00-568a575f5ad8")
 			(units
 				(unit
 					(name "A")
@@ -1087,23 +1709,41 @@
 			)
 		)
 		(comp
-			(ref "J10")
-			(value "OneButtonB_RX")
-			(description "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			(ref "J9")
+			(value "TRACK_ENC")
+			(footprint "easyeda2kicad:CONN-TH_S5B-PH-K-S-LF-SN")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST_S5B-PH-K-S-LF-SN_PHsocket-1-5P-Curved-needle-pitch2mm_C157923.html")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "JST")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "S5B-PH-K-S(LF)(SN)")
 				(field
-					(name "Description") "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+					(name "LCSC Part") "C157923")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_S5B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S5B-PH-K-S-LF-SN_PHsocket-1-5P-Curved-needle-pitch2mm_C157923.html")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x03")
-				(description "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+				(lib "easyeda2kicad")
+				(part "S5B-PH-K-S-")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "S5B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C157923")
 			)
 			(property
 				(name "Sheetname")
@@ -1115,17 +1755,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
+				(value "Wire To Board / Wire To Wire Connector")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "3b4b3497-0aa0-4f62-895e-7e451d444338")
+			(tstamps "010a5dd6-3c25-4786-844c-e119cc659a83")
 			(units
 				(unit
 					(name "A")
@@ -1138,6 +1774,92 @@
 						)
 						(pin
 							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "5")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J10")
+			(value "PLAY_CUE")
+			(footprint "easyeda2kicad:CONN-TH_6P-P2.00_S6B-PH-K-S-LF-SN")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST_S6B-PH-K-S-LF-SN_PHsocket-1-6P-Curved-needle-pitch2mm_C157920.html")
+			(fields
+				(field
+					(name "Manufacturer") "JST")
+				(field
+					(name "MPN") "S6B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C157920")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_6P-P2.00_S6B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S6B-PH-K-S-LF-SN_PHsocket-1-6P-Curved-needle-pitch2mm_C157920.html")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "S6B-PH-K-S-")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "S6B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C157920")
+			)
+			(property
+				(name "Sheetname")
+				(value "midi_s3_mini")
+			)
+			(property
+				(name "Sheetfile")
+				(value "midi_s3_mini.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Wire To Board / Wire To Wire Connector")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "d71f1084-127e-428b-aeff-5d4bc569703e")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "5")
+						)
+						(pin
+							(num "6")
 						)
 					)
 				)
@@ -1145,22 +1867,40 @@
 		)
 		(comp
 			(ref "J11")
-			(value "OneButtonB_TX")
-			(description "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			(value "JOG")
+			(footprint "easyeda2kicad:CONN-TH_S5B-PH-K-S-LF-SN")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST_S5B-PH-K-S-LF-SN_PHsocket-1-5P-Curved-needle-pitch2mm_C157923.html")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "JST")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "S5B-PH-K-S(LF)(SN)")
 				(field
-					(name "Description") "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+					(name "LCSC Part") "C157923")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_S5B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S5B-PH-K-S-LF-SN_PHsocket-1-5P-Curved-needle-pitch2mm_C157923.html")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x03")
-				(description "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
+				(lib "easyeda2kicad")
+				(part "S5B-PH-K-S-")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "S5B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C157923")
 			)
 			(property
 				(name "Sheetname")
@@ -1172,17 +1912,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
+				(value "Wire To Board / Wire To Wire Connector")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "0e14407b-fc7a-47d0-a9ad-f62667b9221d")
+			(tstamps "80d4c9b5-861b-4c6a-a301-0ad97e0eca52")
 			(units
 				(unit
 					(name "A")
@@ -1195,6 +1931,86 @@
 						)
 						(pin
 							(num "3")
+						)
+						(pin
+							(num "4")
+						)
+						(pin
+							(num "5")
+						)
+					)
+				)
+			)
+		)
+		(comp
+			(ref "J12")
+			(value "TEMPO")
+			(footprint "easyeda2kicad:CONN-TH_4P-P2.00_S4B-PH-K-S-LF-SN")
+			(datasheet "https://lcsc.com/product-detail/PH-Connectors_JST_S4B-PH-K-S-LF-SN_PHsocket-1-4P-Curved-needle-pitch2mm_C157926.html")
+			(fields
+				(field
+					(name "Manufacturer") "JST")
+				(field
+					(name "MPN") "S4B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C157926")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_4P-P2.00_S4B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S4B-PH-K-S-LF-SN_PHsocket-1-4P-Curved-needle-pitch2mm_C157926.html")
+				(field
+					(name "Description")
+				)
+			)
+			(libsource
+				(lib "easyeda2kicad")
+				(part "S4B-PH-K-S-")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "JST")
+			)
+			(property
+				(name "MPN")
+				(value "S4B-PH-K-S(LF)(SN)")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C157926")
+			)
+			(property
+				(name "Sheetname")
+				(value "midi_s3_mini")
+			)
+			(property
+				(name "Sheetfile")
+				(value "midi_s3_mini.kicad_sch")
+			)
+			(property
+				(name "ki_keywords")
+				(value "Wire To Board / Wire To Wire Connector")
+			)
+			(sheetpath
+				(names "/")
+				(tstamps "/")
+			)
+			(tstamps "3a0c00e5-7209-4f3b-babb-2d5c59ff1e1e")
+			(units
+				(unit
+					(name "A")
+					(pins
+						(pin
+							(num "1")
+						)
+						(pin
+							(num "2")
+						)
+						(pin
+							(num "3")
+						)
+						(pin
+							(num "4")
 						)
 					)
 				)
@@ -1203,21 +2019,39 @@
 		(comp
 			(ref "R1")
 			(value "1.8k")
-			(description "Resistor")
+			(footprint "easyeda2kicad:RES-TH_BD2.4-L6.3-P10.30-D0.6")
+			(datasheet "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_YAGEO-MFR-25FTE52-1K8_C172980.html")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "YAGEO(国巨)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "MFR-25FTE52-1K8")
 				(field
-					(name "Description") "Resistor")
+					(name "LCSC Part") "C172980")
+				(field
+					(name "Footprint") "easyeda2kicad:RES-TH_BD2.4-L6.3-P10.30-D0.6")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_YAGEO-MFR-25FTE52-1K8_C172980.html")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Device")
-				(part "R")
-				(description "Resistor")
+				(lib "easyeda2kicad")
+				(part "MFR-25FTE52-1K8")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "YAGEO(国巨)")
+			)
+			(property
+				(name "MPN")
+				(value "MFR-25FTE52-1K8")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C172980")
 			)
 			(property
 				(name "Sheetname")
@@ -1229,17 +2063,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "R res resistor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "R_*")
+				(value "Through Hole Resistors")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "60020c5d-a1dc-46cc-b542-02a07b8219b5")
+			(tstamps "ff4a740d-447e-45c7-963e-b3bbc9fbb1cd")
 			(units
 				(unit
 					(name "A")
@@ -1257,21 +2087,39 @@
 		(comp
 			(ref "R2")
 			(value "3.3k")
-			(description "Resistor")
+			(footprint "easyeda2kicad:RES-TH_BD2.2-L6.5-P10.50-D0.6")
+			(datasheet "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_3-3KR-3301-1_C58610.html")
+			(description "3.3KΩ (3301) ±1%")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "UNI-ROYAL(厚声)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "MFR0W4F3301A50")
 				(field
-					(name "Description") "Resistor")
+					(name "LCSC Part") "C58610")
+				(field
+					(name "Footprint") "easyeda2kicad:RES-TH_BD2.2-L6.5-P10.50-D0.6")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_3-3KR-3301-1_C58610.html")
+				(field
+					(name "Description") "3.3KΩ (3301) ±1%")
 			)
 			(libsource
-				(lib "Device")
-				(part "R")
-				(description "Resistor")
+				(lib "easyeda2kicad")
+				(part "MFR0W4F3301A50")
+				(description "3.3KΩ (3301) ±1%")
+			)
+			(property
+				(name "Manufacturer")
+				(value "UNI-ROYAL(厚声)")
+			)
+			(property
+				(name "MPN")
+				(value "MFR0W4F3301A50")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C58610")
 			)
 			(property
 				(name "Sheetname")
@@ -1283,17 +2131,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "R res resistor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "R_*")
+				(value "Through Hole Resistors")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "1e8c78e9-3aab-45aa-97f9-8c4f58c9941d")
+			(tstamps "3fb6bd3b-0fc8-48d1-8123-51264fb19c6c")
 			(units
 				(unit
 					(name "A")
@@ -1310,22 +2154,40 @@
 		)
 		(comp
 			(ref "R3")
-			(value "100k")
-			(description "Resistor")
+			(value "1.8k")
+			(footprint "easyeda2kicad:RES-TH_BD2.4-L6.3-P10.30-D0.6")
+			(datasheet "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_YAGEO-MFR-25FTE52-1K8_C172980.html")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "YAGEO(国巨)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "MFR-25FTE52-1K8")
 				(field
-					(name "Description") "Resistor")
+					(name "LCSC Part") "C172980")
+				(field
+					(name "Footprint") "easyeda2kicad:RES-TH_BD2.4-L6.3-P10.30-D0.6")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_YAGEO-MFR-25FTE52-1K8_C172980.html")
+				(field
+					(name "Description")
+				)
 			)
 			(libsource
-				(lib "Device")
-				(part "R")
-				(description "Resistor")
+				(lib "easyeda2kicad")
+				(part "MFR-25FTE52-1K8")
+				(description "")
+			)
+			(property
+				(name "Manufacturer")
+				(value "YAGEO(国巨)")
+			)
+			(property
+				(name "MPN")
+				(value "MFR-25FTE52-1K8")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C172980")
 			)
 			(property
 				(name "Sheetname")
@@ -1337,17 +2199,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "R res resistor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "R_*")
+				(value "Through Hole Resistors")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "06edce2f-3b9d-4204-bd34-f9fc9f6775ae")
+			(tstamps "f26fa735-f4e1-489d-a83f-ae6d8054f847")
 			(units
 				(unit
 					(name "A")
@@ -1364,22 +2222,40 @@
 		)
 		(comp
 			(ref "R4")
-			(value "100k")
-			(description "Resistor")
+			(value "3.3k")
+			(footprint "easyeda2kicad:RES-TH_BD2.2-L6.5-P10.50-D0.6")
+			(datasheet "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_3-3KR-3301-1_C58610.html")
+			(description "3.3KΩ (3301) ±1%")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "UNI-ROYAL(厚声)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "MFR0W4F3301A50")
 				(field
-					(name "Description") "Resistor")
+					(name "LCSC Part") "C58610")
+				(field
+					(name "Footprint") "easyeda2kicad:RES-TH_BD2.2-L6.5-P10.50-D0.6")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_3-3KR-3301-1_C58610.html")
+				(field
+					(name "Description") "3.3KΩ (3301) ±1%")
 			)
 			(libsource
-				(lib "Device")
-				(part "R")
-				(description "Resistor")
+				(lib "easyeda2kicad")
+				(part "MFR0W4F3301A50")
+				(description "3.3KΩ (3301) ±1%")
+			)
+			(property
+				(name "Manufacturer")
+				(value "UNI-ROYAL(厚声)")
+			)
+			(property
+				(name "MPN")
+				(value "MFR0W4F3301A50")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C58610")
 			)
 			(property
 				(name "Sheetname")
@@ -1391,17 +2267,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "R res resistor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "R_*")
+				(value "Through Hole Resistors")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "ebc569fb-5445-447d-9316-a15744bfdbd9")
+			(tstamps "2a94667c-89a3-44bc-ac45-bf5ba4427a5c")
 			(units
 				(unit
 					(name "A")
@@ -1418,22 +2290,40 @@
 		)
 		(comp
 			(ref "R5")
-			(value "3.3k")
-			(description "Resistor")
+			(value "10k")
+			(footprint "easyeda2kicad:RES-TH_BD2.5-L6.5-P10.50-D0.6")
+			(datasheet "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_10KR-1002-1_C57436.html")
+			(description "10KΩ (1002) ±1%")
 			(fields
 				(field
-					(name "Footprint")
-				)
+					(name "Manufacturer") "UNI-ROYAL(厚声)")
 				(field
-					(name "Datasheet")
-				)
+					(name "MPN") "MFR0W4F1002A50")
 				(field
-					(name "Description") "Resistor")
+					(name "LCSC Part") "C57436")
+				(field
+					(name "Footprint") "easyeda2kicad:RES-TH_BD2.5-L6.5-P10.50-D0.6")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_10KR-1002-1_C57436.html")
+				(field
+					(name "Description") "10KΩ (1002) ±1%")
 			)
 			(libsource
-				(lib "Device")
-				(part "R")
-				(description "Resistor")
+				(lib "easyeda2kicad")
+				(part "MFR0W4F1002A50")
+				(description "10KΩ (1002) ±1%")
+			)
+			(property
+				(name "Manufacturer")
+				(value "UNI-ROYAL(厚声)")
+			)
+			(property
+				(name "MPN")
+				(value "MFR0W4F1002A50")
+			)
+			(property
+				(name "LCSC Part")
+				(value "C57436")
 			)
 			(property
 				(name "Sheetname")
@@ -1445,71 +2335,13 @@
 			)
 			(property
 				(name "ki_keywords")
-				(value "R res resistor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "R_*")
+				(value "Through Hole Resistors")
 			)
 			(sheetpath
 				(names "/")
 				(tstamps "/")
 			)
-			(tstamps "0cfb6e9c-9aba-477f-9d9e-2daf56ff895b")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-						(pin
-							(num "2")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "R6")
-			(value "1.8k")
-			(description "Resistor")
-			(fields
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Resistor")
-			)
-			(libsource
-				(lib "Device")
-				(part "R")
-				(description "Resistor")
-			)
-			(property
-				(name "Sheetname")
-				(value "midi_s3_mini")
-			)
-			(property
-				(name "Sheetfile")
-				(value "midi_s3_mini.kicad_sch")
-			)
-			(property
-				(name "ki_keywords")
-				(value "R res resistor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "R_*")
-			)
-			(sheetpath
-				(names "/")
-				(tstamps "/")
-			)
-			(tstamps "ed77b22a-6b2e-42cf-a8d9-9df684f1410e")
+			(tstamps "e5105bbb-a567-4734-8c9b-f7233b6b95ec")
 			(units
 				(unit
 					(name "A")
@@ -1669,17 +2501,17 @@
 	(variants)
 	(libparts
 		(libpart
-			(lib "Connector_Generic")
-			(part "Conn_01x02")
-			(description "Generic connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)")
+			(lib "Mechanical")
+			(part "MountingHole")
+			(description "Mounting Hole without connection")
 			(footprints
-				(fp "Connector*:*_1x??_*")
+				(fp "MountingHole*")
 			)
 			(fields
 				(field
-					(name "Reference") "J")
+					(name "Reference") "H")
 				(field
-					(name "Value") "Conn_01x02")
+					(name "Value") "MountingHole")
 				(field
 					(name "Footprint")
 				)
@@ -1687,366 +2519,7 @@
 					(name "Datasheet")
 				)
 				(field
-					(name "Description") "Generic connector, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			)
-			(pins
-				(pin
-					(num "1")
-					(name "Pin_1")
-					(type "passive")
-				)
-				(pin
-					(num "2")
-					(name "Pin_2")
-					(type "passive")
-				)
-			)
-		)
-		(libpart
-			(lib "Connector_Generic")
-			(part "Conn_01x03")
-			(description "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			(footprints
-				(fp "Connector*:*_1x??_*")
-			)
-			(fields
-				(field
-					(name "Reference") "J")
-				(field
-					(name "Value") "Conn_01x03")
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Generic connector, single row, 01x03, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			)
-			(pins
-				(pin
-					(num "1")
-					(name "Pin_1")
-					(type "passive")
-				)
-				(pin
-					(num "2")
-					(name "Pin_2")
-					(type "passive")
-				)
-				(pin
-					(num "3")
-					(name "Pin_3")
-					(type "passive")
-				)
-			)
-		)
-		(libpart
-			(lib "Connector_Generic")
-			(part "Conn_01x04")
-			(description "Generic connector, single row, 01x04, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			(footprints
-				(fp "Connector*:*_1x??_*")
-			)
-			(fields
-				(field
-					(name "Reference") "J")
-				(field
-					(name "Value") "Conn_01x04")
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Generic connector, single row, 01x04, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			)
-			(pins
-				(pin
-					(num "1")
-					(name "Pin_1")
-					(type "passive")
-				)
-				(pin
-					(num "2")
-					(name "Pin_2")
-					(type "passive")
-				)
-				(pin
-					(num "3")
-					(name "Pin_3")
-					(type "passive")
-				)
-				(pin
-					(num "4")
-					(name "Pin_4")
-					(type "passive")
-				)
-			)
-		)
-		(libpart
-			(lib "Connector_Generic")
-			(part "Conn_01x05")
-			(description "Generic connector, single row, 01x05, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			(footprints
-				(fp "Connector*:*_1x??_*")
-			)
-			(fields
-				(field
-					(name "Reference") "J")
-				(field
-					(name "Value") "Conn_01x05")
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Generic connector, single row, 01x05, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			)
-			(pins
-				(pin
-					(num "1")
-					(name "Pin_1")
-					(type "passive")
-				)
-				(pin
-					(num "2")
-					(name "Pin_2")
-					(type "passive")
-				)
-				(pin
-					(num "3")
-					(name "Pin_3")
-					(type "passive")
-				)
-				(pin
-					(num "4")
-					(name "Pin_4")
-					(type "passive")
-				)
-				(pin
-					(num "5")
-					(name "Pin_5")
-					(type "passive")
-				)
-			)
-		)
-		(libpart
-			(lib "Connector_Generic")
-			(part "Conn_01x06")
-			(description "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			(footprints
-				(fp "Connector*:*_1x??_*")
-			)
-			(fields
-				(field
-					(name "Reference") "J")
-				(field
-					(name "Value") "Conn_01x06")
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			)
-			(pins
-				(pin
-					(num "1")
-					(name "Pin_1")
-					(type "passive")
-				)
-				(pin
-					(num "2")
-					(name "Pin_2")
-					(type "passive")
-				)
-				(pin
-					(num "3")
-					(name "Pin_3")
-					(type "passive")
-				)
-				(pin
-					(num "4")
-					(name "Pin_4")
-					(type "passive")
-				)
-				(pin
-					(num "5")
-					(name "Pin_5")
-					(type "passive")
-				)
-				(pin
-					(num "6")
-					(name "Pin_6")
-					(type "passive")
-				)
-			)
-		)
-		(libpart
-			(lib "Connector_Generic")
-			(part "Conn_01x07")
-			(description "Generic connector, single row, 01x07, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			(footprints
-				(fp "Connector*:*_1x??_*")
-			)
-			(fields
-				(field
-					(name "Reference") "J")
-				(field
-					(name "Value") "Conn_01x07")
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Generic connector, single row, 01x07, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			)
-			(pins
-				(pin
-					(num "1")
-					(name "Pin_1")
-					(type "passive")
-				)
-				(pin
-					(num "2")
-					(name "Pin_2")
-					(type "passive")
-				)
-				(pin
-					(num "3")
-					(name "Pin_3")
-					(type "passive")
-				)
-				(pin
-					(num "4")
-					(name "Pin_4")
-					(type "passive")
-				)
-				(pin
-					(num "5")
-					(name "Pin_5")
-					(type "passive")
-				)
-				(pin
-					(num "6")
-					(name "Pin_6")
-					(type "passive")
-				)
-				(pin
-					(num "7")
-					(name "Pin_7")
-					(type "passive")
-				)
-			)
-		)
-		(libpart
-			(lib "Device")
-			(part "C")
-			(description "Unpolarized capacitor")
-			(footprints
-				(fp "C_*")
-			)
-			(fields
-				(field
-					(name "Reference") "C")
-				(field
-					(name "Value") "C")
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Unpolarized capacitor")
-			)
-			(pins
-				(pin
-					(num "1")
-					(name "")
-					(type "passive")
-				)
-				(pin
-					(num "2")
-					(name "")
-					(type "passive")
-				)
-			)
-		)
-		(libpart
-			(lib "Device")
-			(part "C_Small")
-			(description "Unpolarized capacitor, small symbol")
-			(footprints
-				(fp "C_*")
-			)
-			(fields
-				(field
-					(name "Reference") "C")
-				(field
-					(name "Value") "C_Small")
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Unpolarized capacitor, small symbol")
-			)
-			(pins
-				(pin
-					(num "1")
-					(name "")
-					(type "passive")
-				)
-				(pin
-					(num "2")
-					(name "")
-					(type "passive")
-				)
-			)
-		)
-		(libpart
-			(lib "Device")
-			(part "R")
-			(description "Resistor")
-			(footprints
-				(fp "R_*")
-			)
-			(fields
-				(field
-					(name "Reference") "R")
-				(field
-					(name "Value") "R")
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Resistor")
-			)
-			(pins
-				(pin
-					(num "1")
-					(name "")
-					(type "passive")
-				)
-				(pin
-					(num "2")
-					(name "")
-					(type "passive")
-				)
+					(name "Description") "Mounting Hole without connection")
 			)
 		)
 		(libpart
@@ -2229,75 +2702,628 @@
 				)
 			)
 		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "01EC1809SHC10UF50V")
+			(docs "https://lcsc.com/product-detail/Aluminum-Electrolytic-Capacitors-Leaded_KNSCHA-01EC1809SHC10UF50V_C503219.html")
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "01EC1809SHC10UF50V")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_BD5.0-P2.00-D0.8-FD")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Aluminum-Electrolytic-Capacitors-Leaded_KNSCHA-01EC1809SHC10UF50V_C503219.html")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "KNSCHA(科尼盛)")
+				(field
+					(name "MPN") "01EC1809SHC10UF50V")
+				(field
+					(name "LCSC Part") "C503219")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "178MU0006")
+			(docs "https://www.lcsc.com/datasheet/C5632430.pdf")
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "178MU0006")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C5632430.pdf")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "KNSCHA(科尼盛)")
+				(field
+					(name "MPN") "178MU0006")
+				(field
+					(name "LCSC Part") "C5632430")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "ERG50V22M5X11")
+			(docs "https://www.lcsc.com/datasheet/C47344185.pdf")
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "ERG50V22M5X11")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_BD5.0-P2.00-D0.5-FD")
+				(field
+					(name "Datasheet") "https://www.lcsc.com/datasheet/C47344185.pdf")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "JIERR(捷而瑞)")
+				(field
+					(name "MPN") "ERG50V22M5X11")
+				(field
+					(name "LCSC Part") "C47344185")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "input")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "input")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "ERR1VM102G20OT")
+			(docs "https://lcsc.com/product-detail/Aluminum-Electrolytic-Capacitors-Leaded_Aihua-Group-ERR1VM102G20OT_C398835.html")
+			(fields
+				(field
+					(name "Reference") "C")
+				(field
+					(name "Value") "ERR1VM102G20OT")
+				(field
+					(name "Footprint") "easyeda2kicad:CAP-TH_BD10.0-P5.00-D1.0-FD")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Aluminum-Electrolytic-Capacitors-Leaded_Aihua-Group-ERR1VM102G20OT_C398835.html")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "AISHI(艾华集团)")
+				(field
+					(name "MPN") "ERR1VM102G20OT")
+				(field
+					(name "LCSC Part") "C398835")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "MFR-25FTE52-1K8")
+			(docs "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_YAGEO-MFR-25FTE52-1K8_C172980.html")
+			(fields
+				(field
+					(name "Reference") "R")
+				(field
+					(name "Value") "MFR-25FTE52-1K8")
+				(field
+					(name "Footprint") "easyeda2kicad:RES-TH_BD2.4-L6.3-P10.30-D0.6")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_YAGEO-MFR-25FTE52-1K8_C172980.html")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "YAGEO(国巨)")
+				(field
+					(name "MPN") "MFR-25FTE52-1K8")
+				(field
+					(name "LCSC Part") "C172980")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "MFR0W4F1002A50")
+			(description "10KΩ (1002) ±1%")
+			(docs "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_10KR-1002-1_C57436.html")
+			(fields
+				(field
+					(name "Reference") "R")
+				(field
+					(name "Value") "MFR0W4F1002A50")
+				(field
+					(name "Footprint") "easyeda2kicad:RES-TH_BD2.5-L6.5-P10.50-D0.6")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_10KR-1002-1_C57436.html")
+				(field
+					(name "Description") "10KΩ (1002) ±1%")
+				(field
+					(name "Manufacturer") "UNI-ROYAL(厚声)")
+				(field
+					(name "MPN") "MFR0W4F1002A50")
+				(field
+					(name "LCSC Part") "C57436")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "input")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "input")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "MFR0W4F3301A50")
+			(description "3.3KΩ (3301) ±1%")
+			(docs "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_3-3KR-3301-1_C58610.html")
+			(fields
+				(field
+					(name "Reference") "R")
+				(field
+					(name "Value") "MFR0W4F3301A50")
+				(field
+					(name "Footprint") "easyeda2kicad:RES-TH_BD2.2-L6.5-P10.50-D0.6")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_3-3KR-3301-1_C58610.html")
+				(field
+					(name "Description") "3.3KΩ (3301) ±1%")
+				(field
+					(name "Manufacturer") "UNI-ROYAL(厚声)")
+				(field
+					(name "MPN") "MFR0W4F3301A50")
+				(field
+					(name "LCSC Part") "C58610")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "input")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "input")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "S2B-PH-K-S")
+			(docs "https://lcsc.com/product-detail/PH-Connectors_JST-Sales-America_S2B-PH-K-S-LF-SN_JST-Sales-America-S2B-PH-K-S-LF-SN_C173752.html")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "S2B-PH-K-S")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_S2B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST-Sales-America_S2B-PH-K-S-LF-SN_JST-Sales-America-S2B-PH-K-S-LF-SN_C173752.html")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "JST")
+				(field
+					(name "MPN") "S2B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C173752")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "S3B-PH-K-S-")
+			(docs "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "S3B-PH-K-S-")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S3B-PH-K-S-LF-SN_PHsocket-1-3P-Curved-needle-pitch2mm_C157929.html")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "JST")
+				(field
+					(name "MPN") "S3B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C157929")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+				(pin
+					(num "3")
+					(name "3")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "S4B-PH-K-S-")
+			(docs "https://lcsc.com/product-detail/PH-Connectors_JST_S4B-PH-K-S-LF-SN_PHsocket-1-4P-Curved-needle-pitch2mm_C157926.html")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "S4B-PH-K-S-")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_4P-P2.00_S4B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S4B-PH-K-S-LF-SN_PHsocket-1-4P-Curved-needle-pitch2mm_C157926.html")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "JST")
+				(field
+					(name "MPN") "S4B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C157926")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+				(pin
+					(num "3")
+					(name "3")
+					(type "unspecified")
+				)
+				(pin
+					(num "4")
+					(name "4")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "S5B-PH-K-S-")
+			(docs "https://lcsc.com/product-detail/PH-Connectors_JST_S5B-PH-K-S-LF-SN_PHsocket-1-5P-Curved-needle-pitch2mm_C157923.html")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "S5B-PH-K-S-")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_S5B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S5B-PH-K-S-LF-SN_PHsocket-1-5P-Curved-needle-pitch2mm_C157923.html")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "JST")
+				(field
+					(name "MPN") "S5B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C157923")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+				(pin
+					(num "3")
+					(name "3")
+					(type "unspecified")
+				)
+				(pin
+					(num "4")
+					(name "4")
+					(type "unspecified")
+				)
+				(pin
+					(num "5")
+					(name "5")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "S6B-PH-K-S-")
+			(docs "https://lcsc.com/product-detail/PH-Connectors_JST_S6B-PH-K-S-LF-SN_PHsocket-1-6P-Curved-needle-pitch2mm_C157920.html")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "S6B-PH-K-S-")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_6P-P2.00_S6B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S6B-PH-K-S-LF-SN_PHsocket-1-6P-Curved-needle-pitch2mm_C157920.html")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "JST")
+				(field
+					(name "MPN") "S6B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C157920")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+				(pin
+					(num "3")
+					(name "3")
+					(type "unspecified")
+				)
+				(pin
+					(num "4")
+					(name "4")
+					(type "unspecified")
+				)
+				(pin
+					(num "5")
+					(name "5")
+					(type "unspecified")
+				)
+				(pin
+					(num "6")
+					(name "6")
+					(type "unspecified")
+				)
+			)
+		)
+		(libpart
+			(lib "easyeda2kicad")
+			(part "S7B-PH-K-S-")
+			(docs "https://lcsc.com/product-detail/PH-Connectors_JST_S7B-PH-K-S-LF-SN_PHsocket-1-7P-Curved-needle-pitch2mm_C157917.html")
+			(fields
+				(field
+					(name "Reference") "U")
+				(field
+					(name "Value") "S7B-PH-K-S-")
+				(field
+					(name "Footprint") "easyeda2kicad:CONN-TH_7P-P2.00_S7B-PH-K-S-LF-SN")
+				(field
+					(name "Datasheet") "https://lcsc.com/product-detail/PH-Connectors_JST_S7B-PH-K-S-LF-SN_PHsocket-1-7P-Curved-needle-pitch2mm_C157917.html")
+				(field
+					(name "Description")
+				)
+				(field
+					(name "Manufacturer") "JST")
+				(field
+					(name "MPN") "S7B-PH-K-S(LF)(SN)")
+				(field
+					(name "LCSC Part") "C157917")
+			)
+			(pins
+				(pin
+					(num "1")
+					(name "1")
+					(type "unspecified")
+				)
+				(pin
+					(num "2")
+					(name "2")
+					(type "unspecified")
+				)
+				(pin
+					(num "3")
+					(name "3")
+					(type "unspecified")
+				)
+				(pin
+					(num "4")
+					(name "4")
+					(type "unspecified")
+				)
+				(pin
+					(num "5")
+					(name "5")
+					(type "unspecified")
+				)
+				(pin
+					(num "6")
+					(name "6")
+					(type "unspecified")
+				)
+				(pin
+					(num "7")
+					(name "7")
+					(type "unspecified")
+				)
+			)
+		)
 	)
 	(libraries
 		(library
-			(logical "Connector_Generic")
-			(uri "${KICAD10_SYMBOL_DIR}/Connector_Generic.kicad_sym")
-		)
-		(library
-			(logical "Device")
-			(uri "${KICAD10_SYMBOL_DIR}/Device.kicad_sym")
+			(logical "Mechanical")
+			(uri "${KICAD10_SYMBOL_DIR}/Mechanical.kicad_sym")
 		)
 		(library
 			(logical "S3_mini_LOLIN")
 			(uri "/Users/sam1902/Documents/KiCad/CustomParts/LOLIN_S3_Mini.kicad_sym")
+		)
+		(library
+			(logical "easyeda2kicad")
+			(uri "${EASYEDA2KICAD}/easyeda2kicad.kicad_sym")
 		)
 	)
 	(nets
 		(net
 			(code "1")
 			(name "+3.3V")
-			(class "Default")
+			(class "LowPower,Default")
+			(node
+				(ref "C11")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C13")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C3")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
 			(node
 				(ref "C5")
 				(pin "1")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
-				(ref "C6")
+				(ref "C7")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "J11")
+				(pin "3")
+				(pinfunction "3_3")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "J12")
 				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "J5")
-				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
-			)
-			(node
-				(ref "J6")
-				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
-			)
-			(node
-				(ref "J7")
-				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J8")
 				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J9")
-				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
-				(ref "R3")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "R4")
-				(pin "1")
-				(pintype "passive")
+				(ref "R5")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "input")
 			)
 			(node
 				(ref "U1")
@@ -2309,61 +3335,78 @@
 		(net
 			(code "2")
 			(name "+5V")
-			(class "Default")
+			(class "HighPower,Default")
 			(node
-				(ref "C3")
+				(ref "C1")
 				(pin "2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C12")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C2")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "C4")
 				(pin "1")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
-				(ref "C7")
+				(ref "C6")
 				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "C8")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "C9")
-				(pin "1")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "input")
 			)
 			(node
 				(ref "J1")
 				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J10")
 				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
-			)
-			(node
-				(ref "J11")
-				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J2")
 				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
-				(ref "J3")
+				(ref "J4")
 				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "J5")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "J6")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "J7")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2379,17 +3422,14 @@
 			(node
 				(ref "R1")
 				(pin "1")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "R2")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "R3")
 				(pin "2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "input")
 			)
 			(node
 				(ref "U1")
@@ -2403,10 +3443,10 @@
 			(name "/1BTNA_TX")
 			(class "Default")
 			(node
-				(ref "J2")
+				(ref "J4")
 				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2420,19 +3460,16 @@
 			(name "/1BTNB_RX")
 			(class "Default")
 			(node
+				(ref "R3")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
 				(ref "R4")
 				(pin "2")
-				(pintype "passive")
-			)
-			(node
-				(ref "R5")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "R6")
-				(pin "1")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "input")
 			)
 			(node
 				(ref "U1")
@@ -2446,10 +3483,10 @@
 			(name "/1BTNB_TX")
 			(class "Default")
 			(node
-				(ref "J11")
+				(ref "J7")
 				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2463,10 +3500,27 @@
 			(name "/BTN_CUE")
 			(class "Default")
 			(node
-				(ref "J8")
+				(ref "J10")
 				(pin "4")
-				(pinfunction "Pin_4_4")
-				(pintype "passive")
+				(pinfunction "4_4")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "U1")
+				(pin "28")
+				(pinfunction "IO35/SDA_28")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "8")
+			(name "/BTN_PLAY")
+			(class "Default")
+			(node
+				(ref "J10")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2476,36 +3530,20 @@
 			)
 		)
 		(net
-			(code "8")
-			(name "/BTN_PLAY")
-			(class "Default")
-			(node
-				(ref "J8")
-				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
-			)
-			(node
-				(ref "U1")
-				(pin "27")
-				(pinfunction "IO36/SCL_27")
-				(pintype "bidirectional")
-			)
-		)
-		(net
 			(code "9")
 			(name "/ENC_CLK")
 			(class "Default")
 			(node
-				(ref "C1")
-				(pin "1")
-				(pintype "passive")
+				(ref "C9")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
-				(ref "J7")
-				(pin "3")
-				(pinfunction "Pin_3_3")
-				(pintype "passive")
+				(ref "J9")
+				(pin "5")
+				(pinfunction "5_5")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2519,15 +3557,16 @@
 			(name "/ENC_DT")
 			(class "Default")
 			(node
-				(ref "C2")
-				(pin "1")
-				(pintype "passive")
+				(ref "C10")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
-				(ref "J7")
+				(ref "J9")
 				(pin "4")
-				(pinfunction "Pin_4_4")
-				(pintype "passive")
+				(pinfunction "4_4")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2541,10 +3580,10 @@
 			(name "/ENC_SW")
 			(class "Default")
 			(node
-				(ref "J7")
-				(pin "5")
-				(pinfunction "Pin_5_5")
-				(pintype "passive")
+				(ref "J9")
+				(pin "3")
+				(pinfunction "3_3")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2558,10 +3597,10 @@
 			(name "/JOG1")
 			(class "Default")
 			(node
-				(ref "J6")
-				(pin "3")
-				(pinfunction "Pin_3_3")
-				(pintype "passive")
+				(ref "J11")
+				(pin "5")
+				(pinfunction "5_5")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2575,10 +3614,10 @@
 			(name "/JOG2")
 			(class "Default")
 			(node
-				(ref "J6")
+				(ref "J11")
 				(pin "4")
-				(pinfunction "Pin_4_4")
-				(pintype "passive")
+				(pinfunction "4_4")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2592,10 +3631,22 @@
 			(name "/JOG_TCH")
 			(class "Default")
 			(node
-				(ref "J6")
-				(pin "5")
-				(pinfunction "Pin_5_5")
-				(pintype "passive")
+				(ref "C8")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "J11")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "R5")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "input")
 			)
 			(node
 				(ref "U1")
@@ -2609,10 +3660,27 @@
 			(name "/LED_CUE")
 			(class "Default")
 			(node
-				(ref "J8")
+				(ref "J10")
 				(pin "5")
-				(pinfunction "Pin_5_5")
-				(pintype "passive")
+				(pinfunction "5_5")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "U1")
+				(pin "27")
+				(pinfunction "IO36/SCL_27")
+				(pintype "bidirectional")
+			)
+		)
+		(net
+			(code "16")
+			(name "/LED_PLAY")
+			(class "Default")
+			(node
+				(ref "J10")
+				(pin "3")
+				(pinfunction "3_3")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2622,31 +3690,14 @@
 			)
 		)
 		(net
-			(code "16")
-			(name "/LED_PLAY")
-			(class "Default")
-			(node
-				(ref "J8")
-				(pin "3")
-				(pinfunction "Pin_3_3")
-				(pintype "passive")
-			)
-			(node
-				(ref "U1")
-				(pin "28")
-				(pinfunction "IO35/SDA_28")
-				(pintype "bidirectional")
-			)
-		)
-		(net
 			(code "17")
 			(name "/LOOP_END_BTN")
 			(class "Default")
 			(node
-				(ref "J9")
+				(ref "J8")
 				(pin "4")
-				(pinfunction "Pin_4_4")
-				(pintype "passive")
+				(pinfunction "4_4")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2660,10 +3711,10 @@
 			(name "/LOOP_END_LED")
 			(class "Default")
 			(node
-				(ref "J9")
+				(ref "J8")
 				(pin "5")
-				(pinfunction "Pin_5_5")
-				(pintype "passive")
+				(pinfunction "5_5")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2677,10 +3728,10 @@
 			(name "/LOOP_START_BTN")
 			(class "Default")
 			(node
-				(ref "J9")
+				(ref "J8")
 				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2694,10 +3745,10 @@
 			(name "/LOOP_START_LED")
 			(class "Default")
 			(node
-				(ref "J9")
+				(ref "J8")
 				(pin "3")
-				(pinfunction "Pin_3_3")
-				(pintype "passive")
+				(pinfunction "3_3")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2711,10 +3762,10 @@
 			(name "/RELOOP_BTN")
 			(class "Default")
 			(node
-				(ref "J9")
+				(ref "J8")
 				(pin "6")
-				(pinfunction "Pin_6_6")
-				(pintype "passive")
+				(pinfunction "6_6")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2728,27 +3779,10 @@
 			(name "/TEMPO_ADCT")
 			(class "Default")
 			(node
-				(ref "J5")
-				(pin "4")
-				(pinfunction "Pin_4_4")
-				(pintype "passive")
-			)
-			(node
-				(ref "U1")
-				(pin "15")
-				(pinfunction "IO9_15")
-				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "23")
-			(name "/TEMPO_ADIN")
-			(class "Default")
-			(node
-				(ref "J5")
-				(pin "3")
-				(pinfunction "Pin_3_3")
-				(pintype "passive")
+				(ref "J12")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2758,14 +3792,31 @@
 			)
 		)
 		(net
+			(code "23")
+			(name "/TEMPO_ADIN")
+			(class "Default")
+			(node
+				(ref "J12")
+				(pin "3")
+				(pinfunction "3_3")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "U1")
+				(pin "15")
+				(pinfunction "IO9_15")
+				(pintype "bidirectional")
+			)
+		)
+		(net
 			(code "24")
 			(name "/UART_RX_FROM_PI")
 			(class "Default")
 			(node
-				(ref "J4")
+				(ref "J3")
 				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2779,10 +3830,10 @@
 			(name "/UART_TX_TO_PI")
 			(class "Default")
 			(node
-				(ref "J4")
+				(ref "J3")
 				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "U1")
@@ -2797,124 +3848,165 @@
 			(class "Default")
 			(node
 				(ref "C1")
-				(pin "2")
-				(pintype "passive")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C10")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C11")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C12")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "C13")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "C2")
 				(pin "2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "C3")
 				(pin "1")
-				(pintype "passive")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "C4")
 				(pin "2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "C5")
 				(pin "2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "C6")
 				(pin "2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "input")
 			)
 			(node
 				(ref "C7")
-				(pin "2")
-				(pintype "passive")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "C8")
-				(pin "2")
-				(pintype "passive")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "C9")
-				(pin "2")
-				(pintype "passive")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J1")
 				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J10")
-				(pin "3")
-				(pinfunction "Pin_3_3")
-				(pintype "passive")
+				(pin "6")
+				(pinfunction "6_6")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J11")
-				(pin "3")
-				(pinfunction "Pin_3_3")
-				(pintype "passive")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
+			)
+			(node
+				(ref "J12")
+				(pin "4")
+				(pinfunction "4_4")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J2")
-				(pin "3")
-				(pinfunction "Pin_3_3")
-				(pintype "passive")
+				(pin "2")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J3")
 				(pin "3")
-				(pinfunction "Pin_3_3")
-				(pintype "passive")
+				(pinfunction "3_3")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J4")
 				(pin "3")
-				(pinfunction "Pin_3_3")
-				(pintype "passive")
+				(pinfunction "3_3")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J5")
-				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
+				(pin "3")
+				(pinfunction "3_3")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J6")
-				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
+				(pin "3")
+				(pinfunction "3_3")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J7")
-				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
+				(pin "3")
+				(pinfunction "3_3")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J8")
-				(pin "6")
-				(pinfunction "Pin_6_6")
-				(pintype "passive")
+				(pin "7")
+				(pinfunction "7_7")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "J9")
-				(pin "7")
-				(pinfunction "Pin_7_7")
-				(pintype "passive")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "R2")
-				(pin "2")
-				(pintype "passive")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "input")
 			)
 			(node
-				(ref "R5")
-				(pin "2")
-				(pintype "passive")
+				(ref "R4")
+				(pin "1")
+				(pinfunction "1_1")
+				(pintype "input")
 			)
 			(node
 				(ref "U1")
@@ -2931,34 +4023,36 @@
 		)
 		(net
 			(code "27")
-			(name "Net-(J3-Pin_2)")
+			(name "Net-(J5-Pad2)")
 			(class "Default")
 			(node
-				(ref "J3")
+				(ref "J5")
 				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
 				(ref "R1")
 				(pin "2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 		)
 		(net
 			(code "28")
-			(name "Net-(J10-Pin_2)")
+			(name "Net-(J6-Pad2)")
 			(class "Default")
 			(node
-				(ref "J10")
+				(ref "J6")
 				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 			(node
-				(ref "R6")
+				(ref "R3")
 				(pin "2")
-				(pintype "passive")
+				(pinfunction "2_2")
+				(pintype "unspecified")
 			)
 		)
 		(net
