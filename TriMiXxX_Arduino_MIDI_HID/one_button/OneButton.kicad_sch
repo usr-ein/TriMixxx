@@ -2532,6 +2532,17 @@
 			(embedded_fonts no)
 		)
 	)
+	(text "PC6 is SPI MOSI, which \nallow DMA and helps us \navoid bit-banging the LED \nwith the CPU.\n\nFOR V2: Switch the LED to PC6!!"
+		(exclude_from_sim no)
+		(at 194.31 104.394 0)
+		(effects
+			(font
+				(size 1 1)
+			)
+			(justify left)
+		)
+		(uuid "f59ef800-07e0-46b6-8a95-630c582066f2")
+	)
 	(junction
 		(at 151.13 102.87)
 		(diameter 0)
