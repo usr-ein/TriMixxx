@@ -1,73 +1,98 @@
 #include <Arduino.h>
-#include <OneButtonRing.hpp>
+#include "OneButtonRing.hpp"
+#include "PiLink.hpp"
+#include "MidiMap.hpp"
 
 // ===========================================================================
-//  TriMixxx S3 master  -  firmware skeleton
+//  TriMixxx S3 master
 //
-//  UART allocation on the ESP32-S3 (3 hardware UARTs):
-//    UART0  -> Raspberry Pi   (IO43 TX, IO44 RX)   [Pi-link module, TODO]
-//    UART1  -> OneButton ring A
-//    UART2  -> OneButton ring B   (v2)
+//  UART allocation on the ESP32-S3:
+//    UART0 (Serial0) -> Raspberry Pi   (IO43 TX, IO44 RX)  -- MIDI, 3.3V, no shifter
+//    UART1 (Serial1) -> OneButton ring A                   -- 5V, needs shifter
+//    UART2           -> OneButton ring B (v2)              -- 5V, needs shifter
 //
-//  The OneButtonRing library runs each ring in its own task. Everything else
-//  (Pi link, encoder, jog PCNT, tempo fader, play/cue, loop board) lives in
-//  separate modules that just read/write the ring objects -- the ring code is
-//  kept entirely separate, as intended.
+//  Ring pads are wired to MIDI now. The other five subsystems (encoder, jog,
+//  tempo, play/cue, loop) have their MIDI addresses reserved in MidiMap and
+//  their Mixxx bindings ready -- they just need their driver modules built
+//  (pinouts pending), then they call pi.noteOn/cc with the reserved addresses.
 // ===========================================================================
 
-// ---- Ring A (v1) -- pins per board wiring ----------------------------------
-#define RING_A_TX     17     // 1BTNA_TX  (S3 -> node0 DIN, via level shifter)
-#define RING_A_RX     15     // 1BTNA_RX  (nodeN DOUT -> S3, via level shifter)
-#define RING_A_NODES  50
-
+// ---- Ring A ---------------------------------------------------------------
+#define RING_A_TX 17
+#define RING_A_RX 15
+#define RING_A_NODES 50
 OneButtonRing ringA(Serial1, RING_A_TX, RING_A_RX, RING_A_NODES, 1000000, /*core=*/0);
 
-// ---- Ring B -- same class, second instance on UART2 ------------------------
-// Wired and ready. v1 runs one ring, so ringB.begin() is left commented in
-// setup(); uncomment it to bring the second ring online. The object itself is
-// harmless until begin() is called (the constructor only stores parameters).
-HardwareSerial RingBSerial(2);            // UART2
-#define RING_B_TX     13     // 1BTNB_TX
-#define RING_B_RX     12     // 1BTNB_RX
-#define RING_B_NODES  50
+// ---- Ring B (v2, wired, begin() commented) --------------------------------
+HardwareSerial RingBSerial(2);
+#define RING_B_TX 13
+#define RING_B_RX 12
+OneButtonRing ringB(RingBSerial, RING_B_TX, RING_B_RX, 50, 1000000, /*core=*/0);
 
-OneButtonRing ringB(RingBSerial, RING_B_TX, RING_B_RX, RING_B_NODES, 1000000, /*core=*/0);
+// ---- Pi MIDI link on UART0 ------------------------------------------------
+#define PI_TX 43
+#define PI_RX 44
+PiLink pi(Serial0, PI_TX, PI_RX, 115200);
 
-// ---- The other six subsystems (separate modules; pinouts TBD) --------------
-// TODO: PiLink      -- UART0 MIDI bridge to the Pi (IO43/IO44)
-// TODO: TrackEncoder-- ENC_SW / ENC_DT / ENC_CLK
-// TODO: JogWheel    -- PCNT on JOG1 / JOG2 + JOG_TCH
-// TODO: TempoFader  -- ADC1 on TEMPO_ADCT (IO8) / TEMPO_ADIN (IO9)
-// TODO: PlayCue     -- BTN_PLAY / BTN_CUE / LED_PLAY / LED_CUE
-// TODO: LoopBoard   -- LOOP_START_BTN / LOOP_END_BTN / RELOOP_BTN + LEDs
+// per-pad note bookkeeping for clean note-on/off (sticky-safe, fast-tap-safe)
+static bool padPendingOff[RING_A_NODES] = { false };
+
+// -------- incoming MIDI from Mixxx -> LEDs (Mixxx owns LED state) ----------
+static void onMidiFromMixxx(uint8_t status, uint8_t d1, uint8_t d2, void* ctx) {
+    uint8_t type = status & 0xF0;
+
+    // pad LEDs: Mixxx sends NOTE_ON on the pad's note; velocity = brightness.
+    // (vel 0 = off.) v1 is white-only; RGB would use 3 CCs per LED instead.
+    if (type == 0x90 && d1 >= midimap::PAD_BASE &&
+        d1 < midimap::PAD_BASE + RING_A_NODES) {
+        uint8_t pad = d1 - midimap::PAD_BASE;
+        ringA.setLed(pad, 0, d2, d2, d2);
+        return;
+    }
+
+    // TODO: play/cue LEDs  (NOTE_PLAY / NOTE_CUE)  -> GPIO on the play/cue board
+    // TODO: loop LEDs      (NOTE_LOOP_IN / _OUT)   -> GPIO on the loop board
+}
 
 void setup() {
-    Serial.begin(115200);                 // USB-CDC console
+    Serial.begin(115200);                       // USB-CDC console
     delay(300);
     Serial.println("TriMixxx S3 master boot");
+
+    pi.begin();
+    pi.onMidi(onMidiFromMixxx, nullptr);
 
     if (!ringA.begin()) Serial.println("ringA: allocation failed");
     // ringB.begin();
 
-    // TODO: init the six other subsystems here.
+    // TODO: init encoder, jog PCNT, tempo ADC, play/cue, loop board
 }
 
 void loop() {
-    // --------------------------------------------------------------------
-    //  Ring A demo: light each node's LED0 white while its button is held.
-    //  This proves the ring end-to-end. Replace with real Mixxx-driven LED
-    //  logic and forward button edges to the Pi as MIDI.
-    // --------------------------------------------------------------------
-    for (uint8_t i = 0; i < RING_A_NODES; i++) {
-        uint8_t v = ringA.level(i) ? 60 : 0;
-        ringA.setLed(i, 0, v, v, v);
+    pi.poll();                                  // drain incoming MIDI -> LEDs
 
-        if (ringA.pressed(i)) {
-            // clean press edge for pad i -> queue MIDI to the Pi (TODO)
+    // ---- ring pads -> MIDI notes ----
+    for (uint8_t i = 0; i < RING_A_NODES; i++) {
+        bool held = ringA.level(i);
+        if (ringA.pressed(i)) {                 // press edge (catches fast taps)
+            pi.noteOn(midimap::PAD_BASE + i, 127);
+            padPendingOff[i] = true;
+        }
+        if (padPendingOff[i] && !held) {        // release (or tap already over)
+            pi.noteOff(midimap::PAD_BASE + i);
+            padPendingOff[i] = false;
         }
     }
 
-    // status once a second
+    // ---- the other controls send MIDI here once their drivers exist ----
+    // TrackEncoder: on detent  -> pi.cc(midimap::CC_ENCODER, up ? 1 : 127);
+    //               on press   -> pi.noteOn(midimap::NOTE_ENC_SW, 127); (+ noteOff)
+    // JogWheel:     per tick    -> pi.cc(midimap::CC_JOG, d>0 ? d : 128+d);
+    //               touch       -> pi.noteOn/Off(midimap::NOTE_JOG_TOUCH, ...)
+    // TempoFader:   on change   -> pi.cc(midimap::CC_TEMPO, value0_127);
+    // PlayCue:      buttons      -> pi.noteOn/Off(midimap::NOTE_PLAY / NOTE_CUE)
+    // Loop:         buttons      -> pi.noteOn/Off(midimap::NOTE_LOOP_IN/_OUT/RELOOP)
+
     static uint32_t t = 0;
     if (millis() - t > 1000) {
         t = millis();
@@ -77,8 +102,5 @@ void loop() {
                       (unsigned long)ringA.badFrames());
     }
 
-    // The ring runs in its own task; loop() only reads/writes ring state and
-    // never blocks on it. Service the other subsystems here (or give them
-    // their own tasks too).
-    delay(5);
+    delay(2);
 }
