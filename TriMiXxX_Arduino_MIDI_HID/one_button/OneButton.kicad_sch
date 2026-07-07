@@ -4,6 +4,11 @@
 	(generator_version "10.0")
 	(uuid "d1fdf717-1f9c-48a0-97b7-d2ea3a3c6742")
 	(paper "A4")
+	(title_block
+		(title "OneButton board")
+		(rev "v2")
+		(comment 1 "V2: Switched LED from PC0 to PC6 to allow DMA through PC6 SPI MOSI capability")
+	)
 	(lib_symbols
 		(symbol "Jumper:Jumper_3_Open"
 			(pin_names
@@ -2532,9 +2537,9 @@
 			(embedded_fonts no)
 		)
 	)
-	(text "PC6 is SPI MOSI, which \nallow DMA and helps us \navoid bit-banging the LED \nwith the CPU.\n\nFOR V2: Switch the LED to PC6!!"
+	(text "LED used to be on PC0 in v1\nPC6 is SPI MOSI, which \nallow DMA and helps us \navoid bit-banging the LED \nwith the CPU.\n\nDone in V2: Switched the LED to PC6"
 		(exclude_from_sim no)
-		(at 194.31 104.394 0)
+		(at 194.31 113.284 0)
 		(effects
 			(font
 				(size 1 1)
@@ -2568,6 +2573,10 @@
 		(uuid "79498594-5438-4d8a-bd4f-a49573cf788f")
 	)
 	(no_connect
+		(at 173.99 97.79)
+		(uuid "2506cd45-6f94-4c9a-b9e0-2ddb5211d034")
+	)
+	(no_connect
 		(at 191.77 97.79)
 		(uuid "2ecbd31b-76f1-457c-91b0-73b22b67faac")
 	)
@@ -2594,10 +2603,6 @@
 	(no_connect
 		(at 173.99 87.63)
 		(uuid "74cd29a5-64f3-4752-8425-8e13df033de8")
-	)
-	(no_connect
-		(at 191.77 100.33)
-		(uuid "75f36007-0a84-406d-a867-598456ba3135")
 	)
 	(no_connect
 		(at 173.99 102.87)
@@ -2632,16 +2637,6 @@
 			(type default)
 		)
 		(uuid "41b1ca33-ea25-44d1-8e38-4deaea897e8c")
-	)
-	(wire
-		(pts
-			(xy 135.89 95.25) (xy 137.16 95.25)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7f317e05-1156-41ef-9243-38f20dbe57d8")
 	)
 	(wire
 		(pts
@@ -2715,26 +2710,6 @@
 	)
 	(wire
 		(pts
-			(xy 147.32 97.79) (xy 147.32 95.25)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b0d03018-4a52-4f90-a400-b7970eb30b46")
-	)
-	(wire
-		(pts
-			(xy 173.99 97.79) (xy 147.32 97.79)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b3f2857c-500e-4be4-b234-87f068a608f3")
-	)
-	(wire
-		(pts
 			(xy 165.1 100.33) (xy 173.99 100.33)
 		)
 		(stroke
@@ -2782,16 +2757,6 @@
 			(justify right bottom)
 		)
 		(uuid "31d070a9-e318-427c-b95b-eda3568d8752")
-	)
-	(label "LED1_DIN"
-		(at 135.89 95.25 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "74356ed7-a338-47c4-b2e4-9c85c394f983")
 	)
 	(label "SWIO"
 		(at 223.52 99.06 0)
@@ -2842,6 +2807,16 @@
 			(justify left bottom)
 		)
 		(uuid "d7fc6865-84ff-4cdf-a7d6-cad471382cdd")
+	)
+	(label "LED1_DIN"
+		(at 201.93 100.33 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "e944ae9c-6a59-4852-be9b-44b5820bb21f")
 	)
 	(label "LED1_DIN"
 		(at 82.55 62.23 0)
@@ -3994,6 +3969,119 @@
 			(project "OneButton"
 				(path "/d1fdf717-1f9c-48a0-97b7-d2ea3a3c6742"
 					(reference "#FLG01")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "easyeda2kicad:0603WAF3300T5E")
+		(at 196.85 100.33 180)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "7869699e-8a8f-470a-ae15-2c271ea403f4")
+		(property "Reference" "R1"
+			(at 196.85 106.68 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "330"
+			(at 196.85 104.14 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:R0603"
+			(at 196.85 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_330R-3300-1_C23138.html"
+			(at 196.85 90.17 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "330Ω (3300) ±1%"
+			(at 196.85 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
+			(at 196.85 87.63 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "0603WAF3300T5E"
+			(at 196.85 85.09 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C23138"
+			(at 196.85 82.55 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "b77460e0-fa90-4b84-a120-16401e8d2021")
+		)
+		(pin "1"
+			(uuid "0333159b-4e4f-43d1-8ddf-7c38838b9109")
+		)
+		(instances
+			(project "OneButton"
+				(path "/d1fdf717-1f9c-48a0-97b7-d2ea3a3c6742"
+					(reference "R1")
 					(unit 1)
 				)
 			)
@@ -5168,119 +5256,6 @@
 			(project "OneButton"
 				(path "/d1fdf717-1f9c-48a0-97b7-d2ea3a3c6742"
 					(reference "#PWR023")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "easyeda2kicad:0603WAF3300T5E")
-		(at 142.24 95.25 180)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "c4d38548-b51c-4f32-8e9c-ac93b5f63da3")
-		(property "Reference" "R1"
-			(at 142.24 101.6 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "330"
-			(at 142.24 99.06 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "easyeda2kicad:R0603"
-			(at 142.24 87.63 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_330R-3300-1_C23138.html"
-			(at 142.24 85.09 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "330Ω (3300) ±1%"
-			(at 142.24 95.25 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Manufacturer" "UNI-ROYAL(厚声)"
-			(at 142.24 82.55 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "MPN" "0603WAF3300T5E"
-			(at 142.24 80.01 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC Part" "C23138"
-			(at 142.24 77.47 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "792e59e4-4b3a-43f8-967c-86f48448abca")
-		)
-		(pin "1"
-			(uuid "b5a553ca-7da7-4eaa-b80d-b79b4f2c4c66")
-		)
-		(instances
-			(project "OneButton"
-				(path "/d1fdf717-1f9c-48a0-97b7-d2ea3a3c6742"
-					(reference "R1")
 					(unit 1)
 				)
 			)
