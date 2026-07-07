@@ -118,13 +118,19 @@ void USART1_IRQHandler(void)
 }
 
 // ===========================================================================
-//  WS2812 OUTPUT  -  runs only in the idle gap, interrupts masked.
-//  TIMING-CRITICAL: tune the TxH/TxL nop counts by eye/scope, OR swap this
-//  whole function for a timer+DMA driver for jitter-free output on any pin.
-//  Pin your -O level: the nops() loop's cycle count changes between -O0 / -O2.
+//  WS2812 OUTPUT  -  runs only in the idle gap, interrupts masked (see main).
+//  Timing is the nop-sled validated on the bench self-test: window 0..16,
+//  cliff at 17, sitting at 8; verified glitch-free to 150 C. NOPS(n) emits
+//  exactly n nops via the assembler's .rept, so -Os/-flto can't retime it.
 //  Order on the wire is GRB; ledbuf holds RGB, so we reorder here.
 // ===========================================================================
-static inline void nops(int n){ while (n--) __asm__ volatile ("nop"); }
+#define WS0_HIGH  8    // "0" high  -- tuned: window 0..16, cliff at 17, sit at 8
+#define WS1_HIGH  30   // "1" high  -- wide margin, kept generous
+#define WS0_LOW   24   // low times are non-critical
+#define WS1_LOW   18
+
+#define NOPS_(n) __asm__ volatile (".rept " #n "\n\t nop\n\t .endr\n\t")
+#define NOPS(n)  NOPS_(n)
 
 static void ws2812_send(const uint8_t *rgb)  // 6 bytes: R0 G0 B0 R1 G1 B1
 {
@@ -133,13 +139,17 @@ static void ws2812_send(const uint8_t *rgb)  // 6 bytes: R0 G0 B0 R1 G1 B1
     for (int b = 0; b < 6; b++) {
         uint8_t v = seq[b];
         for (int bit = 0; bit < 8; bit++) {
-            WS_PORT->BSHR = (1u << WS_PIN);            // HIGH
-            if (v & 0x80) { nops(9);  WS_PORT->BSHR = (1u << (WS_PIN + 16)); nops(4); }  // T1H~0.7us
-            else          { nops(3);  WS_PORT->BSHR = (1u << (WS_PIN + 16)); nops(9); }  // T0H~0.35us
+            if (v & 0x80) {
+                WS_PORT->BSHR = (1u << WS_PIN);          NOPS(WS1_HIGH);
+                WS_PORT->BSHR = (1u << (WS_PIN + 16));   NOPS(WS1_LOW);
+            } else {
+                WS_PORT->BSHR = (1u << WS_PIN);          NOPS(WS0_HIGH);
+                WS_PORT->BSHR = (1u << (WS_PIN + 16));   NOPS(WS0_LOW);
+            }
             v <<= 1;
         }
     }
-    // latch happens automatically: the rest of the master's idle gap is the >50us low
+    // latch happens in the master's >50us inter-frame gap (idle low)
 }
 
 // ---- button: pure edge detect. RC network (10k + 100nF) + the pin's Schmitt
