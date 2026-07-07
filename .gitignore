@@ -119,3 +119,6 @@ $RECYCLE.BIN/
 3d_models
 3d_printing
 ch32fun
+# kicad's own internal little git
+**/.history
+.history
