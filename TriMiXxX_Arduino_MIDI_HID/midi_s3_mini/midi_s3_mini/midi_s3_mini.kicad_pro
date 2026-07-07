@@ -694,13 +694,17 @@
         "uuid": "4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
       }
     ],
-    "used_designators": "",
+    "used_designators": "R6-8,C14-15,#PWR54-59,J13-14",
     "variants": []
   },
   "sheets": [
     [
       "4a4c0c1b-df1c-48df-9685-1cfae0dce3a5",
       "midi_s3_mini"
+    ],
+    [
+      "000082a9-0d26-4c90-bc70-4bba8221bfab",
+      "JOGB_ASSY"
     ]
   ],
   "text_variables": {},
