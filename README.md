@@ -1,248 +1,155 @@
 # TriMixxx
 
-A custom CDJ (Compact Disc Jockey) unit built from scratch around a Raspberry Pi CM5, designed to run [Mixxx](https://mixxx.org/) DJ software. Features a custom PCB, a custom 3D-printed chassis, and reuses original CDJ buttons and jog wheel for an authentic DJ experience. Reads Rekordbox-formatted USB sticks — no laptop required.
+A custom CDJ (Compact Disc Jockey) unit built from scratch around a Raspberry Pi, designed to run [Mixxx](https://mixxx.org/) DJ software. It reuses an original CDJ's buttons and jog wheel behind custom PCBs and a 3D-printed chassis for an authentic DJ feel, and reads Rekordbox-formatted USB sticks — no laptop required.
 
 ![Front](screenshots/CDJ-TriMixxx-master-doc_v117_front.png)
 ![Back](screenshots/CDJ-TriMixxx-master-doc_v117_back.png)
-
-![PCB routing timelapse](screenshots/pcb_routing_1min.gif)
-
-![PCB 3D render](screenshots/pcb-3d-render.png)
 
 ## What is this?
 
 TriMixxx replaces the internals of a CDJ with modern, open-source-friendly hardware while keeping the physical controls that DJs know and love. Plug in a Rekordbox-formatted USB stick, and you're ready to mix.
 
-## Hardware Architecture
+Where the CDJ's original main board did everything, TriMixxx today is a **small distributed system**: a Raspberry Pi runs Mixxx, an ESP32-S3 acts as the controller brain that reads every physical control and speaks MIDI, and a swarm of tiny satellite boards handle the buttons and the LED ring. They all talk over plain TTL UART.
 
-### Compute
+## How we got here (a short history)
 
-- **Raspberry Pi CM5** — runs Mixxx and handles audio playback, connected via dual DF40 100-pin high-density connectors
+This project has been through several complete redesigns. It's worth keeping the lineage straight:
 
-### Audio
+1. **One board to rule them all.** The first idea was a single monolithic PCB carrying *everything*: a Raspberry Pi CM5, a TI PCM5242 I²S DAC with RCA + headphone outputs, USB-C PD power (CH224K + SY8368AQQC buck), dual micro-HDMI, the USB stick ports, and an **ATmega32U4** presenting the CDJ's buttons/jog/fader to the Pi as a USB-MIDI device — all on one board. It was fully routed (`screenshots/CDJ-MainBoard-v1_fully_routed.png`, and the `*_2026-02-17.png` schematic captures) but never became the working unit; cramming compute, audio, power, and a controller onto one board made every revision expensive and every mistake fatal.
 
-- **TI PCM5242** — high-quality stereo DAC connected over I2S for low-latency audio output
-- **RCA stereo pair** — Left (white) and Right (red) main outputs
-- **6.35mm (1/4") headphone jack**
-- **3.5mm headphone jack**
+2. **Breaking it apart.** The controller was split out onto its own board. `boards/midi-laser-pcb` was the first standalone MIDI-controller PCB — it was fabricated, then abandoned in favour of a cleaner design.
 
-### MIDI Controller
+3. **Where it is now.** `boards/midi_s3_mini` is the current controller board (fabricated), hosting a **LOLIN S3 Mini (ESP32-S3)**. The audio DAC and power delivery are no longer TriMixxx's job — a Raspberry Pi handles Mixxx and audio directly, and the S3 is purely the controller brain. The controls are spread across small purpose-built satellite boards, all of them already fabricated.
 
-- **ATmega32U4** — acts as a USB MIDI class-compliant device, reading the original CDJ's buttons, encoders, fader, and jog wheel and translating them into MIDI messages for Mixxx
-- **16 MHz crystal** oscillator for reliable USB timing
+The old monolithic design is preserved in this README's history and in `screenshots/` as a record of the road not taken.
 
-All controls connect via JST PH connectors to the main PCB:
+## Current architecture
 
-| Connector | Controls |
+```mermaid
+flowchart LR
+    Pi["Raspberry Pi 4B (4GB)<br/>(Mixxx + ttymidi, planned)"]
+    S3["midi_s3_mini<br/>LOLIN S3 Mini / ESP32-S3<br/>(controller brain)"]
+    Ring["one_button ring<br/>50x CH32V003 nodes<br/>button + 2xWS2812 each"]
+    PlayCue["play_cue_btn<br/>Play / Cue + LEDs"]
+    Loop["loop_btn<br/>Loop In/Out/Reloop + LEDs"]
+    Jog["Jog wheel<br/>quadrature + touch"]
+
+    Pi <-->|"UART - raw MIDI - 3.3V"| S3
+    S3 <-->|"UART - OneButton ring - 5V"| Ring
+    S3 --> PlayCue
+    S3 --> Loop
+    Jog --> S3
+```
+
+- **Raspberry Pi 4B (4 GB)** runs Mixxx. The plan is for [`ttymidi`](https://github.com/cjbarnes18/ttymidi) on the Pi to turn the UART link into an ALSA MIDI device, so Mixxx sees TriMixxx as a standard MIDI controller (not yet set up on the Pi). This link is 3.3 V on both ends (Pi GPIO ↔ S3), so no level shifting is needed.
+- **midi_s3_mini (ESP32-S3)** is the controller brain. It reads every physical control, translates it to MIDI for the Pi, and drives LEDs from the MIDI feedback Mixxx sends back. It runs `firmwares/trimixxx-midi`.
+- **one_button ring** is a daisy-chained ring of up to 50 CH32V003 nodes, each with one button and two WS2812 LEDs, connected to the S3 over a single UART ring. See [The OneButton Protocol](#the-onebutton-protocol) below.
+- **play_cue_btn** and **loop_btn** are dumb button+LED satellite boards (no MCU) wired to the S3.
+- The **jog wheel** (quadrature encoder + capacitive touch) wires directly into the S3, decoded by the ESP32's hardware pulse counter (PCNT).
+
+### MIDI map
+
+All MIDI addresses live in one place — `firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp` — and the Mixxx mapping matches them exactly. One deck (v1) → MIDI channel 1.
+
+| Control | MIDI |
 |---|---|
-| **J_PLAY** (6-pin) | Play button + LED, Cue button + LED |
-| **J_LOOP** (8-pin) | Loop In button + LED, Loop Out button + LED, Reloop button + LED |
-| **J_MASTER_TEMPO** (4-pin) | Master Tempo button + LED |
-| **J_ENCODER_BACK** (7-pin) | Back/browse rotary encoder + Back button + LED |
-| **J_TEMPO** (5-pin) | Tempo fader (analog ADC input) + Tempo Reset button + LED |
-| **J_JOG** (4-pin) | Jog wheel quadrature encoder (JOG1/JOG2) |
-| **J_TOUCH** (2-pin) | Jog wheel capacitive touch sensor |
+| Ring pads (node *i*) | Note `0x00 + i` (0..49), velocity = white LED brightness |
+| Play / Cue | Notes `0x3C` / `0x3D` |
+| Loop In / Out / Reloop | Notes `0x3E` / `0x3F` / `0x40` |
+| Track encoder | Note `0x41` (press) + CC `0x10` (relative: 1=up, 127=down) |
+| Jog wheel | Note `0x42` (touch/scratch) + CC `0x11` (relative ticks) |
+| Tempo fader | CC `0x12` (absolute 0..127) |
 
-**Summary of buttons:** Play, Cue, Loop In, Loop Out, Reloop, Master Tempo, Tempo Reset, Back — each with a corresponding LED. Plus a tempo fader (analog), a browse/back rotary encoder, a jog wheel (quadrature encoder), and a jog wheel touch sensor.
+> Status: ring pads and the jog wheel are implemented and live. The encoder, tempo fader, and the play/cue and loop boards have reserved MIDI addresses and Mixxx bindings — their S3 driver modules are still being built.
 
-### Power
+## Boards
 
-- **USB-C power input** with **CH224K** USB PD negotiation (requests 20V @ 3A = 60W, peak draw 42.4W)
-- **SY8368AQQC** synchronous buck converter stepping 20V down to 5V for the CM5 and peripherals
-- **AP2112K** 3.3V LDO for logic-level components
-- **AP2553W** USB power switches for safe hot-plug on DJ USB ports
+All KiCad projects live under `boards/`. Every board below has been fabricated.
 
-### Connectivity
-
-| Port | Type | Speed | Purpose |
+| Board | Role | MCU | Status |
 |---|---|---|---|
-| **USB-A** | Full-size | USB 3.0 SuperSpeed | Rekordbox USB sticks |
-| **USB-A** | Full-size | Power only (no data) | Auxiliary power for gadgets/lights |
-| **USB-C** | Receptacle | USB 2.0 | General connectivity |
-| **Micro HDMI** | Type D | HDMI 1.4 | 10" touchscreen display |
-| **Micro HDMI** | Type D | HDMI 1.4 | Debug/secondary screen |
-| **Ethernet** | RJ45 (via CM5) | Gigabit | Network connectivity |
+| `midi_s3_mini` | Controller brain: reads all controls, MIDI bridge to the Pi, drives LEDs, jog-wheel input | LOLIN S3 Mini (ESP32-S3) | **Current** |
+| `one_button` | Ring node: one button + 2× WS2812, cut-through UART relay. Every node is identical. | CH32V003F4U6 | **Current** |
+| `play_cue_btn` | Play + Cue buttons with LEDs (driven by the S3) | none | **Current** |
+| `loop_btn` | Loop In/Out/Reloop buttons with LEDs (driven by the S3) | none | **Current** |
+| `midi-laser-pcb` | First standalone MIDI-controller board | — | Fabricated, **abandoned** (superseded by `midi_s3_mini`) |
 
-Additional internal USB: USB 3.0 Type-A for the touchscreen's USB touch interface.
+## Firmwares
 
-- **HD3SS3220** USB-C orientation mux and **HD3SS3212** USB 3.0 signal switch for proper USB-C handling on the DJ stick port
+| Firmware | Runs on | What it is |
+|---|---|---|
+| `trimixxx-midi` | midi_s3_mini (ESP32-S3) | The master. PlatformIO/Arduino. Reads the OneButton ring + jog wheel + deck controls and bridges them to the Pi as MIDI. Master of the OneButton ring. |
+| `onebutton` | one_button ring nodes (CH32V003) | Bare-metal [ch32fun](https://github.com/cnlohr/ch32fun). `onebutton_node` (the identical binary every ring node runs) and `onebutton_selftest` (single-board bring-up). |
+| `swio-adapter` | A spare Pro Micro | Turns an Arduino into a `minichlink` SWIO programmer for flashing the CH32V003 nodes — no dedicated programmer needed. Git submodule. |
+| `ArduinoMIDI` | (historical) | Early ATmega-based MIDI + jog-wheel test sketches from the monolithic-board era. |
 
-### Protection
+## The OneButton Protocol
 
-- **USBLC6-2SC6** ESD protection on USB data lines
-- **BZT52C3V3S** Zener diodes for voltage clamping
+The button ring runs a purpose-built **cut-through UART ring protocol**. A single fixed-length frame, authored by the S3 master, circulates once around the ring and returns carrying every node's button state; LED colours travel outward on the same frame. Each node forwards bytes as they arrive, editing only the bytes in its own slot, so latency scales as `frame_time + N·byte_time` rather than `N·frame_time`. Node addresses are assigned positionally at boot, so all nodes run an identical binary with no per-unit configuration.
+
+Full wire format, timing, and failure model: **[`firmwares/onebutton/onebutton-protocol.md`](firmwares/onebutton/onebutton-protocol.md)**.
+
+## Related work: ProLink compatibility
+
+`prolinks-compat/` researches Pioneer's proprietary **CDJ ProLink** Ethernet protocol, with the goal of letting TriMixxx discover and share libraries with real CDJs on the same network (linked playback). See `prolinks-compat/CLAUDE.md`.
 
 ## Chassis
 
-Designed in Fusion 360 with a custom top panel and bottom tray that fits the original CDJ form factor:
+Designed in Fusion 360 to fit the original CDJ form factor — a custom top panel with cutouts for the jog wheel, buttons, and connectors, plus a bottom tray.
 
-- `CDJ-Top-Panel_v17.f3d` — top panel with cutouts for the jog wheel, buttons, and connectors
-- `CDJ-Bottom-Tray.f3d` — bottom enclosure
+![Top case 3D render](screenshots/top_case_3d_2026-02-17.png)
 
-## Project Structure
+## Repository structure
 
 ```
-CDJ-MainBoard/              KiCad PCB project
-├── CDJ-MainBoard.kicad_sch     Root schematic
-├── arduino_midi.kicad_sch      ATmega32U4 MIDI controller subsystem
-├── audio_outputs.kicad_sch     DAC and audio output stage (RCA + headphones)
-├── power.kicad_sch             Power supply (USB-C PD, buck, LDOs)
-├── hdmi.kicad_sch              Dual micro HDMI outputs + Ethernet
-├── usb_dj_ports.kicad_sch      USB ports (DJ stick, aux power, connectivity)
-├── test_points.kicad_sch       Test points for debugging
-└── CDJ-MainBoard.kicad_pcb     PCB layout
+boards/                     KiCad PCB projects
+├── midi_s3_mini/               Current controller board (ESP32-S3)
+├── one_button/                 OneButton ring node (CH32V003)
+├── play_cue_btn/               Play + Cue buttons
+├── loop_btn/                   Loop buttons
+└── midi-laser-pcb/             Abandoned first controller board
 
-JLC2KiCad_lib/              Component library (symbols, footprints, 3D models)
-kicad-thirdparty-footprints/    Third-party footprints (CM5, DAC, RCA jacks)
-*.f3d                       Fusion 360 chassis models
-*.net                       Exported netlists (various revisions)
+firmwares/                  Embedded firmware
+├── trimixxx-midi/              S3 master (PlatformIO / Arduino)
+├── onebutton/                  Ring node + selftest (ch32fun)
+├── swio-adapter/               CH32V003 SWIO programmer (submodule)
+└── ArduinoMIDI/                Historical ATmega sketches
+
+ch32fun/                    ch32fun toolkit (submodule)
+prolinks-compat/            Pioneer ProLink protocol research
+handmade_pcb/               Hand-etched PCB experiments
+screenshots/                Renders + schematics (incl. the monolithic-board history)
 ```
 
-## Software Stack
-
-- **[Mixxx](https://mixxx.org/)** — open-source DJ software running on Raspberry Pi OS
-- **Rekordbox USB support** — reads Rekordbox-exported USB sticks for seamless library access
-- **MIDI mapping** — the ATmega32U4 presents as a standard USB MIDI device, so Mixxx sees the jog wheel, buttons, and fader as native MIDI controls
-
-## Tools Used
+## Tools used
 
 - **KiCad** — schematic capture and PCB layout
+- **PlatformIO** + **Arduino** — ESP32-S3 firmware
+- **ch32fun** — bare-metal CH32V003 firmware and `minichlink` flashing
 - **Fusion 360** — mechanical design
-- **JLC2KiCad** — importing JLCPCB component libraries into KiCad
 - **JLCPCB** — PCB fabrication and assembly
-
-## Schematics
-
-### Audio Outputs
-![Audio outputs schematic — DAC, RCA, and headphone jacks](screenshots/audio_2026-02-17.png)
-
-### MIDI / Arduino Controller
-![MIDI Arduino schematic — ATmega32U4, crystal, and JST connectors](screenshots/midi_arduino_2026-02-17.png)
-
-### Power Delivery
-![Power delivery schematic — USB-C PD, buck converter, LDOs](screenshots/power_delivery_2026-02-17.png)
-
-### USB Ports
-![USB ports schematic — USB-A, USB-C, orientation mux, ESD protection](screenshots/usb_2026-02-17.png)
-
-### Top Case 3D Render
-![Top case 3D render — chassis with jog wheel and button cutouts](screenshots/top_case_3d_2026-02-17.png)
-
-## SPICE Simulations
-
-### DAC Output (PCM5242)
-![DAC SPICE simulation — stereo output waveforms and supply rail](screenshots/dac_spice.png)
-
-### Buck Converter (SY8368AQQC)
-![Buck converter SPICE simulation](screenshots/buck_converter_spice.png)
-
-## Bill of Materials by Module
-
-*Auto-generated from the KiCad netlist — 160 components total.*
-
-### Root — Raspberry Pi CM5 compute module, status LEDs, fan connector, RTC battery, and top-level glue logic
-
-| Ref | Value | Description |
-|-----|-------|-------------|
-| BT1 | CR2032-BS-6-1 | CR2032 coin cell holder (RTC backup) |
-| D1 | PSC-1608U52GC-G4 | Green LED 780mcd |
-| D2 | XL-1608UBC-04 | Blue LED |
-| J1 | J_FAN_PWM | 4-pin JST connector for PWM fan |
-| SW1 | DSWB05LHGET | 5-position DIP switch |
-| SW2 | PWR_BUT_CM5 | Push button (CM5 power) |
-| U1 | Compute_Module_5_Functional | Raspberry Pi Compute Module 5 |
-
-Plus 1 capacitors, 10 resistors.
-
-### Arduino MIDI — ATmega32U4 USB MIDI controller, 16 MHz crystal, JST connectors for buttons/encoders/jog wheel
-
-| Ref | Value | Description |
-|-----|-------|-------------|
-| J16 | J_JOG | 4-pin JST — jog wheel quadrature encoder |
-| J17 | J_PLAY | 6-pin JST — Play + Cue buttons and LEDs |
-| J18 | J_ENCODER_BACK | 7-pin JST — browse rotary encoder + Back button + LED |
-| J19 | J_TOUCH | 2-pin JST — jog wheel capacitive touch sensor |
-| J20 | J_LOOP | 8-pin JST — Loop In/Out/Reloop buttons and LEDs |
-| J21 | J_MASTER_TEMPO | 4-pin JST — Master Tempo button + LED |
-| J22 | J_TEMPO | 5-pin JST — tempo fader (analog) + Tempo Reset button + LED |
-| SW4 | RESET_BTN | Push button (ATmega reset) |
-| U14 | ATmega32U4-A | 16 MHz, 32 kB Flash, USB 2.0, TQFP-44 — MIDI controller |
-| X1 | X322516MLB4SI | 16 MHz SMD crystal, 9 pF |
-
-Plus 10 capacitors, 2 resistors.
-
-### Audio Outputs — I2S DAC (PCM5242), RCA stereo pair, 6.35 mm and 3.5 mm headphone jacks, and analog output filtering
-
-| Ref | Value | Description |
-|-----|-------|-------------|
-| FB1 | ~ | 600 Ω @ 100 MHz ferrite bead (power filtering) |
-| J2 | PJ-611E | 6.35 mm (1/4") headphone jack |
-| J3 | J_RCA_L (white) | RCA jack — left channel |
-| J4 | J_RCA_R (red) | RCA jack — right channel |
-| J5 | PJ-320D | 3.5 mm headphone jack |
-| U2 | PCM5122PW | TI PCM5122 — 32-bit 384 kHz stereo DAC, 112 dB DNR |
-
-Plus 12 capacitors, 3 resistors.
-
-### HDMI and Ethernet — Dual micro-HDMI outputs (touchscreen + debug), gigabit Ethernet via RJ45
-
-| Ref | Value | Description |
-|-----|-------|-------------|
-| J12 | HR911130A | RJ45 Ethernet jack with integrated magnetics |
-| J13 | PI HDMI_0 | Micro-HDMI Type D connector (touchscreen) |
-| J14 | PI HDMI_1 | Micro-HDMI Type D connector (debug/secondary) |
-
-Plus 2 resistors.
-
-### Power Delivery — USB-C PD input (CH224K negotiation), 20 V-to-5 V buck (SY8368AQQC), 3.3 V LDO (AP2112K), USB power switches (AP2553W)
-
-| Ref | Value | Description |
-|-----|-------|-------------|
-| D3 | KT-0603R | Red LED (power indicator) |
-| D4 | BZT52C3V3S | 3.3 V Zener diode (voltage clamping) |
-| D5 | PSC-1608U52GC-G4 | Green LED (power-good indicator) |
-| D6 | KT-0603R | Red LED (fault indicator) |
-| J15 | USB_C_Receptacle_USB2.0_16P | USB-C receptacle (power input) |
-| SW3 | SW_MAIN_POWER | Main power toggle switch |
-| U10 | AP2112K-3.3 | 3.3 V LDO — digital power supply (600 mA) |
-| U11 | AP2112K-3.3 | 3.3 V LDO — clean analog supply for PCM5242 |
-| U12 | CH224K | USB PD 3.0/2.0 sink controller (negotiates 20 V) |
-| U13 | SY8368AQQC | Synchronous buck converter (20 V → 5 V) |
-
-Plus 25 capacitors, 9 resistors, 1 inductors.
-
-### Test Points — Debug and measurement test points for key signals
-
-| Ref | Value | Description |
-|-----|-------|-------------|
-| H1–H4 | MountingHole | PCB mounting holes (×4) |
-| J6 | J_ISP_ATMEGA | 6-pin ISP header for ATmega programming |
-| J7 | J_I2C | 4-pin I2C debug header |
-| TP1 | TP_20V_USB_RAIL | 20 V USB power rail |
-| TP2 | TP_20V_USB | 20 V post-switch |
-| TP3 | TP_3.3_DGTL | 3.3 V digital rail |
-| TP4 | TP_5V | 5 V rail |
-| TP5 | TP_3.3_ANALOG | 3.3 V analog rail |
-| TP6 | TP_I2C_SDA | I2C SDA line |
-| TP7 | TP_GND | Ground reference |
-| TP8 | TP_I2C_SCL | I2C SCL line |
-| TP9 | TP_I2S_BCK | I2S bit clock |
-| TP10 | TP_I2S_LRCK | I2S left/right clock |
-| TP11 | TP_I2S_DIN | I2S data in |
-
-### USB DJ Ports — USB-A 3.0 (Rekordbox sticks), USB-A power-only, USB-C 2.0, orientation mux (HD3SS3220), signal switch (HD3SS3212), and ESD protection
-
-| Ref | Value | Description |
-|-----|-------|-------------|
-| J10 | USB_DJ_STICK | USB 3.0 Type-A — Rekordbox USB sticks |
-| J11 | USB_SCREEN | USB 3.0 Type-A — touchscreen USB interface |
-| J8 | AUX POWER USB_A | USB Type-A — auxiliary power output (no data) |
-| J9 | USB_C_Receptacle_USB2.0_16P | USB-C receptacle (general connectivity) |
-| U3–U5, U9 | AP2553W6-7 | USB power switches with current limiting (×4) |
-| U6–U8 | USBLC6-2SC6 | ESD protection diodes, 2 data lines (×3) |
-
-Plus 10 capacitors, 11 resistors.
 
 ## License
 
 This is a personal hardware project. Feel free to use it as reference for your own builds.
+
+---
+
+## Appendix: the monolithic board (historical)
+
+The original single-board design is no longer built, but its details are recorded here for posterity. It centred on a **Raspberry Pi CM5** (dual DF40 100-pin connectors), a **TI PCM5242** I²S DAC feeding RCA + 6.35 mm + 3.5 mm outputs, an **ATmega32U4** USB-MIDI controller reading all the CDJ controls, USB-C PD power (**CH224K** negotiating 20 V @ 3 A, **SY8368AQQC** buck to 5 V, **AP2112K** LDOs), dual micro-HDMI, gigabit Ethernet, and the USB stick ports (**HD3SS3220**/**HD3SS3212** muxing, **USBLC6-2SC6** ESD protection) — roughly 160 components on one PCB.
+
+### Schematics
+
+| Sheet | File |
+|---|---|
+| Audio outputs (DAC, RCA, headphones) | `screenshots/audio_2026-02-17.png` |
+| MIDI / ATmega controller | `screenshots/midi_arduino_2026-02-17.png` |
+| Power delivery (USB-C PD, buck, LDOs) | `screenshots/power_delivery_2026-02-17.png` |
+| USB ports (mux, ESD) | `screenshots/usb_2026-02-17.png` |
+| Fully routed PCB | `screenshots/CDJ-MainBoard-v1_fully_routed.png` |
+
+### SPICE simulations
+
+- DAC output (PCM5242): `screenshots/dac_spice.png`
+- Buck converter (SY8368AQQC): `screenshots/buck_converter_spice.png`
