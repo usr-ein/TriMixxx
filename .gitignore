@@ -118,7 +118,7 @@ $RECYCLE.BIN/
 # End of https://www.toptal.com/developers/gitignore/api/macos,linux,windows,kicad
 3d_models
 3d_printing
-ch32fun
+# ch32fun is a git submodule (see .gitmodules), not ignored.
 # kicad's own internal little git
 **/.history
 .history

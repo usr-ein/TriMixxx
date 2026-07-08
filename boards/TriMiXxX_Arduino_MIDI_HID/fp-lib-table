@@ -1,4 +1,0 @@
-(fp_lib_table
-	(version 7)
-	(lib (name "Proofboards") (type "KiCad") (uri "${KIPRJMOD}/Proofboards.pretty") (options "") (descr ""))
-)

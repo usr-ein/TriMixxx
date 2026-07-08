@@ -1,0 +1,6 @@
+# ch32fun build artifacts
+*.elf
+*.bin
+*.hex
+*.lst
+*.map
