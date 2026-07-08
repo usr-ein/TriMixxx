@@ -9902,7 +9902,7 @@
 				)
 			)
 		)
-		(property "Value" "R2203"
+		(property "Value" "R2203 330ohms"
 			(at 71.12 87.63 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10064,7 +10064,7 @@
 				)
 			)
 		)
-		(property "Value" "R2202"
+		(property "Value" "R2202 100 ohms"
 			(at 124.46 45.72 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10627,7 +10627,7 @@
 				)
 			)
 		)
-		(property "Value" "R2201"
+		(property "Value" "R2201 100 ohms"
 			(at 124.46 55.88 90)
 			(show_name no)
 			(do_not_autoplace no)

@@ -12745,7 +12745,7 @@
 	(sheet
 		(at 243.84 133.35)
 		(size 38.1 26.67)
-		(exclude_from_sim yes)
+		(exclude_from_sim no)
 		(in_bom no)
 		(on_board no)
 		(dnp yes)
