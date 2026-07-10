@@ -23,10 +23,13 @@ class TempoFader {
 public:
     // pinCenter : ADCT, the center-tap reference.
     // pinWiper  : ADIN, the moving wiper.
-    // span      : ADC counts from center to full deflection (half-throw). The
-    //             fader hits MIDI 0 / 127 at +/- this. Tune to the real throw.
-    // invert    : swap which way is "faster" if the fader is wired upside down.
-    TempoFader(int pinCenter, int pinWiper, int span = 1900, bool invert = false);
+    // spanToMax : |ADC offset| from center to the extreme that reads 16383.
+    // spanToMin : |ADC offset| from center to the extreme that reads 0.
+    //             Per-side because this fader's center tap is off electrical
+    //             mid -- each direction has a different count of travel. Use the
+    //             offset= readout at each stop.
+    // invert    : which physical end is which (true = high end reads low).
+    TempoFader(int pinCenter, int pinWiper, int spanToMax, int spanToMin, bool invert = false);
     void begin();
 
     void     poll();                          // read + filter; call each loop
@@ -42,7 +45,7 @@ private:
     uint16_t readAvg(int pin) const; // oversampled single-channel read
 
     int  _pinCT, _pinWiper;
-    int  _span;
+    int  _spanMax, _spanMin; // per-side half-spans (ADC counts)
     bool _invert;
 
     float    _ctF    = 0; // EMA-filtered center + wiper (ADC counts)

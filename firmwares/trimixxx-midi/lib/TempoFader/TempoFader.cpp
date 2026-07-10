@@ -16,8 +16,9 @@ constexpr int   MIDI_CENTER = 8192;  // 14-bit center (no pitch change)
 constexpr int   MIDI_MAX    = 16383; // 14-bit full scale
 } // namespace
 
-TempoFader::TempoFader(int pinCenter, int pinWiper, int span, bool invert)
-    : _pinCT(pinCenter), _pinWiper(pinWiper), _span(span), _invert(invert) {}
+TempoFader::TempoFader(int pinCenter, int pinWiper, int spanToMax, int spanToMin, bool invert)
+    : _pinCT(pinCenter), _pinWiper(pinWiper), _spanMax(spanToMax), _spanMin(spanToMin),
+      _invert(invert) {}
 
 void TempoFader::begin() {
     analogReadResolution(ADC_BITS);
@@ -48,11 +49,14 @@ void TempoFader::poll() {
 
     // Ratiometric: everything is relative to the live center tap.
     float delta = _inF - _ctF;                  // signed ADC counts off center
-    if (fabsf(delta) <= DEADBAND) delta = 0.0f; // lock the detent to exactly 64
+    if (fabsf(delta) <= DEADBAND) delta = 0.0f; // lock the detent to exact center
     if (_invert) delta = -delta;
 
-    float v = MIDI_CENTER + (delta * MIDI_CENTER) / _span;
-    v       = constrain(v, 0.0f, static_cast<float>(MIDI_MAX));
+    // Asymmetric hardware: scale each side by its own half-span so both extremes
+    // reach the rails and center stays put.
+    float span = (delta >= 0.0f) ? _spanMax : _spanMin;
+    float v    = MIDI_CENTER + (delta * MIDI_CENTER) / span;
+    v          = constrain(v, 0.0f, static_cast<float>(MIDI_MAX));
 
     // Commit only past the hysteresis band so a value sitting on a code
     // boundary doesn't chatter between two adjacent MIDI numbers.

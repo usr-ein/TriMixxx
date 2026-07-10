@@ -46,11 +46,12 @@ PiLink pi(Serial0, PI_TX, PI_RX, 115200);
 JogWheel jog(JOG_A, JOG_B, JOG_TCH, /*encoderPullup=*/false);
 
 // ---- Tempo fader (ratiometric: center tap + wiper, both ADC1) --------------
-// Wired inverted on this deck (high end = slow), so invert=true. span still TBD
-// from calibration (watch the offset= readout at full throw).
+// Wired inverted on this deck (high end = slow), so invert=true. Bench-measured
+// offsets: top = -1944, bottom = +2150 (center tap is off electrical mid, hence
+// the asymmetric per-side spans).
 #define TEMPO_ADCT 8
 #define TEMPO_ADIN 9
-TempoFader tempo(TEMPO_ADCT, TEMPO_ADIN, /*span=*/1900, /*invert=*/true);
+TempoFader tempo(TEMPO_ADCT, TEMPO_ADIN, /*spanToMax=*/1944, /*spanToMin=*/2150, /*invert=*/true);
 
 // ---- Track encoder (KY-040 mechanical: CLK/DT/SW) --------------------------
 #define ENC_CLK 33
