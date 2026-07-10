@@ -32,6 +32,11 @@ public:
     JogWheel(int pinA, int pinB, int pinTouch, bool encoderPullup = false);
     void begin();
 
+    // Full-quad (x4) ticks per one physical revolution of the platter.
+    // Bench-calibrated: 259201 ticks over 20 turns = 12960.05/turn, i.e. exactly
+    // 12960 (3240-line disk x4). Sign follows the A/B cable order.
+    static constexpr int32_t TICKS_PER_REV = 12960;
+
     int32_t readDelta(); // signed ticks since last call (consumes)
 
     void poll(); // call each loop: debounce touch, latch edges

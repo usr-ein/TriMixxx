@@ -78,6 +78,11 @@ void setup() {
     pi.onMidi(onMidiFromMixxx, nullptr);
 
     jog.begin();
+    // TEMPORARY: force a pull-up on the jog touch pin. Overrides the plain
+    // INPUT that jog.begin() sets. REMOVE THIS -- the production PCB already
+    // has a hardware pull-up on this line; this is only for bench bring-up on
+    // boards without it.
+    pinMode(JOG_TCH, INPUT_PULLUP);
     tempo.begin();
     trackEnc.begin();
 
@@ -106,6 +111,14 @@ void loop() {
     // ---- jog wheel -> relative CC (+ touch -> scratch enable note) ----
     jog.poll();
     int32_t jd = jog.readDelta();
+
+    // ---- serial monitor: report jog movement + touch ----
+    static int32_t jogPos = 0; // running tick count (debug only)
+    if (jd != 0) {
+        jogPos += jd;
+        Serial.printf("jog: delta=%+ld pos=%ld touch=%d\n", (long)jd, (long)jogPos, jog.touched());
+    }
+
     while (jd != 0) { // send full delta in <=63 chunks
         int32_t chunk = jd;
         if (chunk > 63) chunk = 63;
@@ -113,8 +126,14 @@ void loop() {
         pi.cc(midimap::CC_JOG, (uint8_t)(chunk & 0x7F)); // 7-bit two's complement
         jd -= chunk;
     }
-    if (jog.touchPressed()) pi.noteOn(midimap::NOTE_JOG_TOUCH, 127);
-    if (jog.touchReleased()) pi.noteOff(midimap::NOTE_JOG_TOUCH);
+    if (jog.touchPressed()) {
+        pi.noteOn(midimap::NOTE_JOG_TOUCH, 127);
+        Serial.println("jog: touch DOWN");
+    }
+    if (jog.touchReleased()) {
+        pi.noteOff(midimap::NOTE_JOG_TOUCH);
+        Serial.println("jog: touch UP");
+    }
 
     // ---- tempo fader -> absolute CC (only on change) ----
     tempo.poll();
