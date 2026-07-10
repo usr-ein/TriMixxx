@@ -16,7 +16,7 @@ void JogWheel::begin() {
     // ESP32Encoder versions.
     ESP32Encoder::useInternalWeakPullResistors = _encoderPullup ? (puType)2 : (puType)0;
 
-    _enc.attachFullQuad(_pinA, _pinB);     // count all 4 edges in hardware PCNT
+    _enc.attachFullQuad(_pinA, _pinB); // count all 4 edges in hardware PCNT
     _enc.clearCount();
     _last = 0;
 
@@ -27,9 +27,9 @@ void JogWheel::begin() {
 }
 
 int32_t JogWheel::readDelta() {
-    int64_t now = _enc.getCount();         // hardware-accumulated quadrature count
-    int32_t d = (int32_t)(now - _last);
-    _last = now;
+    int64_t now = _enc.getCount(); // hardware-accumulated quadrature count
+    int32_t d   = (int32_t)(now - _last);
+    _last       = now;
     return d;
 }
 
@@ -39,15 +39,24 @@ void JogWheel::poll() {
     // Active-low: touched == LOW, otherwise HIGH.
     bool raw = (digitalRead(_pinTouch) == LOW);
     if (raw != _touchStable) {
-        if (++_touchCnt >= 3) {            // light debounce for the touch contact
+        if (++_touchCnt >= 3) { // light debounce for the touch contact
             _touchStable = raw;
-            _touchCnt = 0;
-            if (raw) _pressedEdge = true; else _releasedEdge = true;
+            _touchCnt    = 0;
+            if (raw) _pressedEdge = true;
+            else _releasedEdge = true;
         }
     } else {
         _touchCnt = 0;
     }
 }
 
-bool JogWheel::touchPressed()  { bool e = _pressedEdge;  _pressedEdge  = false; return e; }
-bool JogWheel::touchReleased() { bool e = _releasedEdge; _releasedEdge = false; return e; }
+bool JogWheel::touchPressed() {
+    bool e       = _pressedEdge;
+    _pressedEdge = false;
+    return e;
+}
+bool JogWheel::touchReleased() {
+    bool e        = _releasedEdge;
+    _releasedEdge = false;
+    return e;
+}

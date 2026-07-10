@@ -26,13 +26,16 @@ public:
     void sendRaw(uint8_t status, uint8_t d1, uint8_t d2);
 
     // ---- receive ----
-    void onMidi(MidiHandler h, void* ctx) { _handler = h; _ctx = ctx; }
-    void poll();                    // call often; parses RX, fires the handler
+    void onMidi(MidiHandler h, void* ctx) {
+        _handler = h;
+        _ctx     = ctx;
+    }
+    void poll(); // call often; parses RX, fires the handler
 
 private:
     HardwareSerial& _uart;
-    int      _txPin, _rxPin;
-    uint32_t _baud;
+    int             _txPin, _rxPin;
+    uint32_t        _baud;
 
     MidiHandler _handler = nullptr;
     void*       _ctx     = nullptr;

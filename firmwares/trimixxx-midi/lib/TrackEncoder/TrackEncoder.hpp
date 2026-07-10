@@ -23,23 +23,23 @@ public:
     TrackEncoder(int pinClk, int pinDt, int pinSw, bool invert = false);
     void begin();
 
-    void poll();                       // decode rotation + debounce switch
+    void poll(); // decode rotation + debounce switch
 
-    int8_t readDelta();                // signed detents since last call; CONSUMES
+    int8_t readDelta(); // signed detents since last call; CONSUMES
 
-    bool switchLevel() const { return _swStable; }  // true while held
-    bool switchPressed();              // falling edge (press); CONSUMES
-    bool switchReleased();             // rising edge (release); CONSUMES
+    bool switchLevel() const { return _swStable; } // true while held
+    bool switchPressed();                          // falling edge (press); CONSUMES
+    bool switchReleased();                         // rising edge (release); CONSUMES
 
 private:
     int  _pinClk, _pinDt, _pinSw;
     bool _invert;
 
-    uint8_t _state = 0;                // quadrature state-table cursor
-    int8_t  _accum = 0;                // detents pending for readDelta()
+    uint8_t _state = 0; // quadrature state-table cursor
+    int8_t  _accum = 0; // detents pending for readDelta()
 
-    bool    _swStable   = false;       // debounced, true == pressed (active-low)
-    uint8_t _swCnt      = 0;
-    bool    _pressEdge  = false;
+    bool    _swStable    = false; // debounced, true == pressed (active-low)
+    uint8_t _swCnt       = 0;
+    bool    _pressEdge   = false;
     bool    _releaseEdge = false;
 };

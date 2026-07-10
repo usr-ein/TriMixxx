@@ -24,8 +24,8 @@ public:
     // rxPin  : nodeN DOUT -> S3 RX  (through the 5V->3.3V level shifter)
     // core   : which CPU core to pin the ring task to (0 keeps it off the
     //          Arduino loop, which runs on core 1)
-    OneButtonRing(HardwareSerial& uart, int txPin, int rxPin,
-                  uint8_t nodeCount, uint32_t baud = 1000000, int core = 0);
+    OneButtonRing(HardwareSerial& uart, int txPin, int rxPin, uint8_t nodeCount,
+                  uint32_t baud = 1000000, int core = 0);
     ~OneButtonRing();
 
     // Configure the UART, allocate buffers, start the ring task, enumerate.
@@ -37,16 +37,16 @@ public:
     void clearLeds();
 
     // ---- Button input (ring -> firmware) ----
-    bool level(uint8_t node);     // true while held (latest frame)
-    bool pressed(uint8_t node);   // true if a press happened since last call; CONSUMES it
+    bool level(uint8_t node);   // true while held (latest frame)
+    bool pressed(uint8_t node); // true if a press happened since last call; CONSUMES it
 
     // ---- Health / status ----
     uint8_t  configuredNodes() const { return _n; }
     uint8_t  enumeratedNodes() const { return _enumCount; }
-    bool     linkOk()          const { return _linkOk; }
-    uint32_t goodFrames()      const { return _good; }
-    uint32_t badFrames()       const { return _bad; }
-    void     reenumerate()           { _reenumReq = true; }
+    bool     linkOk() const { return _linkOk; }
+    uint32_t goodFrames() const { return _good; }
+    uint32_t badFrames() const { return _bad; }
+    void     reenumerate() { _reenumReq = true; }
 
 private:
     static void taskTrampoline(void* arg);
@@ -56,31 +56,31 @@ private:
 
     static constexpr uint8_t TYPE_DATA   = 0xA5;
     static constexpr uint8_t TYPE_ENUM   = 0x5A;
-    static constexpr uint8_t HDR         = 2;     // TYPE + SEQ
-    static constexpr uint8_t SLOT        = 7;     // 6 LED + 1 BTN
+    static constexpr uint8_t HDR         = 2; // TYPE + SEQ
+    static constexpr uint8_t SLOT        = 7; // 6 LED + 1 BTN
     static constexpr uint8_t BTN_LEVEL   = 0x01;
     static constexpr uint8_t BTN_STICKY  = 0x02;
-    static constexpr uint8_t FAIL_REENUM = 10;    // re-enum after N bad frames
+    static constexpr uint8_t FAIL_REENUM = 10; // re-enum after N bad frames
 
     HardwareSerial& _uart;
-    int      _txPin, _rxPin;
-    uint8_t  _n;
-    uint32_t _baud;
-    int      _core;
-    size_t   _frameLen = 0;               // HDR + n*SLOT + 1
+    int             _txPin, _rxPin;
+    uint8_t         _n;
+    uint32_t        _baud;
+    int             _core;
+    size_t          _frameLen = 0; // HDR + n*SLOT + 1
 
-    uint8_t* _tx       = nullptr;         // outgoing frame
-    uint8_t* _rx       = nullptr;         // returned echo
-    uint8_t* _led      = nullptr;         // n*6 RGB, guarded by _mux
-    uint8_t* _level    = nullptr;         // n, guarded
-    uint8_t* _pressAcc = nullptr;         // n accumulated sticky, guarded
+    uint8_t* _tx       = nullptr; // outgoing frame
+    uint8_t* _rx       = nullptr; // returned echo
+    uint8_t* _led      = nullptr; // n*6 RGB, guarded by _mux
+    uint8_t* _level    = nullptr; // n, guarded
+    uint8_t* _pressAcc = nullptr; // n accumulated sticky, guarded
 
     volatile uint8_t  _enumCount = 0;
     volatile bool     _linkOk    = false;
     volatile bool     _reenumReq = false;
     volatile uint32_t _good = 0, _bad = 0;
-    uint8_t  _seq = 0;
+    uint8_t           _seq = 0;
 
-    portMUX_TYPE _mux = portMUX_INITIALIZER_UNLOCKED;
+    portMUX_TYPE _mux  = portMUX_INITIALIZER_UNLOCKED;
     TaskHandle_t _task = nullptr;
 };

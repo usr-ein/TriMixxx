@@ -1,0 +1,47 @@
+# TriMixxx S3 firmware -- house C++ style.
+# Tuned to match the existing hand-aligned code (4-space indent, attached
+# braces, left-aligned pointers, aligned declarations/assignments/comments,
+# one-line short functions). Run: clang-format -i src/**/*.cpp lib/**/*.{hpp,cpp}
+---
+Language: Cpp
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+
+# Braces hug the statement (K&R / Arduino convention).
+BreakBeforeBraces: Attach
+
+# `public:` / `private:` sit flush at column 0, as written.
+AccessModifierOffset: -4
+
+# `uint8_t* p` / `HardwareSerial& u` -- type-side, as written throughout.
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Preserve the deliberate column alignment in the headers.
+AlignConsecutiveDeclarations:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignTrailingComments:
+  Kind: Always
+  OverEmptyLines: 0
+
+# Keep terse one-liners like `bool touchPressed() { ... }` intact.
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortBlocksOnASingleLine: Empty
+AllowShortLoopsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+
+SpaceAfterCStyleCast: false
+SortIncludes: Never
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1

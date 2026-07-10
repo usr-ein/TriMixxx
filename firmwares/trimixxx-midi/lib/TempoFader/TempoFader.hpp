@@ -28,20 +28,20 @@ public:
     TempoFader(int pinCenter, int pinWiper, int span = 1900, bool invert = false);
     void begin();
 
-    void poll();                       // read + filter; call each loop
-    uint8_t value() const { return _value; }   // 0..127, 64 == center
-    bool    changed();                 // true if value moved since last call; CONSUMES
+    void    poll();                          // read + filter; call each loop
+    uint8_t value() const { return _value; } // 0..127, 64 == center
+    bool    changed();                       // true if value moved since last call; CONSUMES
 
 private:
-    uint16_t readAvg(int pin) const;   // oversampled single-channel read
+    uint16_t readAvg(int pin) const; // oversampled single-channel read
 
-    int   _pinCT, _pinWiper;
-    int   _span;
-    bool  _invert;
+    int  _pinCT, _pinWiper;
+    int  _span;
+    bool _invert;
 
-    float   _ctF   = 0;                // EMA-filtered center + wiper (ADC counts)
-    float   _inF   = 0;
-    bool    _primed = false;           // first poll seeds the filters
+    float   _ctF    = 0; // EMA-filtered center + wiper (ADC counts)
+    float   _inF    = 0;
+    bool    _primed = false; // first poll seeds the filters
     uint8_t _value  = 64;
-    bool    _dirty  = false;           // pending change for changed()
+    bool    _dirty  = false; // pending change for changed()
 };

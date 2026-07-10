@@ -32,18 +32,18 @@ public:
     JogWheel(int pinA, int pinB, int pinTouch, bool encoderPullup = false);
     void begin();
 
-    int32_t readDelta();               // signed ticks since last call (consumes)
+    int32_t readDelta(); // signed ticks since last call (consumes)
 
-    void poll();                       // call each loop: debounce touch, latch edges
+    void poll(); // call each loop: debounce touch, latch edges
     bool touched() const { return _touchStable; }
-    bool touchPressed();               // rising edge (consumes)
-    bool touchReleased();              // falling edge (consumes)
+    bool touchPressed();  // rising edge (consumes)
+    bool touchReleased(); // falling edge (consumes)
 
 private:
-    int  _pinA, _pinB, _pinTouch;
-    bool _encoderPullup;
+    int          _pinA, _pinB, _pinTouch;
+    bool         _encoderPullup;
     ESP32Encoder _enc;
-    int64_t _last = 0;
+    int64_t      _last = 0;
 
     bool    _touchStable  = false;
     uint8_t _touchCnt     = 0;
