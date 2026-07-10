@@ -2,6 +2,8 @@
 #include "OneButtonRing.hpp"
 #include "PiLink.hpp"
 #include "JogWheel.hpp"
+#include "TempoFader.hpp"
+#include "TrackEncoder.hpp"
 #include "MidiMap.hpp"
 
 // ===========================================================================
@@ -43,6 +45,17 @@ PiLink pi(Serial0, PI_TX, PI_RX, 115200);
 // jog cable is ever unplugged.
 JogWheel jog(JOG_A, JOG_B, JOG_TCH, /*encoderPullup=*/false);
 
+// ---- Tempo fader (ratiometric: center tap + wiper, both ADC1) --------------
+#define TEMPO_ADCT 8
+#define TEMPO_ADIN 9
+TempoFader tempo(TEMPO_ADCT, TEMPO_ADIN);
+
+// ---- Track encoder (KY-040 mechanical: CLK/DT/SW) --------------------------
+#define ENC_CLK 33
+#define ENC_DT  37
+#define ENC_SW  38
+TrackEncoder trackEnc(ENC_CLK, ENC_DT, ENC_SW);
+
 static bool padPendingOff[RING_A_NODES] = { false };
 
 // -------- incoming MIDI from Mixxx -> LEDs (Mixxx owns LED state) ----------
@@ -66,11 +79,13 @@ void setup() {
     pi.onMidi(onMidiFromMixxx, nullptr);
 
     jog.begin();
+    tempo.begin();
+    trackEnc.begin();
 
     if (!ringA.begin()) Serial.println("ringA: allocation failed");
     // ringB.begin();
 
-    // TODO: init encoder, tempo ADC, play/cue, loop board
+    // TODO: init play/cue, loop board
 }
 
 void loop() {
@@ -102,11 +117,21 @@ void loop() {
     if (jog.touchPressed())  pi.noteOn (midimap::NOTE_JOG_TOUCH, 127);
     if (jog.touchReleased()) pi.noteOff(midimap::NOTE_JOG_TOUCH);
 
+    // ---- tempo fader -> absolute CC (only on change) ----
+    tempo.poll();
+    if (tempo.changed()) pi.cc(midimap::CC_TEMPO, tempo.value());
+
+    // ---- track encoder -> relative CC (1=up / 127=down) + press note ----
+    trackEnc.poll();
+    int8_t ed = trackEnc.readDelta();
+    for (; ed > 0; ed--) pi.cc(midimap::CC_ENCODER, 1);      // one detent up
+    for (; ed < 0; ed++) pi.cc(midimap::CC_ENCODER, 127);    // one detent down
+    if (trackEnc.switchPressed())  pi.noteOn (midimap::NOTE_ENC_SW, 127);
+    if (trackEnc.switchReleased()) pi.noteOff(midimap::NOTE_ENC_SW);
+
     // ---- remaining controls send MIDI here once their drivers exist ----
-    // TrackEncoder: detent -> pi.cc(CC_ENCODER, up?1:127); press -> NOTE_ENC_SW
-    // TempoFader:   change -> pi.cc(CC_TEMPO, value0_127)
-    // PlayCue:      buttons -> pi.noteOn/Off(NOTE_PLAY / NOTE_CUE)
-    // Loop:         buttons -> pi.noteOn/Off(NOTE_LOOP_IN/_OUT/RELOOP)
+    // PlayCue: buttons -> pi.noteOn/Off(NOTE_PLAY / NOTE_CUE)
+    // Loop:    buttons -> pi.noteOn/Off(NOTE_LOOP_IN/_OUT/RELOOP)
 
     static uint32_t t = 0;
     if (millis() - t > 1000) {
