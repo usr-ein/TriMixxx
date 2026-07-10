@@ -1,13 +1,19 @@
 #include "TempoFader.hpp"
 
 namespace {
-constexpr int     ADC_BITS    = 12;    // 0..4095
-constexpr int     OVERSAMPLE  = 16;    // per-channel reads averaged each poll
-constexpr float   EMA_ALPHA   = 0.20f; // smoothing; lower = calmer, laggier
-constexpr int     DEADBAND    = 40;    // ADC counts around center that read 64
-constexpr float   HYSTERESIS  = 0.60f; // 7-bit units the value must move to commit
-constexpr uint8_t MIDI_CENTER = 64;
-constexpr uint8_t MIDI_MAX    = 127;
+constexpr int ADC_BITS   = 12; // 0..4095
+constexpr int OVERSAMPLE = 16; // per-channel reads averaged each poll
+// Two EMAs: the center tap is a ~DC reference, so smooth it HARD (kills its
+// contribution to offset noise); the wiper must track motion, so smooth lighter.
+constexpr float CENTER_ALPHA = 0.02f; // center tap -- heavy, near-DC
+constexpr float WIPER_ALPHA  = 0.10f; // wiper -- responsive but calm
+constexpr int   DEADBAND     = 40;    // ADC counts around center forced to exact center
+// Idle ESP32 ADC noise is a few counts; at ~4.3 units/count that is ~10-15 units
+// of offset jitter. Hold hysteresis above it so an untouched fader sends nothing.
+// 16 units over 16384 still resolves ~1024 positions across the throw.
+constexpr float HYSTERESIS  = 16.0f; // 14-bit units the value must move to commit
+constexpr int   MIDI_CENTER = 8192;  // 14-bit center (no pitch change)
+constexpr int   MIDI_MAX    = 16383; // 14-bit full scale
 } // namespace
 
 TempoFader::TempoFader(int pinCenter, int pinWiper, int span, bool invert)
@@ -36,8 +42,8 @@ void TempoFader::poll() {
         _inF    = in;
         _primed = true;
     } else {
-        _ctF += (ct - _ctF) * EMA_ALPHA;
-        _inF += (in - _inF) * EMA_ALPHA;
+        _ctF += (ct - _ctF) * CENTER_ALPHA;
+        _inF += (in - _inF) * WIPER_ALPHA;
     }
 
     // Ratiometric: everything is relative to the live center tap.
@@ -51,7 +57,7 @@ void TempoFader::poll() {
     // Commit only past the hysteresis band so a value sitting on a code
     // boundary doesn't chatter between two adjacent MIDI numbers.
     if (fabsf(v - _value) >= HYSTERESIS) {
-        _value = static_cast<uint8_t>(lroundf(v));
+        _value = static_cast<uint16_t>(lroundf(v));
         _dirty = true;
     }
 }

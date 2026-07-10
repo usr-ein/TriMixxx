@@ -30,6 +30,9 @@ constexpr uint8_t CC_ENCODER  = 16; // 0x10  relative: 1=up, 127=down
 constexpr uint8_t NOTE_JOG_TOUCH = 66; // 0x42  touch on/off (scratch)
 constexpr uint8_t CC_JOG         = 17; // 0x11  relative ticks
 
-// ---- Tempo fader ----
-constexpr uint8_t CC_TEMPO = 18; // 0x12  absolute 0..127
+// ---- Tempo fader (14-bit high-res: MSB + LSB pair) ----
+// Standard MIDI 14-bit convention: LSB rides on CC = MSB + 32. Mixxx binds both
+// with <fourteen-bit-msb>/<fourteen-bit-lsb>. Combined 0..16383, 8192 = center.
+constexpr uint8_t CC_TEMPO     = 18; // 0x12  MSB (high 7 bits)
+constexpr uint8_t CC_TEMPO_LSB = 50; // 0x32  LSB (low 7 bits) = 18 + 32
 } // namespace midimap

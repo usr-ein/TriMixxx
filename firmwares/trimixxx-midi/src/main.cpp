@@ -46,9 +46,11 @@ PiLink pi(Serial0, PI_TX, PI_RX, 115200);
 JogWheel jog(JOG_A, JOG_B, JOG_TCH, /*encoderPullup=*/false);
 
 // ---- Tempo fader (ratiometric: center tap + wiper, both ADC1) --------------
+// Wired inverted on this deck (high end = slow), so invert=true. span still TBD
+// from calibration (watch the offset= readout at full throw).
 #define TEMPO_ADCT 8
 #define TEMPO_ADIN 9
-TempoFader tempo(TEMPO_ADCT, TEMPO_ADIN);
+TempoFader tempo(TEMPO_ADCT, TEMPO_ADIN, /*span=*/1900, /*invert=*/true);
 
 // ---- Track encoder (KY-040 mechanical: CLK/DT/SW) --------------------------
 #define ENC_CLK 33
@@ -135,9 +137,13 @@ void loop() {
         Serial.println("jog: touch UP");
     }
 
-    // ---- tempo fader -> absolute CC (only on change) ----
+    // ---- tempo fader -> 14-bit absolute CC (MSB + LSB, only on change) ----
     tempo.poll();
-    if (tempo.changed()) pi.cc(midimap::CC_TEMPO, tempo.value());
+    if (tempo.changed()) {
+        uint16_t v = tempo.value();                        // 0..16383
+        pi.cc(midimap::CC_TEMPO, (uint8_t)(v >> 7));       // high 7 bits (MSB)
+        pi.cc(midimap::CC_TEMPO_LSB, (uint8_t)(v & 0x7F)); // low 7 bits (LSB)
+    }
 
     // ---- track encoder -> relative CC (1=up / 127=down) + press note ----
     trackEnc.poll();
@@ -151,12 +157,14 @@ void loop() {
     // PlayCue: buttons -> pi.noteOn/Off(NOTE_PLAY / NOTE_CUE)
     // Loop:    buttons -> pi.noteOn/Off(NOTE_LOOP_IN/_OUT/RELOOP)
 
+    // ---- tempo fader calibration readout ----
+    // Watch center/wiper/offset while moving the fader to both extremes to pick
+    // the `span` ctor arg (offset at full throw) and confirm the detent centers.
     static uint32_t t = 0;
-    if (millis() - t > 1000) {
+    if (millis() - t > 200) {
         t = millis();
-        Serial.printf("ringA: nodes=%u link=%d good=%lu bad=%lu\n", ringA.enumeratedNodes(),
-                      ringA.linkOk(), (unsigned long)ringA.goodFrames(),
-                      (unsigned long)ringA.badFrames());
+        Serial.printf("tempo: center=%u wiper=%u offset=%+d value=%u\n", tempo.center(),
+                      tempo.wiper(), tempo.offset(), tempo.value());
     }
 
     delay(2);
