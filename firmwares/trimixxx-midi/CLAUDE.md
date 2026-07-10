@@ -20,10 +20,17 @@ and the serial console — no external programmer.
 ### Formatting & linting
 - **Format:** `clang-format` (config `.clang-format`). Apply to everything:
   `clang-format -i src/**/*.cpp lib/**/*.{hpp,cpp}`. The whole tree is kept
-  format-clean — run it before committing. Requires `brew install clang-format`.
+  format-clean. Requires `brew install clang-format`.
 - **Lint:** `pio check` runs cppcheck over `src/` + `lib/` only (framework and
   lib-deps skipped). Suppressions for third-party headers and the canonical
   encoder state table live in `platformio.ini`. Requires `brew install cppcheck`.
+- **Git hook (automatic):** both of the above run on every commit via `prek`,
+  configured in the monorepo-root `.pre-commit-config.yaml` (scoped to this
+  firmware). clang-format auto-fixes staged C/C++; `pio check` blocks the commit
+  on any medium/high cppcheck defect. **One-time setup per clone:** `prek install`.
+  Tools needed: `brew install clang-format cppcheck` + `prek`.
+  (Note: `pio check --fail-on-defect` matches an *exact* severity, so the hook
+  lists both `medium` and `high` — see the config comment.)
 
 ## Architecture
 

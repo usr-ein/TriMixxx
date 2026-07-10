@@ -1,0 +1,24 @@
+# Git pre-commit hooks, run by `prek` (https://github.com/j178/prek).
+# Install once per clone:  prek install
+#
+# Scoped to the trimixxx-midi firmware only -- other projects in this monorepo
+# are untouched. Two gates, using the locally-installed tools:
+#   1. clang-format -- auto-formats staged C/C++ (config: firmwares/trimixxx-midi/.clang-format)
+#   2. pio check    -- cppcheck static analysis; blocks the commit on medium+ defects
+repos:
+  - repo: local
+    hooks:
+      - id: clang-format
+        name: clang-format (trimixxx-midi)
+        entry: clang-format -i
+        language: system
+        files: ^firmwares/trimixxx-midi/.*\.(c|cc|cpp|h|hpp)$
+
+      - id: pio-check
+        name: pio check / cppcheck (trimixxx-midi)
+        # --fail-on-defect matches the EXACT severity, so list medium AND high
+        # (low is the pre-existing style noise -- don't block commits on it).
+        entry: bash -c 'cd firmwares/trimixxx-midi && "$HOME/.platformio/penv/bin/pio" check --fail-on-defect=medium --fail-on-defect=high'
+        language: system
+        pass_filenames: false
+        files: ^firmwares/trimixxx-midi/.*\.(c|cc|cpp|h|hpp|ini)$
