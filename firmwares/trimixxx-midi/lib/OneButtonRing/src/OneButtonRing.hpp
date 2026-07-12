@@ -19,17 +19,20 @@
 // ===========================================================================
 class OneButtonRing {
 public:
-    // uart   : a HardwareSerial dedicated to this ring (not shared with anything)
-    // txPin  : S3 TX -> node0 DIN   (through the 3.3V->5V level shifter)
-    // rxPin  : nodeN DOUT -> S3 RX  (through the 5V->3.3V level shifter)
-    // core   : which CPU core to pin the ring task to (0 keeps it off the
-    //          Arduino loop, which runs on core 1)
+    // uart     : a HardwareSerial dedicated to this ring (not shared with anything)
+    // txPin    : S3 TX -> node0 DIN   (through the 3.3V->5V level shifter)
+    // rxPin    : nodeN DOUT -> S3 RX  (through the 5V->3.3V level shifter)
+    // nodeCount: pre-enumeration default only. The ring self-sizes its DATA frame
+    //            to the ACTUAL enumerated node count at runtime, so this just needs
+    //            to be a sane estimate (clamped to MAX_NODES).
+    // core     : which CPU core to pin the ring task to (0 keeps it off the
+    //            Arduino loop, which runs on core 1)
     OneButtonRing(HardwareSerial& uart, int txPin, int rxPin, uint8_t nodeCount,
                   uint32_t baud = 1000000, int core = 0);
     ~OneButtonRing();
 
-    // Configure the UART, allocate buffers, start the ring task, enumerate.
-    // Returns false only on allocation failure.
+    // Configure the UART, start the ring task, enumerate. Buffers are static
+    // (no heap), so this only fails if it can't create the FreeRTOS task.
     bool begin();
 
     // ---- LED output (firmware -> ring). Applied on the next frame. ----
@@ -62,6 +65,11 @@ private:
     static constexpr uint8_t BTN_STICKY  = 0x02;
     static constexpr uint8_t FAIL_REENUM = 10; // re-enum after N bad frames
 
+    // Buffers are fixed-size (no heap): deterministic, no OOM/leak/fragmentation.
+    // nodeCount is clamped to MAX_NODES in the ctor -- bump this if a ring grows.
+    static constexpr uint8_t MAX_NODES = 64;
+    static constexpr size_t  MAX_FRAME = HDR + (size_t)MAX_NODES * SLOT + 1;
+
     HardwareSerial& _uart;
     int             _txPin, _rxPin;
     uint8_t         _n;
@@ -69,13 +77,15 @@ private:
     int             _core;
     size_t          _frameLen = 0; // HDR + n*SLOT + 1
 
-    uint8_t* _tx       = nullptr; // outgoing frame
-    uint8_t* _rx       = nullptr; // returned echo
-    uint8_t* _led      = nullptr; // n*6 RGB, guarded by _mux
-    uint8_t* _level    = nullptr; // n, guarded
-    uint8_t* _pressAcc = nullptr; // n accumulated sticky, guarded
+    // Only the first _frameLen / _n entries are used; sized to the MAX_NODES cap.
+    uint8_t _tx[MAX_FRAME]       = {}; // outgoing frame
+    uint8_t _rx[MAX_FRAME]       = {}; // returned echo
+    uint8_t _led[MAX_NODES * 6]  = {}; // n*6 RGB, guarded by _mux
+    uint8_t _level[MAX_NODES]    = {}; // n, guarded
+    uint8_t _pressAcc[MAX_NODES] = {}; // n accumulated sticky, guarded
 
     volatile uint8_t  _enumCount = 0;
+    volatile uint8_t  _active    = 0; // node count the DATA frame is currently sized to
     volatile bool     _linkOk    = false;
     volatile bool     _reenumReq = false;
     volatile uint32_t _good = 0, _bad = 0;

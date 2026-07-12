@@ -10,34 +10,29 @@ static inline uint8_t crc8_upd(uint8_t c, uint8_t d) {
 
 OneButtonRing::OneButtonRing(HardwareSerial& uart, int txPin, int rxPin, uint8_t nodeCount,
                              uint32_t baud, int core)
-    : _uart(uart), _txPin(txPin), _rxPin(rxPin), _n(nodeCount), _baud(baud), _core(core) {}
+    : _uart(uart), _txPin(txPin), _rxPin(rxPin), _n(nodeCount), _baud(baud), _core(core) {
+    if (_n > MAX_NODES) _n = MAX_NODES; // clamp to the static buffer size
+}
 
 OneButtonRing::~OneButtonRing() {
-    if (_task) vTaskDelete(_task);
-    free(_tx);
-    free(_rx);
-    free(_led);
-    free(_level);
-    free(_pressAcc);
+    if (_task) vTaskDelete(_task); // buffers are static -- nothing to free
 }
 
 bool OneButtonRing::begin() {
-    _frameLen = HDR + (size_t)_n * SLOT + 1;
-    _tx       = (uint8_t*)malloc(_frameLen);
-    _rx       = (uint8_t*)malloc(_frameLen);
-    _led      = (uint8_t*)calloc((size_t)_n * 6, 1);
-    _level    = (uint8_t*)calloc(_n, 1);
-    _pressAcc = (uint8_t*)calloc(_n, 1);
-    if (!_tx || !_rx || !_led || !_level || !_pressAcc) return false;
+    // Pre-enumeration default; doEnumerate() re-sizes _active/_frameLen to the
+    // actual node count on the task's first pass.
+    _active   = _n;
+    _frameLen = HDR + (size_t)_n * SLOT + 1; // <= MAX_FRAME since _n <= MAX_NODES
 
     // RX buffer must hold a whole returned frame; the echo streams in (via
     // cut-through) while we are still transmitting, so it can't be read yet.
-    _uart.setRxBufferSize(_frameLen + 128);
+    // Size it for the largest possible ring, since we self-size up to MAX_NODES.
+    _uart.setRxBufferSize(MAX_FRAME + 128);
     _uart.begin(_baud, SERIAL_8N1, _rxPin, _txPin);
     _uart.setTimeout(20); // ms; comfortably > ring round-trip
 
-    xTaskCreatePinnedToCore(taskTrampoline, "1btn_ring", 4096, this, 5, &_task, _core);
-    return true;
+    return xTaskCreatePinnedToCore(taskTrampoline, "1btn_ring", 4096, this, 5, &_task, _core) ==
+           pdPASS;
 }
 
 void OneButtonRing::taskTrampoline(void* arg) { static_cast<OneButtonRing*>(arg)->taskLoop(); }
@@ -51,9 +46,13 @@ bool OneButtonRing::doEnumerate() {
     _uart.flush(); // wait until TX drained
     uint8_t r[2];
     size_t  got = _uart.readBytes(r, 2);
-    if (got == 2 && r[0] == TYPE_ENUM) {
+    if (got == 2 && r[0] == TYPE_ENUM && r[1] > 0) {
         _enumCount = r[1];
-        _linkOk    = (_enumCount == _n);
+        // Self-size the DATA frame to however many nodes actually answered,
+        // clamped to the static buffer capacity.
+        _active   = (_enumCount > MAX_NODES) ? MAX_NODES : _enumCount;
+        _frameLen = HDR + (size_t)_active * SLOT + 1;
+        _linkOk   = (_enumCount <= MAX_NODES); // false if the ring is bigger than we can address
         return _linkOk;
     }
     _linkOk = false;
@@ -67,7 +66,7 @@ void OneButtonRing::buildFrame() {
     _tx[1] = ++_seq;
 
     taskENTER_CRITICAL(&_mux); // brief: copy LED bytes out
-    for (uint8_t n = 0; n < _n; n++) {
+    for (uint8_t n = 0; n < _active; n++) {
         uint8_t*       slot = &_tx[HDR + n * SLOT];
         const uint8_t* src  = &_led[n * 6];
         slot[0]             = src[0];
@@ -83,7 +82,7 @@ void OneButtonRing::buildFrame() {
     uint8_t c = 0;
     c         = crc8_upd(c, _tx[0]);
     c         = crc8_upd(c, _tx[1]);
-    for (uint8_t n = 0; n < _n; n++) {
+    for (uint8_t n = 0; n < _active; n++) {
         const uint8_t* slot = &_tx[HDR + n * SLOT];
         for (int k = 0; k < 6; k++) c = crc8_upd(c, slot[k]);
     }
@@ -110,7 +109,7 @@ void OneButtonRing::taskLoop() {
             uint8_t c = 0;
             c         = crc8_upd(c, _rx[0]);
             c         = crc8_upd(c, _rx[1]);
-            for (uint8_t n = 0; n < _n; n++) {
+            for (uint8_t n = 0; n < _active; n++) {
                 const uint8_t* slot = &_rx[HDR + n * SLOT];
                 for (int k = 0; k < 6; k++) c = crc8_upd(c, slot[k]);
             }
@@ -119,7 +118,7 @@ void OneButtonRing::taskLoop() {
 
         if (ok) {
             taskENTER_CRITICAL(&_mux);
-            for (uint8_t n = 0; n < _n; n++) {
+            for (uint8_t n = 0; n < _active; n++) {
                 uint8_t b = _rx[HDR + n * SLOT + 6];
                 _level[n] = (b & BTN_LEVEL) ? 1 : 0;
                 if (b & BTN_STICKY) _pressAcc[n] = 1; // OR-accumulate across frames
@@ -145,7 +144,7 @@ void OneButtonRing::taskLoop() {
 }
 
 void OneButtonRing::setLed(uint8_t node, uint8_t ledIndex, uint8_t r, uint8_t g, uint8_t b) {
-    if (node >= _n || ledIndex > 1) return;
+    if (node >= _active || ledIndex > 1) return;
     uint8_t* p = &_led[node * 6 + ledIndex * 3];
     taskENTER_CRITICAL(&_mux);
     p[0] = r;
@@ -156,12 +155,12 @@ void OneButtonRing::setLed(uint8_t node, uint8_t ledIndex, uint8_t r, uint8_t g,
 
 void OneButtonRing::clearLeds() {
     taskENTER_CRITICAL(&_mux);
-    memset(_led, 0, (size_t)_n * 6);
+    memset(_led, 0, (size_t)_active * 6);
     taskEXIT_CRITICAL(&_mux);
 }
 
 bool OneButtonRing::level(uint8_t node) {
-    if (node >= _n) return false;
+    if (node >= _active) return false;
     taskENTER_CRITICAL(&_mux);
     bool v = _level[node];
     taskEXIT_CRITICAL(&_mux);
@@ -169,7 +168,7 @@ bool OneButtonRing::level(uint8_t node) {
 }
 
 bool OneButtonRing::pressed(uint8_t node) {
-    if (node >= _n) return false;
+    if (node >= _active) return false;
     taskENTER_CRITICAL(&_mux);
     bool v          = _pressAcc[node];
     _pressAcc[node] = 0; // consume the edge
