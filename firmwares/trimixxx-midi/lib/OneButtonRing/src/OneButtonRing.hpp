@@ -80,6 +80,12 @@ private:
     static constexpr uint8_t MAX_NODES = 64;
     static constexpr size_t  MAX_FRAME = HDR + (size_t)MAX_NODES * SLOT + 1;
 
+    // The whole echoed frame can pile into the UART RX buffer before readBytes()
+    // drains it (cut-through: it streams back while we're still transmitting), so
+    // the RX buffer must hold a full MAX_FRAME. RX_SLACK is margin over that
+    // single in-flight frame (~one HW FIFO); only one frame is ever in flight.
+    static constexpr size_t RX_SLACK = 128;
+
     HardwareSerial& _uart;
     int             _txPin, _rxPin;
     uint8_t         _n;

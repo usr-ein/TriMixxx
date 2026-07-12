@@ -19,15 +19,15 @@ OneButtonRing::~OneButtonRing() {
 }
 
 bool OneButtonRing::begin() {
-    // Pre-enumeration default; doEnumerate() re-sizes _active/_frameLen to the
-    // actual node count on the task's first pass.
+    // Pre-enumeration default; enumerateUntilStable() re-sizes _active/_frameLen
+    // to the actual node count on the task's first pass.
     _active   = _n;
     _frameLen = HDR + (size_t)_n * SLOT + 1; // <= MAX_FRAME since _n <= MAX_NODES
 
     // RX buffer must hold a whole returned frame; the echo streams in (via
     // cut-through) while we are still transmitting, so it can't be read yet.
     // Size it for the largest possible ring, since we self-size up to MAX_NODES.
-    _uart.setRxBufferSize(MAX_FRAME + 128);
+    _uart.setRxBufferSize(MAX_FRAME + RX_SLACK);
     _uart.begin(_baud, SERIAL_8N1, _rxPin, _txPin);
     _uart.setTimeout(20); // ms; comfortably > ring round-trip
 
