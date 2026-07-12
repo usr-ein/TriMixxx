@@ -44,7 +44,7 @@ others — `main.cpp` is the only place that maps one to another.
 | `lib/OneButtonRing` | Master driver for one UART ring of RGB+button nodes. Owns a **FreeRTOS task** (pinned to core 0) that circulates DATA frames; exposes a thread-safe snapshot API (`level`/`pressed`/`setLed`). One instance per ring. Implements OneButton Protocol v1.0.0. |
 | `lib/PiLink` | Raw MIDI-over-UART link to the Pi. Send helpers (`noteOn/noteOff/cc`) + `poll()` parses incoming MIDI (with running-status) and fires a callback. Deck-agnostic. |
 | `lib/JogWheel` | Quadrature jog decode via hardware **PCNT** (zero CPU, no ISR) + active-low touch sense. Uses `ESP32Encoder`. |
-| `lib/TempoFader` | Ratiometric slide-fader read: center-tap (ADCT) + wiper (ADIN), both ADC1. Value derived from `ADIN - ADCT` so center always maps to MIDI 64 with no calibration. Oversampled + EMA. |
+| `lib/TempoFader` | Ratiometric slide-fader read: center-tap (ADCT) + wiper (ADIN), both ADC1. Value derived from `ADIN - ADCT` so center maps to the midpoint with no calibration. **14-bit** output (0..16383) sent as a MIDI CC MSB/LSB pair; per-side spans for asymmetric hardware. Split-EMA smoothing + hysteresis. |
 | `lib/TrackEncoder` | KY-040 **mechanical** rotary encoder (CLK/DT/SW). Full-step Buxton state-table decoder rejects contact bounce (one tick per detent); debounced push switch. |
 | `lib/PiLink/MidiMap.hpp` | `namespace midimap` — the single source of truth for every MIDI address. |
 
@@ -72,7 +72,9 @@ controller mapping (`.xml`/`.js`, **not yet created**) must be built to match it
 exactly — change both together, no address overlaps.
 - Ring pads: node `i` ↔ note `PAD_BASE + i` (0..49), velocity = white LED brightness.
 - Jog: `CC_JOG` relative 7-bit two's-complement ticks; `NOTE_JOG_TOUCH` = scratch enable.
-- Reserved (drivers not built yet): `NOTE_PLAY/CUE`, `NOTE_LOOP_*`, `NOTE_ENC_SW`+`CC_ENCODER`, `CC_TEMPO`.
+- Tempo: 14-bit CC pair — `CC_TEMPO` (MSB) + `CC_TEMPO_LSB` (= MSB+32); Mixxx must bind both as `<fourteen-bit-msb>`/`<lsb>`.
+- Track encoder: `CC_ENCODER` relative (1=up, 127=down) + `NOTE_ENC_SW` press.
+- Reserved (drivers not built yet): `NOTE_PLAY/CUE`, `NOTE_LOOP_*`.
 
 ## Status / what's stubbed
 Working: **ring A pads** (MIDI in/out + LED echo), the **jog wheel**, the **tempo
@@ -84,3 +86,32 @@ modules yet. The `loop()` in `main.cpp` has comment stubs showing what each send
 - New peripheral = new self-contained module in `lib/<Name>/`, wired only in `main.cpp`. Keep MIDI/Mixxx knowledge out of drivers.
 - Add any new MIDI address to `MidiMap.hpp` first, then the Mixxx mapping.
 - `test/` is a PlatformIO test dir (currently only the boilerplate README).
+
+## Embedded best practices
+Follow these when writing/reviewing firmware here — they're the house rules and
+each has a live example in the tree.
+
+- **No dynamic allocation.** No `malloc`/`calloc`/`new`/`std::vector` on the heap.
+  Size buffers statically to a compile-time cap and clamp runtime inputs to it —
+  see `OneButtonRing` (`MAX_NODES`, fixed arrays, `nodeCount` clamped in the ctor).
+  This is deterministic: no fragmentation, no OOM, no leak/double-free, and RAM
+  use is known at link time. If you ever *think* you need the heap, cap it and use
+  a static array instead; only reach for allocation if a size is genuinely
+  unbounded (it isn't, for this hardware).
+- **Self-size to reality, within the cap.** Prefer discovering the actual size at
+  runtime (e.g. ring enumeration → `_active`) over trusting a hardcoded count, but
+  keep the static buffer sized to the worst case.
+- **Debounce mechanical contacts, never clean digital.** KY-040 (`TrackEncoder`)
+  bounces → state-table decode. Optical jog (`JogWheel`) is comparator-clean → raw
+  edge count, no debounce. Match the treatment to the signal.
+- **Use hardware peripherals over CPU/ISR** when one exists: PCNT for the jog
+  quadrature (zero CPU, nothing missed), UART for the rings.
+- **Guard state shared between the FreeRTOS task and `loop()`** with the module's
+  `portMUX` critical section (`OneButtonRing`), and mark cross-thread flags
+  `volatile`. Keep critical sections and ISRs as short as possible.
+- **Filter noisy analog** — oversample + EMA, and add hysteresis before emitting
+  (`TempoFader`). Use **ADC1 only** (IO1–10); ADC2 is unusable with WiFi active.
+- **Prefer `constexpr` over `#define`** for typed constants; keep pin numbers as
+  `#define`/`constexpr` at the top of `main.cpp`.
+- **Fixed loop cadence, no long blocking.** Don't add long `delay()`s to `loop()`;
+  latency-sensitive work (jog, MIDI) runs every pass.
