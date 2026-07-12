@@ -23,13 +23,15 @@
 #define RING_A_TX 17
 #define RING_A_RX 15
 #define RING_A_NODES 50
-OneButtonRing ringA(Serial1, RING_A_TX, RING_A_RX, RING_A_NODES, 1000000, /*core=*/0);
+OneButtonRing ringA(Serial1, RING_A_TX, RING_A_RX, RING_A_NODES, 500000,
+                    /*core=*/0); // 500 kbps: MUST match the node firmware
 
 // ---- Ring B (v2, wired, begin() commented) --------------------------------
 HardwareSerial RingBSerial(2);
 #define RING_B_TX 13
 #define RING_B_RX 12
-OneButtonRing ringB(RingBSerial, RING_B_TX, RING_B_RX, 50, 1000000, /*core=*/0);
+OneButtonRing ringB(RingBSerial, RING_B_TX, RING_B_RX, 50, 500000,
+                    /*core=*/0); // 500 kbps: MUST match the node firmware
 
 // ---- Pi MIDI link on UART0 ------------------------------------------------
 #define PI_TX 43

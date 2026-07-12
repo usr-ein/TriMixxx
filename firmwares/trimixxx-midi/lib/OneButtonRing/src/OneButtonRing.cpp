@@ -37,26 +37,45 @@ bool OneButtonRing::begin() {
 
 void OneButtonRing::taskTrampoline(void* arg) { static_cast<OneButtonRing*>(arg)->taskLoop(); }
 
-// Send ENUM (hop=0); each node adopts its index and forwards hop+1, so the
-// returned second byte is the node count. Positional addressing, no config.
-bool OneButtonRing::doEnumerate() {
+// One ENUM round-trip: send hop=0; each node adopts its index and forwards
+// hop+1, so the returned second byte is the node count. Returns that count, or
+// 0 if nothing valid came back (RX silent / disconnected / no nodes answered).
+uint8_t OneButtonRing::enumerateOnce() {
     while (_uart.available()) _uart.read(); // discard stragglers
     uint8_t e[2] = {TYPE_ENUM, 0x00};
     _uart.write(e, 2);
     _uart.flush(); // wait until TX drained
     uint8_t r[2];
     size_t  got = _uart.readBytes(r, 2);
-    if (got == 2 && r[0] == TYPE_ENUM && r[1] > 0) {
-        _enumCount = r[1];
-        // Self-size the DATA frame to however many nodes actually answered,
-        // clamped to the static buffer capacity.
-        _active   = (_enumCount > MAX_NODES) ? MAX_NODES : _enumCount;
-        _frameLen = HDR + (size_t)_active * SLOT + 1;
-        _linkOk   = (_enumCount <= MAX_NODES); // false if the ring is bigger than we can address
-        return _linkOk;
+    if (got == 2 && r[0] == TYPE_ENUM && r[1] > 0) return r[1];
+    return 0;
+}
+
+// (Re)establish the ring. Keep enumerating until two SUCCESSIVE attempts report
+// the same non-zero node count -- that rejects a mid-boot / still-settling ring.
+// While the RX is silent (nothing comes back), retry every ENUM_RETRY_MS forever,
+// so a disconnected return line simply parks here until it is plugged back in.
+void OneButtonRing::enumerateUntilStable() {
+    uint8_t prev = 0; // last valid count; 0 = no valid reading yet
+    for (;;) {
+        uint8_t c = enumerateOnce();
+        if (c == 0) { // RX silent: distrust the link, wait, keep trying
+            _linkOk    = false;
+            _enumCount = 0;
+            prev       = 0; // a gap breaks the "two successive" streak
+            vTaskDelay(pdMS_TO_TICKS(ENUM_RETRY_MS));
+            continue;
+        }
+        if (prev != 0 && c == prev) { // two in a row agree -> commit and size the frame
+            _enumCount = c;
+            _active    = (c > MAX_NODES) ? MAX_NODES : c;
+            _frameLen  = HDR + (size_t)_active * SLOT + 1;
+            _linkOk    = (c <= MAX_NODES); // false if the ring is bigger than we can address
+            return;
+        }
+        prev = c;      // first (or changed) reading: confirm it on the next pass
+        vTaskDelay(1); // brief settle before the confirming ENUM
     }
-    _linkOk = false;
-    return false;
 }
 
 // Author a DATA frame: LED bytes from the shared buffer, BTN placeholders 0,
@@ -90,13 +109,16 @@ void OneButtonRing::buildFrame() {
 }
 
 void OneButtonRing::taskLoop() {
-    doEnumerate();
-    uint8_t consecFail = 0;
+    enumerateUntilStable();         // block here until the ring is up
+    uint32_t lastGood   = millis(); // wall-clock of the most recent valid echo
+    uint8_t  consecFail = 0;        // consecutive bad frames since the last good one
 
     for (;;) {
         if (_reenumReq) {
             _reenumReq = false;
-            doEnumerate();
+            enumerateUntilStable();
+            lastGood   = millis();
+            consecFail = 0;
         }
 
         buildFrame();
@@ -126,19 +148,24 @@ void OneButtonRing::taskLoop() {
             taskEXIT_CRITICAL(&_mux);
             _linkOk = true;
             _good++;
+            lastGood   = millis();
             consecFail = 0;
         } else {
             _linkOk = false;
             _bad++;
-            if (++consecFail >= FAIL_REENUM) {
+            // Rebuild the ring on either trigger: too many consecutive bad frames
+            // (fast, catches a burst of corruption) or no valid echo at all for a
+            // whole second (wall-clock backstop, e.g. RX unplugged mid-run).
+            if (++consecFail >= FAIL_REENUM || millis() - lastGood > RING_TIMEOUT_MS) {
+                enumerateUntilStable();
+                lastGood   = millis();
                 consecFail = 0;
-                doEnumerate();
             }
         }
 
         // Yield every iteration: prevents the task WDT and lets same-core tasks
         // run. The echo read already blocks ~one round-trip, so this mostly just
-        // paces the frame rate (~150-250 Hz at 1 Mbps / 50 nodes).
+        // paces the frame rate (~130 Hz at 500 kbps / 50 nodes).
         vTaskDelay(1);
     }
 }

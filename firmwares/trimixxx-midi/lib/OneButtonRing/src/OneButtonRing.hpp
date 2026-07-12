@@ -25,10 +25,12 @@ public:
     // nodeCount: pre-enumeration default only. The ring self-sizes its DATA frame
     //            to the ACTUAL enumerated node count at runtime, so this just needs
     //            to be a sane estimate (clamped to MAX_NODES).
+    // baud     : MUST match the nodes. The CH32V003 reference firmware runs at
+    //            500 kbps, so that is the default here.
     // core     : which CPU core to pin the ring task to (0 keeps it off the
     //            Arduino loop, which runs on core 1)
     OneButtonRing(HardwareSerial& uart, int txPin, int rxPin, uint8_t nodeCount,
-                  uint32_t baud = 1000000, int core = 0);
+                  uint32_t baud = 500000, int core = 0);
     ~OneButtonRing();
 
     // Configure the UART, start the ring task, enumerate. Buffers are static
@@ -54,16 +56,24 @@ public:
 private:
     static void taskTrampoline(void* arg);
     void        taskLoop();
-    bool        doEnumerate();
+    uint8_t     enumerateOnce();        // one ENUM round-trip; returns node count (0 = nothing)
+    void        enumerateUntilStable(); // (re)build the ring: retry until two counts agree
     void        buildFrame();
 
-    static constexpr uint8_t TYPE_DATA   = 0xA5;
-    static constexpr uint8_t TYPE_ENUM   = 0x5A;
-    static constexpr uint8_t HDR         = 2; // TYPE + SEQ
-    static constexpr uint8_t SLOT        = 7; // 6 LED + 1 BTN
-    static constexpr uint8_t BTN_LEVEL   = 0x01;
-    static constexpr uint8_t BTN_STICKY  = 0x02;
-    static constexpr uint8_t FAIL_REENUM = 10; // re-enum after N bad frames
+    static constexpr uint8_t TYPE_DATA  = 0xA5;
+    static constexpr uint8_t TYPE_ENUM  = 0x5A;
+    static constexpr uint8_t HDR        = 2; // TYPE + SEQ
+    static constexpr uint8_t SLOT       = 7; // 6 LED + 1 BTN
+    static constexpr uint8_t BTN_LEVEL  = 0x01;
+    static constexpr uint8_t BTN_STICKY = 0x02;
+
+    // Recovery. In the DATA loop we re-enumerate on EITHER trigger: FAIL_REENUM
+    // consecutive bad frames (fast, catches a burst of corruption) or no valid
+    // echo at all for RING_TIMEOUT_MS (wall-clock backstop, e.g. RX unplugged).
+    // During enumeration, if the RX is silent we retry every ENUM_RETRY_MS.
+    static constexpr uint8_t  FAIL_REENUM     = 10;
+    static constexpr uint32_t RING_TIMEOUT_MS = 1000;
+    static constexpr uint32_t ENUM_RETRY_MS   = 100;
 
     // Buffers are fixed-size (no heap): deterministic, no OOM/leak/fragmentation.
     // nodeCount is clamped to MAX_NODES in the ctor -- bump this if a ring grows.
