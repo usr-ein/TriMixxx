@@ -12,12 +12,17 @@ TriMixxx.NOTE_ON       = 0x90;  // note-on, MIDI channel 1
 TriMixxx.PAD_BASE      = 0x00;  // ring pad note = PAD_BASE + i, i = 0..49
 TriMixxx.PADS          = 50;    // PAD_COUNT
 TriMixxx.DECK          = "[Channel1]";
+TriMixxx.DECK_NUM      = 1;      // [Channel1] = deck 1 (single fixed deck)
 TriMixxx.JOG_TICKS_REV = 12960; // JogWheel::TICKS_PER_REV (full-quad ticks / rev)
+TriMixxx.RATE_RANGE    = 0.16;  // tempo fader span = +/-16% (raise for wider pitch)
 
 TriMixxx.scratching = false;
 TriMixxx.ringLast    = -1;      // last pad lit by the position indicator
 
 TriMixxx.init = function (id, debugging) {
+    // Tempo fader span: the 14-bit `rate` CC is scaled by the deck's rate range,
+    // which defaults to +/-8%. Widen it here so the fader covers +/-RATE_RANGE.
+    engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGE);
     // Ring = play-position indicator: one lit pad follows playback.
     TriMixxx.ringConn = engine.makeConnection(TriMixxx.DECK, "playposition", TriMixxx.ringUpdate);
     TriMixxx.ringConn.trigger();
@@ -66,22 +71,23 @@ TriMixxx.browse = function (channel, control, value, status, group) {
 
 // ---- Jog touch: enable scratch while held, pitch-bend when released ----
 TriMixxx.jogTouch = function (channel, control, value, status, group) {
-    var deck = script.deckFromGroup(group);
     if (value) {
         // ticks/rev, 33.3 rpm vinyl, standard alpha/beta filter.
-        engine.scratchEnable(deck, TriMixxx.JOG_TICKS_REV, 33 + 1 / 3, 1.0 / 8, (1.0 / 8) / 32);
+        engine.scratchEnable(TriMixxx.DECK_NUM, TriMixxx.JOG_TICKS_REV, 33 + 1 / 3, 1.0 / 8, (1.0 / 8) / 32);
         TriMixxx.scratching = true;
     } else {
-        engine.scratchDisable(deck);
+        engine.scratchDisable(TriMixxx.DECK_NUM);
         TriMixxx.scratching = false;
     }
 };
 
-// ---- Jog rotate: CC value is a 7-bit two's-complement tick delta ----
+// ---- Jog rotate: CC value is a 7-bit two's-complement tick delta.
+//      The firmware counts the opposite way to Mixxx's scratch/bend sense, so
+//      negate here -- this flips scratch and pitch-bend together. ----
 TriMixxx.jog = function (channel, control, value, status, group) {
-    var delta = (value < 64) ? value : value - 128;
+    var delta = -((value < 64) ? value : value - 128);
     if (TriMixxx.scratching) {
-        engine.scratchTick(script.deckFromGroup(group), delta);
+        engine.scratchTick(TriMixxx.DECK_NUM, delta);
     } else {
         engine.setValue(group, "jog", delta); // pitch bend when the platter isn't touched
     }

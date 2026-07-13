@@ -1,0 +1,187 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- TriMixxx S3 single-deck controller mapping for Mixxx.
+     Addresses match the firmware's lib/PiLink/MidiMap.hpp EXACTLY. One deck =
+     MIDI channel 1 = [Channel1]. Change both together, never let addresses overlap. -->
+<MixxxControllerPreset mixxxVersion="2.4+" schemaVersion="1">
+  <info>
+    <name>TriMixxx S3</name>
+    <author>Samuel Prevost</author>
+    <description>Custom TriMixxx single-deck controller (ESP32-S3 master). Ring pads = play-position indicator, jog scratch/bend, 14-bit tempo, transport + loop + browse.</description>
+  </info>
+  <controller id="TriMixxx S3">
+    <scriptfiles>
+      <!-- Self-contained: no dependency on Mixxx's bundled common-controller-scripts.js
+           (a single fixed deck, so the deck number is hardcoded in the script). -->
+      <file filename="TriMixxx.scripts.js" functionprefix="TriMixxx"/>
+    </scriptfiles>
+    <controls>
+
+      <!-- ===================== Transport ===================== -->
+      <!-- Play/pause: note 0x3C -> toggle (script) -->
+      <control>
+        <group>[Channel1]</group>
+        <key>TriMixxx.play</key>
+        <status>0x90</status>
+        <midino>0x3C</midino>
+        <options><script-binding/></options>
+      </control>
+      <!-- Cue: note 0x3D -> cue_default, momentary (press 0x90 + release 0x80) -->
+      <control>
+        <group>[Channel1]</group>
+        <key>cue_default</key>
+        <status>0x90</status>
+        <midino>0x3D</midino>
+        <options><normal/></options>
+      </control>
+      <control>
+        <group>[Channel1]</group>
+        <key>cue_default</key>
+        <status>0x80</status>
+        <midino>0x3D</midino>
+        <options><normal/></options>
+      </control>
+
+      <!-- ===================== Loop ===================== -->
+      <control>
+        <group>[Channel1]</group>
+        <key>loop_in</key>
+        <status>0x90</status>
+        <midino>0x3E</midino>
+        <options><normal/></options>
+      </control>
+      <control>
+        <group>[Channel1]</group>
+        <key>loop_out</key>
+        <status>0x90</status>
+        <midino>0x3F</midino>
+        <options><normal/></options>
+      </control>
+      <control>
+        <group>[Channel1]</group>
+        <key>reloop_toggle</key>
+        <status>0x90</status>
+        <midino>0x40</midino>
+        <options><normal/></options>
+      </control>
+
+      <!-- ===================== Track select (encoder) ===================== -->
+      <!-- Rotate: CC 0x10 (1 = up, 127 = down) -> browse library (script) -->
+      <control>
+        <group>[Library]</group>
+        <key>TriMixxx.browse</key>
+        <status>0xB0</status>
+        <midino>0x10</midino>
+        <options><script-binding/></options>
+      </control>
+      <!-- Push: note 0x41 -> load selected track into the deck -->
+      <control>
+        <group>[Channel1]</group>
+        <key>LoadSelectedTrack</key>
+        <status>0x90</status>
+        <midino>0x41</midino>
+        <options><normal/></options>
+      </control>
+
+      <!-- ===================== Jog wheel ===================== -->
+      <!-- Touch: note 0x42 -> scratch enable/disable, momentary (0x90 + 0x80) -->
+      <control>
+        <group>[Channel1]</group>
+        <key>TriMixxx.jogTouch</key>
+        <status>0x90</status>
+        <midino>0x42</midino>
+        <options><script-binding/></options>
+      </control>
+      <control>
+        <group>[Channel1]</group>
+        <key>TriMixxx.jogTouch</key>
+        <status>0x80</status>
+        <midino>0x42</midino>
+        <options><script-binding/></options>
+      </control>
+      <!-- Rotate: CC 0x11 (relative ticks) -> scratch tick / pitch bend (script) -->
+      <control>
+        <group>[Channel1]</group>
+        <key>TriMixxx.jog</key>
+        <status>0xB0</status>
+        <midino>0x11</midino>
+        <options><script-binding/></options>
+      </control>
+
+      <!-- ===================== Tempo fader (14-bit) ===================== -->
+      <!-- MSB CC 0x12 + LSB CC 0x32 -> [Channel1] rate (0..16383, 8192 = center) -->
+      <control>
+        <group>[Channel1]</group>
+        <key>rate</key>
+        <status>0xB0</status>
+        <midino>0x12</midino>
+        <options><fourteen-bit-msb/></options>
+      </control>
+      <control>
+        <group>[Channel1]</group>
+        <key>rate</key>
+        <status>0xB0</status>
+        <midino>0x32</midino>
+        <options><fourteen-bit-lsb/></options>
+      </control>
+
+      <!-- ===================== Ring pads (input) =====================
+           Pad i = note (0x00 + i), i = 0..49. Presses are UNMAPPED by default:
+           the ring is used as a play-position indicator (see script + no output
+           entries; the script drives the LEDs). To make each pad needle-drop to
+           its position, add 50 entries like this (midino 0x00 .. 0x31):
+             <control>
+               <group>[Channel1]</group>
+               <key>TriMixxx.padPress</key>
+               <status>0x90</status>
+               <midino>0x00</midino>
+               <options><script-binding/></options>
+             </control>
+      -->
+
+    </controls>
+    <outputs>
+      <!-- Play LED: note 0x3C <- play_indicator -->
+      <output>
+        <group>[Channel1]</group>
+        <key>play_indicator</key>
+        <status>0x90</status>
+        <midino>0x3C</midino>
+        <on>0x7F</on>
+        <off>0x00</off>
+        <minimum>0.5</minimum>
+      </output>
+      <!-- Cue LED: note 0x3D <- cue_indicator -->
+      <output>
+        <group>[Channel1]</group>
+        <key>cue_indicator</key>
+        <status>0x90</status>
+        <midino>0x3D</midino>
+        <on>0x7F</on>
+        <off>0x00</off>
+        <minimum>0.5</minimum>
+      </output>
+      <!-- Loop LEDs: notes 0x3E/0x3F <- loop_enabled (both light while a loop is active) -->
+      <output>
+        <group>[Channel1]</group>
+        <key>loop_enabled</key>
+        <status>0x90</status>
+        <midino>0x3E</midino>
+        <on>0x7F</on>
+        <off>0x00</off>
+        <minimum>0.5</minimum>
+      </output>
+      <output>
+        <group>[Channel1]</group>
+        <key>loop_enabled</key>
+        <status>0x90</status>
+        <midino>0x3F</midino>
+        <on>0x7F</on>
+        <off>0x00</off>
+        <minimum>0.5</minimum>
+      </output>
+      <!-- Ring pad LEDs (notes 0x00..0x31) are driven from the script
+           (TriMixxx.ringUpdate), not as static output mappings. RELOOP (0x40),
+           encoder push (0x41) and jog touch (0x42) have no LED. -->
+    </outputs>
+  </controller>
+</MixxxControllerPreset>

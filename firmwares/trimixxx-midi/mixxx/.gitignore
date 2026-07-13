@@ -1,0 +1,4 @@
+# Mixxx controller mappings and skins are XML *source*. Override the
+# monorepo-root `*.xml` ignore (which targets generated/EDA files) so the
+# mapping and skin under this directory are version-controlled.
+!*.xml
