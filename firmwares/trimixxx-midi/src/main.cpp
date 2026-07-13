@@ -74,6 +74,49 @@ static void onMidiFromMixxx(uint8_t status, uint8_t d1, uint8_t d2, void* ctx) {
     // TODO: play/cue LEDs (NOTE_PLAY/CUE) and loop LEDs (NOTE_LOOP_*) -> GPIO
 }
 
+// ===========================================================================
+//  Ring bring-up debug. Set to 1 to run the two-node test instead of the deck:
+//    - the two nodes "railroad" blink (alternate red on/off), and
+//    - holding either node's button turns the OTHER node magenta.
+//  The ring self-sizes to whatever enumerates, so 2 nodes just works. Set to 0
+//  to restore the normal deck firmware.
+// ===========================================================================
+#define RING_DEBUG 1
+
+#if RING_DEBUG
+static void setNode(uint8_t node, uint8_t r, uint8_t g, uint8_t b) {
+    ringA.setLed(node, 0, r, g, b); // both LEDs of the node, same colour
+    ringA.setLed(node, 1, r, g, b);
+}
+
+static void ringDebug() {
+    // Railroad phase toggles ~1.25 Hz; the two nodes light on opposite phases.
+    static uint32_t tBlink = 0;
+    static bool     phase  = false;
+    if (millis() - tBlink >= 400) {
+        tBlink = millis();
+        phase  = !phase;
+    }
+
+    const bool held0 = ringA.level(0);
+    const bool held1 = ringA.level(1);
+
+    // Press on the OTHER node wins over the blink and paints this node magenta.
+    if (held1) setNode(0, 255, 0, 255);
+    else setNode(0, 0, phase ? 255 : 0, 0);
+    if (held0) setNode(1, 255, 0, 255);
+    else setNode(1, 0, !phase ? 255 : 0, 0);
+
+    static uint32_t tLog = 0;
+    if (millis() - tLog > 1000) {
+        tLog = millis();
+        Serial.printf("ring: enum=%u link=%d good=%lu bad=%lu  btn0=%d btn1=%d\n",
+                      ringA.enumeratedNodes(), ringA.linkOk(), (unsigned long)ringA.goodFrames(),
+                      (unsigned long)ringA.badFrames(), held0, held1);
+    }
+}
+#endif
+
 void setup() {
     Serial.begin(115200);
     delay(300);
@@ -98,6 +141,12 @@ void setup() {
 }
 
 void loop() {
+#if RING_DEBUG
+    ringDebug(); // bench ring test -- railroad blink + press-other-magenta
+    delay(5);
+    return;
+#endif
+
     pi.poll(); // incoming MIDI -> LEDs
 
     // ---- ring pads -> MIDI notes ----
