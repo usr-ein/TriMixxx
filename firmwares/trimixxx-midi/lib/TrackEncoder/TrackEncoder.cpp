@@ -52,6 +52,11 @@ void TrackEncoder::poll() {
     }
 
     // ---- switch (active-low, debounced) ----
+    // Unlike CLK/DT, the SW line has NO hardware debounce cap on the v3 board, so
+    // it bounces and we debounce it in time here (SW_DEBOUNCE stable samples). A
+    // cleaner edge would let us edge-latch it in a GPIO ISR like PlayCue/LoopBoard
+    // instead; v4 should add a 100nF cap on SW so we can. (If you bodge one in on
+    // v3, keep this time-based path until you've tested it.)
     const bool raw = (digitalRead(_pinSw) == LOW);
     if (raw != _swStable) {
         if (++_swCnt >= SW_DEBOUNCE) {

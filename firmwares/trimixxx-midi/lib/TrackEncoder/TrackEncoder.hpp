@@ -12,8 +12,10 @@
 //
 //  Wiring (3.3 V): CLK and DT each have a 100 nF cap to GND. The encoder common
 //  is GND, so the pins idle HIGH on the internal pull-ups and are pulled LOW
-//  through the contacts; cap + ~45k pull-up gives a free RC pre-filter. SW is
-//  an active-low push switch to GND, debounced here.
+//  through the contacts; cap + ~45k pull-up gives a free RC pre-filter. SW is an
+//  active-low push switch to GND with NO cap on the v3 board, so it bounces and
+//  is debounced in time in poll() (see the note there). v4 should add a 100 nF
+//  cap on SW so it can be edge-latched in an ISR instead.
 //
 //  Human-speed input, so poll() from the main loop is plenty -- no ISR.
 // ===========================================================================
