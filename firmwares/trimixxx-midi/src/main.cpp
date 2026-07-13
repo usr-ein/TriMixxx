@@ -4,6 +4,8 @@
 #include "JogWheel.hpp"
 #include "TempoFader.hpp"
 #include "TrackEncoder.hpp"
+#include "PlayCueBoard.hpp"
+#include "LoopBoard.hpp"
 #include "MidiMap.hpp"
 
 // ===========================================================================
@@ -61,6 +63,10 @@ TempoFader tempo(TEMPO_ADCT, TEMPO_ADIN, /*spanToMax=*/1944, /*spanToMin=*/2150,
 #define ENC_SW 38
 TrackEncoder trackEnc(ENC_CLK, ENC_DT, ENC_SW);
 
+// ---- Play/cue + loop boards (direct GPIO; pins baked into the drivers) ------
+PlayCueBoard playCue;
+LoopBoard    loopBoard;
+
 static bool padPendingOff[RING_A_NODES] = {false};
 
 // -------- incoming MIDI from Mixxx -> LEDs (Mixxx owns LED state) ----------
@@ -71,7 +77,18 @@ static void onMidiFromMixxx(uint8_t status, uint8_t d1, uint8_t d2, void* ctx) {
         ringA.setLed(pad, 0, d2, d2, d2); // velocity = white brightness
         return;
     }
-    // TODO: play/cue LEDs (NOTE_PLAY/CUE) and loop LEDs (NOTE_LOOP_*) -> GPIO
+    // Play/cue + loop LEDs: Note-On velocity>0 = on, Note-Off (or vel 0) = off.
+    if (type == 0x90 || type == 0x80) {
+        const bool on = (type == 0x90 && d2 > 0);
+        switch (d1) {
+        case midimap::NOTE_PLAY: playCue.setLed(PlayCueBoard::PLAY, on); break;
+        case midimap::NOTE_CUE: playCue.setLed(PlayCueBoard::CUE, on); break;
+        case midimap::NOTE_LOOP_IN: loopBoard.setLed(LoopBoard::LOOP_START, on); break;
+        case midimap::NOTE_LOOP_OUT: loopBoard.setLed(LoopBoard::LOOP_END, on); break;
+        case midimap::NOTE_RELOOP: loopBoard.setLed(LoopBoard::RELOOP, on); break; // no LED
+        default: break;
+        }
+    }
 }
 
 // ===========================================================================
@@ -122,63 +139,39 @@ static void ringDebug() {
     }
 }
 
-// ---- play/cue + loop boards: direct-wired GPIO buttons + LEDs ----
-// Buttons: active-low, internal pull-up + 100nF HW debounce -> read raw.
-// LEDs differ per board:
-//   play/cue -- MOSFET gate drive, active-HIGH (HIGH = on)
-//   loop     -- sink drive 3V3->R->LED->GPIO, active-LOW (LOW = on)
-// RELOOP has a button but no LED.
-#define BTN_PLAY 21
-#define LED_PLAY 18
-#define BTN_CUE 35
-#define LED_CUE 36
-#define BTN_LOOP_START 1
-#define LED_LOOP_START 2
-#define BTN_LOOP_END 10
-#define LED_LOOP_END 4
-#define BTN_RELOOP 5
-
-struct GpioPad {
-    const char* name;
-    uint8_t     btn;
-    int8_t      led;           // -1 = no LED
-    bool        ledActiveHigh; // true: HIGH lights it (MOSFET); false: LOW lights it (sink)
-};
-static const GpioPad kPads[] = {
-    {"play", BTN_PLAY, LED_PLAY, true},
-    {"cue", BTN_CUE, LED_CUE, true},
-    {"loopStart", BTN_LOOP_START, LED_LOOP_START, false},
-    {"loopEnd", BTN_LOOP_END, LED_LOOP_END, false},
-    {"reloop", BTN_RELOOP, -1, false},
-};
-static constexpr size_t N_PADS = sizeof(kPads) / sizeof(kPads[0]);
-
-static void boardsBegin() {
-    for (size_t i = 0; i < N_PADS; i++) {
-        pinMode(kPads[i].btn, INPUT_PULLUP);
-        if (kPads[i].led >= 0) {
-            pinMode(kPads[i].led, OUTPUT);
-            digitalWrite(kPads[i].led, kPads[i].ledActiveHigh ? LOW : HIGH); // start off
-        }
-    }
-}
-
+// Play/cue + loop board test via the drivers: light each button's own LED
+// while it's held (level), and report all states once a second.
 static void boardsDebug() {
-    static uint32_t tLog  = 0;
-    const bool      doLog = (millis() - tLog > 1000);
-    if (doLog) {
+    playCue.setLed(PlayCueBoard::PLAY, playCue.level(PlayCueBoard::PLAY));
+    playCue.setLed(PlayCueBoard::CUE, playCue.level(PlayCueBoard::CUE));
+    loopBoard.setLed(LoopBoard::LOOP_START, loopBoard.level(LoopBoard::LOOP_START));
+    loopBoard.setLed(LoopBoard::LOOP_END, loopBoard.level(LoopBoard::LOOP_END));
+    // RELOOP has no LED
+
+    static uint32_t tLog = 0;
+    if (millis() - tLog > 1000) {
         tLog = millis();
-        Serial.print("boards:");
+        Serial.printf("boards: play=%d cue=%d loopStart=%d loopEnd=%d reloop=%d\n",
+                      playCue.level(PlayCueBoard::PLAY), playCue.level(PlayCueBoard::CUE),
+                      loopBoard.level(LoopBoard::LOOP_START), loopBoard.level(LoopBoard::LOOP_END),
+                      loopBoard.level(LoopBoard::RELOOP));
     }
-    for (size_t i = 0; i < N_PADS; i++) {
-        const bool pressed = (digitalRead(kPads[i].btn) == LOW); // active-low
-        if (kPads[i].led >= 0)                                   // light the LED while held
-            digitalWrite(kPads[i].led, (pressed == kPads[i].ledActiveHigh) ? HIGH : LOW);
-        if (doLog) Serial.printf(" %s=%d", kPads[i].name, pressed);
-    }
-    if (doLog) Serial.println();
 }
 #endif
+
+// Send Note-On on a latched press, Note-Off once the button is no longer held.
+// Same never-miss pattern as the ring pads: pressed() is edge-latched in the
+// ISR, so even a tap shorter than one loop pass fires a paired On/Off here.
+static void btnToNote(bool press, bool held, uint8_t note, bool& pending) {
+    if (press) {
+        pi.noteOn(note, 127);
+        pending = true;
+    }
+    if (pending && !held) {
+        pi.noteOff(note);
+        pending = false;
+    }
+}
 
 void setup() {
     Serial.begin(115200);
@@ -200,11 +193,8 @@ void setup() {
     if (!ringA.begin()) Serial.println("ringA: allocation failed");
     // ringB.begin();
 
-#if RING_DEBUG
-    boardsBegin(); // play/cue + loop GPIO test pins
-#endif
-
-    // TODO: real play/cue + loop drivers (the above is just the RING_DEBUG test)
+    playCue.begin();
+    loopBoard.begin();
 }
 
 void loop() {
@@ -273,9 +263,21 @@ void loop() {
     if (trackEnc.switchPressed()) pi.noteOn(midimap::NOTE_ENC_SW, 127);
     if (trackEnc.switchReleased()) pi.noteOff(midimap::NOTE_ENC_SW);
 
-    // ---- remaining controls send MIDI here once their drivers exist ----
-    // PlayCue: buttons -> pi.noteOn/Off(NOTE_PLAY / NOTE_CUE)
-    // Loop:    buttons -> pi.noteOn/Off(NOTE_LOOP_IN/_OUT/RELOOP)
+    // ---- play/cue + loop buttons -> MIDI (presses edge-latched in the ISR:
+    //      never missed; Note-Off follows the held level). LEDs come back via onMidi.
+    static bool pcPend[PlayCueBoard::COUNT] = {};
+    btnToNote(playCue.pressed(PlayCueBoard::PLAY), playCue.level(PlayCueBoard::PLAY),
+              midimap::NOTE_PLAY, pcPend[PlayCueBoard::PLAY]);
+    btnToNote(playCue.pressed(PlayCueBoard::CUE), playCue.level(PlayCueBoard::CUE),
+              midimap::NOTE_CUE, pcPend[PlayCueBoard::CUE]);
+
+    static bool lpPend[LoopBoard::COUNT] = {};
+    btnToNote(loopBoard.pressed(LoopBoard::LOOP_START), loopBoard.level(LoopBoard::LOOP_START),
+              midimap::NOTE_LOOP_IN, lpPend[LoopBoard::LOOP_START]);
+    btnToNote(loopBoard.pressed(LoopBoard::LOOP_END), loopBoard.level(LoopBoard::LOOP_END),
+              midimap::NOTE_LOOP_OUT, lpPend[LoopBoard::LOOP_END]);
+    btnToNote(loopBoard.pressed(LoopBoard::RELOOP), loopBoard.level(LoopBoard::RELOOP),
+              midimap::NOTE_RELOOP, lpPend[LoopBoard::RELOOP]);
 
     // ---- tempo fader calibration readout ----
     // Watch center/wiper/offset while moving the fader to both extremes to pick

@@ -46,6 +46,8 @@ others — `main.cpp` is the only place that maps one to another.
 | `lib/JogWheel` | Quadrature jog decode via hardware **PCNT** (zero CPU, no ISR) + active-low touch sense. Uses `ESP32Encoder`. |
 | `lib/TempoFader` | Ratiometric slide-fader read: center-tap (ADCT) + wiper (ADIN), both ADC1. Value derived from `ADIN - ADCT` so center maps to the midpoint with no calibration. **14-bit** output (0..16383) sent as a MIDI CC MSB/LSB pair; per-side spans for asymmetric hardware. Split-EMA smoothing + hysteresis. |
 | `lib/TrackEncoder` | KY-040 **mechanical** rotary encoder (CLK/DT/SW). Full-step Buxton state-table decoder rejects contact bounce (one tick per detent); debounced push switch. |
+| `lib/PlayCueBoard` | Play/cue board — 2 direct-GPIO buttons + 2 LEDs, **pins baked in** (fixed PCB). Presses **edge-latched by a GPIO ISR** (STICKY-style, never missed even for a short tap); API mirrors the ring (`level`/`pressed`/`setLed`). ISR runs on **core 1** (opposite the ring's core 0). LEDs MOSFET-driven (active-high). |
+| `lib/LoopBoard` | Loop board — 3 buttons (start/end/reloop) + 2 LEDs, **pins baked in**. Same ISR-latched `level`/`pressed`/`setLed` API. LEDs sink-driven (active-low); reloop has a button but no LED. |
 | `lib/PiLink/MidiMap.hpp` | `namespace midimap` — the single source of truth for every MIDI address. |
 
 ### The Pi bridge
@@ -57,7 +59,7 @@ echoes incoming Note-On velocity to ring LEDs (see `onMidiFromMixxx` in `main.cp
 | UART | Peer | Voltage | Level shifter? |
 |------|------|---------|----------------|
 | UART0 `Serial0` (IO43 TX / IO44 RX) | Raspberry Pi (MIDI @115200) | 3.3V both ends | **No** |
-| UART1 `Serial1` (IO17 TX / IO15 RX) | OneButton ring A @1 Mbaud | 5V ring | **Yes** |
+| UART1 `Serial1` (IO17 TX / IO15 RX) | OneButton ring A @500 kbaud | 5V ring | **Yes** |
 | UART2 (IO13 TX / IO12 RX) | OneButton ring B (v2, `begin()` commented out) | 5V ring | **Yes** |
 
 Jog wheel: PCNT on IO6/IO7 (A/B), touch on IO14. The optical (GP1A038RBK OPIC)
@@ -74,13 +76,18 @@ exactly — change both together, no address overlaps.
 - Jog: `CC_JOG` relative 7-bit two's-complement ticks; `NOTE_JOG_TOUCH` = scratch enable.
 - Tempo: 14-bit CC pair — `CC_TEMPO` (MSB) + `CC_TEMPO_LSB` (= MSB+32); Mixxx must bind both as `<fourteen-bit-msb>`/`<lsb>`.
 - Track encoder: `CC_ENCODER` relative (1=up, 127=down) + `NOTE_ENC_SW` press.
-- Reserved (drivers not built yet): `NOTE_PLAY/CUE`, `NOTE_LOOP_*`.
+- Play/cue: `NOTE_PLAY` / `NOTE_CUE` press; LED ← incoming Note-On velocity.
+- Loop: `NOTE_LOOP_IN` / `NOTE_LOOP_OUT` / `NOTE_RELOOP` press; LED ← Note-On (reloop has no LED).
 
-## Status / what's stubbed
-Working: **ring A pads** (MIDI in/out + LED echo), the **jog wheel**, the **tempo
-fader**, and the **track encoder**. Remaining — **play/cue board** and **loop
-board** — have reserved MIDI addresses and live Mixxx bindings but no driver
-modules yet. The `loop()` in `main.cpp` has comment stubs showing what each sends.
+## Status
+All deck controls now have drivers: **ring A pads**, **jog wheel**, **tempo
+fader**, **track encoder**, **play/cue board**, and **loop board**. Ring B (2nd
+ring) is wired but its `begin()` is commented out. The Mixxx controller mapping
+(`.xml`/`.js`) is still **not created**.
+
+`main.cpp` has a **`RING_DEBUG`** switch (top of the file): set to `1` it replaces
+the deck loop with a bench test — railroad blink across the enumerated ring +
+each play/cue/loop button lighting its own LED. Set to `0` for normal operation.
 
 ## Conventions
 - New peripheral = new self-contained module in `lib/<Name>/`, wired only in `main.cpp`. Keep MIDI/Mixxx knowledge out of drivers.
@@ -106,9 +113,12 @@ each has a live example in the tree.
   edge count, no debounce. Match the treatment to the signal.
 - **Use hardware peripherals over CPU/ISR** when one exists: PCNT for the jog
   quadrature (zero CPU, nothing missed), UART for the rings.
-- **Guard state shared between the FreeRTOS task and `loop()`** with the module's
-  `portMUX` critical section (`OneButtonRing`), and mark cross-thread flags
-  `volatile`. Keep critical sections and ISRs as short as possible.
+- **Guard state shared across contexts** — a FreeRTOS task and `loop()`
+  (`OneButtonRing`), or a GPIO **ISR** and `loop()` (`PlayCueBoard`/`LoopBoard`
+  STICKY latch) — with the module's `portMUX` critical section, and mark
+  cross-context flags `volatile`. Keep critical sections and ISRs as short as
+  possible. Pin ISRs to the core opposite the ring (attach from `setup()` =
+  core 1) so the two never contend.
 - **Filter noisy analog** — oversample + EMA, and add hysteresis before emitting
   (`TempoFader`). Use **ADC1 only** (IO1–10); ADC2 is unusable with WiFi active.
 - **Prefer `constexpr` over `#define`** for typed constants; keep pin numbers as
