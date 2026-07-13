@@ -90,7 +90,10 @@ static void setNode(uint8_t node, uint8_t r, uint8_t g, uint8_t b) {
 }
 
 static void ringDebug() {
-    // Railroad phase toggles ~1.25 Hz; the two nodes light on opposite phases.
+    // Railroad phase toggles ~1.25 Hz. The chain length is however many nodes
+    // enumerated; even/odd nodes blink on opposite phases, so the crossing-lights
+    // pattern runs the whole length of the ring. A held button paints that node
+    // magenta (overriding its blink) so you can walk the chain and check each one.
     static uint32_t tBlink = 0;
     static bool     phase  = false;
     if (millis() - tBlink >= 400) {
@@ -98,22 +101,82 @@ static void ringDebug() {
         phase  = !phase;
     }
 
-    const bool held0 = ringA.level(0);
-    const bool held1 = ringA.level(1);
+    const uint8_t n    = ringA.enumeratedNodes(); // detected at enumeration
+    uint8_t       held = 0;
 
-    // Press on the OTHER node wins over the blink and paints this node magenta.
-    if (held1) setNode(0, 255, 0, 255);
-    else setNode(0, 0, phase ? 255 : 0, 0);
-    if (held0) setNode(1, 255, 0, 255);
-    else setNode(1, 0, !phase ? 255 : 0, 0);
+    for (uint8_t i = 0; i < n; i++) {
+        if (ringA.level(i)) {
+            setNode(i, 255, 0, 255); // held -> magenta
+            held++;
+        } else {
+            const bool on = ((i & 1) == 0) ? phase : !phase; // even/odd opposite phases
+            setNode(i, 0, on ? 255 : 0, 0);                  // railroad green
+        }
+    }
 
     static uint32_t tLog = 0;
     if (millis() - tLog > 1000) {
         tLog = millis();
-        Serial.printf("ring: enum=%u link=%d good=%lu bad=%lu  btn0=%d btn1=%d\n",
-                      ringA.enumeratedNodes(), ringA.linkOk(), (unsigned long)ringA.goodFrames(),
-                      (unsigned long)ringA.badFrames(), held0, held1);
+        Serial.printf("ring: nodes=%u link=%d good=%lu bad=%lu held=%u\n", n, ringA.linkOk(),
+                      (unsigned long)ringA.goodFrames(), (unsigned long)ringA.badFrames(), held);
     }
+}
+
+// ---- play/cue + loop boards: direct-wired GPIO buttons + LEDs ----
+// Buttons: active-low, internal pull-up + 100nF HW debounce -> read raw.
+// LEDs differ per board:
+//   play/cue -- MOSFET gate drive, active-HIGH (HIGH = on)
+//   loop     -- sink drive 3V3->R->LED->GPIO, active-LOW (LOW = on)
+// RELOOP has a button but no LED.
+#define BTN_PLAY 21
+#define LED_PLAY 18
+#define BTN_CUE 35
+#define LED_CUE 36
+#define BTN_LOOP_START 1
+#define LED_LOOP_START 2
+#define BTN_LOOP_END 10
+#define LED_LOOP_END 4
+#define BTN_RELOOP 5
+
+struct GpioPad {
+    const char* name;
+    uint8_t     btn;
+    int8_t      led;           // -1 = no LED
+    bool        ledActiveHigh; // true: HIGH lights it (MOSFET); false: LOW lights it (sink)
+};
+static const GpioPad kPads[] = {
+    {"play", BTN_PLAY, LED_PLAY, true},
+    {"cue", BTN_CUE, LED_CUE, true},
+    {"loopStart", BTN_LOOP_START, LED_LOOP_START, false},
+    {"loopEnd", BTN_LOOP_END, LED_LOOP_END, false},
+    {"reloop", BTN_RELOOP, -1, false},
+};
+static constexpr size_t N_PADS = sizeof(kPads) / sizeof(kPads[0]);
+
+static void boardsBegin() {
+    for (size_t i = 0; i < N_PADS; i++) {
+        pinMode(kPads[i].btn, INPUT_PULLUP);
+        if (kPads[i].led >= 0) {
+            pinMode(kPads[i].led, OUTPUT);
+            digitalWrite(kPads[i].led, kPads[i].ledActiveHigh ? LOW : HIGH); // start off
+        }
+    }
+}
+
+static void boardsDebug() {
+    static uint32_t tLog  = 0;
+    const bool      doLog = (millis() - tLog > 1000);
+    if (doLog) {
+        tLog = millis();
+        Serial.print("boards:");
+    }
+    for (size_t i = 0; i < N_PADS; i++) {
+        const bool pressed = (digitalRead(kPads[i].btn) == LOW); // active-low
+        if (kPads[i].led >= 0)                                   // light the LED while held
+            digitalWrite(kPads[i].led, (pressed == kPads[i].ledActiveHigh) ? HIGH : LOW);
+        if (doLog) Serial.printf(" %s=%d", kPads[i].name, pressed);
+    }
+    if (doLog) Serial.println();
 }
 #endif
 
@@ -137,12 +200,17 @@ void setup() {
     if (!ringA.begin()) Serial.println("ringA: allocation failed");
     // ringB.begin();
 
-    // TODO: init play/cue, loop board
+#if RING_DEBUG
+    boardsBegin(); // play/cue + loop GPIO test pins
+#endif
+
+    // TODO: real play/cue + loop drivers (the above is just the RING_DEBUG test)
 }
 
 void loop() {
 #if RING_DEBUG
-    ringDebug(); // bench ring test -- railroad blink + press-other-magenta
+    ringDebug();   // ring test -- railroad blink + press-other-magenta
+    boardsDebug(); // play/cue + loop -- each LED lights while its button is held
     delay(5);
     return;
 #endif
