@@ -53,6 +53,10 @@ public:
     uint32_t badFrames() const { return _bad; }
     void     reenumerate() { _reenumReq = true; }
 
+    // Self-test (call from a debug loop): railroad-blink the enumerated chain,
+    // held pads turn magenta, plus a once-a-second status line over Serial.
+    void debug();
+
 private:
     static void taskTrampoline(void* arg);
     void        taskLoop();

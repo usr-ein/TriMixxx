@@ -16,10 +16,16 @@
 //    UART1 (Serial1) -> OneButton ring A                   -- 5V, needs shifter
 //    UART2           -> OneButton ring B (v2)              -- 5V, needs shifter
 //
-//  Implemented: ring pads (MIDI in/out) + jog wheel (PCNT). The remaining four
-//  controls (encoder, tempo, play/cue, loop) have reserved MIDI addresses and
-//  live Mixxx bindings -- they just need their driver modules built.
+//  Every control has a driver: ring pads, jog, tempo, track encoder, play/cue,
+//  loop. main wires them to MIDI; each module self-tests via debug() (below).
 // ===========================================================================
+
+// ===========================================================================
+//  DECK_DEBUG: 1 = run each module's self-test in loop() instead of sending
+//  MIDI -- ring railroad + magenta, board LED flash (solid while pressed),
+//  jog/tempo/encoder serial reports. 0 = normal deck operation.
+// ===========================================================================
+#define DECK_DEBUG 1
 
 // ---- Ring A ---------------------------------------------------------------
 #define RING_A_TX 17
@@ -91,77 +97,21 @@ static void onMidiFromMixxx(uint8_t status, uint8_t d1, uint8_t d2, void* ctx) {
     }
 }
 
-// ===========================================================================
-//  Ring bring-up debug. Set to 1 to run the two-node test instead of the deck:
-//    - the two nodes "railroad" blink (alternate red on/off), and
-//    - holding either node's button turns the OTHER node magenta.
-//  The ring self-sizes to whatever enumerates, so 2 nodes just works. Set to 0
-//  to restore the normal deck firmware.
-// ===========================================================================
-#define RING_DEBUG 1
-
-#if RING_DEBUG
-static void setNode(uint8_t node, uint8_t r, uint8_t g, uint8_t b) {
-    ringA.setLed(node, 0, r, g, b); // both LEDs of the node, same colour
-    ringA.setLed(node, 1, r, g, b);
-}
-
-static void ringDebug() {
-    // Railroad phase toggles ~1.25 Hz. The chain length is however many nodes
-    // enumerated; even/odd nodes blink on opposite phases, so the crossing-lights
-    // pattern runs the whole length of the ring. A held button paints that node
-    // magenta (overriding its blink) so you can walk the chain and check each one.
-    static uint32_t tBlink = 0;
-    static bool     phase  = false;
-    if (millis() - tBlink >= 400) {
-        tBlink = millis();
-        phase  = !phase;
-    }
-
-    const uint8_t n    = ringA.enumeratedNodes(); // detected at enumeration
-    uint8_t       held = 0;
-
-    for (uint8_t i = 0; i < n; i++) {
-        if (ringA.level(i)) {
-            setNode(i, 255, 0, 255); // held -> magenta
-            held++;
-        } else {
-            const bool on = ((i & 1) == 0) ? phase : !phase; // even/odd opposite phases
-            setNode(i, 0, on ? 255 : 0, 0);                  // railroad green
-        }
-    }
-
-    static uint32_t tLog = 0;
-    if (millis() - tLog > 1000) {
-        tLog = millis();
-        Serial.printf("ring: nodes=%u link=%d good=%lu bad=%lu held=%u\n", n, ringA.linkOk(),
-                      (unsigned long)ringA.goodFrames(), (unsigned long)ringA.badFrames(), held);
+// Periodic button sampling: poll+debounce+latch both boards every BTN_POLL_MS on
+// a task pinned to core 1 (off the ring's core 0). Deterministic and independent
+// of loop() load; a debounced press is latched so it is never missed.
+static constexpr uint32_t BTN_POLL_MS = 2;
+static void               buttonPollTask(void*) {
+    for (;;) {
+        playCue.poll();
+        loopBoard.poll();
+        vTaskDelay(pdMS_TO_TICKS(BTN_POLL_MS));
     }
 }
-
-// Play/cue + loop board test via the drivers: light each button's own LED
-// while it's held (level), and report all states once a second.
-static void boardsDebug() {
-    playCue.setLed(PlayCueBoard::PLAY, playCue.level(PlayCueBoard::PLAY));
-    playCue.setLed(PlayCueBoard::CUE, playCue.level(PlayCueBoard::CUE));
-    loopBoard.setLed(LoopBoard::LOOP_START, loopBoard.level(LoopBoard::LOOP_START));
-    loopBoard.setLed(LoopBoard::LOOP_END, loopBoard.level(LoopBoard::LOOP_END));
-    // RELOOP has no LED
-
-    static uint32_t tLog = 0;
-    if (millis() - tLog > 1000) {
-        tLog = millis();
-        Serial.printf("boards: play=%d cue=%d loopStart=%d loopEnd=%d reloop=%d\n",
-                      playCue.level(PlayCueBoard::PLAY), playCue.level(PlayCueBoard::CUE),
-                      loopBoard.level(LoopBoard::LOOP_START), loopBoard.level(LoopBoard::LOOP_END),
-                      loopBoard.level(LoopBoard::RELOOP));
-    }
-}
-#endif
 
 // Send Note-On on a latched press, Note-Off once the button is no longer held.
-// Same never-miss pattern as the ring pads: pressed() is edge-latched in the
-// ISR, so even a tap shorter than one loop pass fires a paired On/Off here.
+// Same never-miss pattern as the ring pads: pressed() is latched by the poll
+// task, so even a tap between two loop passes still fires a paired On/Off here.
 static void btnToNote(bool press, bool held, uint8_t note, bool& pending) {
     if (press) {
         pi.noteOn(note, 127);
@@ -195,13 +145,20 @@ void setup() {
 
     playCue.begin();
     loopBoard.begin();
+    // Periodic poll+debounce+latch for both boards, pinned to core 1.
+    xTaskCreatePinnedToCore(buttonPollTask, "btn_poll", 2048, nullptr, 3, nullptr, 1);
 }
 
 void loop() {
-#if RING_DEBUG
-    ringDebug();   // ring test -- railroad blink + press-other-magenta
-    boardsDebug(); // play/cue + loop -- each LED lights while its button is held
-    delay(5);
+#if DECK_DEBUG
+    // Each module self-tests; no MIDI is sent.
+    ringA.debug();
+    playCue.debug();
+    loopBoard.debug();
+    jog.debug();
+    tempo.debug();
+    trackEnc.debug();
+    delay(2);
     return;
 #endif
 
@@ -223,14 +180,6 @@ void loop() {
     // ---- jog wheel -> relative CC (+ touch -> scratch enable note) ----
     jog.poll();
     int32_t jd = jog.readDelta();
-
-    // ---- serial monitor: report jog movement + touch ----
-    static int32_t jogPos = 0; // running tick count (debug only)
-    if (jd != 0) {
-        jogPos += jd;
-        Serial.printf("jog: delta=%+ld pos=%ld touch=%d\n", (long)jd, (long)jogPos, jog.touched());
-    }
-
     while (jd != 0) { // send full delta in <=63 chunks
         int32_t chunk = jd;
         if (chunk > 63) chunk = 63;
@@ -238,14 +187,8 @@ void loop() {
         pi.cc(midimap::CC_JOG, (uint8_t)(chunk & 0x7F)); // 7-bit two's complement
         jd -= chunk;
     }
-    if (jog.touchPressed()) {
-        pi.noteOn(midimap::NOTE_JOG_TOUCH, 127);
-        Serial.println("jog: touch DOWN");
-    }
-    if (jog.touchReleased()) {
-        pi.noteOff(midimap::NOTE_JOG_TOUCH);
-        Serial.println("jog: touch UP");
-    }
+    if (jog.touchPressed()) pi.noteOn(midimap::NOTE_JOG_TOUCH, 127);
+    if (jog.touchReleased()) pi.noteOff(midimap::NOTE_JOG_TOUCH);
 
     // ---- tempo fader -> 14-bit absolute CC (MSB + LSB, only on change) ----
     tempo.poll();
@@ -263,7 +206,7 @@ void loop() {
     if (trackEnc.switchPressed()) pi.noteOn(midimap::NOTE_ENC_SW, 127);
     if (trackEnc.switchReleased()) pi.noteOff(midimap::NOTE_ENC_SW);
 
-    // ---- play/cue + loop buttons -> MIDI (presses edge-latched in the ISR:
+    // ---- play/cue + loop buttons -> MIDI (presses latched by the poll task:
     //      never missed; Note-Off follows the held level). LEDs come back via onMidi.
     static bool pcPend[PlayCueBoard::COUNT] = {};
     btnToNote(playCue.pressed(PlayCueBoard::PLAY), playCue.level(PlayCueBoard::PLAY),
@@ -278,16 +221,6 @@ void loop() {
               midimap::NOTE_LOOP_OUT, lpPend[LoopBoard::LOOP_END]);
     btnToNote(loopBoard.pressed(LoopBoard::RELOOP), loopBoard.level(LoopBoard::RELOOP),
               midimap::NOTE_RELOOP, lpPend[LoopBoard::RELOOP]);
-
-    // ---- tempo fader calibration readout ----
-    // Watch center/wiper/offset while moving the fader to both extremes to pick
-    // the `span` ctor arg (offset at full throw) and confirm the detent centers.
-    static uint32_t t = 0;
-    if (millis() - t > 200) {
-        t = millis();
-        Serial.printf("tempo: center=%u wiper=%u offset=%+d value=%u\n", tempo.center(),
-                      tempo.wiper(), tempo.offset(), tempo.value());
-    }
 
     delay(2);
 }

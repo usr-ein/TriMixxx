@@ -41,6 +41,8 @@ public:
     uint16_t wiper() const { return (uint16_t)(_inF + 0.5f); }  // ADIN, filtered
     int      offset() const { return (int)(_inF - _ctF); }      // signed counts off center
 
+    void debug(); // self-test: poll + print value/center/wiper/offset when moved
+
 private:
     uint16_t readAvg(int pin) const; // oversampled single-channel read
 

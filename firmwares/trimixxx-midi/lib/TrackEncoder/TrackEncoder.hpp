@@ -33,6 +33,8 @@ public:
     bool switchPressed();                          // falling edge (press); CONSUMES
     bool switchReleased();                         // rising edge (release); CONSUMES
 
+    void debug(); // self-test: poll + report rotation / switch edges over Serial
+
 private:
     int  _pinClk, _pinDt, _pinSw;
     bool _invert;

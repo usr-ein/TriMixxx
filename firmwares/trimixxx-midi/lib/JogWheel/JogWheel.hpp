@@ -44,6 +44,8 @@ public:
     bool touchPressed();  // rising edge (consumes)
     bool touchReleased(); // falling edge (consumes)
 
+    void debug(); // self-test: poll + print movement / touch edges over Serial
+
 private:
     int          _pinA, _pinB, _pinTouch;
     bool         _encoderPullup;

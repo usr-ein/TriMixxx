@@ -86,3 +86,16 @@ bool TrackEncoder::switchReleased() {
     _releaseEdge = false;
     return e;
 }
+
+// Self-test: report rotation (delta + running position) and switch edges.
+void TrackEncoder::debug() {
+    poll();
+    const int8_t d = readDelta();
+    if (d != 0) {
+        static int32_t pos = 0;
+        pos += d;
+        Serial.printf("enc: delta=%+d pos=%ld\n", d, (long)pos);
+    }
+    if (switchPressed()) Serial.println("enc: SW down");
+    if (switchReleased()) Serial.println("enc: SW up");
+}

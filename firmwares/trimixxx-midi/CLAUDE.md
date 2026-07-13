@@ -46,8 +46,8 @@ others — `main.cpp` is the only place that maps one to another.
 | `lib/JogWheel` | Quadrature jog decode via hardware **PCNT** (zero CPU, no ISR) + active-low touch sense. Uses `ESP32Encoder`. |
 | `lib/TempoFader` | Ratiometric slide-fader read: center-tap (ADCT) + wiper (ADIN), both ADC1. Value derived from `ADIN - ADCT` so center maps to the midpoint with no calibration. **14-bit** output (0..16383) sent as a MIDI CC MSB/LSB pair; per-side spans for asymmetric hardware. Split-EMA smoothing + hysteresis. |
 | `lib/TrackEncoder` | KY-040 **mechanical** rotary encoder (CLK/DT/SW). Full-step Buxton state-table decoder rejects contact bounce (one tick per detent); debounced push switch. |
-| `lib/PlayCueBoard` | Play/cue board — 2 direct-GPIO buttons + 2 LEDs, **pins baked in** (fixed PCB). Presses **edge-latched by a GPIO ISR** (STICKY-style, never missed even for a short tap); API mirrors the ring (`level`/`pressed`/`setLed`). ISR runs on **core 1** (opposite the ring's core 0). LEDs MOSFET-driven (active-high). |
-| `lib/LoopBoard` | Loop board — 3 buttons (start/end/reloop) + 2 LEDs, **pins baked in**. Same ISR-latched `level`/`pressed`/`setLed` API. LEDs sink-driven (active-low); reloop has a button but no LED. |
+| `lib/PlayCueBoard` | Play/cue board — 2 direct-GPIO buttons + 2 LEDs, **pins baked in** (fixed PCB). Debounced + **latched (STICKY-style) by a periodic ~2ms poll task** (`buttonPollTask`, pinned to core 1 off the ring's core 0), so a press is never missed even if `loop()` stalls; API mirrors the ring (`level`/`pressed`/`setLed`). LEDs MOSFET-driven (active-high). |
+| `lib/LoopBoard` | Loop board — 3 buttons (start/end/reloop) + 2 LEDs, **pins baked in**. Same debounced poll+latch `level`/`pressed`/`setLed` API. LEDs sink-driven (active-low); reloop has a button but no LED. |
 | `lib/PiLink/MidiMap.hpp` | `namespace midimap` — the single source of truth for every MIDI address. |
 
 ### The Pi bridge
@@ -85,12 +85,15 @@ fader**, **track encoder**, **play/cue board**, and **loop board**. Ring B (2nd
 ring) is wired but its `begin()` is commented out. The Mixxx controller mapping
 (`.xml`/`.js`) is still **not created**.
 
-`main.cpp` has a **`RING_DEBUG`** switch (top of the file): set to `1` it replaces
-the deck loop with a bench test — railroad blink across the enumerated ring +
-each play/cue/loop button lighting its own LED. Set to `0` for normal operation.
+`main.cpp` has a single **`DECK_DEBUG`** switch (top of the file): set to `1`,
+`loop()` calls each module's own `debug()` self-test instead of sending MIDI —
+ring railroad + magenta-on-press, play/cue + loop LED flash (solid while the
+button is held; reloop lights both loop LEDs), and jog/tempo/encoder serial
+reports. Set to `0` for normal operation. Each driver owns its `debug()`.
 
 ## Conventions
 - New peripheral = new self-contained module in `lib/<Name>/`, wired only in `main.cpp`. Keep MIDI/Mixxx knowledge out of drivers.
+- Each driver exposes a `debug()` self-test (LED pattern and/or serial report); `main`'s single `DECK_DEBUG` toggle runs them all instead of the MIDI loop. New modules should add one.
 - Add any new MIDI address to `MidiMap.hpp` first, then the Mixxx mapping.
 - `test/` is a PlatformIO test dir (currently only the boilerplate README).
 
@@ -111,14 +114,19 @@ each has a live example in the tree.
 - **Debounce mechanical contacts, never clean digital.** KY-040 (`TrackEncoder`)
   bounces → state-table decode. Optical jog (`JogWheel`) is comparator-clean → raw
   edge count, no debounce. Match the treatment to the signal.
+- **Debounce switches by polling, not a GPIO edge ISR.** Sample on a fixed
+  periodic tick and latch the debounced press (the `buttonPollTask` for
+  `PlayCue`/`LoopBoard`); don't hang an edge interrupt off a mechanical switch.
+  It's the robust approach (Ganssle), and on ESP32 a slow RC-debounced edge can
+  make a `FALLING` ISR double-fire (phantom press on release). A human press is
+  tens of ms, so a ~2 ms poll never misses a real one.
 - **Use hardware peripherals over CPU/ISR** when one exists: PCNT for the jog
   quadrature (zero CPU, nothing missed), UART for the rings.
-- **Guard state shared across contexts** — a FreeRTOS task and `loop()`
-  (`OneButtonRing`), or a GPIO **ISR** and `loop()` (`PlayCueBoard`/`LoopBoard`
-  STICKY latch) — with the module's `portMUX` critical section, and mark
-  cross-context flags `volatile`. Keep critical sections and ISRs as short as
-  possible. Pin ISRs to the core opposite the ring (attach from `setup()` =
-  core 1) so the two never contend.
+- **Guard state shared between a FreeRTOS task and `loop()`** — the ring task
+  (`OneButtonRing`) and the button poll task (`PlayCueBoard`/`LoopBoard`) — with
+  the module's `portMUX` critical section, and mark cross-context flags
+  `volatile`. Keep critical sections short. Pin auxiliary tasks to core 1 (the
+  ring owns core 0) so the two never contend.
 - **Filter noisy analog** — oversample + EMA, and add hysteresis before emitting
   (`TempoFader`). Use **ADC1 only** (IO1–10); ADC2 is unusable with WiFi active.
 - **Prefer `constexpr` over `#define`** for typed constants; keep pin numbers as

@@ -3,19 +3,17 @@
 
 // ===========================================================================
 //  LoopBoard  -  the deck's loop board: 3 buttons + 2 LEDs, wired directly to
-//  the S3. Pins are baked in (fixed on the PCB), so the ctor takes no config.
+//  the S3. Pins are baked in (fixed on the PCB).
 //
-//  Presses are EDGE-LATCHED via a GPIO interrupt (like the OneButton ring's
-//  STICKY bit): the ISR sets a sticky flag the instant the button goes down, so
-//  a tap far shorter than the loop period is never missed. API mirrors
-//  OneButtonRing: level() = held state, pressed() = press-since-last-call
-//  (consumes the latch).
+//  Buttons are sampled + DEBOUNCED in poll(), which a periodic ~2 ms task in
+//  main() calls (pinned to core 1, off the ring's core 0). A debounced press
+//  sets a sticky latch, so pressed() never misses a real press even if the main
+//  loop stalls -- the STICKY idea from the OneButton ring, but POLLED rather than
+//  interrupt-driven (robust for switches per Ganssle; avoids the ESP32 edge-IRQ
+//  quirks on slow RC-debounced edges).
 //
-//  ISR CORE: attached in begin() (called from setup(), the Arduino core = core
-//  1), deliberately the OPPOSITE core from the ring task (core 0).
-//
-//  Buttons: active-low, internal pull-up + on-board 100nF RC + Schmitt debounce
-//  in hardware -> pure edge latching, no software debounce. LEDs: sink-driven
+//  level() = debounced held state; pressed() = press-since-last-call (CONSUMES).
+//  Buttons active-low (pull-up + 100nF HW debounce). LEDs sink-driven
 //  (3V3 -> R -> LED -> GPIO) -> active-LOW. RELOOP has a button but NO LED;
 //  setLed(RELOOP, ...) is a no-op. MIDI-agnostic.
 // ===========================================================================
@@ -24,18 +22,16 @@ public:
     enum Btn { LOOP_START, LOOP_END, RELOOP, COUNT };
 
     void begin();
-    bool level(Btn b) const;     // true while held (active-low, HW-debounced)
-    bool pressed(Btn b);         // press since last call; latched in the ISR, CONSUMES
+    void poll();                 // sample + debounce + latch; call from a ~1-5 ms task
+    bool level(Btn b) const;     // debounced held state
+    bool pressed(Btn b);         // press since last call; latched, CONSUMES
     void setLed(Btn b, bool on); // no-op for RELOOP (no LED)
 
-private:
-    struct IsrArg {
-        LoopBoard* self;
-        uint8_t    btn;
-    };
-    static void IRAM_ATTR isr(void* arg);
+    void debug(); // self-test: flash loop LEDs; solid while held; RELOOP lights both
 
-    IsrArg        _isrArg[COUNT] = {};
-    volatile bool _sticky[COUNT] = {};
+private:
+    volatile bool _level[COUNT]  = {}; // debounced held (poll writes, others read)
+    volatile bool _sticky[COUNT] = {}; // press latch (poll sets, pressed() clears)
+    uint8_t       _cnt[COUNT]    = {}; // debounce counter (poll-private)
     portMUX_TYPE  _mux           = portMUX_INITIALIZER_UNLOCKED;
 };

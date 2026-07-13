@@ -71,3 +71,11 @@ bool TempoFader::changed() {
     _dirty       = false;
     return c;
 }
+
+// Self-test: print value + filtered center/wiper/offset over Serial when moved.
+void TempoFader::debug() {
+    poll();
+    if (changed())
+        Serial.printf("tempo: value=%u center=%u wiper=%u offset=%+d\n", value(), center(), wiper(),
+                      offset());
+}

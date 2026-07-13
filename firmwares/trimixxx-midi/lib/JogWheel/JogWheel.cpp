@@ -60,3 +60,17 @@ bool JogWheel::touchReleased() {
     _releasedEdge = false;
     return e;
 }
+
+// Self-test: print jog movement (delta + running position + touch) and touch
+// edges over Serial.
+void JogWheel::debug() {
+    poll();
+    const int32_t d = readDelta();
+    if (d != 0) {
+        static int32_t pos = 0;
+        pos += d;
+        Serial.printf("jog: delta=%+ld pos=%ld touch=%d\n", (long)d, (long)pos, touched());
+    }
+    if (touchPressed()) Serial.println("jog: touch DOWN");
+    if (touchReleased()) Serial.println("jog: touch UP");
+}

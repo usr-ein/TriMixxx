@@ -202,3 +202,35 @@ bool OneButtonRing::pressed(uint8_t node) {
     taskEXIT_CRITICAL(&_mux);
     return v;
 }
+
+// Self-test: railroad-blink the enumerated chain (even/odd nodes on opposite
+// phases), a held pad turns magenta, and a status line prints once a second.
+void OneButtonRing::debug() {
+    static uint32_t tBlink = 0;
+    static bool     phase  = false;
+    if (millis() - tBlink >= 400) {
+        tBlink = millis();
+        phase  = !phase;
+    }
+
+    const uint8_t n    = _enumCount;
+    uint8_t       held = 0;
+    for (uint8_t i = 0; i < n; i++) {
+        if (level(i)) {
+            setLed(i, 0, 255, 0, 255); // held -> magenta
+            setLed(i, 1, 255, 0, 255);
+            held++;
+        } else {
+            const uint8_t g = (((i & 1) == 0) ? phase : !phase) ? 255 : 0;
+            setLed(i, 0, 0, g, 0); // railroad green
+            setLed(i, 1, 0, g, 0);
+        }
+    }
+
+    static uint32_t tLog = 0;
+    if (millis() - tLog > 1000) {
+        tLog = millis();
+        Serial.printf("ring: nodes=%u link=%d good=%lu bad=%lu held=%u\n", n, _linkOk,
+                      (unsigned long)_good, (unsigned long)_bad, held);
+    }
+}
