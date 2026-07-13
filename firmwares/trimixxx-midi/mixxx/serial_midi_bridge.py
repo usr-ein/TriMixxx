@@ -1,25 +1,28 @@
 #!/usr/bin/env python3
-"""Serial <-> MIDI bridge for bench-testing the TriMixxx deck on a Mac (no Pi).
+"""Serial <-> MIDI bridge / monitor for the TriMixxx deck (Mac or Pi).
 
 The S3 firmware sends raw MIDI bytes over UART0 at 115200 baud (the same stream
-ttymidi consumes on the Pi). This script reads that serial stream and re-emits it
-on a *virtual CoreMIDI port*, so Mixxx / MIDI Monitor see the deck as a normal
-MIDI device. It is bidirectional: MIDI the Mac sends to the virtual port is
-written back to the serial line (LED feedback -> the deck).
+ttymidi consumes on the Pi). Two modes:
 
-    uv run serial_midi_bridge.py --debug          # auto-detect /dev/cu.usbserial*
-    uv run serial_midi_bridge.py --port /dev/cu.usbserial-XXXX --debug
+- default (bridge): re-emit on a *virtual MIDI port* (CoreMIDI on macOS, ALSA on
+  Linux) so Mixxx sees the deck as a normal MIDI device; bidirectional, so LED
+  feedback flows back to the deck. Needs python-rtmidi.
+- --monitor: just decode + print each message. Needs only pyserial, so it runs
+  anywhere with no native build -- handy for a quick check over SSH on the Pi.
 
-Then in Mixxx: Preferences -> Controllers -> "TriMixxx" -> load TriMixxx.midi.xml.
+    uv run serial_midi_bridge.py --debug                          # bridge (Mac)
+    python3 serial_midi_bridge.py --monitor --port /dev/serial0   # monitor (Pi)
+
+In Mixxx: Preferences -> Controllers -> "TriMixxx" -> load TriMixxx.midi.xml.
 """
 
 # /// script
 # requires-python = "==3.13.*"
 # dependencies = ["pyserial==3.5", "python-rtmidi==1.5.8"]
 # ///
-# NOTE: python-rtmidi has no prebuilt 3.14 wheel yet, so uv compiles it from
-# source on first run (needs a C/C++ toolchain -- Xcode CLT on macOS); cached
-# after. Change requires-python to ">=3.13" if you need a pure-wheel install.
+# NOTE: bridge mode needs python-rtmidi. If uv builds it from source (no wheel
+# for your Python): macOS needs Xcode CLT; Debian/Pi needs
+# `sudo apt install python3-dev libasound2-dev`. --monitor needs only pyserial.
 from __future__ import annotations
 
 import argparse
@@ -27,7 +30,6 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import rtmidi
 import serial
 
 if TYPE_CHECKING:
@@ -144,50 +146,71 @@ def read_messages(ser: serial.Serial) -> Iterator[list[int]]:
 
 
 def find_port() -> str | None:
-    """Return the first /dev/cu.usbserial* device, or None if there is none."""
-    ports = sorted(str(p) for p in Path("/dev").glob("cu.usbserial*"))
-    return ports[0] if ports else None
+    """Return an auto-detected serial device, or None if none is found.
+
+    Tries a USB-serial adapter (macOS / Linux) then the Pi's GPIO UART.
+    """
+    for pattern in ("cu.usbserial*", "ttyUSB*", "serial0"):
+        ports = sorted(str(p) for p in Path("/dev").glob(pattern))
+        if ports:
+            return ports[0]
+    return None
 
 
 def parse_args() -> argparse.Namespace:
     """Parse the command-line options."""
     ap = argparse.ArgumentParser(description="Serial<->MIDI bridge (TriMixxx).")
-    ap.add_argument("--port", help="serial device (default: first /dev/cu.usbserial*)")
+    ap.add_argument("--port", help="serial device (auto; /dev/serial0 on a Pi)")
     ap.add_argument("--baud", type=int, default=115200, help="must match PiLink baud")
     ap.add_argument("--name", default="TriMixxx", help="virtual MIDI port name")
-    ap.add_argument("--debug", action="store_true", help="print every message decoded")
+    ap.add_argument("--debug", action="store_true", help="print each bridged message")
+    ap.add_argument(
+        "--monitor",
+        action="store_true",
+        help="just print decoded MIDI; no virtual port (needs only pyserial)",
+    )
     return ap.parse_args()
 
 
-def main() -> None:
-    """Open the serial port + virtual MIDI ports and bridge them both ways."""
-    args = parse_args()
-    port = args.port or find_port()
-    if not port:
-        sys.exit("No serial port found. Pass --port /dev/cu.usbserial-XXXX")
+def run_bridge(ser: serial.Serial, args: argparse.Namespace) -> None:
+    """Bridge the serial stream to a virtual MIDI port, both directions."""
+    import rtmidi  # noqa: PLC0415 -- optional dep; only the bridge needs it
 
-    ser = serial.Serial(port, args.baud, timeout=0.05)
-
-    midi_out = rtmidi.MidiOut()  # device -> Mac (virtual MIDI source)
+    midi_out = rtmidi.MidiOut()  # deck -> host (virtual MIDI source)
     midi_out.open_virtual_port(args.name)
-    midi_in = rtmidi.MidiIn()  # Mac -> device (virtual MIDI destination)
+    midi_in = rtmidi.MidiIn()  # host -> deck (virtual MIDI destination)
 
-    def from_mac(event: tuple[list[int], float], _: object = None) -> None:
+    def from_host(event: tuple[list[int], float], _: object = None) -> None:
         msg = event[0]
         ser.write(bytes(msg))
         if args.debug:
-            print(f"Mac->deck {fmt(msg)}")
+            print(f"host->deck {fmt(msg)}")
 
-    midi_in.set_callback(from_mac)
+    midi_in.set_callback(from_host)
     midi_in.open_virtual_port(args.name)
 
-    print(f"Bridging {port} @ {args.baud}  <->  virtual MIDI port '{args.name}'")
+    print(f"Bridging {ser.port} @ {ser.baudrate}  <->  virtual MIDI port '{args.name}'")
     print("Touch a control on the deck (DECK_DEBUG must be 0). Ctrl-C to stop.")
+    for msg in read_messages(ser):
+        midi_out.send_message(msg)
+        if args.debug:
+            print(f"deck->host {fmt(msg)}")
+
+
+def main() -> None:
+    """Open the serial port, then monitor it or bridge it to virtual MIDI."""
+    args = parse_args()
+    port = args.port or find_port()
+    if not port:
+        sys.exit("No serial port found. Pass --port (e.g. /dev/serial0 on a Pi).")
+    ser = serial.Serial(port, args.baud, timeout=0.05)
     try:
-        for msg in read_messages(ser):
-            midi_out.send_message(msg)
-            if args.debug:
-                print(f"deck->Mac {fmt(msg)}")
+        if args.monitor:
+            print(f"Monitoring {port} @ {args.baud} (decode only). Ctrl-C to stop.")
+            for msg in read_messages(ser):
+                print(fmt(msg))
+        else:
+            run_bridge(ser, args)
     except KeyboardInterrupt:
         print("\nbye")
     finally:
