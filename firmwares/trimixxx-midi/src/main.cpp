@@ -14,7 +14,7 @@
 //  UART allocation on the ESP32-S3:
 //    UART0 (Serial0) -> Raspberry Pi   (IO43 TX, IO44 RX)  -- MIDI, 3.3V
 //    UART1 (Serial1) -> OneButton ring A                   -- 5V, needs shifter
-//    UART2           -> OneButton ring B (v2)              -- 5V, needs shifter
+//    UART2           -> reserved for a 2nd OneButton ring (not built)
 //
 //  Every control has a driver: ring pads, jog, tempo, track encoder, play/cue,
 //  loop. main wires them to MIDI; each module self-tests via debug() (below).
@@ -25,20 +25,13 @@
 //  MIDI -- ring railroad + magenta, board LED flash (solid while pressed),
 //  jog/tempo/encoder serial reports. 0 = normal deck operation.
 // ===========================================================================
-#define DECK_DEBUG 1
+#define DECK_DEBUG 0
 
 // ---- Ring A ---------------------------------------------------------------
 #define RING_A_TX 17
 #define RING_A_RX 15
 #define RING_A_NODES 50
 OneButtonRing ringA(Serial1, RING_A_TX, RING_A_RX, RING_A_NODES, 500000,
-                    /*core=*/0); // 500 kbps: MUST match the node firmware
-
-// ---- Ring B (v2, wired, begin() commented) --------------------------------
-HardwareSerial RingBSerial(2);
-#define RING_B_TX 13
-#define RING_B_RX 12
-OneButtonRing ringB(RingBSerial, RING_B_TX, RING_B_RX, 50, 500000,
                     /*core=*/0); // 500 kbps: MUST match the node firmware
 
 // ---- Pi MIDI link on UART0 ------------------------------------------------
@@ -132,16 +125,10 @@ void setup() {
     pi.onMidi(onMidiFromMixxx, nullptr);
 
     jog.begin();
-    // TEMPORARY: force a pull-up on the jog touch pin. Overrides the plain
-    // INPUT that jog.begin() sets. REMOVE THIS -- the production PCB already
-    // has a hardware pull-up on this line; this is only for bench bring-up on
-    // boards without it.
-    pinMode(JOG_TCH, INPUT_PULLUP);
     tempo.begin();
     trackEnc.begin();
 
     if (!ringA.begin()) Serial.println("ringA: allocation failed");
-    // ringB.begin();
 
     playCue.begin();
     loopBoard.begin();

@@ -1,0 +1,13 @@
+# Strict ruff config for the serial<->MIDI bridge (a small CLI tool).
+line-length = 88
+target-version = "py314"
+
+[lint]
+select = ["ALL"]
+ignore = [
+    "T201",   # print() is this CLI tool's entire user interface
+    "D203",   # incompatible with D211 (ruff keeps D211: no blank line before class)
+    "D213",   # incompatible with D212 (ruff keeps D212: summary on first line)
+    "COM812", # conflicts with the ruff formatter (trailing commas)
+    "ISC001", # conflicts with the ruff formatter (implicit string concat)
+]

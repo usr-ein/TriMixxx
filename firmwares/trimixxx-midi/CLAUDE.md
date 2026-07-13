@@ -60,7 +60,7 @@ echoes incoming Note-On velocity to ring LEDs (see `onMidiFromMixxx` in `main.cp
 |------|------|---------|----------------|
 | UART0 `Serial0` (IO43 TX / IO44 RX) | Raspberry Pi (MIDI @115200) | 3.3V both ends | **No** |
 | UART1 `Serial1` (IO17 TX / IO15 RX) | OneButton ring A @500 kbaud | 5V ring | **Yes** |
-| UART2 (IO13 TX / IO12 RX) | OneButton ring B (v2, `begin()` commented out) | 5V ring | **Yes** |
+| UART2 (IO13 TX / IO12 RX) | reserved for a 2nd OneButton ring (not built) | 5V ring | **Yes** |
 
 Jog wheel: PCNT on IO6/IO7 (A/B), touch on IO14. The optical (GP1A038RBK OPIC)
 encoder is comparator-clean → raw edge-counted, **no debounce**. The KY-040 track
@@ -70,8 +70,8 @@ IO9 (ADIN wiper), bare 3.3V pot, no external filtering.
 
 ## MIDI contract (`MidiMap.hpp`)
 One deck = MIDI channel 1 (0-based `0`). `MidiMap.hpp` is the authority; the Mixxx
-controller mapping (`.xml`/`.js`, **not yet created**) must be built to match it
-exactly — change both together, no address overlaps.
+controller mapping (`mixxx/TriMixxx.midi.xml` + `TriMixxx.scripts.js`) matches it —
+change both together, no address overlaps.
 - Ring pads: node `i` ↔ note `PAD_BASE + i` (0..49), velocity = white LED brightness.
 - Jog: `CC_JOG` relative 7-bit two's-complement ticks; `NOTE_JOG_TOUCH` = scratch enable.
 - Tempo: 14-bit CC pair — `CC_TEMPO` (MSB) + `CC_TEMPO_LSB` (= MSB+32); Mixxx must bind both as `<fourteen-bit-msb>`/`<lsb>`.
@@ -80,10 +80,10 @@ exactly — change both together, no address overlaps.
 - Loop: `NOTE_LOOP_IN` / `NOTE_LOOP_OUT` / `NOTE_RELOOP` press; LED ← Note-On (reloop has no LED).
 
 ## Status
-All deck controls now have drivers: **ring A pads**, **jog wheel**, **tempo
-fader**, **track encoder**, **play/cue board**, and **loop board**. Ring B (2nd
-ring) is wired but its `begin()` is commented out. The Mixxx controller mapping
-(`.xml`/`.js`) is still **not created**.
+All deck controls have drivers: **ring A pads**, **jog wheel**, **tempo fader**,
+**track encoder**, **play/cue board**, and **loop board**. The Mixxx controller
+mapping lives in **`mixxx/`** (`TriMixxx.midi.xml` + `TriMixxx.scripts.js`,
+see `mixxx/README.md`). A 2nd ring (UART2) is reserved but not built.
 
 `main.cpp` has a single **`DECK_DEBUG`** switch (top of the file): set to `1`,
 `loop()` calls each module's own `debug()` self-test instead of sending MIDI —
