@@ -1,0 +1,19 @@
+<!DOCTYPE template>
+<Template>
+  <PushButton>
+    <ObjectName>BeatloopPad</ObjectName>
+    <MinimumSize>52,110</MinimumSize>
+    <MaximumSize>56,110</MaximumSize>
+    <NumberStates>2</NumberStates>
+    <State><Number>0</Number><Text><Variable name="label"/></Text></State>
+    <State><Number>1</Number><Text><Variable name="label"/></Text></State>
+    <Connection>
+      <ConfigKey>[Channel1],beatloop_<Variable name="beats"/>_toggle</ConfigKey>
+      <ButtonState>LeftButton</ButtonState>
+    </Connection>
+    <Connection>
+      <ConfigKey>[Channel1],beatloop_<Variable name="beats"/>_enabled</ConfigKey>
+      <BindProperty>highlight</BindProperty>
+    </Connection>
+  </PushButton>
+</Template>

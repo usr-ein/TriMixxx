@@ -1,0 +1,349 @@
+<!DOCTYPE template>
+<skin>
+  <manifest>
+    <title>TriMixxx</title>
+    <author>Sam</author>
+    <version>1.0</version>
+    <description>Single-deck CDJ-style skin for 1024x600 touchscreen</description>
+    <attributes>
+      <attribute config_key="[Master],num_decks">1</attribute>
+      <attribute config_key="[Master],num_samplers">0</attribute>
+      <attribute config_key="[Master],num_preview_decks">0</attribute>
+      <attribute config_key="[EffectRack1],num_effectunits">0</attribute>
+      <!-- 2 = RGB waveform -->
+      <attribute config_key="[Waveform],WaveformType">2</attribute>
+      <!-- Default to deck view, not library -->
+      <attribute persist="true" config_key="[Master],show_library">0</attribute>
+      <!-- Custom skin state for loop panel -->
+      <attribute persist="false" config_key="[Skin],loop_panel_expanded">0</attribute>
+    </attributes>
+  </manifest>
+
+  <Style src="skin:/style.qss"/>
+
+  <WidgetGroup>
+    <ObjectName>Root</ObjectName>
+    <Layout>vertical</Layout>
+    <MinimumSize>1024,600</MinimumSize>
+    <MaximumSize>1024,600</MaximumSize>
+    <Children>
+
+      <!-- =========== TOP HEADER (always visible) =========== -->
+      <WidgetGroup>
+        <ObjectName>TopHeader</ObjectName>
+        <Layout>horizontal</Layout>
+        <MinimumSize>1024,80</MinimumSize>
+        <MaximumSize>1024,80</MaximumSize>
+        <Children>
+
+          <!-- Cover art -->
+          <CoverArt>
+            <Group>[Channel1]</Group>
+            <MinimumSize>72,72</MinimumSize>
+            <MaximumSize>72,72</MaximumSize>
+            <DefaultCover>cover_default.svg</DefaultCover>
+          </CoverArt>
+
+          <!-- Title / Artist -->
+          <WidgetGroup>
+            <Layout>vertical</Layout>
+            <SizePolicy>me,f</SizePolicy>
+            <Children>
+              <TrackProperty>
+                <ObjectName>TitleText</ObjectName>
+                <Group>[Channel1]</Group>
+                <Property>title</Property>
+                <Elide>right</Elide>
+              </TrackProperty>
+              <TrackProperty>
+                <ObjectName>ArtistText</ObjectName>
+                <Group>[Channel1]</Group>
+                <Property>artist</Property>
+                <Elide>right</Elide>
+              </TrackProperty>
+            </Children>
+          </WidgetGroup>
+
+          <!-- BPM / KEY column -->
+          <WidgetGroup>
+            <ObjectName>BpmKeyColumn</ObjectName>
+            <Layout>vertical</Layout>
+            <MinimumSize>120,72</MinimumSize>
+            <MaximumSize>120,72</MaximumSize>
+            <Children>
+              <NumberBpm>
+                <ObjectName>BpmDisplay</ObjectName>
+                <Group>[Channel1]</Group>
+                <NumberOfDigits>1</NumberOfDigits>
+              </NumberBpm>
+              <Key>
+                <ObjectName>KeyDisplay</ObjectName>
+                <Group>[Channel1]</Group>
+                <DisplayType>1</DisplayType>
+              </Key>
+            </Children>
+          </WidgetGroup>
+
+          <!-- TIME column -->
+          <WidgetGroup>
+            <ObjectName>TimeColumn</ObjectName>
+            <Layout>vertical</Layout>
+            <MinimumSize>140,72</MinimumSize>
+            <MaximumSize>140,72</MaximumSize>
+            <Children>
+              <NumberPos>
+                <ObjectName>TimeElapsed</ObjectName>
+                <Group>[Channel1]</Group>
+                <Connection>
+                  <ConfigKey>[Channel1],playposition</ConfigKey>
+                </Connection>
+              </NumberPos>
+              <NumberPos>
+                <ObjectName>TimeRemaining</ObjectName>
+                <Group>[Channel1]</Group>
+                <ShowRemaining>true</ShowRemaining>
+                <Connection>
+                  <ConfigKey>[Channel1],playposition</ConfigKey>
+                </Connection>
+              </NumberPos>
+            </Children>
+          </WidgetGroup>
+
+        </Children>
+      </WidgetGroup>
+
+      <!-- =========== MIDDLE: DECK VIEW (shown when library hidden) =========== -->
+      <WidgetGroup>
+        <ObjectName>DeckView</ObjectName>
+        <Layout>vertical</Layout>
+        <MinimumSize>1024,390</MinimumSize>
+        <MaximumSize>1024,390</MaximumSize>
+        <Connection>
+          <ConfigKey persist="true">[Master],show_library</ConfigKey>
+          <Transform><Not/></Transform>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+        <Children>
+
+          <!-- Scrolling waveform -->
+          <Visual>
+            <ObjectName>ScrollingWaveform</ObjectName>
+            <Group>[Channel1]</Group>
+            <MinimumSize>1024,260</MinimumSize>
+            <MaximumSize>1024,260</MaximumSize>
+            <SignalHighColor>#ff5544</SignalHighColor>
+            <SignalMidColor>#88ff00</SignalMidColor>
+            <SignalLowColor>#2266ff</SignalLowColor>
+            <PlayPosColor>#ffffff</PlayPosColor>
+            <BgColor>#000000</BgColor>
+            <AxesColor>#444444</AxesColor>
+            <BeatColor>#cccccc</BeatColor>
+            <CueColor>#88ff00</CueColor>
+          </Visual>
+
+          <!-- Overview (whole-track minimap) -->
+          <Overview>
+            <ObjectName>TrackOverview</ObjectName>
+            <Group>[Channel1]</Group>
+            <MinimumSize>1024,55</MinimumSize>
+            <MaximumSize>1024,55</MaximumSize>
+            <BgColor>#0c0c0c</BgColor>
+            <SignalHighColor>#ff5544</SignalHighColor>
+            <SignalMidColor>#88ff00</SignalMidColor>
+            <SignalLowColor>#2266ff</SignalLowColor>
+            <PlayPosColor>#ffffff</PlayPosColor>
+            <AxesColor>#333333</AxesColor>
+            <Type>RGB</Type>
+          </Overview>
+
+          <!-- Hot cue row (4 pads) -->
+          <WidgetGroup>
+            <ObjectName>HotcueRow</ObjectName>
+            <Layout>horizontal</Layout>
+            <MinimumSize>1024,75</MinimumSize>
+            <MaximumSize>1024,75</MaximumSize>
+            <Children>
+              <Template src="skin:/hotcue_pad.xml">
+                <SetVariable name="hotcuenum">1</SetVariable>
+              </Template>
+              <Template src="skin:/hotcue_pad.xml">
+                <SetVariable name="hotcuenum">2</SetVariable>
+              </Template>
+              <Template src="skin:/hotcue_pad.xml">
+                <SetVariable name="hotcuenum">3</SetVariable>
+              </Template>
+              <Template src="skin:/hotcue_pad.xml">
+                <SetVariable name="hotcuenum">4</SetVariable>
+              </Template>
+            </Children>
+          </WidgetGroup>
+
+        </Children>
+      </WidgetGroup>
+
+      <!-- =========== MIDDLE: LIBRARY VIEW (shown when toggled) =========== -->
+      <WidgetGroup>
+        <ObjectName>LibraryView</ObjectName>
+        <Layout>horizontal</Layout>
+        <MinimumSize>1024,390</MinimumSize>
+        <MaximumSize>1024,390</MaximumSize>
+        <Connection>
+          <ConfigKey persist="true">[Master],show_library</ConfigKey>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+        <Children>
+          <WidgetGroup>
+            <ObjectName>LibrarySidebarCol</ObjectName>
+            <Layout>vertical</Layout>
+            <MinimumSize>240,390</MinimumSize>
+            <MaximumSize>240,390</MaximumSize>
+            <Children>
+              <SearchBox>
+                <ObjectName>LibrarySearch</ObjectName>
+                <MinimumSize>240,40</MinimumSize>
+                <MaximumSize>240,40</MaximumSize>
+              </SearchBox>
+              <LibrarySidebar>
+                <ObjectName>LibrarySidebar</ObjectName>
+                <SizePolicy>f,e</SizePolicy>
+              </LibrarySidebar>
+            </Children>
+          </WidgetGroup>
+          <Library>
+            <ObjectName>LibraryTable</ObjectName>
+            <SizePolicy>e,e</SizePolicy>
+          </Library>
+        </Children>
+      </WidgetGroup>
+
+      <!-- =========== BOTTOM BUTTON BAR (always visible) =========== -->
+      <WidgetGroup>
+        <ObjectName>BottomBar</ObjectName>
+        <Layout>horizontal</Layout>
+        <MinimumSize>1024,130</MinimumSize>
+        <MaximumSize>1024,130</MaximumSize>
+        <Children>
+
+          <!-- Library toggle -->
+          <PushButton>
+            <ObjectName>LibraryToggle</ObjectName>
+            <MinimumSize>140,110</MinimumSize>
+            <MaximumSize>140,110</MaximumSize>
+            <NumberStates>2</NumberStates>
+            <State><Number>0</Number><Text>LIBRARY</Text></State>
+            <State><Number>1</Number><Text>DECK</Text></State>
+            <Connection>
+              <ConfigKey persist="true">[Master],show_library</ConfigKey>
+              <ButtonState>LeftButton</ButtonState>
+            </Connection>
+          </PushButton>
+
+          <!-- Loop panel toggle -->
+          <PushButton>
+            <ObjectName>LoopToggle</ObjectName>
+            <MinimumSize>100,110</MinimumSize>
+            <MaximumSize>100,110</MaximumSize>
+            <NumberStates>2</NumberStates>
+            <State><Number>0</Number><Text>LOOP</Text></State>
+            <State><Number>1</Number><Text>LOOP</Text></State>
+            <Connection>
+              <ConfigKey persist="false">[Skin],loop_panel_expanded</ConfigKey>
+              <ButtonState>LeftButton</ButtonState>
+            </Connection>
+          </PushButton>
+
+          <!-- Loop subpanel: 1/2, 1, 2, 4, 8 beats (shown when expanded) -->
+          <WidgetGroup>
+            <ObjectName>LoopPanel</ObjectName>
+            <Layout>horizontal</Layout>
+            <MinimumSize>280,110</MinimumSize>
+            <MaximumSize>280,110</MaximumSize>
+            <Connection>
+              <ConfigKey persist="false">[Skin],loop_panel_expanded</ConfigKey>
+              <BindProperty>visible</BindProperty>
+            </Connection>
+            <Children>
+              <Template src="skin:/beatloop_pad.xml">
+                <SetVariable name="beats">0.5</SetVariable>
+                <SetVariable name="label">1/2</SetVariable>
+              </Template>
+              <Template src="skin:/beatloop_pad.xml">
+                <SetVariable name="beats">1</SetVariable>
+                <SetVariable name="label">1</SetVariable>
+              </Template>
+              <Template src="skin:/beatloop_pad.xml">
+                <SetVariable name="beats">2</SetVariable>
+                <SetVariable name="label">2</SetVariable>
+              </Template>
+              <Template src="skin:/beatloop_pad.xml">
+                <SetVariable name="beats">4</SetVariable>
+                <SetVariable name="label">4</SetVariable>
+              </Template>
+              <Template src="skin:/beatloop_pad.xml">
+                <SetVariable name="beats">8</SetVariable>
+                <SetVariable name="label">8</SetVariable>
+              </Template>
+            </Children>
+          </WidgetGroup>
+
+          <!-- Spacer (visible when loop panel is collapsed) -->
+          <WidgetGroup>
+            <ObjectName>BottomSpacer</ObjectName>
+            <SizePolicy>e,f</SizePolicy>
+            <Connection>
+              <ConfigKey persist="false">[Skin],loop_panel_expanded</ConfigKey>
+              <Transform><Not/></Transform>
+              <BindProperty>visible</BindProperty>
+            </Connection>
+            <Children/>
+          </WidgetGroup>
+
+          <!-- CUE button -->
+          <PushButton>
+            <ObjectName>CueButton</ObjectName>
+            <MinimumSize>140,110</MinimumSize>
+            <MaximumSize>140,110</MaximumSize>
+            <NumberStates>2</NumberStates>
+            <State><Number>0</Number><Text>CUE</Text></State>
+            <State><Number>1</Number><Text>CUE</Text></State>
+            <Connection>
+              <ConfigKey>[Channel1],cue_default</ConfigKey>
+              <ButtonState>LeftButton</ButtonState>
+              <EmitOnPressAndRelease>true</EmitOnPressAndRelease>
+            </Connection>
+          </PushButton>
+
+          <!-- PLAY button -->
+          <PushButton>
+            <ObjectName>PlayButton</ObjectName>
+            <MinimumSize>200,110</MinimumSize>
+            <MaximumSize>200,110</MaximumSize>
+            <NumberStates>2</NumberStates>
+            <State><Number>0</Number><Text>▶</Text></State>
+            <State><Number>1</Number><Text>❚❚</Text></State>
+            <Connection>
+              <ConfigKey>[Channel1],play</ConfigKey>
+              <ButtonState>LeftButton</ButtonState>
+            </Connection>
+          </PushButton>
+
+          <!-- SYNC button -->
+          <PushButton>
+            <ObjectName>SyncButton</ObjectName>
+            <MinimumSize>100,110</MinimumSize>
+            <MaximumSize>100,110</MaximumSize>
+            <NumberStates>2</NumberStates>
+            <State><Number>0</Number><Text>SYNC</Text></State>
+            <State><Number>1</Number><Text>SYNC</Text></State>
+            <Connection>
+              <ConfigKey>[Channel1],sync_enabled</ConfigKey>
+              <ButtonState>LeftButton</ButtonState>
+            </Connection>
+          </PushButton>
+
+        </Children>
+      </WidgetGroup>
+
+    </Children>
+  </WidgetGroup>
+</skin>

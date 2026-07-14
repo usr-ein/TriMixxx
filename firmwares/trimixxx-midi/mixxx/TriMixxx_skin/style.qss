@@ -1,0 +1,152 @@
+/* ============== BASE ============== */
+WWidget, QWidget {
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    font-family: "DejaVu Sans", sans-serif;
+    font-size: 14px;
+}
+
+#Root { background-color: #0c0c0c; }
+
+/* ============== TOP HEADER ============== */
+#TopHeader {
+    background-color: #1a1a1a;
+    border-bottom: 1px solid #88ff00;
+    padding: 4px;
+}
+
+#TitleText {
+    color: #ffffff;
+    font-size: 22px;
+    font-weight: bold;
+    qproperty-alignment: 'AlignLeft | AlignVCenter';
+    padding-left: 8px;
+}
+
+#ArtistText {
+    color: #909090;
+    font-size: 16px;
+    qproperty-alignment: 'AlignLeft | AlignVCenter';
+    padding-left: 8px;
+}
+
+#BpmDisplay {
+    color: #88ff00;
+    font-family: "DejaVu Sans Mono", monospace;
+    font-size: 28px;
+    font-weight: bold;
+    qproperty-alignment: 'AlignRight | AlignVCenter';
+    padding-right: 8px;
+}
+
+#KeyDisplay {
+    color: #cccccc;
+    font-family: "DejaVu Sans Mono", monospace;
+    font-size: 18px;
+    qproperty-alignment: 'AlignRight | AlignVCenter';
+    padding-right: 8px;
+}
+
+#TimeElapsed {
+    color: #ffffff;
+    font-family: "DejaVu Sans Mono", monospace;
+    font-size: 22px;
+    qproperty-alignment: 'AlignRight | AlignVCenter';
+    padding-right: 12px;
+}
+
+#TimeRemaining {
+    color: #88ff00;
+    font-family: "DejaVu Sans Mono", monospace;
+    font-size: 22px;
+    qproperty-alignment: 'AlignRight | AlignVCenter';
+    padding-right: 12px;
+}
+
+/* ============== BOTTOM BAR ============== */
+#BottomBar {
+    background-color: #161616;
+    border-top: 1px solid #88ff00;
+    padding: 6px;
+}
+
+/* ============== BUTTONS ============== */
+#LibraryToggle, #LoopToggle, #SyncButton,
+#CueButton, #PlayButton, #HotcuePad, #BeatloopPad {
+    background-color: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    border-radius: 6px;
+    color: #e0e0e0;
+    font-size: 16px;
+    font-weight: bold;
+    margin: 3px;
+}
+
+#LibraryToggle:pressed, #LoopToggle:pressed, #SyncButton:pressed,
+#CueButton:pressed, #PlayButton:pressed,
+#HotcuePad:pressed, #BeatloopPad:pressed {
+    background-color: #88ff00;
+    color: #0c0c0c;
+}
+
+#LibraryToggle[displayValue="1"],
+#LoopToggle[displayValue="1"],
+#SyncButton[displayValue="1"],
+#HotcuePad[displayValue="1"],
+#BeatloopPad[displayValue="1"] {
+    background-color: #2a2a2a;
+    border: 2px solid #88ff00;
+    color: #88ff00;
+}
+
+#PlayButton {
+    font-size: 38px;
+    background-color: #2a2a2a;
+    border: 2px solid #88ff00;
+}
+#PlayButton[displayValue="1"] {
+    background-color: #88ff00;
+    color: #0c0c0c;
+    border: 2px solid #88ff00;
+}
+
+#CueButton {
+    font-size: 28px;
+}
+
+/* ============== LIBRARY ============== */
+#LibraryView { background-color: #141414; }
+
+#LibrarySidebar, #LibrarySidebar QTreeView {
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    border: none;
+    selection-background-color: #88ff00;
+    selection-color: #0c0c0c;
+    font-size: 14px;
+}
+
+#LibraryTable, #LibraryTable QTableView {
+    background-color: #141414;
+    alternate-background-color: #1a1a1a;
+    color: #e0e0e0;
+    gridline-color: #2a2a2a;
+    selection-background-color: #88ff00;
+    selection-color: #0c0c0c;
+    font-size: 14px;
+}
+
+#LibraryTable QHeaderView::section {
+    background-color: #2a2a2a;
+    color: #88ff00;
+    border: none;
+    padding: 4px;
+}
+
+#LibrarySearch {
+    background-color: #1a1a1a;
+    border: 1px solid #3a3a3a;
+    color: #e0e0e0;
+    padding: 4px;
+    font-size: 14px;
+}
