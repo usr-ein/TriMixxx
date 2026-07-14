@@ -70,7 +70,7 @@ IO9 (ADIN wiper), bare 3.3V pot, no external filtering.
 
 ## MIDI contract (`MidiMap.hpp`)
 One deck = MIDI channel 1 (0-based `0`). `MidiMap.hpp` is the authority; the Mixxx
-controller mapping (`mixxx/TriMixxx.midi.xml` + `TriMixxx.scripts.js`) matches it —
+controller mapping (`mixxx_config/TriMixxx.midi.xml` + `TriMixxx.scripts.js`) matches it —
 change both together, no address overlaps.
 - Ring pads: node `i` ↔ note `PAD_BASE + i` (0..49), velocity = white LED brightness.
 - Jog: `CC_JOG` relative 7-bit two's-complement ticks; `NOTE_JOG_TOUCH` = scratch enable.
@@ -82,8 +82,9 @@ change both together, no address overlaps.
 ## Status
 All deck controls have drivers: **ring A pads**, **jog wheel**, **tempo fader**,
 **track encoder**, **play/cue board**, and **loop board**. The Mixxx controller
-mapping lives in **`mixxx/`** (`TriMixxx.midi.xml` + `TriMixxx.scripts.js`,
-see `mixxx/README.md`). A 2nd ring (UART2) is reserved but not built.
+mapping lives at the monorepo root in **`mixxx_config/`** (`TriMixxx.midi.xml` +
+`TriMixxx.scripts.js`, see `mixxx_config/README.md`). A 2nd ring (UART2) is
+reserved but not built.
 
 `main.cpp` has a single **`DECK_DEBUG`** switch (top of the file): set to `1`,
 `loop()` calls each module's own `debug()` self-test instead of sending MIDI —

@@ -3,7 +3,7 @@
 Mixxx mapping for the TriMixxx deck. The S3 firmware sends raw MIDI over UART →
 `ttymidi` on the Pi → ALSA → Mixxx sees a standard MIDI device. These files map
 that device to Mixxx controls. Addresses match the firmware's
-[`lib/PiLink/MidiMap.hpp`](../lib/PiLink/MidiMap.hpp) exactly — **change both together.**
+[`lib/PiLink/MidiMap.hpp`](../firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp) exactly — **change both together.**
 
 ## Files
 - `TriMixxx.midi.xml` — the mapping (inputs, LED outputs).
