@@ -10,3 +10,6 @@
 [submodule "boards/midi-laser-pcb/keebio-components"]
 	path = boards/midi-laser-pcb/keebio-components
 	url = https://github.com/keebio/keebio-components
+[submodule "mixxx_config/ttymidi"]
+	path = mixxx_config/ttymidi
+	url = https://github.com/usr-ein/ttymidi

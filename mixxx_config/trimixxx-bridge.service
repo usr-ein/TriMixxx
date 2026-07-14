@@ -1,5 +1,5 @@
 [Unit]
-Description=TriMixxx serial<->MIDI bridge (deck <-> Mixxx)
+Description=TriMixxx serial<->MIDI bridge via ttymidi (deck <-> Mixxx)
 # Mixxx is launched from the tty1 autologin session, so the deck's virtual MIDI
 # port must exist before getty@tty1 brings that session (and Mixxx) up.
 Before=getty@tty1.service
@@ -14,8 +14,10 @@ SupplementaryGroups=dialout audio
 # The Pi's UART node appears early, but wait for it (max ~10s) to be safe.
 ExecStartPre=/bin/sh -c 'for i in $(seq 1 50); do [ -e /dev/serial0 ] && exit 0; sleep 0.2; done'
 
-# NOTE: confirm the uv path with `which uv` and edit this line if it differs.
-ExecStart=/home/sam1902/.local/bin/uv run /home/sam1902/serial_midi_bridge.py --port /dev/serial0
+# ttymidi binary from the mixxx_config/ttymidi submodule (`make install` ->
+# /usr/local/bin). -n names the ALSA client "TriMixxx" so Mixxx -- and the
+# readiness gate below -- find the port.
+ExecStart=/usr/local/bin/ttymidi -s /dev/serial0 -b 115200 -n TriMixxx
 
 # Do not report the service "started" (which is what releases getty@tty1, hence
 # Mixxx) until the TriMixxx ALSA port is actually present -- otherwise Mixxx can
