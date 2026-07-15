@@ -71,8 +71,8 @@ WWidget, QWidget {
 }
 
 /* ============== BUTTONS ============== */
-#LibraryToggle, #LoopToggle, #SyncButton,
-#CueButton, #PlayButton, #HotcuePad, #BeatloopPad {
+#LibraryToggle, #SyncButton, #LoopHalve, #LoopDouble,
+#HotcuePad, #BeatloopPad {
     background-color: #2a2a2a;
     border: 1px solid #3a3a3a;
     border-radius: 6px;
@@ -82,37 +82,43 @@ WWidget, QWidget {
     margin: 3px;
 }
 
-#LibraryToggle:pressed, #LoopToggle:pressed, #SyncButton:pressed,
-#CueButton:pressed, #PlayButton:pressed,
+#LibraryToggle:pressed, #SyncButton:pressed,
 #HotcuePad:pressed, #BeatloopPad:pressed {
     background-color: #88ff00;
     color: #0c0c0c;
 }
 
 #LibraryToggle[displayValue="1"],
-#LoopToggle[displayValue="1"],
-#SyncButton[displayValue="1"],
-#HotcuePad[displayValue="1"],
-#BeatloopPad[displayValue="1"] {
+#SyncButton[displayValue="1"] {
     background-color: #2a2a2a;
     border: 2px solid #88ff00;
     color: #88ff00;
 }
 
-#PlayButton {
-    font-size: 38px;
-    background-color: #2a2a2a;
-    border: 2px solid #88ff00;
+/* Loop-size buttons: amber, matching the loop window on the waveform */
+#LoopHalve, #LoopDouble {
+    border: 1px solid #b35f00;
+    color: #ff8800;
+    font-size: 22px;
 }
-#PlayButton[displayValue="1"] {
-    background-color: #88ff00;
+#LoopHalve:pressed, #LoopDouble:pressed {
+    background-color: #ff8800;
     color: #0c0c0c;
-    border: 2px solid #88ff00;
 }
 
-#CueButton {
-    font-size: 28px;
+/* Hotcue / beatloop pads: their "set / active" state is bound to the `highlight`
+   property (hotcue_X_enabled / beatloop_X_enabled), NOT displayValue — the
+   activate/toggle control is momentary and only flashes on press, so styling
+   displayValue left a set hotcue / active loop looking idle. Style highlight so
+   it stays lit. */
+#HotcuePad[highlight="1"],
+#BeatloopPad[highlight="1"] {
+    background-color: #223a00;
+    border: 2px solid #88ff00;
+    color: #88ff00;
 }
+
+/* On-screen Play/Cue removed — those controls live on the hardware deck. */
 
 /* ============== LIBRARY ============== */
 #LibraryView { background-color: #141414; }

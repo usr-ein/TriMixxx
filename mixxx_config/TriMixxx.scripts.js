@@ -23,12 +23,26 @@ TriMixxx.init = function (id, debugging) {
     // Tempo fader span: the 14-bit `rate` CC is scaled by the deck's rate range,
     // which defaults to +/-8%. Widen it here so the fader covers +/-RATE_RANGE.
     engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGE);
+    // Quantize on by default: native loop in/out, cue and hotcues snap to the
+    // beatgrid, which is what makes Mixxx's manual looping land cleanly on beats.
+    engine.setValue(TriMixxx.DECK, "quantize", 1);
     // Ring = play-position indicator: one lit pad follows playback.
     TriMixxx.ringConn = engine.makeConnection(TriMixxx.DECK, "playposition", TriMixxx.ringUpdate);
     TriMixxx.ringConn.trigger();
+
+    // Return to the waveform whenever a track is loaded (from the hardware
+    // encoder push or an on-screen library tap), so the library never stays up
+    // over the deck. [Master],show_library is the skin's deck/library toggle.
+    TriMixxx.trackLoadedConn = engine.makeConnection(TriMixxx.DECK, "track_loaded", function (value) {
+        if (value) {
+            engine.setValue("[Master]", "show_library", 0);
+        }
+    });
 };
 
 TriMixxx.shutdown = function () {
+    if (TriMixxx.ringConn)        { TriMixxx.ringConn.disconnect(); }
+    if (TriMixxx.trackLoadedConn) { TriMixxx.trackLoadedConn.disconnect(); }
     for (var i = 0; i < TriMixxx.PADS; i++) {
         midi.sendShortMsg(TriMixxx.NOTE_ON, TriMixxx.PAD_BASE + i, 0x00); // clear the ring
     }

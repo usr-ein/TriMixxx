@@ -42,10 +42,23 @@
       </control>
 
       <!-- ===================== Loop ===================== -->
+      <!-- Mixxx's native loop_in/loop_out are held-state controls: press sets the
+           point, RELEASE ends "adjust" mode (holding + jog drags the point). The
+           firmware sends Note-On on press AND Note-Off on release, so BOTH edges
+           must be mapped. With press only, the control sticks at 1 and Mixxx never
+           leaves loop-adjust -> the jog drags the loop points around ("banana").
+           Cue is mapped the same way (0x90 + 0x80). -->
       <control>
         <group>[Channel1]</group>
         <key>loop_in</key>
         <status>0x90</status>
+        <midino>0x3E</midino>
+        <options><normal/></options>
+      </control>
+      <control>
+        <group>[Channel1]</group>
+        <key>loop_in</key>
+        <status>0x80</status>
         <midino>0x3E</midino>
         <options><normal/></options>
       </control>
@@ -56,6 +69,15 @@
         <midino>0x3F</midino>
         <options><normal/></options>
       </control>
+      <control>
+        <group>[Channel1]</group>
+        <key>loop_out</key>
+        <status>0x80</status>
+        <midino>0x3F</midino>
+        <options><normal/></options>
+      </control>
+      <!-- Reloop is a toggle: it acts on the press only, so the release (Note-Off)
+           is intentionally left unmapped (mapping it would double-toggle). -->
       <control>
         <group>[Channel1]</group>
         <key>reloop_toggle</key>

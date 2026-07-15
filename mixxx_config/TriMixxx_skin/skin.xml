@@ -14,8 +14,6 @@
       <attribute config_key="[Waveform],WaveformType">2</attribute>
       <!-- Default to deck view, not library -->
       <attribute persist="true" config_key="[Master],show_library">0</attribute>
-      <!-- Custom skin state for loop panel -->
-      <attribute persist="false" config_key="[Skin],loop_panel_expanded">0</attribute>
     </attributes>
   </manifest>
 
@@ -138,7 +136,49 @@
             <BgColor>#000000</BgColor>
             <AxesColor>#444444</AxesColor>
             <BeatColor>#cccccc</BeatColor>
-            <CueColor>#88ff00</CueColor>
+            <EndOfTrackColor>#ff2200</EndOfTrackColor>
+            <!-- Hotcues: one auto-mark per set hotcue (colored by the hotcue's
+                 own color); %1 = hotcue number. -->
+            <DefaultMark>
+              <Align>bottom|right</Align>
+              <Color>#88ff00</Color>
+              <TextColor>#0c0c0c</TextColor>
+              <Text> %1 </Text>
+            </DefaultMark>
+            <!-- Cue point (red, distinct from the orange loop) -->
+            <Mark>
+              <Control>cue_point</Control>
+              <Text>CUE</Text>
+              <Align>top|right</Align>
+              <Color>#ff0033</Color>
+              <TextColor>#ffffff</TextColor>
+            </Mark>
+            <!-- Active loop: an orange window between loop in/out.
+                 Bright while looping (loop_enabled=1); stays as a dimmer amber
+                 once you exit the loop (the in/out positions persist), and goes
+                 bright again on reloop. Cleared only by loop_remove. -->
+            <MarkRange>
+              <StartControl>loop_start_position</StartControl>
+              <EndControl>loop_end_position</EndControl>
+              <EnabledControl>loop_enabled</EnabledControl>
+              <Color>#ff8800</Color>
+              <Opacity>0.75</Opacity>
+              <DisabledColor>#b35f00</DisabledColor>
+              <DisabledOpacity>0.4</DisabledOpacity>
+            </MarkRange>
+            <Mark>
+              <Control>loop_start_position</Control>
+              <Text>&#8635;</Text>
+              <Align>top|left</Align>
+              <Color>#ff8800</Color>
+              <TextColor>#0c0c0c</TextColor>
+            </Mark>
+            <Mark>
+              <Control>loop_end_position</Control>
+              <Align>top|right</Align>
+              <Color>#ff8800</Color>
+              <TextColor>#0c0c0c</TextColor>
+            </Mark>
           </Visual>
 
           <!-- Overview (whole-track minimap) -->
@@ -147,13 +187,40 @@
             <Group>[Channel1]</Group>
             <MinimumSize>1024,55</MinimumSize>
             <MaximumSize>1024,55</MaximumSize>
+            <Connection>
+              <ConfigKey>[Channel1],playposition</ConfigKey>
+            </Connection>
             <BgColor>#0c0c0c</BgColor>
             <SignalHighColor>#ff5544</SignalHighColor>
             <SignalMidColor>#88ff00</SignalMidColor>
             <SignalLowColor>#2266ff</SignalLowColor>
             <PlayPosColor>#ffffff</PlayPosColor>
+            <EndOfTrackColor>#ff2200</EndOfTrackColor>
             <AxesColor>#333333</AxesColor>
             <Type>RGB</Type>
+            <!-- Hotcues (auto), cue point, and active loop on the minimap -->
+            <DefaultMark>
+              <Align>bottom|right</Align>
+              <Color>#88ff00</Color>
+              <TextColor>#0c0c0c</TextColor>
+              <Text> %1 </Text>
+            </DefaultMark>
+            <Mark>
+              <Control>cue_point</Control>
+              <Text>C</Text>
+              <Align>top|right</Align>
+              <Color>#ff0033</Color>
+              <TextColor>#ffffff</TextColor>
+            </Mark>
+            <MarkRange>
+              <StartControl>loop_start_position</StartControl>
+              <EndControl>loop_end_position</EndControl>
+              <EnabledControl>loop_enabled</EnabledControl>
+              <Color>#ff8800</Color>
+              <Opacity>0.75</Opacity>
+              <DisabledColor>#b35f00</DisabledColor>
+              <DisabledOpacity>0.4</DisabledOpacity>
+            </MarkRange>
           </Overview>
 
           <!-- Hot cue row (4 pads) -->
@@ -238,94 +305,56 @@
             </Connection>
           </PushButton>
 
-          <!-- Loop panel toggle -->
-          <PushButton>
-            <ObjectName>LoopToggle</ObjectName>
-            <MinimumSize>100,110</MinimumSize>
-            <MaximumSize>100,110</MaximumSize>
-            <NumberStates>2</NumberStates>
-            <State><Number>0</Number><Text>LOOP</Text></State>
-            <State><Number>1</Number><Text>LOOP</Text></State>
-            <Connection>
-              <ConfigKey persist="false">[Skin],loop_panel_expanded</ConfigKey>
-              <ButtonState>LeftButton</ButtonState>
-            </Connection>
-          </PushButton>
-
-          <!-- Loop subpanel: 1/2, 1, 2, 4, 8 beats (shown when expanded) -->
+          <!-- Loop-size controls: shown only while a loop is active. ÷2 / ×2
+               keep the loop start fixed and move the end (loop_anchor = 0).
+               Start/exit a loop from the hardware loop-in/out/reloop buttons. -->
           <WidgetGroup>
-            <ObjectName>LoopPanel</ObjectName>
+            <ObjectName>LoopControls</ObjectName>
             <Layout>horizontal</Layout>
-            <MinimumSize>280,110</MinimumSize>
-            <MaximumSize>280,110</MaximumSize>
+            <SizePolicy>e,f</SizePolicy>
             <Connection>
-              <ConfigKey persist="false">[Skin],loop_panel_expanded</ConfigKey>
+              <ConfigKey>[Channel1],loop_enabled</ConfigKey>
               <BindProperty>visible</BindProperty>
             </Connection>
             <Children>
-              <Template src="skin:/beatloop_pad.xml">
-                <SetVariable name="beats">0.5</SetVariable>
-                <SetVariable name="label">1/2</SetVariable>
-              </Template>
-              <Template src="skin:/beatloop_pad.xml">
-                <SetVariable name="beats">1</SetVariable>
-                <SetVariable name="label">1</SetVariable>
-              </Template>
-              <Template src="skin:/beatloop_pad.xml">
-                <SetVariable name="beats">2</SetVariable>
-                <SetVariable name="label">2</SetVariable>
-              </Template>
-              <Template src="skin:/beatloop_pad.xml">
-                <SetVariable name="beats">4</SetVariable>
-                <SetVariable name="label">4</SetVariable>
-              </Template>
-              <Template src="skin:/beatloop_pad.xml">
-                <SetVariable name="beats">8</SetVariable>
-                <SetVariable name="label">8</SetVariable>
-              </Template>
+              <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
+              <PushButton>
+                <ObjectName>LoopHalve</ObjectName>
+                <MinimumSize>150,110</MinimumSize>
+                <MaximumSize>150,110</MaximumSize>
+                <NumberStates>1</NumberStates>
+                <State><Number>0</Number><Text>LOOP ÷2</Text></State>
+                <Connection>
+                  <ConfigKey>[Channel1],loop_halve</ConfigKey>
+                  <ButtonState>LeftButton</ButtonState>
+                </Connection>
+              </PushButton>
+              <PushButton>
+                <ObjectName>LoopDouble</ObjectName>
+                <MinimumSize>150,110</MinimumSize>
+                <MaximumSize>150,110</MaximumSize>
+                <NumberStates>1</NumberStates>
+                <State><Number>0</Number><Text>LOOP ×2</Text></State>
+                <Connection>
+                  <ConfigKey>[Channel1],loop_double</ConfigKey>
+                  <ButtonState>LeftButton</ButtonState>
+                </Connection>
+              </PushButton>
+              <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
             </Children>
           </WidgetGroup>
 
-          <!-- Spacer (visible when loop panel is collapsed) -->
+          <!-- Spacer: fills the bar when no loop is active -->
           <WidgetGroup>
             <ObjectName>BottomSpacer</ObjectName>
             <SizePolicy>e,f</SizePolicy>
             <Connection>
-              <ConfigKey persist="false">[Skin],loop_panel_expanded</ConfigKey>
+              <ConfigKey>[Channel1],loop_enabled</ConfigKey>
               <Transform><Not/></Transform>
               <BindProperty>visible</BindProperty>
             </Connection>
             <Children/>
           </WidgetGroup>
-
-          <!-- CUE button -->
-          <PushButton>
-            <ObjectName>CueButton</ObjectName>
-            <MinimumSize>140,110</MinimumSize>
-            <MaximumSize>140,110</MaximumSize>
-            <NumberStates>2</NumberStates>
-            <State><Number>0</Number><Text>CUE</Text></State>
-            <State><Number>1</Number><Text>CUE</Text></State>
-            <Connection>
-              <ConfigKey>[Channel1],cue_default</ConfigKey>
-              <ButtonState>LeftButton</ButtonState>
-              <EmitOnPressAndRelease>true</EmitOnPressAndRelease>
-            </Connection>
-          </PushButton>
-
-          <!-- PLAY button -->
-          <PushButton>
-            <ObjectName>PlayButton</ObjectName>
-            <MinimumSize>200,110</MinimumSize>
-            <MaximumSize>200,110</MaximumSize>
-            <NumberStates>2</NumberStates>
-            <State><Number>0</Number><Text>▶</Text></State>
-            <State><Number>1</Number><Text>❚❚</Text></State>
-            <Connection>
-              <ConfigKey>[Channel1],play</ConfigKey>
-              <ButtonState>LeftButton</ButtonState>
-            </Connection>
-          </PushButton>
 
           <!-- SYNC button -->
           <PushButton>
