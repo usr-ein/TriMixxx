@@ -42,7 +42,7 @@ others — `main.cpp` is the only place that maps one to another.
 | Module | Role |
 |--------|------|
 | `lib/OneButtonRing` | Master driver for one UART ring of RGB+button nodes. Owns a **FreeRTOS task** (pinned to core 0) that circulates DATA frames; exposes a thread-safe snapshot API (`level`/`pressed`/`setLed`). One instance per ring. Implements OneButton Protocol v1.0.0. |
-| `lib/PiLink` | Raw MIDI-over-UART link to the Pi. Send helpers (`noteOn/noteOff/cc`) + `poll()` parses incoming MIDI (with running-status) and fires a callback. Deck-agnostic. |
+| `lib/PiLink` | Raw MIDI-over-UART link to the Pi. Send helpers (`noteOn/noteOff/cc`) + `poll()` parses incoming MIDI — channel-voice (with running status), **SysEx** reassembled into a fixed 64-byte buffer, and **System Real-Time ignored without disturbing the message in progress** — firing `onMidi`/`onSysEx`. Deck-agnostic. |
 | `lib/JogWheel` | Quadrature jog decode via hardware **PCNT** (zero CPU, no ISR) + active-low touch sense. Uses `ESP32Encoder`. |
 | `lib/TempoFader` | Ratiometric slide-fader read: center-tap (ADCT) + wiper (ADIN), both ADC1. Value derived from `ADIN - ADCT` so center maps to the midpoint with no calibration. **14-bit** output (0..16383) sent as a MIDI CC MSB/LSB pair; per-side spans for asymmetric hardware. Split-EMA smoothing + hysteresis. |
 | `lib/TrackEncoder` | KY-040 **mechanical** rotary encoder (CLK/DT/SW). Full-step Buxton state-table decoder rejects contact bounce (one tick per detent); debounced push switch. |
@@ -78,6 +78,26 @@ change both together, no address overlaps.
 - Track encoder: `CC_ENCODER` relative (1=up, 127=down) + `NOTE_ENC_SW` press.
 - Play/cue: `NOTE_PLAY` / `NOTE_CUE` press; LED ← incoming Note-On velocity.
 - Loop: `NOTE_LOOP_IN` / `NOTE_LOOP_OUT` / `NOTE_RELOOP` press; LED ← Note-On (reloop has no LED).
+
+### SysEx (Mixxx → firmware only)
+`F0 7D <cmd> <args…> F7`, manufacturer ID `0x7D` (reserved non-commercial). Every
+payload byte must be 7-bit — that is a SysEx rule, not a convention. `ttymidi`
+carries the payload opaquely (its README: *"System Exclusive — carried opaquely"*),
+so this layout is purely between the Mixxx mapping and `main.cpp`'s `onSysExFromMixxx`.
+
+- **`0x01` ring LEDs** — `F0 7D 01 <node> <colour bytes> F7`. Each 8-bit channel is
+  sent as **two data bytes, high nibble first** (`v>>4`, `v&0x0F`); that is what keeps
+  the full 0..255 per channel, since one 7-bit byte would cap it at 127. Channel order
+  R,G,B matches the OneButton wire slot, so nothing is reordered.
+  - 12 colour bytes (`R1 G1 B1 R2 G2 B2`) → LED0 and LED1 set independently.
+  - 6 colour bytes (`R1 G1 B1`) → one colour **mirrored onto both LEDs**.
+  - Wrong length or `node >= RING_A_NODES` → ignored.
+- **`0x02` reset** — `F0 7D 02 52 53 54 F7` ("RST") reboots the S3 via `esp_restart()`,
+  equivalent to the physical RESET button. The magic is **required**: it stops a stray
+  or corrupt SysEx from rebooting the deck mid-set, so a bare `F0 7D 02 F7` does nothing.
+
+Note-On velocity → white pad brightness still works and is unchanged; SysEx is the
+way to get an actual colour, which a 7-bit velocity cannot express.
 
 ## Status
 All deck controls have drivers: **ring A pads**, **jog wheel**, **tempo fader**,

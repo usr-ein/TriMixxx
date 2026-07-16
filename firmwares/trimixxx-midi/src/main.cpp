@@ -1,4 +1,6 @@
 #include <Arduino.h>
+#include <esp_system.h>
+#include <string.h>
 #include "OneButtonRing.hpp"
 #include "PiLink.hpp"
 #include "JogWheel.hpp"
@@ -90,6 +92,45 @@ static void onMidiFromMixxx(uint8_t status, uint8_t d1, uint8_t d2, void* ctx) {
     }
 }
 
+// -------- incoming SysEx from Mixxx ---------------------------------------
+//  F0 SYSEX_MFR_ID CMD <args...> F7  (payload here has the markers stripped).
+//  See MidiMap.hpp for the layouts. Colour channels arrive as nibble pairs so
+//  each one keeps its full 0..255 range despite SysEx's 7-bit data limit.
+static inline uint8_t nib(const uint8_t* p) { return (uint8_t)((p[0] << 4) | (p[1] & 0x0F)); }
+
+static void onSysExFromMixxx(const uint8_t* payload, uint8_t len, void* ctx) {
+    if (len < 2 || payload[0] != midimap::SYSEX_MFR_ID) return; // not ours
+    const uint8_t  cmd  = payload[1];
+    const uint8_t* args = payload + 2;
+    const uint8_t  n    = len - 2;
+
+    switch (cmd) {
+    case midimap::SYSEX_CMD_RING_LED: {
+        if (n != midimap::SYSEX_RING_LED_ARGS_ONE && n != midimap::SYSEX_RING_LED_ARGS_TWO) return;
+        const uint8_t node = args[0];
+        if (node >= RING_A_NODES) return;
+        const uint8_t r1 = nib(args + 1), g1 = nib(args + 3), b1 = nib(args + 5);
+        ringA.setLed(node, 0, r1, g1, b1);
+        // Short form (one colour): mirror it onto LED1 so both match.
+        if (n == midimap::SYSEX_RING_LED_ARGS_ONE) ringA.setLed(node, 1, r1, g1, b1);
+        else ringA.setLed(node, 1, nib(args + 7), nib(args + 9), nib(args + 11));
+        return;
+    }
+    case midimap::SYSEX_CMD_RESET: {
+        // Magic-gated so a stray/corrupt SysEx can never reboot the deck mid-set.
+        if (n != sizeof(midimap::SYSEX_RESET_MAGIC)) return;
+        if (memcmp(args, midimap::SYSEX_RESET_MAGIC, n) != 0) return;
+        Serial.println("SysEx reset -> rebooting");
+        Serial.flush();
+        Serial0.flush(); // let any in-flight MIDI out before the UART dies
+        delay(50);
+        esp_restart(); // same effect as the RESET button; does not return
+        return;
+    }
+    default: return;
+    }
+}
+
 // Periodic button sampling: poll+debounce+latch both boards every BTN_POLL_MS on
 // a task pinned to core 1 (off the ring's core 0). Deterministic and independent
 // of loop() load; a debounced press is latched so it is never missed.
@@ -123,6 +164,7 @@ void setup() {
 
     pi.begin();
     pi.onMidi(onMidiFromMixxx, nullptr);
+    pi.onSysEx(onSysExFromMixxx, nullptr);
 
     jog.begin();
     tempo.begin();
