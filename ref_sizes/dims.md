@@ -1,5 +1,12 @@
 # Dimensions
 
+This document is the final authority on EVERY dimension used in the CAD of the TriMixxx assembly.
+It is formatted like this:
+
+- `name_of_the_dimension` Purpose of the dimension `123.45 mm`
+
+Those are then used in Fusion360. Any revision to those dimensions is also noted here, with notes as to why revision was needed.
+
 ## CDJ dimensions
 ### CDJ 2000 nexus 2
 414 x 320 x 113 mm  cdj nexus 2 (jog 206mm)
@@ -140,6 +147,7 @@ Derived from modelling:
 
 - `btn_pcb_screw_off_wall` how far from the pcb edges are the screws that hold the button pcbs to the top plate. The screw holes are M3 + loose fit, so 3+0.4, the dist from edge is `4mm`
 - `btn_pcb_standoff_h` the height between the pcb surface and the top plate's bottom face. These PCB carry buttons and need to be away from the bottom face to make space for the jogwheel assembly: 12mm
+	- NOTE: This is not the case anymore, as some PCB are sandwiched with a compliant button spring structure, which adds `btn_compliant_join_bar_h` to the dist between its surface and the plates' bottom face.
 - The height of a tacticle THT button switch. I have many, but let's pick the smallest button that way I can shorten the plastic button I print later if need be.
   - `btn_switch_free_h` h=4.44mm soldered to the board but NOT DEPRESSED
   - `btn_switch_pressed_h` h=4.25mm soldered to the board when PRESSED
@@ -157,6 +165,7 @@ Derived from modelling:
 	- For spring_dia 5mm: 0.50mm or 0.45mm
 	- -- For Now I will use the 0.7mm wire dia.
 - `btn_spring_id` The inner dia of the spring's coil. Function of `btn_spring_wire_dia` = `btn_spring_od - 2* btn_spring_wire_dia`. Confirmed experimentally.
+- `btn_compliant_join_bar_h` the height of the bar that joins the buttons together onto a compliant structure. This adds to the distance between the PCB and the  `1mm`
 
 ### Screen half (SH)
 
