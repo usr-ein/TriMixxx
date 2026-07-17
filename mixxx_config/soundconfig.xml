@@ -1,5 +1,5 @@
 <!DOCTYPE SoundManagerConfig>
-<SoundManagerConfig api="ALSA" deck_count="1" force_network_clock="0" latency="4" samplerate="44100" sync_buffers="2">
+<SoundManagerConfig api="ALSA" deck_count="1" force_network_clock="0" latency="3" samplerate="44100" sync_buffers="2">
  <SoundDevice alsaHwDevice="hw:0,0" name="USB Audio CODEC: -" portAudioIndex="0">
   <output channel="0" channel_count="2" index="0" type="Master"/>
  </SoundDevice>
