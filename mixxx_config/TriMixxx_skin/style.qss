@@ -64,6 +64,20 @@ WWidget, QWidget {
     color: #0c0c0c;
 }
 
+/* Underrun counter. Deliberately dim: it reads 0 the entire time the deck is
+   healthy, so it must not compete with the track info beside it. There is no
+   "turns red when > 0" rule -- qss cannot branch on a numeric value, and the
+   only bindable alternative ([App],audio_latency_overload, the instantaneous
+   0/1 flag) self-clears, so it would blink rather than latch. The count is the
+   thing worth reading anyway: it only ever goes up. */
+#XrunDisplay {
+    color: #4a4a4a;
+    font-family: "DejaVu Sans Mono", monospace;
+    font-size: 13px;
+    font-weight: bold;
+    qproperty-alignment: 'AlignCenter';
+}
+
 #TimeElapsed {
     color: #ffffff;
     font-family: "DejaVu Sans Mono", monospace;
