@@ -178,6 +178,29 @@ void setup() {
     xTaskCreatePinnedToCore(buttonPollTask, "btn_poll", 2048, nullptr, 3, nullptr, 1);
 }
 
+// ===========================================================================
+//  loop() cadence. loop() free-runs -- no delay() -- and gates each job on its
+//  own deadline. Arduino's loopTask is pinned to core 1, whose idle task is NOT
+//  watchdog-checked in this build (core 0's IS -- and that is the ring's core),
+//  so spinning here is safe. Two deadlines:
+//
+//   * JOG_REPORT_US -- jog rotation only. The UART is the hard limit: 115200
+//     8N1 = 11520 B/s, and a jog CC is 3 bytes (ttymidi does not decode running
+//     status). One CC per 300us = ~10 kB/s ~= 87% of the link during a sustained
+//     fast scratch, leaving ~13% for tempo/encoder/button traffic. 260us would
+//     be 100% -- never go below it. This deliberately runs near the ceiling: if
+//     the 128-byte TX FIFO fills, uart_write_bytes() blocks, the loop stalls and
+//     the next deadline slips, so back off toward ~400us (~65%) if jog timing
+//     ever feels uneven under load.
+//   * CTRL_POLL_MS -- everything human-scale (pads, jog touch, tempo, encoder,
+//     buttons). A finger press is tens of ms; none of it belongs at kHz rates.
+//
+//  Nothing at priority <= 1 may be added to core 1: the spinning loopTask
+//  (prio 1) would starve it. buttonPollTask is prio 3, so it preempts fine.
+// ===========================================================================
+static constexpr uint32_t JOG_REPORT_US = 300; // jog CC cadence (~87% of the UART)
+static constexpr uint32_t CTRL_POLL_MS  = 2;   // everything else
+
 void loop() {
 #if DECK_DEBUG
     // Each module self-tests; no MIDI is sent.
@@ -191,7 +214,33 @@ void loop() {
     return;
 #endif
 
-    pi.poll(); // incoming MIDI -> LEDs
+    pi.poll(); // incoming MIDI -> LEDs; every pass, for the lowest LED latency
+
+    // ---- jog rotation -> relative CC : every JOG_REPORT_US ----
+    // readDelta() drains the PCNT hardware accumulator, so no tick is ever lost
+    // between reports -- a longer gap just batches more ticks into the same CC.
+    // jog.poll() is deliberately NOT called here: it is touch-only, and its
+    // debounce counts samples, so polling it at kHz would shrink the touch
+    // window from ~6ms to ~1ms. It stays on the CTRL_POLL_MS gate below.
+    static uint32_t lastJogUs = 0;
+    const uint32_t  nowUs     = micros();
+    if ((uint32_t)(nowUs - lastJogUs) >= JOG_REPORT_US) { // unsigned: rollover-safe
+        lastJogUs  = nowUs;
+        int32_t jd = jog.readDelta();
+        while (jd != 0) { // send full delta in <=63 chunks
+            int32_t chunk = jd;
+            if (chunk > 63) chunk = 63;
+            if (chunk < -63) chunk = -63;
+            pi.cc(midimap::CC_JOG, (uint8_t)(chunk & 0x7F)); // 7-bit two's complement
+            jd -= chunk;
+        }
+    }
+
+    // ---- everything below is human-scale: every CTRL_POLL_MS ----
+    static uint32_t lastCtrlMs = 0;
+    const uint32_t  nowMs      = millis();
+    if ((uint32_t)(nowMs - lastCtrlMs) < CTRL_POLL_MS) return; // unsigned: rollover-safe
+    lastCtrlMs = nowMs;
 
     // ---- ring pads -> MIDI notes ----
     for (uint8_t i = 0; i < RING_A_NODES; i++) {
@@ -206,16 +255,8 @@ void loop() {
         }
     }
 
-    // ---- jog wheel -> relative CC (+ touch -> scratch enable note) ----
+    // ---- jog touch -> scratch enable note (sample-count debounce: keep at 2ms) ----
     jog.poll();
-    int32_t jd = jog.readDelta();
-    while (jd != 0) { // send full delta in <=63 chunks
-        int32_t chunk = jd;
-        if (chunk > 63) chunk = 63;
-        if (chunk < -63) chunk = -63;
-        pi.cc(midimap::CC_JOG, (uint8_t)(chunk & 0x7F)); // 7-bit two's complement
-        jd -= chunk;
-    }
     if (jog.touchPressed()) pi.noteOn(midimap::NOTE_JOG_TOUCH, 127);
     if (jog.touchReleased()) pi.noteOff(midimap::NOTE_JOG_TOUCH);
 
@@ -250,6 +291,4 @@ void loop() {
               midimap::NOTE_LOOP_OUT, lpPend[LoopBoard::LOOP_END]);
     btnToNote(loopBoard.pressed(LoopBoard::RELOOP), loopBoard.level(LoopBoard::RELOOP),
               midimap::NOTE_RELOOP, lpPend[LoopBoard::RELOOP]);
-
-    delay(2);
 }
