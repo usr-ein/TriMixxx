@@ -1,0 +1,13 @@
+# DJ USB auto-mount. Any USB block device that carries a filesystem gets handed
+# to dj-usb@<kernel-name>.service, which mounts it read-only at /media/DJ_USB_1
+# or /media/DJ_USB_2.
+#
+# Why a systemd unit instead of RUN+=: udev runs its RUN programs in a PRIVATE
+# mount namespace, so a mount made there is invisible to the rest of the system
+# (this is the classic usbmount failure). Handing off via SYSTEMD_WANTS runs the
+# mount in the host namespace, where Mixxx can actually see it.
+#
+# ID_FS_USAGE=="filesystem" (rather than DEVTYPE=="partition") covers both the
+# usual partitioned stick and a rare unpartitioned "superfloppy" one, while
+# skipping the parent disk of a partitioned device, which carries no filesystem.
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{ID_FS_USAGE}=="filesystem", TAG+="systemd", ENV{SYSTEMD_WANTS}="dj-usb@%k.service"

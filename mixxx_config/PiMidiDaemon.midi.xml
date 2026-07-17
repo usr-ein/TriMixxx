@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Mapping for the pi-midi-daemon virtual MIDI port (see ../pi-midi-daemon/).
+     This is NOT the deck: it is the escape hatch Mixxx uses to ask the Pi to do
+     system things it cannot do itself. The daemon is a MIDI device like any
+     other, so Mixxx talks to it with an ordinary controller mapping.
+
+     Traffic runs both ways now. Mixxx -> daemon is SysEx sent from the script
+     (system actions). Daemon -> Mixxx is SysEx too: the daemon reports that a
+     DJ USB stick was mounted, and the script turns that into a Rekordbox
+     rescan.
+
+     There are no <outputs>: an <output> can only emit a 3-byte message, and the
+     daemon's protocol is SysEx, so sending stays in the script. -->
+<MixxxControllerPreset mixxxVersion="2.4+" schemaVersion="1">
+  <info>
+    <name>pi-midi-daemon</name>
+    <author>Samuel Prevost</author>
+    <description>System actions for the TriMixxx deck: forwards the skin's shutdown menu to the pi-midi-daemon service as SysEx (F0 7D &lt;opcode&gt; F7).</description>
+  </info>
+  <controller id="pi-midi-daemon">
+    <scriptfiles>
+      <file filename="PiMidiDaemon.scripts.js" functionprefix="PiMidiDaemon"/>
+    </scriptfiles>
+    <controls>
+      <!-- Incoming SysEx. MidiController::receive() keys a SysEx message as
+           (status = data[0] = 0xF0, control = 0xFF), so those two values are
+           what this must match; they are not free choices.
+           The <key> is documentation only: for SysEx the engine ignores it and
+           calls "<functionprefix>.incomingData" for every script prefix on this
+           controller. <script-binding/> is what routes it to the engine at all. -->
+      <control>
+        <group>[Master]</group>
+        <key>PiMidiDaemon.incomingData</key>
+        <status>0xF0</status>
+        <midino>0xFF</midino>
+        <options><script-binding/></options>
+      </control>
+    </controls>
+    <outputs/>
+  </controller>
+</MixxxControllerPreset>

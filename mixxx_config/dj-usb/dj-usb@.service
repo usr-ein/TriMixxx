@@ -1,0 +1,16 @@
+[Unit]
+Description=Mount DJ USB %i read-only into a /media/DJ_USB_N slot
+# BindsTo is what makes a yank clean up after itself: when the stick is pulled,
+# systemd tears down dev-%i.device, which stops this unit, which runs ExecStop.
+# No "remove" udev rule needed -- remove events carry almost no ID_* properties,
+# so matching them the way the add rule matches is unreliable.
+BindsTo=dev-%i.device
+After=dev-%i.device
+
+[Service]
+Type=oneshot
+# The mount must outlive ExecStart, and ExecStop only runs for a unit that is
+# still considered active.
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/dj-usb mount %i
+ExecStop=/usr/local/bin/dj-usb unmount %i

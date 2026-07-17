@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# dj-usb mount|unmount <kernel-name>   e.g. dj-usb mount sda1
+#
+# Mounts DJ sticks READ-ONLY at /media/DJ_USB_1 / /media/DJ_USB_2. Driven by
+# 99-dj-usb.rules -> dj-usb@.service; not meant to be run by hand except to
+# debug.
+#
+# Read-only is the whole safety model: with no writes there are no dirty pages,
+# so a stick can be yanked mid-set without corrupting a DJ's library. Mixxx
+# tolerates this -- its Rekordbox importer opens export.pdb and the ANLZ files
+# with std::ifstream::binary and parks everything it reads in Mixxx's own
+# database, never on the device.
+#
+# The slot path matters and is not cosmetic. Mixxx's RekordboxFeature scans
+# /media, /media/$USER and /run/media/$USER, takes their IMMEDIATE children
+# only, and tests <child>/PIONEER/rekordbox/export.pdb. So /media/DJ_USB_1 is
+# found and /media/usb/DJ_USB_1 would not be.
+set -euo pipefail
+
+SLOTS=2
+LOCK=/run/dj-usb.lock
+# FAT/exFAT/HFS+ carry no ownership, so the kernel synthesises it at mount time
+# and needs to be told who the files belong to. uid 1000 is the Pi's first human
+# user, i.e. whoever runs Mixxx; override with DJ_USER= if that ever changes.
+DJ_USER="${DJ_USER:-$(id -un 1000 2>/dev/null || echo pi)}"
+
+log() { logger -t dj-usb -- "$*" 2>/dev/null || true; echo "dj-usb: $*" >&2; }
+
+slot_path() { echo "/media/DJ_USB_$1"; }
+
+# Serialise slot choice: two sticks inserted together would otherwise both see
+# slot 1 as free and race for it.
+take_lock() {
+    exec 9>"$LOCK"
+    flock 9
+}
+
+do_mount() {
+    local kname=$1 dev=/dev/$1 fstype opts uid gid mp i
+
+    [[ -b $dev ]] || { log "$dev is not a block device"; exit 1; }
+
+    fstype=$(blkid -o value -s TYPE "$dev" 2>/dev/null || true)
+    if [[ -z $fstype ]]; then
+        log "$dev carries no recognisable filesystem; ignoring"
+        exit 0
+    fi
+
+    # noexec/nosuid/nodev: this is foreign media handed over by a stranger.
+    opts="ro,noatime,nosuid,nodev,noexec"
+    case $fstype in
+    vfat | exfat | ntfs | ntfs3 | hfsplus)
+        uid=$(id -u "$DJ_USER")
+        gid=$(id -g "$DJ_USER")
+        opts="$opts,uid=$uid,gid=$gid"
+        ;;
+    esac
+
+    take_lock
+    for ((i = 1; i <= SLOTS; i++)); do
+        mp=$(slot_path "$i")
+        mountpoint -q "$mp" && continue
+
+        mkdir -p "$mp"
+        if mount -t "$fstype" -o "$opts" "$dev" "$mp"; then
+            log "mounted $dev ($fstype) read-only at $mp"
+            exit 0
+        fi
+        # Do not leave an empty slot dir behind: RekordboxFeature would stat it
+        # on every refresh for no reason.
+        rmdir "$mp" 2>/dev/null || true
+        log "mount of $dev at $mp failed"
+        exit 1
+    done
+
+    log "no free slot for $dev: all $SLOTS DJ_USB slots are occupied"
+    exit 1
+}
+
+do_unmount() {
+    local kname=$1 mp i src
+
+    take_lock
+    for ((i = 1; i <= SLOTS; i++)); do
+        mp=$(slot_path "$i")
+        src=$(findmnt -n -o SOURCE --mountpoint "$mp" 2>/dev/null || true)
+        [[ $src == "/dev/$kname" ]] || continue
+
+        # Lazy: on a yank the device is already gone, and Mixxx may still hold
+        # the pdb or a track open. -l detaches now and lets the kernel clean up
+        # when the last handle closes, instead of failing with EBUSY.
+        umount -l "$mp" 2>/dev/null || log "umount -l $mp failed"
+        rmdir "$mp" 2>/dev/null || true
+        log "unmounted $mp ($kname)"
+    done
+}
+
+case "${1:-}" in
+mount) do_mount "${2:?usage: dj-usb mount <kernel-name>}" ;;
+unmount) do_unmount "${2:?usage: dj-usb unmount <kernel-name>}" ;;
+*) echo "usage: dj-usb mount|unmount <kernel-name>" >&2; exit 2 ;;
+esac
