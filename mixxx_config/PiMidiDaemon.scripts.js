@@ -35,18 +35,18 @@ PiMidiDaemon.EVT_USB_UNMOUNTED = 0x11;
 PiMidiDaemon.GROUP    = "[TriMixxx]";
 PiMidiDaemon.RETRY_MS = 500;
 
-PiMidiDaemon.init = function (id, debugging) {
+PiMidiDaemon.init = function(id, debugging) {
     PiMidiDaemon.connect();
 };
 
-PiMidiDaemon.shutdown = function () {
+PiMidiDaemon.shutdown = function() {
     if (PiMidiDaemon.conn) { PiMidiDaemon.conn.disconnect(); }
 };
 
 // [TriMixxx],* only exists once the SKIN has loaded, and Mixxx may open this
 // controller first -- makeConnection then returns undefined and the button would
 // silently never work. So retry until the control exists.
-PiMidiDaemon.connect = function () {
+PiMidiDaemon.connect = function() {
     var conn = engine.makeConnection(PiMidiDaemon.GROUP, "shutdown_now", PiMidiDaemon.onShutdown);
     if (conn) {
         PiMidiDaemon.conn = conn;
@@ -57,12 +57,12 @@ PiMidiDaemon.connect = function () {
 
 // The skin's SHUT DOWN button pulses 1 on press and 0 on release; act on the
 // rising edge only, or releasing would fire a second shutdown.
-PiMidiDaemon.onShutdown = function (value) {
+PiMidiDaemon.onShutdown = function(value) {
     if (!value) { return; }
     PiMidiDaemon.send(PiMidiDaemon.CMD_SHUTDOWN);
 };
 
-PiMidiDaemon.send = function (opcode) {
+PiMidiDaemon.send = function(opcode) {
     var msg = [0xF0, PiMidiDaemon.SYSEX_ID, opcode, 0xF7];
     midi.sendSysexMsg(msg, msg.length);
 };
@@ -73,7 +73,7 @@ PiMidiDaemon.send = function (opcode) {
 // for EVERY script prefix on this controller. So this name is load-bearing --
 // renaming it silently stops the deck refreshing.
 //   handleIncomingData() passes (data, data.size()).
-PiMidiDaemon.incomingData = function (data, length) {
+PiMidiDaemon.incomingData = function(data, length) {
     // F0 7D <opcode> F7. Validate the frame rather than trusting index 2: this
     // handler sees every SysEx the port receives, not only ours.
     if (length !== 4) { return; }
@@ -108,6 +108,6 @@ PiMidiDaemon.incomingData = function (data, length) {
 // selected, this activates that instead; if nothing is selected (the library
 // was never opened), selectedIndex() is invalid and it is a no-op.
 // Side effect: toggleSelectedItem() also flips the item's expanded state.
-PiMidiDaemon.refreshRekordbox = function () {
+PiMidiDaemon.refreshRekordbox = function() {
     engine.setValue("[Playlist]", "ToggleSelectedSidebarItem", 1);
 };

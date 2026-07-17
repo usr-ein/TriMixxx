@@ -122,3 +122,6 @@ $RECYCLE.BIN/
 # kicad's own internal little git
 **/.history
 .history
+
+### Node (mixxx_config JS tooling) ###
+node_modules/

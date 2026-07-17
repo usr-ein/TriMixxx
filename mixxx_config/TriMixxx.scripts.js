@@ -51,7 +51,7 @@ TriMixxx.JOG_BETA  = 1.0 / 16;
 TriMixxx.scratching = false;
 TriMixxx.ringLast    = -1;      // last pad lit by the position indicator
 
-TriMixxx.init = function (id, debugging) {
+TriMixxx.init = function(id, debugging) {
     // Tempo fader span: the 14-bit `rate` CC is scaled by the deck's rate range,
     // which defaults to +/-8%. Widen it here so the fader covers +/-RATE_RANGE.
     engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGE);
@@ -77,14 +77,14 @@ TriMixxx.init = function (id, debugging) {
     // Return to the waveform whenever a track is loaded (from the hardware
     // encoder push or an on-screen library tap), so the library never stays up
     // over the deck. [Master],show_library is the skin's deck/library toggle.
-    TriMixxx.trackLoadedConn = engine.makeConnection(TriMixxx.DECK, "track_loaded", function (value) {
+    TriMixxx.trackLoadedConn = engine.makeConnection(TriMixxx.DECK, "track_loaded", function(value) {
         if (value) {
             engine.setValue("[Master]", "show_library", 0);
         }
     });
 };
 
-TriMixxx.shutdown = function () {
+TriMixxx.shutdown = function() {
     if (TriMixxx.ringConn)        { TriMixxx.ringConn.disconnect(); }
     if (TriMixxx.trackLoadedConn) { TriMixxx.trackLoadedConn.disconnect(); }
     for (var i = 0; i < TriMixxx.PADS; i++) {
@@ -94,7 +94,7 @@ TriMixxx.shutdown = function () {
 
 // ---- Ring: light the pad at the current play position (velocity = brightness).
 //      Only emits MIDI when the lit pad changes, so <= PADS messages per pass. ----
-TriMixxx.ringUpdate = function (value, group, control) {
+TriMixxx.ringUpdate = function(value, group, control) {
     var pad = Math.floor(value * TriMixxx.PADS);
     if (pad < 0) { pad = 0; }
     if (pad >= TriMixxx.PADS) { pad = TriMixxx.PADS - 1; }
@@ -109,14 +109,14 @@ TriMixxx.ringUpdate = function (value, group, control) {
 // ---- Ring pad press -> needle-drop seek. Not wired by default (the ring is a
 //      position indicator); enable by adding the 50 note-on entries in the .xml
 //      that point here. Pad i seeks to i/(PADS-1) of the track. ----
-TriMixxx.padPress = function (channel, control, value, status, group) {
+TriMixxx.padPress = function(channel, control, value, status, group) {
     if (value === 0) { return; } // press only
     var pad = control - TriMixxx.PAD_BASE;
     engine.setValue(TriMixxx.DECK, "playposition", pad / (TriMixxx.PADS - 1));
 };
 
 // ---- Play/pause: toggle on press ----
-TriMixxx.play = function (channel, control, value, status, group) {
+TriMixxx.play = function(channel, control, value, status, group) {
     if (value) {
         engine.setValue(group, "play", !engine.getValue(group, "play"));
     }
@@ -125,7 +125,7 @@ TriMixxx.play = function (channel, control, value, status, group) {
 // ---- Track browse encoder: firmware sends 1 = up, 127 = down (one per detent).
 //      MoveVertical acts on whichever library widget currently has focus, which
 //      is what lets one encoder scroll the sidebar and then the track list. ----
-TriMixxx.browse = function (channel, control, value, status, group) {
+TriMixxx.browse = function(channel, control, value, status, group) {
     engine.setValue("[Library]", "MoveVertical", (value === 1) ? -1 : 1);
 };
 
@@ -141,7 +141,7 @@ TriMixxx.browse = function (channel, control, value, status, group) {
 TriMixxx.FOCUS_SIDEBAR = 2; // FocusWidget::Sidebar
 TriMixxx.FOCUS_TRACKS  = 3; // FocusWidget::TracksTable
 
-TriMixxx.encoderPush = function (channel, control, value, status, group) {
+TriMixxx.encoderPush = function(channel, control, value, status, group) {
     if (!value) { return; } // press only
 
     if (!engine.getValue("[Master]", "show_library")) {
@@ -161,7 +161,7 @@ TriMixxx.encoderPush = function (channel, control, value, status, group) {
 };
 
 // ---- Jog touch: enable scratch while held, pitch-bend when released ----
-TriMixxx.jogTouch = function (channel, control, value, status, group) {
+TriMixxx.jogTouch = function(channel, control, value, status, group) {
     if (value) {
         // ticks/rev, 33.3 rpm vinyl. Gearing goes through ticks/rev rather than
         // through the tick delta: scratchTick() takes an *int*, so a scaled
@@ -185,7 +185,7 @@ TriMixxx.jogTouch = function (channel, control, value, status, group) {
 // ---- Jog rotate: CC value is a 7-bit two's-complement tick delta.
 //      The firmware counts the opposite way to Mixxx's scratch/bend sense, so
 //      negate here -- this flips scratch and pitch-bend together. ----
-TriMixxx.jog = function (channel, control, value, status, group) {
+TriMixxx.jog = function(channel, control, value, status, group) {
     var delta = -((value < 64) ? value : value - 128);
     if (TriMixxx.scratching) {
         // Raw delta: scratch sensitivity is already baked into ticks/rev above.
