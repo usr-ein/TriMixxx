@@ -73,4 +73,17 @@ void JogWheel::debug() {
     }
     if (touchPressed()) Serial.println("jog: touch DOWN");
     if (touchReleased()) Serial.println("jog: touch UP");
+
+    // Raw touch level ~4x/sec, independent of edges. Edges alone cannot tell a
+    // dead pin from an untouched one, so print the level: it shows whether the
+    // pin actually moves when the platter is touched, and with which polarity.
+    // raw=0 while UNTOUCHED means the pull-up is not holding the pin high -- the
+    // debounce then latches "touched" ~6ms after boot (firing one Note-On that
+    // nothing is listening for yet) and never reports an edge again.
+    static uint32_t lastRawMs = 0;
+    if (millis() - lastRawMs >= 250) {
+        lastRawMs = millis();
+        Serial.printf("jog: touch raw=%d (0=LOW=touched) stable=%d\n", digitalRead(_pinTouch),
+                      _touchStable);
+    }
 }
