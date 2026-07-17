@@ -13,23 +13,36 @@
 [submodule "mixxx_config/ttymidi"]
 	path = mixxx_config/ttymidi
 	url = https://github.com/usr-ein/ttymidi
-# Reference copy of the Mixxx source the deck actually runs (pinned to 2.5.0),
-# so questions about ConfigKeys / skin nodes / engine behaviour get answered from
-# that version rather than upstream main.
+# Our Mixxx fork: the source the deck actually runs. `main` forks off the
+# 2.5.6 tag and carries our patches (downbeat rendering, ...); upstream's own
+# main is not merged into it. Doubles as the reference copy, so questions about
+# ConfigKeys / skin nodes / engine behaviour get answered from the version we
+# actually ship.
+#
+# Push URL is set per-clone, not here, since it needs the `github.com-usr-ein`
+# SSH alias that only exists in ~/.ssh/config on the dev box:
+#
+#     git -C mixxx remote set-url --push origin \
+#         git@github.com-usr-ein:usr-ein/mixxx.git
+#
+# Upstream stays reachable for rebases onto later releases:
+#
+#     git -C mixxx remote add upstream https://github.com/mixxxdj/mixxx.git
 #
 # No `shallow = true`: it does not work for a pin to an old tag. `submodule
-# update --init` shallow-clones the DEFAULT branch, which lacks 2.5.0's commit,
-# then fetches the pinned SHA with no depth limit -- which deepens the clone to
-# full history anyway. Measured: 565M and 48557 commits, shallow flag or not.
+# update --init` shallow-clones the DEFAULT branch, then fetches the pinned SHA
+# with no depth limit -- which deepens the clone to full history anyway.
+# Measured: 565M and 48557 commits, shallow flag or not.
 #
-# To get a shallow checkout (34M), clone it directly at the tag instead of
+# To get a shallow checkout (34M), clone the branch directly instead of going
 # through `submodule update`:
 #
-#     rm -rf mixxx && git clone --depth 1 --branch 2.5.0 \
-#         https://github.com/mixxxdj/mixxx.git mixxx
+#     rm -rf mixxx && git clone --depth 1 --branch main \
+#         https://github.com/usr-ein/mixxx.git mixxx
 #     git submodule absorbgitdirs mixxx
 #
 # That lands on the same commit, so `git submodule status` stays clean.
 [submodule "mixxx"]
 	path = mixxx
-	url = https://github.com/mixxxdj/mixxx.git
+	url = https://github.com/usr-ein/mixxx.git
+	branch = main

@@ -169,21 +169,31 @@
                 <DefaultCover>cover_default.svg</DefaultCover>
               </CoverArt>
 
-              <!-- Title / Artist -->
+              <!-- Title / Artist, beside the cover art.
+                   The explicit sizes are what make this render at all: with
+                   none the TrackPropertys have no height, and this group is
+                   vertically Fixed, so the column collapsed to 0px and was
+                   simply never drawn. Stock skins always size these
+                   (e.g. <Size>0e,40f</Size>). -->
               <WidgetGroup>
+                <ObjectName>TitleArtistColumn</ObjectName>
                 <Layout>vertical</Layout>
+                <MinimumSize>200,72</MinimumSize>
+                <MaximumSize>-1,72</MaximumSize>
                 <SizePolicy>me,f</SizePolicy>
                 <Children>
                   <TrackProperty>
                     <ObjectName>TitleText</ObjectName>
                     <Group>[Channel1]</Group>
                     <Property>title</Property>
+                    <Size>0me,42f</Size>
                     <Elide>right</Elide>
                   </TrackProperty>
                   <TrackProperty>
                     <ObjectName>ArtistText</ObjectName>
                     <Group>[Channel1]</Group>
                     <Property>artist</Property>
+                    <Size>0me,28f</Size>
                     <Elide>right</Elide>
                   </TrackProperty>
                 </Children>
@@ -251,20 +261,22 @@
               <WidgetGroup>
                 <ObjectName>TimeColumn</ObjectName>
                 <Layout>vertical</Layout>
-                <MinimumSize>140,72</MinimumSize>
-                <MaximumSize>140,72</MaximumSize>
+                <!-- Wide enough for the combined string: the mode renders
+                     elapsed and remaining together in ONE widget. -->
+                <MinimumSize>240,72</MinimumSize>
+                <MaximumSize>240,72</MaximumSize>
                 <Children>
+                  <!-- ONE widget, showing elapsed AND remaining together.
+                       There is no <ShowRemaining> element: every WNumberPos
+                       reads the one global control
+                       [Controls],ShowDurationRemaining, so a second widget
+                       could only ever repeat the first, which is exactly what
+                       it did. mixxx.cfg sets PositionDisplay 2
+                       (TrackTime::DisplayMode::ELAPSED_AND_REMAINING), which is
+                       what makes this show both. -->
                   <NumberPos>
                     <ObjectName>TimeElapsed</ObjectName>
                     <Group>[Channel1]</Group>
-                    <Connection>
-                      <ConfigKey>[Channel1],playposition</ConfigKey>
-                    </Connection>
-                  </NumberPos>
-                  <NumberPos>
-                    <ObjectName>TimeRemaining</ObjectName>
-                    <Group>[Channel1]</Group>
-                    <ShowRemaining>true</ShowRemaining>
                     <Connection>
                       <ConfigKey>[Channel1],playposition</ConfigKey>
                     </Connection>
@@ -292,8 +304,10 @@
               <Visual>
                 <ObjectName>ScrollingWaveform</ObjectName>
                 <Group>[Channel1]</Group>
-                <MinimumSize>1024,260</MinimumSize>
-                <MaximumSize>1024,260</MaximumSize>
+                <!-- 335 + 55 (Overview) = 390: the waveform absorbs the row the
+                     hotcue pads used to occupy, rather than leaving a hole. -->
+                <MinimumSize>1024,335</MinimumSize>
+                <MaximumSize>1024,335</MaximumSize>
                 <SignalHighColor>#ff5544</SignalHighColor>
                 <SignalMidColor>#88ff00</SignalMidColor>
                 <SignalLowColor>#2266ff</SignalLowColor>
@@ -301,6 +315,9 @@
                 <BgColor>#000000</BgColor>
                 <AxesColor>#444444</AxesColor>
                 <BeatColor>#cccccc</BeatColor>
+                <!-- First beat of each bar, Rekordbox-style. Anchored on the
+                     intro cue, so a track with no intro cue shows plain beats. -->
+                <DownbeatColor>#ff0000</DownbeatColor>
                 <EndOfTrackColor>#ff2200</EndOfTrackColor>
                 <!-- Hotcues: one auto-mark per set hotcue (colored by the hotcue's
                      own color); %1 = hotcue number. -->
@@ -388,27 +405,6 @@
                 </MarkRange>
               </Overview>
 
-              <!-- Hot cue row (4 pads) -->
-              <WidgetGroup>
-                <ObjectName>HotcueRow</ObjectName>
-                <Layout>horizontal</Layout>
-                <MinimumSize>1024,75</MinimumSize>
-                <MaximumSize>1024,75</MaximumSize>
-                <Children>
-                  <Template src="skin:/hotcue_pad.xml">
-                    <SetVariable name="hotcuenum">1</SetVariable>
-                  </Template>
-                  <Template src="skin:/hotcue_pad.xml">
-                    <SetVariable name="hotcuenum">2</SetVariable>
-                  </Template>
-                  <Template src="skin:/hotcue_pad.xml">
-                    <SetVariable name="hotcuenum">3</SetVariable>
-                  </Template>
-                  <Template src="skin:/hotcue_pad.xml">
-                    <SetVariable name="hotcuenum">4</SetVariable>
-                  </Template>
-                </Children>
-              </WidgetGroup>
 
             </Children>
           </WidgetGroup>
@@ -417,8 +413,11 @@
           <WidgetGroup>
             <ObjectName>LibraryView</ObjectName>
             <Layout>horizontal</Layout>
+            <!-- 390 beside the deck; 520 once BottomBar hides in library view
+                 (600 total - 80 header). `me` is what lets it claim that. -->
             <MinimumSize>1024,390</MinimumSize>
-            <MaximumSize>1024,390</MaximumSize>
+            <MaximumSize>1024,520</MaximumSize>
+            <SizePolicy>f,me</SizePolicy>
             <Connection>
               <ConfigKey persist="true">[Master],show_library</ConfigKey>
               <BindProperty>visible</BindProperty>
@@ -428,7 +427,8 @@
                 <ObjectName>LibrarySidebarCol</ObjectName>
                 <Layout>vertical</Layout>
                 <MinimumSize>240,390</MinimumSize>
-                <MaximumSize>240,390</MaximumSize>
+                <MaximumSize>240,520</MaximumSize>
+                <SizePolicy>f,me</SizePolicy>
                 <Children>
                   <SearchBox>
                     <ObjectName>LibrarySearch</ObjectName>
@@ -454,6 +454,14 @@
             <Layout>horizontal</Layout>
             <MinimumSize>1024,130</MinimumSize>
             <MaximumSize>1024,130</MaximumSize>
+            <!-- Deck-only: tempo range, loop size and power mean nothing while
+                 browsing, and hiding this hands its 130px to the track list
+                 (LibraryView grows to 520 to take it). -->
+            <Connection>
+              <ConfigKey persist="true">[Master],show_library</ConfigKey>
+              <Transform><Not/></Transform>
+              <BindProperty>visible</BindProperty>
+            </Connection>
             <Children>
 
               <!-- Library toggle -->
@@ -550,19 +558,6 @@
                 <Children/>
               </WidgetGroup>
 
-              <!-- SYNC button -->
-              <PushButton>
-                <ObjectName>SyncButton</ObjectName>
-                <MinimumSize>100,110</MinimumSize>
-                <MaximumSize>100,110</MaximumSize>
-                <NumberStates>2</NumberStates>
-                <State><Number>0</Number><Text>SYNC</Text></State>
-                <State><Number>1</Number><Text>SYNC</Text></State>
-                <Connection>
-                  <ConfigKey>[Channel1],sync_enabled</ConfigKey>
-                  <ButtonState>LeftButton</ButtonState>
-                </Connection>
-              </PushButton>
 
               <!-- POWER: raises the shutdown confirm overlay. Deliberately a 2-state
                    toggle, not a 1-state momentary button: a momentary one writes 1
@@ -570,11 +565,11 @@
                    vanish again. Sits far right, away from the transport. -->
               <PushButton>
                 <ObjectName>PowerButton</ObjectName>
-                <MinimumSize>100,110</MinimumSize>
-                <MaximumSize>100,110</MaximumSize>
+                <MinimumSize>55,110</MinimumSize>
+                <MaximumSize>55,110</MaximumSize>
                 <NumberStates>2</NumberStates>
-                <State><Number>0</Number><Text>POWER</Text></State>
-                <State><Number>1</Number><Text>POWER</Text></State>
+                <State><Number>0</Number><Unpressed>power.svg</Unpressed><Pressed>power.svg</Pressed></State>
+                <State><Number>1</Number><Unpressed>power.svg</Unpressed><Pressed>power.svg</Pressed></State>
                 <Connection>
                   <ConfigKey persist="false">[TriMixxx],shutdown_confirm</ConfigKey>
                   <ButtonState>LeftButton</ButtonState>

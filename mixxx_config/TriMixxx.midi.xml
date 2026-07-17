@@ -95,13 +95,15 @@
         <midino>0x10</midino>
         <options><script-binding/></options>
       </control>
-      <!-- Push: note 0x41 -> load selected track into the deck -->
+      <!-- Push: note 0x41 -> context dependent, so it needs the script:
+           deck view -> open the library; sidebar -> step into the track list;
+           track list -> load the selected track. -->
       <control>
         <group>[Channel1]</group>
-        <key>LoadSelectedTrack</key>
+        <key>TriMixxx.encoderPush</key>
         <status>0x90</status>
         <midino>0x41</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
 
       <!-- ===================== Jog wheel ===================== -->

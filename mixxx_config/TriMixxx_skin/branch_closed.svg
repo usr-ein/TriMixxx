@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Collapsed section arrow for the library sidebar. Deliberately large: the
+     stock arrow is a few px and impossible to hit with a finger. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <path d="M11 6 L23 16 L11 26 Z" fill="#88ff00"/>
+</svg>

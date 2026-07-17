@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Expanded arrow for a SELECTED row. Dark, to stay visible on the lime
+     selection background. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <path d="M6 11 L26 11 L16 23 Z" fill="#0c0c0c"/>
+</svg>

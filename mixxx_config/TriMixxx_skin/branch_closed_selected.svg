@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Collapsed arrow for a SELECTED row. Dark, because the selection background
+     is lime and the normal lime arrow would vanish into it. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <path d="M11 6 L23 16 L11 26 Z" fill="#0c0c0c"/>
+</svg>

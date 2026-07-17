@@ -63,6 +63,13 @@ TriMixxx.init = function (id, debugging) {
     // saves whatever state the last session ended in -- forcing it here means
     // every boot starts locked regardless of how the previous DJ left it.
     engine.setValue(TriMixxx.DECK, "keylock", 1);
+    // Show elapsed AND remaining. This is forced here rather than left to
+    // mixxx.cfg because WNumberPos::mousePressEvent CYCLES the mode on click
+    // (elapsed -> remaining -> both) and writes it back, so on a touchscreen one
+    // stray tap silently changes it for good. 2 = ELAPSED_AND_REMAINING; the
+    // single control is global, which is also why one widget shows both and a
+    // second one could only ever repeat it.
+    engine.setValue("[Controls]", "ShowDurationRemaining", 2);
     // Ring = play-position indicator: one lit pad follows playback.
     TriMixxx.ringConn = engine.makeConnection(TriMixxx.DECK, "playposition", TriMixxx.ringUpdate);
     TriMixxx.ringConn.trigger();
@@ -115,9 +122,42 @@ TriMixxx.play = function (channel, control, value, status, group) {
     }
 };
 
-// ---- Track browse encoder: firmware sends 1 = up, 127 = down (one per detent) ----
+// ---- Track browse encoder: firmware sends 1 = up, 127 = down (one per detent).
+//      MoveVertical acts on whichever library widget currently has focus, which
+//      is what lets one encoder scroll the sidebar and then the track list. ----
 TriMixxx.browse = function (channel, control, value, status, group) {
     engine.setValue("[Library]", "MoveVertical", (value === 1) ? -1 : 1);
+};
+
+// ---- Track encoder push: one button, three jobs, depending on where you are.
+//        deck view -> open the library, focused on the sidebar
+//        sidebar   -> step right into the track list
+//        track list-> load the selected track (the track_loaded connection in
+//                     init() then drops us back on the waveform)
+//
+//      Focus is both read and written through [Library],focused_widget, whose
+//      values are Mixxx's FocusWidget enum (library_decl.h). Setting it calls
+//      LibraryControl::setLibraryFocus(), i.e. it really does move focus. ----
+TriMixxx.FOCUS_SIDEBAR = 2; // FocusWidget::Sidebar
+TriMixxx.FOCUS_TRACKS  = 3; // FocusWidget::TracksTable
+
+TriMixxx.encoderPush = function (channel, control, value, status, group) {
+    if (!value) { return; } // press only
+
+    if (!engine.getValue("[Master]", "show_library")) {
+        engine.setValue("[Master]", "show_library", 1);
+        // Focus the sidebar explicitly: otherwise the encoder's first turn goes
+        // to whatever Mixxx happened to focus last.
+        engine.setValue("[Library]", "focused_widget", TriMixxx.FOCUS_SIDEBAR);
+        return;
+    }
+
+    if (engine.getValue("[Library]", "focused_widget") === TriMixxx.FOCUS_SIDEBAR) {
+        engine.setValue("[Library]", "focused_widget", TriMixxx.FOCUS_TRACKS);
+        return;
+    }
+
+    engine.setValue(TriMixxx.DECK, "LoadSelectedTrack", 1);
 };
 
 // ---- Jog touch: enable scratch while held, pitch-bend when released ----

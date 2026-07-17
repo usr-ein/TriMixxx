@@ -224,39 +224,168 @@ WWidget, QWidget {
     color: #0c0c0c;
 }
 
-/* ============== LIBRARY ============== */
-#LibraryView { background-color: #141414; }
+/* ============== LIBRARY ==============
+   Selectors here are WIDGET CLASS NAMES, not <ObjectName>s, which is how every
+   stock skin styles the library. The previous rules targeted #LibraryTable /
+   #LibrarySidebar / #LibraryTable QTableView and never took effect, so the
+   library kept Qt's default LIGHT palette while inheriting this skin's white
+   text: white on white, and untouched white alternating rows. */
 
-#LibrarySidebar, #LibrarySidebar QTreeView {
-    background-color: #1a1a1a;
-    color: #e0e0e0;
+#LibraryView { background-color: #000000; }
+
+/* Rows: black / dark-grey alternating, text always white. Selection deliberately
+   flips to dark-on-lime -- white text on lime would be the same unreadable
+   mistake in a different colour. */
+WTrackTableView,
+WLibrarySidebar,
+WLibraryTextBrowser {
+    background-color: #000000;
+    alternate-background-color: #1e1e1e;
+    color: #ffffff;
     border: none;
-    selection-background-color: #88ff00;
-    selection-color: #0c0c0c;
-    font-size: 14px;
-}
-
-#LibraryTable, #LibraryTable QTableView {
-    background-color: #141414;
-    alternate-background-color: #1a1a1a;
-    color: #e0e0e0;
     gridline-color: #2a2a2a;
-    selection-background-color: #88ff00;
     selection-color: #0c0c0c;
-    font-size: 14px;
+    selection-background-color: #88ff00;
 }
 
-#LibraryTable QHeaderView::section {
-    background-color: #2a2a2a;
+/* The track table's font and row height are NOT set here: Library reads
+   [Library] Font and [Library] RowHeight from mixxx.cfg and applies them to the
+   table directly, so setting them in QSS would just fight that. See mixxx.cfg.
+   The sidebar is not covered by those, so it is styled here. */
+WLibrarySidebar {
+    /* Smaller than the track list on purpose: this is a short nav menu, not the
+       thing you read at arm's length. The track table is the 18pt one. */
+    font-size: 12pt;
+    /* Keep the section arrows off the screen edge so a thumb can reach them. */
+    padding-left: 14px;
+    /* The real fix for "the triangles are too small to tap": a QTreeView's
+       branch rect is `indentation` wide and the WHOLE rect toggles the node --
+       the arrow itself never has to be hit. This makes the target finger-sized
+       regardless of how the arrow is drawn. */
+    qproperty-indentation: 48;
+}
+
+WLibrarySidebar::item {
+    padding-top: 12px;
+    padding-bottom: 12px;
+}
+
+WLibrarySidebar::item:selected {
+    background-color: #88ff00;
+    color: #0c0c0c;
+}
+
+/* Big arrows. url(skin:/...) resolves through the "skin" QDir search path Mixxx
+   registers for the loaded skin (stock skins reference their graphics the same
+   way).
+
+   The :selected rules are not cosmetic. The selection background is lime and so
+   was the arrow, so selecting a section made its arrow disappear into the
+   highlight. An SVG cannot be recoloured from QSS, so the selected state gets
+   its own dark-on-lime copy. */
+WLibrarySidebar::branch:has-children:!has-siblings:closed,
+WLibrarySidebar::branch:closed:has-children:has-siblings {
+    image: url(skin:/branch_closed.svg);
+}
+WLibrarySidebar::branch:open:has-children:!has-siblings,
+WLibrarySidebar::branch:open:has-children:has-siblings {
+    image: url(skin:/branch_open.svg);
+}
+WLibrarySidebar::branch:has-children:!has-siblings:closed:selected,
+WLibrarySidebar::branch:closed:has-children:has-siblings:selected {
+    image: url(skin:/branch_closed_selected.svg);
+    background-color: #88ff00;
+}
+WLibrarySidebar::branch:open:has-children:!has-siblings:selected,
+WLibrarySidebar::branch:open:has-children:has-siblings:selected {
+    image: url(skin:/branch_open_selected.svg);
+    background-color: #88ff00;
+}
+
+WTrackTableViewHeader::section {
+    background-color: #1a1a1a;
     color: #88ff00;
     border: none;
-    padding: 4px;
+    padding: 8px;
+    font-size: 13pt;
+    font-weight: bold;
 }
 
-#LibrarySearch {
+WSearchLineEdit {
     background-color: #1a1a1a;
     border: 1px solid #3a3a3a;
-    color: #e0e0e0;
-    padding: 4px;
-    font-size: 14px;
+    color: #ffffff;
+    padding: 8px;
+    font-size: 16pt;
+}
+
+/* ---- Scrollbars ----
+   Scoped through the CONTAINER's ObjectName rather than `WLibrarySidebar
+   QScrollBar`, which is the pattern every stock skin uses (Tango: "#LibraryContainer
+   QScrollBar") and, unlike the class-descendant form, actually takes effect here.
+
+   Kinetic drag-to-scroll is not reachable from a skin (it needs
+   QScroller::grabGesture in C++), so a grabbable bar is the honest substitute.
+   Arrow buttons are removed throughout: hopeless finger targets that only steal
+   length from the handle. */
+
+/* Left panel: the only one you actually drag, so it gets the fat bar. */
+#LibrarySidebarCol QScrollBar:vertical {
+    background-color: #0c0c0c;
+    width: 44px;
+    margin: 0;
+}
+#LibrarySidebarCol QScrollBar::handle:vertical {
+    background-color: #3a3a3a;
+    border: 1px solid #4a4a4a;
+    border-radius: 8px;
+    min-height: 90px;
+}
+#LibrarySidebarCol QScrollBar::handle:vertical:pressed {
+    background-color: #88ff00;
+}
+#LibrarySidebarCol QScrollBar::add-line:vertical,
+#LibrarySidebarCol QScrollBar::sub-line:vertical {
+    height: 0;
+    width: 0;
+}
+#LibrarySidebarCol QScrollBar::add-page:vertical,
+#LibrarySidebarCol QScrollBar::sub-page:vertical {
+    background-color: #0c0c0c;
+}
+
+/* Right panel: the track encoder scrolls this, so the vertical bar is dead
+   weight -- take the width back and give it to the tracks. */
+#LibraryTable QScrollBar:vertical,
+WTrackTableView QScrollBar:vertical {
+    width: 0;
+    height: 0;
+    background: transparent;
+}
+
+/* Horizontal stays (columns run wider than the screen) but slim. */
+#LibraryTable QScrollBar:horizontal,
+WTrackTableView QScrollBar:horizontal {
+    background-color: #0c0c0c;
+    height: 12px;
+    margin: 0;
+}
+#LibraryTable QScrollBar::handle:horizontal,
+WTrackTableView QScrollBar::handle:horizontal {
+    background-color: #3a3a3a;
+    border-radius: 5px;
+    min-width: 60px;
+}
+#LibraryTable QScrollBar::add-line:horizontal,
+#LibraryTable QScrollBar::sub-line:horizontal,
+WTrackTableView QScrollBar::add-line:horizontal,
+WTrackTableView QScrollBar::sub-line:horizontal {
+    height: 0;
+    width: 0;
+}
+#LibraryTable QScrollBar::add-page:horizontal,
+#LibraryTable QScrollBar::sub-page:horizontal,
+WTrackTableView QScrollBar::add-page:horizontal,
+WTrackTableView QScrollBar::sub-page:horizontal {
+    background-color: #0c0c0c;
 }

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IEC power symbol for the POWER button. Red, matching the shutdown overlay,
+     so it never reads as a normal deck control. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <path d="M9.6 8.4 A 10 10 0 1 0 22.4 8.4"
+        fill="none" stroke="#ff6666" stroke-width="3" stroke-linecap="round"/>
+  <path d="M16 3 L16 15"
+        fill="none" stroke="#ff6666" stroke-width="3" stroke-linecap="round"/>
+</svg>
