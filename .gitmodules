@@ -13,3 +13,7 @@
 [submodule "mixxx_config/ttymidi"]
 	path = mixxx_config/ttymidi
 	url = https://github.com/usr-ein/ttymidi
+[submodule "mixxx"]
+	path = mixxx
+	url = https://github.com/mixxxdj/mixxx.git
+	shallow = true
