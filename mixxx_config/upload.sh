@@ -5,6 +5,41 @@ set -eux
 # ssh alias for the deck's Pi. Override for a one-off: HOST=other ./upload.sh
 HOST="${HOST:-trimixxx-pi}"
 
+# ---- Validate every XML BEFORE anything leaves this machine ----------------
+# A malformed skin is not a loud failure on the deck: Qt rejects the whole file
+# and Mixxx quietly boots its default skin instead, so the deck comes back up
+# looking wrong with nothing in the log to explain it, and the obvious reading
+# is "the upload did nothing". Parse it here, where a traceback is unmissable.
+#
+# The trap worth knowing: XML forbids a double hyphen INSIDE a comment. Writing
+# a CLI flag in a skin comment is enough to reject the file.
+#
+# This runs first, before the `rm -rf` below, so a bad file cannot leave the
+# deck with its skin deleted and no replacement.
+echo "Validating XML before upload..."
+python3 - <<'PY' || { echo "ABORT: XML validation failed, nothing was uploaded." >&2; exit 1; }
+import glob, os, sys, xml.dom.minidom
+
+files = sorted(set(
+    glob.glob("TriMixxx_skin/**/*.xml", recursive=True)
+    + ["TriMixxx.midi.xml", "PiMidiDaemon.midi.xml", "soundconfig.xml"]
+))
+bad = 0
+for f in files:
+    if not os.path.exists(f):
+        print(f"  MISSING  {f}", file=sys.stderr)
+        bad += 1
+        continue
+    try:
+        xml.dom.minidom.parse(f)
+    except Exception as e:
+        print(f"  INVALID  {f}: {e}", file=sys.stderr)
+        bad += 1
+    else:
+        print(f"  ok       {f}")
+sys.exit(1 if bad else 0)
+PY
+
 ssh "$HOST" 'rm -rf ~/.mixxx/skins/TriMixxx'
 
 scp -r TriMixxx_skin "$HOST":~/.mixxx/skins/
