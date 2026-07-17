@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# One-shot install of the DJ USB auto-mount onto the deck's Pi. Unlike
-# ../upload.sh (which only touches ~/.mixxx), this writes system files and needs
-# sudo on the far side. Re-running it is safe.
+# One-shot install of the DJ USB auto-mount onto the deck's Pi. Writes system
+# files and needs sudo on the far side; re-running it is safe. Usually invoked
+# via ../upload.sh (which installs all of the Pi's system units), but stands
+# alone too. Contrast mixxx_config/upload.sh, which only touches ~/.mixxx.
 set -eux
 
 HOST="${HOST:-trimixxx-pi}"

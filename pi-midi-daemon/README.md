@@ -58,7 +58,7 @@ needs; it just rescans. Both must match `PiMidiDaemon.scripts.js`.
 
 ## Watching for DJ sticks
 
-`../mixxx_config/dj-usb` mounts sticks read-only at `/media/DJ_USB_1` /
+`../pi_config/dj-usb` mounts sticks read-only at `/media/DJ_USB_1` /
 `DJ_USB_2`. The daemon polls that glob (`--usb-glob`, `--usb-poll`) and reports
 each mountpoint appearing and disappearing exactly once.
 

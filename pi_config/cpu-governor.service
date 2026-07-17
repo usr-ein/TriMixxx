@@ -1,0 +1,30 @@
+[Unit]
+# Pin all cores to the `performance` cpufreq governor, for low-latency audio.
+#
+# Why this exists: the default `ondemand` governor re-evaluates load only every
+# 100ms (its sampling_rate) and only ramps up past 50% of TOTAL cpu (up_threshold).
+# Mixxx's audio thread saturating ONE core is ~25% of four -- under that
+# threshold -- so the Pi can sit at its 600MHz floor mid-set. When scratch load
+# (resampling) lands, the clock fix is up to 100ms away, which is an age next to
+# a 5.8ms audio period at buffer index 3. That was the measured cause of xruns
+# while scratching (12 in 13s at index 3, 0 at index 4). `performance` pins
+# 1.5GHz permanently, removing both the poll latency and the threshold.
+#
+# Cost is heat: the deck is mains-powered and passively cooled with ~27C of
+# headroom at idle, so it is affordable -- but verify `vcgencmd measure_temp`
+# under a real set stays clear of the 80C soft-throttle.
+#
+# To revert to on-demand scaling: `sudo systemctl disable --now cpu-governor`
+# (the kernel default governor takes over on next boot).
+Description=Pin CPU to performance governor (low-latency audio)
+After=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Write every core's governor. On the Pi 4 all cores share one cpufreq policy,
+# so cpu0 alone would suffice, but the loop is robust to that changing.
+ExecStart=/bin/sh -c 'for g in /sys/devices/system/cpu/cpu[0-9]*/cpufreq/scaling_governor; do echo performance > "$g"; done'
+
+[Install]
+WantedBy=multi-user.target
