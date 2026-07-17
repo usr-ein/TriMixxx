@@ -47,6 +47,16 @@ flowchart LR
 - **play_cue_btn** and **loop_btn** are dumb button+LED satellite boards (no MCU) wired to the S3.
 - The **jog wheel** (quadrature encoder + capacitive touch) wires directly into the S3, decoded by the ESP32's hardware pulse counter (PCNT).
 
+### Signal chain: pressing Play
+
+A worked example of what happens end-to-end, from copper to Mixxx. Every other button on the deck follows the same path.
+
+**Press.** The switch closes and shorts the on-board 100 nF debounce cap to ground, so the GPIO (held high by the S3's internal pull-up) falls low over the RC's time constant — the buttons are active-low. `buttonPollTask` on core 1 samples the pin every `BTN_POLL_MS` = 2 ms and needs `DEBOUNCE` = 3 consecutive stable samples before it accepts the edge, so the RC's slow ramp and any contact bounce are both ignored (~6 ms to accept). Polling is deliberate here rather than an edge interrupt, which slow RC edges tend to upset on the ESP32. On accepting the edge, `poll()` updates the debounced `level` and sets a **sticky press latch**, so the press can't be missed even if the main loop stalls. The main loop (`CTRL_POLL_MS` = 2 ms) calls `playCue.pressed()`, which consumes the latch, and `btnToNote()` hands it to `PiLink`, which writes a Note-On (note `0x3C`, velocity 127) to UART0 at 115200 baud. `ttymidi` on the Pi turns those raw MIDI bytes into an ALSA MIDI event; Mixxx matches `0x3C` in `TriMixxx.midi.xml` and calls `TriMixxx.play`, which toggles the deck's `play` control.
+
+**Held.** Nothing repeats. The sticky latch fires exactly once per press; `btnToNote` keeps a `pending` flag so it knows a Note-Off is still owed. Meanwhile Mixxx sends `play_indicator` back on the same note `0x3C` — `pi.poll()` runs every main-loop pass (no 2 ms gate, for the lowest LED latency) and drives the button's LED from that feedback, so the LED reflects Mixxx's actual state rather than the button's.
+
+**Release.** The switch opens, the pull-up recharges the cap through the RC, and the pin rises. The poll task sees 3 stable high samples, clears `level`, and the next main-loop pass sees `pending && !held` and sends the Note-Off. Mixxx's `TriMixxx.play` ignores value 0, so the release is a no-op there — it just keeps the On/Off pairing well-formed on the wire.
+
 ### MIDI map
 
 All MIDI addresses live in one place — `firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp` — and the Mixxx mapping matches them exactly. One deck (v1) → MIDI channel 1.
@@ -58,7 +68,9 @@ All MIDI addresses live in one place — `firmwares/trimixxx-midi/lib/PiLink/Mid
 | Loop In / Out / Reloop | Notes `0x3E` / `0x3F` / `0x40` |
 | Track encoder | Note `0x41` (press) + CC `0x10` (relative: 1=up, 127=down) |
 | Jog wheel | Note `0x42` (touch/scratch) + CC `0x11` (relative ticks) |
-| Tempo fader | CC `0x12` (absolute 0..127) |
+| Tempo fader | CC `0x12` MSB + CC `0x32` LSB (14-bit absolute 0..16383, 8192 = center) |
+
+The tempo fader follows the standard MIDI 14-bit convention — the LSB rides on `MSB + 32` (18 + 32 = 50 = `0x32`) — and Mixxx binds the pair to `[Channel1] rate` with `<fourteen-bit-msb/>` / `<fourteen-bit-lsb/>`. The extra resolution is worth the second CC: a single 7-bit CC would quantise the whole pitch range to 128 steps. The fader is read ratiometrically (wiper minus a live center-tap reference) so the center detent lands on 8192 without calibration.
 
 > Status: ring pads and the jog wheel are implemented and live. The encoder, tempo fader, and the play/cue and loop boards have reserved MIDI addresses and Mixxx bindings — their S3 driver modules are still being built.
 
