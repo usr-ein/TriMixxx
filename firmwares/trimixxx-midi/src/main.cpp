@@ -143,6 +143,18 @@ static void               buttonPollTask(void*) {
     }
 }
 
+// The tempo read is ~2ms of oversampled analogRead -- far too heavy for core 1's
+// free-running loop, where it throttled the 300us jog to ~2ms. Run it in its own
+// task pinned to CORE 0 (the ring's core, which mostly blocks on UART and yields
+// every pass) at a priority BELOW the ring (5), so it fills core-0 slack and
+// never touches core 1. loop() just consumes the latched value/changed().
+static void tempoPollTask(void*) {
+    for (;;) {
+        tempo.poll();
+        vTaskDelay(pdMS_TO_TICKS(4)); // ~6ms cadence (poll ~2ms + 4ms) -- ample for a fader
+    }
+}
+
 // Send Note-On on a latched press, Note-Off once the button is no longer held.
 // Same never-miss pattern as the ring pads: pressed() is latched by the poll
 // task, so even a tap between two loop passes still fires a paired On/Off here.
@@ -157,10 +169,175 @@ static void btnToNote(bool press, bool held, uint8_t note, bool& pending) {
     }
 }
 
+// ===========================================================================
+//  Status LED. The on-board LED (GPIO47) is an addressable WS2812, so it can be
+//  ANY colour -- the palette below is free to change (0..255 per channel).
+//
+//    * boot        -> PURPLE flash, in both modes: the deck came up.
+//    * DECK_DEBUG  -> ORANGE blink: the module self-tests are running.
+//    * normal      -> a PURPLE heartbeat pulse on a fixed beat (deck is alive),
+//                     OVERRIDDEN by Pi-link activity: GREEN = TX (deck -> Pi),
+//                     YELLOW = RX (Pi -> deck). Under a scratch the jog streams
+//                     every JOG_REPORT_US so green stays solid (busy-Ethernet
+//                     look), then it falls back to the purple heartbeat.
+//
+//  Only ONE LED, so the two directions share it: the newest event wins, and TX
+//  takes it when both land in the same pass. Under a scratch that means TX
+//  mostly masks RX -- unavoidable with a single LED.
+//
+//  CRITICAL -- rate-limit the WS2812 write. neopixelWrite() on this core is the
+//  LEGACY blocking-RMT path (rmtInit/rmtWriteBlocking): each call blocks ~30us
+//  with interrupt-sensitive timing. Driving it every pass of the free-running
+//  loop hammers that driver -- back-to-back writes when TX/RX flip the colour
+//  mask interrupts long enough to trip the INT WDT on core 1 (panic), and the
+//  disrupted timing paints cyan instead of green. So we DECIDE the colour every
+//  pass (cheap: just a pointer) but only PUSH it to the LED at most every
+//  LED_REFRESH_MS, and only when it actually changed. A sustained scratch then
+//  costs ZERO writes (colour stable = green), and transitions are capped at
+//  ~50 Hz. Keep the levels low -- this LED is glaring near full scale.
+// ===========================================================================
+static constexpr uint32_t HEARTBEAT_MS   = 500; // DECK_DEBUG blink half-period -> 1 Hz
+static constexpr uint32_t ACT_FLASH_MS   = 40;  // hold an activity colour this long
+static constexpr uint32_t LED_REFRESH_MS = 20;  // min gap between RMT writes -> 50 Hz cap
+static constexpr uint32_t BOOT_FLASH_MS  = 250;
+static constexpr uint32_t HB_PERIOD_MS   = 1000; // normal-mode purple heartbeat period
+static constexpr uint32_t HB_ON_MS       = 100;  // ... LED lit for this slice of each period
+
+// Dim palette. Yellow is R+G balanced, orange is red-dominant, so the two stay
+// clearly distinct despite both being "warm".
+static constexpr uint8_t LED_OFF[3]    = {0, 0, 0};
+static constexpr uint8_t LED_PURPLE[3] = {16, 0, 16};
+static constexpr uint8_t LED_ORANGE[3] = {24, 5, 0};
+static constexpr uint8_t LED_GREEN[3]  = {0, 16, 0};
+static constexpr uint8_t LED_YELLOW[3] = {14, 14, 0};
+
+// The LOLIN S3 Mini's on-board LED is wired RGB, but neopixelWrite() assumes a
+// GRB WS2812 (it sends green first), which swaps red and green on this board --
+// bench-confirmed: purple came out cyan and orange came out green. Undo it by
+// handing neopixelWrite our GREEN as its "red" arg and our RED as its "green".
+static void ledWrite(const uint8_t rgb[3]) {
+    neopixelWrite(RGB_BUILTIN, rgb[1], rgb[0], rgb[2]); // logical (R,G,B) -> LED's RGB order
+}
+
+// Colour we WANT shown; set every pass, pushed to the LED by ledFlush(). Palette
+// arrays are compared by identity, so always assign one of the LED_* arrays.
+static const uint8_t* g_ledWant = LED_OFF;
+
+// Push g_ledWant to the WS2812 -- rate-limited and change-only (see the block
+// comment). This is the ONLY caller of neopixelWrite() in the running loop.
+static void ledFlush() {
+    static const uint8_t* shown  = nullptr;
+    static uint32_t       lastMs = 0;
+    if (g_ledWant == shown) return; // no change -> no write (stable colour is free)
+    const uint32_t nowMs = millis();
+    if ((uint32_t)(nowMs - lastMs) < LED_REFRESH_MS) return; // cap the RMT write rate
+    lastMs = nowMs;
+    shown  = g_ledWant;
+    ledWrite(shown);
+}
+
+// Boot flash. setup() only (before the loop spins), so a blocking write is free.
+static void ledBootFlash() {
+    ledWrite(LED_PURPLE);
+    delay(BOOT_FLASH_MS);
+    ledWrite(LED_OFF);
+}
+
+static void ledPoll() {
+    const uint32_t nowMs = millis();
+#if DECK_DEBUG
+    static uint32_t lastMs = 0;
+    static bool     on     = false;
+    if ((uint32_t)(nowMs - lastMs) >= HEARTBEAT_MS) { // unsigned: rollover-safe
+        lastMs    = nowMs;
+        on        = !on;
+        g_ledWant = on ? LED_ORANGE : LED_OFF;
+    }
+#else
+    // Purple heartbeat by default; MIDI activity overrides it for ACT_FLASH_MS.
+    // Consume BOTH activity flags every pass (consume-on-read).
+    static const uint8_t* actCol   = LED_OFF;
+    static uint32_t       actUntil = 0;
+    const bool            tx       = pi.tookTx();
+    const bool            rx       = pi.tookRx();
+    if (tx || rx) {
+        actCol   = tx ? LED_GREEN : LED_YELLOW; // TX wins when both land together
+        actUntil = nowMs + ACT_FLASH_MS;
+    }
+    if ((int32_t)(actUntil - nowMs) > 0) {
+        g_ledWant = actCol; // an activity flash is still showing
+    } else {
+        g_ledWant = (nowMs % HB_PERIOD_MS) < HB_ON_MS ? LED_PURPLE : LED_OFF; // heartbeat
+    }
+#endif
+    ledFlush(); // the single rate-limited physical write
+}
+
+// ===========================================================================
+//  USB-CDC console (normal mode). USB-CDC drops anything printed before the host
+//  opens the port, so the boot banner is normally lost -- print it on the CONNECT
+//  EDGE instead (when a monitor actually attaches), then low-rate stats. Every
+//  console write is gated on (bool)Serial == host attached, so a headless deck
+//  prints nothing and the loop never blocks on a full CDC buffer. g_loops counts
+//  loop() passes so we can report the free-run rate. All very low priority: it
+//  self-gates to STATS_MS and touches only USB-CDC, never the Pi MIDI UART.
+// ===========================================================================
+static constexpr uint32_t STATS_MS = 2000;
+static uint32_t           g_loops  = 0; // ++ every loop() pass; sampled for loop-Hz
+
+static const char* resetReasonStr() {
+    switch (esp_reset_reason()) {
+    case ESP_RST_POWERON: return "power-on";
+    case ESP_RST_SW: return "software";
+    case ESP_RST_PANIC: return "PANIC";
+    case ESP_RST_INT_WDT: return "INT_WDT";
+    case ESP_RST_TASK_WDT: return "TASK_WDT";
+    case ESP_RST_BROWNOUT: return "brownout";
+    case ESP_RST_DEEPSLEEP: return "deep-sleep";
+    default: return "other";
+    }
+}
+
+static void printWelcome() {
+    Serial.println();
+    Serial.println("======================================");
+    Serial.println("  TriMixxx S3 master -- normal mode");
+    Serial.printf("  build : %s %s\n", __DATE__, __TIME__);
+    Serial.printf("  reset : %s\n", resetReasonStr());
+    Serial.printf("  heap  : %u B free\n", (unsigned)ESP.getFreeHeap());
+    Serial.println("======================================");
+}
+
+static void serialPoll() {
+    if (!(bool)Serial) return; // headless -- or a momentary CDC flap: skip, never block
+
+    // Banner ONCE per boot, latched. HWCDC's "connected" flag flaps (it drops on
+    // a TX timeout and re-raises on the next successful send), so edge-triggering
+    // the banner reprints it every few seconds -- latch instead of edge-detect.
+    static bool welcomed = false;
+    if (!welcomed) {
+        printWelcome();
+        welcomed = true;
+    }
+
+    static uint32_t lastMs    = 0;
+    static uint32_t lastLoops = 0;
+    const uint32_t  nowMs     = millis();
+    const uint32_t  dt        = nowMs - lastMs;
+    if (dt < STATS_MS) return;
+    const uint32_t loops = g_loops - lastLoops;
+    lastMs               = nowMs;
+    lastLoops            = g_loops;
+    Serial.printf("[stat] up=%us loop=%uHz heap=%u min=%u\n", (unsigned)(nowMs / 1000),
+                  (unsigned)(dt ? (uint32_t)((uint64_t)loops * 1000 / dt) : 0),
+                  (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap());
+}
+
 void setup() {
     Serial.begin(115200);
     delay(300);
     Serial.println("TriMixxx S3 master boot");
+    ledBootFlash(); // purple: the deck came up (both modes)
 
     pi.begin();
     pi.onMidi(onMidiFromMixxx, nullptr);
@@ -176,6 +353,8 @@ void setup() {
     loopBoard.begin();
     // Periodic poll+debounce+latch for both boards, pinned to core 1.
     xTaskCreatePinnedToCore(buttonPollTask, "btn_poll", 2048, nullptr, 3, nullptr, 1);
+    // Tempo ADC read on core 0, prio 2 (below the ring's 5), off the jog loop.
+    xTaskCreatePinnedToCore(tempoPollTask, "tempo_poll", 2048, nullptr, 2, nullptr, 0);
 }
 
 // ===========================================================================
@@ -202,6 +381,9 @@ static constexpr uint32_t JOG_REPORT_US = 300; // jog CC cadence (~87% of the UA
 static constexpr uint32_t CTRL_POLL_MS  = 2;   // everything else
 
 void loop() {
+    g_loops++; // free-run pass counter, reported as loop-Hz by serialPoll()
+    ledPoll(); // first, and outside the DECK_DEBUG branch: drives the LED in both modes
+
 #if DECK_DEBUG
     // Each module self-tests; no MIDI is sent.
     ringA.debug();
@@ -261,7 +443,7 @@ void loop() {
     if (jog.touchReleased()) pi.noteOff(midimap::NOTE_JOG_TOUCH);
 
     // ---- tempo fader -> 14-bit absolute CC (MSB + LSB, only on change) ----
-    tempo.poll();
+    // Polled by tempoPollTask on core 0; here we only consume the latched value.
     if (tempo.changed()) {
         uint16_t v = tempo.value();                        // 0..16383
         pi.cc(midimap::CC_TEMPO, (uint8_t)(v >> 7));       // high 7 bits (MSB)
@@ -291,4 +473,6 @@ void loop() {
               midimap::NOTE_LOOP_OUT, lpPend[LoopBoard::LOOP_END]);
     btnToNote(loopBoard.pressed(LoopBoard::RELOOP), loopBoard.level(LoopBoard::RELOOP),
               midimap::NOTE_RELOOP, lpPend[LoopBoard::RELOOP]);
+
+    serialPoll(); // low-priority: welcome-on-connect + ~2s stats (self-gated, USB-CDC only)
 }

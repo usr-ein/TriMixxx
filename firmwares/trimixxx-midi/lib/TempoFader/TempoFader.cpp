@@ -61,20 +61,25 @@ void TempoFader::poll() {
     // Commit only past the hysteresis band so a value sitting on a code
     // boundary doesn't chatter between two adjacent MIDI numbers.
     if (fabsf(v - _value) >= HYSTERESIS) {
+        taskENTER_CRITICAL(&_mux); // atomic vs value()/changed() on the loop
         _value = static_cast<uint16_t>(lroundf(v));
         _dirty = true;
+        taskEXIT_CRITICAL(&_mux);
     }
 }
 
 bool TempoFader::changed() {
+    taskENTER_CRITICAL(&_mux); // atomic read-and-clear vs poll() in the tempo task
     const bool c = _dirty;
     _dirty       = false;
+    taskEXIT_CRITICAL(&_mux);
     return c;
 }
 
 // Self-test: print value + filtered center/wiper/offset over Serial when moved.
+// Polled by the dedicated tempo task now (like the boards), so debug() only
+// reads -- it does NOT poll(), which would double-read the ADC.
 void TempoFader::debug() {
-    poll();
     if (changed())
         Serial.printf("tempo: value=%u center=%u wiper=%u offset=%+d\n", value(), center(), wiper(),
                       offset());

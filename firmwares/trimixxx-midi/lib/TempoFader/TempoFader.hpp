@@ -55,4 +55,9 @@ private:
     bool     _primed = false; // first poll seeds the filters
     uint16_t _value  = 8192;  // 14-bit center
     bool     _dirty  = false; // pending change for changed()
+
+    // poll() runs in a dedicated core-0 task; value()/changed() are read from
+    // loop() on core 1. Guard the shared value/flag. The filter state
+    // (_ctF/_inF/_primed) is touched only by poll(), so it needs no guard.
+    portMUX_TYPE _mux = portMUX_INITIALIZER_UNLOCKED;
 };
