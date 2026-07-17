@@ -1,0 +1,56 @@
+# Static checks for pi-midi-daemon. Deliberately does NOT build the shipping
+# binary: that is the fully-static ARM cross-build in the Dockerfile
+# (`make docker-arm`), which is a different toolchain and not what these checks
+# are for.
+name: pi-midi-daemon
+
+on:
+  push:
+    paths:
+      - 'pi-midi-daemon/**'
+      - '.github/workflows/pi-midi-daemon.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: pi-midi-daemon
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          # Read the version from go.mod rather than pinning it twice.
+          go-version-file: pi-midi-daemon/go.mod
+          cache-dependency-path: pi-midi-daemon/go.sum
+
+      # rtmidi (vendored in gomidi) is cgo and C++, so even `go vet` needs the
+      # ALSA headers to type-check -- without this every step below fails at the
+      # cgo stage rather than on anything real. g++ is already on the runner.
+      - name: Install ALSA headers
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libasound2-dev
+
+      # gofmt -l exits 0 even when it lists files, so the listing has to be the
+      # failure condition.
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "Not gofmt'd:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: go test
+        run: go test ./...
