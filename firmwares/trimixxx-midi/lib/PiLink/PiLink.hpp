@@ -56,6 +56,22 @@ public:
     // Diagnostics: SysEx messages dropped for overrunning MAX_SYSEX.
     uint32_t sysexOverflows() const { return _sysexOverflows; }
 
+    // Link activity, consume-on-read: true if any byte moved in that direction
+    // since the last call, then cleared. Set at the two choke points every byte
+    // passes through (sendRaw / poll), so no caller has to report its own
+    // traffic. Lets main drive an Ethernet-style TX/RX activity LED without the
+    // driver knowing anything about LEDs.
+    bool tookTx() {
+        const bool a = _txAct;
+        _txAct       = false;
+        return a;
+    }
+    bool tookRx() {
+        const bool a = _rxAct;
+        _rxAct       = false;
+        return a;
+    }
+
 private:
     void handleStatus(uint8_t b);
     void handleData(uint8_t b);
@@ -83,4 +99,9 @@ private:
     uint8_t  _sysexLen         = 0;
     uint8_t  _sysex[MAX_SYSEX] = {};
     uint32_t _sysexOverflows   = 0;
+
+    // Link-activity flags (see tookTx/tookRx). Single-context: set in sendRaw()
+    // and poll(), both called only from loop(), so no volatile or lock needed.
+    bool _txAct = false;
+    bool _rxAct = false;
 };

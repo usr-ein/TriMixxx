@@ -8,6 +8,7 @@ void PiLink::begin() { _uart.begin(_baud, SERIAL_8N1, _rxPin, _txPin); }
 void PiLink::sendRaw(uint8_t status, uint8_t d1, uint8_t d2) {
     uint8_t m[3] = {status, (uint8_t)(d1 & 0x7F), (uint8_t)(d2 & 0x7F)};
     _uart.write(m, 3);
+    _txAct = true; // every send funnels through here -> see tookTx()
 }
 void PiLink::noteOn(uint8_t n, uint8_t v, uint8_t ch) { sendRaw(0x90 | (ch & 0x0F), n, v); }
 void PiLink::noteOff(uint8_t n, uint8_t v, uint8_t ch) { sendRaw(0x80 | (ch & 0x0F), n, v); }
@@ -95,6 +96,7 @@ void PiLink::handleData(uint8_t b) {
 void PiLink::poll() {
     while (_uart.available()) {
         uint8_t b = _uart.read();
+        _rxAct    = true; // every received byte passes here -> see tookRx()
         if (b & 0x80) handleStatus(b);
         else handleData(b);
     }
