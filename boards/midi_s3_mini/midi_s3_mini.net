@@ -1,8 +1,8 @@
 (export
 	(version "E")
 	(design
-		(source "/Users/sam1902/Documents/CustomDJ/TriMiXxX_Arduino_MIDI_HID/midi_s3_mini/midi_s3_mini/midi_s3_mini.kicad_sch")
-		(date "2026-07-08T00:51:54")
+		(source "/Users/sam1902/Documents/CustomDJ/boards/midi_s3_mini/midi_s3_mini.kicad_sch")
+		(date "2026-07-17T23:23:38")
 		(tool "Eeschema 10.0.1")
 		(sheet
 			(number "1")
@@ -2544,444 +2544,6 @@
 				)
 			)
 		)
-		(comp
-			(ref "C14")
-			(value "10n")
-			(description "Unpolarized capacitor")
-			(fields
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Unpolarized capacitor")
-			)
-			(libsource
-				(lib "Device")
-				(part "C")
-				(description "Unpolarized capacitor")
-			)
-			(property
-				(name "Sheetname")
-				(value "JOGB_ASSY")
-			)
-			(property
-				(name "Sheetfile")
-				(value "jogb_assy.kicad_sch")
-			)
-			(property
-				(name "exclude_from_bom")
-			)
-			(property
-				(name "dnp")
-			)
-			(property
-				(name "ki_keywords")
-				(value "cap capacitor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "C_*")
-			)
-			(sheetpath
-				(names "/JOGB_ASSY/")
-				(tstamps "/000082a9-0d26-4c90-bc70-4bba8221bfab/")
-			)
-			(tstamps "2da3a02f-9213-44f3-9152-7c0b67c48860")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-						(pin
-							(num "2")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "C15")
-			(value "10n")
-			(description "Unpolarized capacitor")
-			(fields
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Unpolarized capacitor")
-			)
-			(libsource
-				(lib "Device")
-				(part "C")
-				(description "Unpolarized capacitor")
-			)
-			(property
-				(name "Sheetname")
-				(value "JOGB_ASSY")
-			)
-			(property
-				(name "Sheetfile")
-				(value "jogb_assy.kicad_sch")
-			)
-			(property
-				(name "exclude_from_bom")
-			)
-			(property
-				(name "dnp")
-			)
-			(property
-				(name "ki_keywords")
-				(value "cap capacitor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "C_*")
-			)
-			(sheetpath
-				(names "/JOGB_ASSY/")
-				(tstamps "/000082a9-0d26-4c90-bc70-4bba8221bfab/")
-			)
-			(tstamps "c6241352-b6a3-4a8c-a87c-ccc0edf4ae8b")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-						(pin
-							(num "2")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "J13")
-			(value "Conn_01x04")
-			(description "Generic connector, single row, 01x04, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			(fields
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Generic connector, single row, 01x04, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			)
-			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x04")
-				(description "Generic connector, single row, 01x04, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			)
-			(property
-				(name "Sheetname")
-				(value "JOGB_ASSY")
-			)
-			(property
-				(name "Sheetfile")
-				(value "jogb_assy.kicad_sch")
-			)
-			(property
-				(name "exclude_from_bom")
-			)
-			(property
-				(name "dnp")
-			)
-			(property
-				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
-			)
-			(sheetpath
-				(names "/JOGB_ASSY/")
-				(tstamps "/000082a9-0d26-4c90-bc70-4bba8221bfab/")
-			)
-			(tstamps "afcf6b44-a1c4-4196-b5ff-c826a4ba4bb8")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-						(pin
-							(num "2")
-						)
-						(pin
-							(num "3")
-						)
-						(pin
-							(num "4")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "J14")
-			(value "GP1A038RBK")
-			(description "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			(fields
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			)
-			(libsource
-				(lib "Connector_Generic")
-				(part "Conn_01x06")
-				(description "Generic connector, single row, 01x06, script generated (kicad-library-utils/schlib/autogen/connector/)")
-			)
-			(property
-				(name "Sheetname")
-				(value "JOGB_ASSY")
-			)
-			(property
-				(name "Sheetfile")
-				(value "jogb_assy.kicad_sch")
-			)
-			(property
-				(name "exclude_from_bom")
-			)
-			(property
-				(name "dnp")
-			)
-			(property
-				(name "ki_keywords")
-				(value "connector")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "Connector*:*_1x??_*")
-			)
-			(sheetpath
-				(names "/JOGB_ASSY/")
-				(tstamps "/000082a9-0d26-4c90-bc70-4bba8221bfab/")
-			)
-			(tstamps "ebf0dc41-42a3-4f52-a878-0a0cb0391c36")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-						(pin
-							(num "2")
-						)
-						(pin
-							(num "3")
-						)
-						(pin
-							(num "4")
-						)
-						(pin
-							(num "5")
-						)
-						(pin
-							(num "6")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "R6")
-			(value "R2202")
-			(description "Resistor")
-			(fields
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Resistor")
-			)
-			(libsource
-				(lib "Device")
-				(part "R")
-				(description "Resistor")
-			)
-			(property
-				(name "Sheetname")
-				(value "JOGB_ASSY")
-			)
-			(property
-				(name "Sheetfile")
-				(value "jogb_assy.kicad_sch")
-			)
-			(property
-				(name "exclude_from_bom")
-			)
-			(property
-				(name "dnp")
-			)
-			(property
-				(name "ki_keywords")
-				(value "R res resistor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "R_*")
-			)
-			(sheetpath
-				(names "/JOGB_ASSY/")
-				(tstamps "/000082a9-0d26-4c90-bc70-4bba8221bfab/")
-			)
-			(tstamps "3fd35500-4bdc-4329-9bc4-961d006798ba")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-						(pin
-							(num "2")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "R7")
-			(value "R2201")
-			(description "Resistor")
-			(fields
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Resistor")
-			)
-			(libsource
-				(lib "Device")
-				(part "R")
-				(description "Resistor")
-			)
-			(property
-				(name "Sheetname")
-				(value "JOGB_ASSY")
-			)
-			(property
-				(name "Sheetfile")
-				(value "jogb_assy.kicad_sch")
-			)
-			(property
-				(name "exclude_from_bom")
-			)
-			(property
-				(name "dnp")
-			)
-			(property
-				(name "ki_keywords")
-				(value "R res resistor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "R_*")
-			)
-			(sheetpath
-				(names "/JOGB_ASSY/")
-				(tstamps "/000082a9-0d26-4c90-bc70-4bba8221bfab/")
-			)
-			(tstamps "ce754641-7e21-4a5f-aecb-3ae95bb86d50")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-						(pin
-							(num "2")
-						)
-					)
-				)
-			)
-		)
-		(comp
-			(ref "R8")
-			(value "R2203")
-			(description "Resistor")
-			(fields
-				(field
-					(name "Footprint")
-				)
-				(field
-					(name "Datasheet")
-				)
-				(field
-					(name "Description") "Resistor")
-			)
-			(libsource
-				(lib "Device")
-				(part "R")
-				(description "Resistor")
-			)
-			(property
-				(name "Sheetname")
-				(value "JOGB_ASSY")
-			)
-			(property
-				(name "Sheetfile")
-				(value "jogb_assy.kicad_sch")
-			)
-			(property
-				(name "exclude_from_bom")
-			)
-			(property
-				(name "dnp")
-			)
-			(property
-				(name "ki_keywords")
-				(value "R res resistor")
-			)
-			(property
-				(name "ki_fp_filters")
-				(value "R_*")
-			)
-			(sheetpath
-				(names "/JOGB_ASSY/")
-				(tstamps "/000082a9-0d26-4c90-bc70-4bba8221bfab/")
-			)
-			(tstamps "1f2e6d33-185c-4581-8d77-c55f901004b3")
-			(units
-				(unit
-					(name "A")
-					(pins
-						(pin
-							(num "1")
-						)
-						(pin
-							(num "2")
-						)
-					)
-				)
-			)
-		)
 	)
 	(groups)
 	(variants)
@@ -3924,7 +3486,7 @@
 		(net
 			(code "1")
 			(name "+3.3V")
-			(class "Default")
+			(class "LowPower,Default")
 			(node
 				(ref "C11")
 				(pin "2")
@@ -3995,7 +3557,7 @@
 		(net
 			(code "2")
 			(name "+5V")
-			(class "Default")
+			(class "HighPower,Default")
 			(node
 				(ref "C1")
 				(pin "2")
@@ -4007,11 +3569,6 @@
 				(pin "2")
 				(pinfunction "2_2")
 				(pintype "unspecified")
-			)
-			(node
-				(ref "C14")
-				(pin "1")
-				(pintype "passive")
 			)
 			(node
 				(ref "C2")
@@ -4044,18 +3601,6 @@
 				(pintype "unspecified")
 			)
 			(node
-				(ref "J13")
-				(pin "3")
-				(pinfunction "Pin_3_3")
-				(pintype "passive")
-			)
-			(node
-				(ref "J14")
-				(pin "6")
-				(pinfunction "Pin_6_6")
-				(pintype "passive")
-			)
-			(node
 				(ref "J2")
 				(pin "1")
 				(pinfunction "1_1")
@@ -4084,11 +3629,6 @@
 				(pin "1")
 				(pinfunction "1_1")
 				(pintype "unspecified")
-			)
-			(node
-				(ref "R8")
-				(pin "1")
-				(pintype "passive")
 			)
 			(node
 				(ref "U1")
@@ -4306,91 +3846,6 @@
 				(pin "13")
 				(pinfunction "IO7_13")
 				(pintype "bidirectional")
-			)
-		)
-		(net
-			(code "14")
-			(name "/JOGB_ASSY/JOG1")
-			(class "Default")
-			(node
-				(ref "J13")
-				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
-			)
-			(node
-				(ref "R6")
-				(pin "2")
-				(pintype "passive")
-			)
-		)
-		(net
-			(code "15")
-			(name "/JOGB_ASSY/JOG2")
-			(class "Default")
-			(node
-				(ref "J13")
-				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
-			)
-			(node
-				(ref "R7")
-				(pin "2")
-				(pintype "passive")
-			)
-		)
-		(net
-			(code "16")
-			(name "/JOGB_ASSY/P_ANODE")
-			(class "Default")
-			(node
-				(ref "C15")
-				(pin "1")
-				(pintype "passive")
-			)
-			(node
-				(ref "J14")
-				(pin "1")
-				(pinfunction "Pin_1_1")
-				(pintype "passive")
-			)
-			(node
-				(ref "R8")
-				(pin "2")
-				(pintype "passive")
-			)
-		)
-		(net
-			(code "17")
-			(name "/JOGB_ASSY/P_VOA")
-			(class "Default")
-			(node
-				(ref "J14")
-				(pin "5")
-				(pinfunction "Pin_5_5")
-				(pintype "passive")
-			)
-			(node
-				(ref "R6")
-				(pin "1")
-				(pintype "passive")
-			)
-		)
-		(net
-			(code "18")
-			(name "/JOGB_ASSY/P_VOB")
-			(class "Default")
-			(node
-				(ref "J14")
-				(pin "4")
-				(pinfunction "Pin_4_4")
-				(pintype "passive")
-			)
-			(node
-				(ref "R7")
-				(pin "1")
-				(pintype "passive")
 			)
 		)
 		(net
@@ -4644,16 +4099,6 @@
 				(pintype "unspecified")
 			)
 			(node
-				(ref "C14")
-				(pin "2")
-				(pintype "passive")
-			)
-			(node
-				(ref "C15")
-				(pin "2")
-				(pintype "passive")
-			)
-			(node
 				(ref "C2")
 				(pin "2")
 				(pinfunction "2_2")
@@ -4724,24 +4169,6 @@
 				(pin "4")
 				(pinfunction "4_4")
 				(pintype "unspecified")
-			)
-			(node
-				(ref "J13")
-				(pin "4")
-				(pinfunction "Pin_4_4")
-				(pintype "passive")
-			)
-			(node
-				(ref "J14")
-				(pin "2")
-				(pinfunction "Pin_2_2")
-				(pintype "passive")
-			)
-			(node
-				(ref "J14")
-				(pin "3")
-				(pinfunction "Pin_3_3")
-				(pintype "passive")
 			)
 			(node
 				(ref "J2")
