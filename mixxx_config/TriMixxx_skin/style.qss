@@ -47,6 +47,23 @@ WWidget, QWidget {
     padding-right: 8px;
 }
 
+/* Jog-touch indicator: always present so that "dark" reads as "touch not
+   detected" rather than as a missing widget. Lit = Mixxx received the touch. */
+#TouchIndicator {
+    background-color: #1a1a1a;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    color: #4a4a4a;
+    font-size: 13px;
+    font-weight: bold;
+}
+
+#TouchIndicator[highlight="1"] {
+    background-color: #88ff00;
+    border: 1px solid #88ff00;
+    color: #0c0c0c;
+}
+
 #TimeElapsed {
     color: #ffffff;
     font-family: "DejaVu Sans Mono", monospace;
@@ -72,7 +89,7 @@ WWidget, QWidget {
 
 /* ============== BUTTONS ============== */
 #LibraryToggle, #SyncButton, #LoopHalve, #LoopDouble,
-#HotcuePad, #BeatloopPad {
+#HotcuePad, #BeatloopPad, #RangePad {
     background-color: #2a2a2a;
     border: 1px solid #3a3a3a;
     border-radius: 6px;
@@ -106,6 +123,23 @@ WWidget, QWidget {
     color: #0c0c0c;
 }
 
+/* Tempo-range pads: like the hotcue pads, the selected range is bound to
+   `highlight` rather than displayValue -- the connection is press-only, so
+   displayValue never latches. */
+#RangePad {
+    font-size: 15px;
+    color: #cccccc;
+}
+#RangePad:pressed {
+    background-color: #88ff00;
+    color: #0c0c0c;
+}
+#RangePad[highlight="1"] {
+    background-color: #223a00;
+    border: 2px solid #88ff00;
+    color: #88ff00;
+}
+
 /* Hotcue / beatloop pads: their "set / active" state is bound to the `highlight`
    property (hotcue_X_enabled / beatloop_X_enabled), NOT displayValue — the
    activate/toggle control is momentary and only flashes on press, so styling
@@ -119,6 +153,76 @@ WWidget, QWidget {
 }
 
 /* On-screen Play/Cue removed — those controls live on the hardware deck. */
+
+/* ============== SHUTDOWN MENU ============== */
+/* POWER sits in the bottom bar but must not read as a normal deck control, so
+   it is red rather than the skin's lime. It only ever opens the confirm. */
+#PowerButton {
+    background-color: #2a2a2a;
+    border: 1px solid #7a2a2a;
+    border-radius: 6px;
+    color: #ff6666;
+    font-size: 14px;
+    font-weight: bold;
+    margin: 3px;
+}
+#PowerButton:pressed,
+#PowerButton[displayValue="1"] {
+    background-color: #ff3333;
+    border: 1px solid #ff3333;
+    color: #0c0c0c;
+}
+
+/* The overlay is a *sibling* of Root in a StackAll layout, so it has to paint
+   its own backdrop to actually cover the deck. The slight alpha leaves a hint
+   of the UI behind it, which reads as "modal" rather than "another screen". */
+#ShutdownOverlay {
+    background-color: rgba(8, 8, 8, 242);
+}
+
+#ShutdownDialog {
+    background-color: #161616;
+    border-top: 2px solid #ff3333;
+    border-bottom: 2px solid #ff3333;
+}
+
+#ShutdownTitle {
+    color: #ffffff;
+    font-size: 34px;
+    font-weight: bold;
+    qproperty-alignment: 'AlignCenter';
+}
+
+#ShutdownHint {
+    color: #909090;
+    font-size: 15px;
+    qproperty-alignment: 'AlignCenter';
+}
+
+#ShutdownNo, #ShutdownYes {
+    border-radius: 6px;
+    font-size: 20px;
+    font-weight: bold;
+    margin: 3px;
+}
+#ShutdownNo {
+    background-color: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    color: #e0e0e0;
+}
+#ShutdownNo:pressed {
+    background-color: #88ff00;
+    color: #0c0c0c;
+}
+#ShutdownYes {
+    background-color: #2a2a2a;
+    border: 2px solid #ff3333;
+    color: #ff6666;
+}
+#ShutdownYes:pressed {
+    background-color: #ff3333;
+    color: #0c0c0c;
+}
 
 /* ============== LIBRARY ============== */
 #LibraryView { background-color: #141414; }

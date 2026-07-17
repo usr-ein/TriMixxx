@@ -14,365 +14,578 @@
       <attribute config_key="[Waveform],WaveformType">2</attribute>
       <!-- Default to deck view, not library -->
       <attribute persist="true" config_key="[Master],show_library">0</attribute>
+      <!-- Shutdown menu. Mixxx itself cannot touch the OS, so POWER only sets
+           skin-local state: shutdown_confirm raises the overlay, and YES pulses
+           shutdown_now, which the PiMidiDaemon mapping turns into a SysEx the
+           pi-midi-daemon service acts on. Not persisted, so a boot can never
+           come up mid-confirm, let alone mid-shutdown. -->
+      <attribute persist="false" config_key="[TriMixxx],shutdown_confirm">0</attribute>
+      <attribute persist="false" config_key="[TriMixxx],shutdown_now">0</attribute>
     </attributes>
   </manifest>
 
   <Style src="skin:/style.qss"/>
 
+  <!-- Stacked so the shutdown confirm can sit ON TOP of the whole UI. Mixxx's
+       stacked layout is a QStackedLayout in StackAll mode, so every child shows
+       at once (rather than one-at-a-time) and a child's `visible` connection is
+       still honoured, which is what makes the overlay possible in pure XML.
+
+       ORDER IS LOAD-BEARING AND BACKWARDS: the FIRST child renders on TOP.
+       Mixxx inserts a zero-sized dummy first (so the stacked layout force-shows
+       that instead of clobbering a real child's `visible` connection), which
+       means QStackedLayout::insertWidget takes its `else` branch for every real
+       child and calls widget->lower() on it, so each one lands UNDER the
+       previous. With ShutdownOverlay listed last it rendered behind the opaque
+       #Root and was invisible even while shown. Stock skins rely on the same
+       rule: LateNight's button_1state_optional.xml lists the cover Label first
+       and the button it covers second. -->
   <WidgetGroup>
-    <ObjectName>Root</ObjectName>
-    <Layout>vertical</Layout>
+    <ObjectName>RootStack</ObjectName>
+    <Layout>stacked</Layout>
     <MinimumSize>1024,600</MinimumSize>
     <MaximumSize>1024,600</MaximumSize>
     <Children>
 
-      <!-- =========== TOP HEADER (always visible) =========== -->
+      <!-- Shutdown confirm. Covers everything, so the deck is unreachable while
+           it is up; visible only while shutdown_confirm = 1. Mixxx cannot power
+           the Pi off itself: SHUT DOWN pulses shutdown_now, the PiMidiDaemon
+           mapping turns that into SysEx F0 7D 01 F7, and the pi-midi-daemon
+           service runs systemctl poweroff. -->
       <WidgetGroup>
-        <ObjectName>TopHeader</ObjectName>
-        <Layout>horizontal</Layout>
-        <MinimumSize>1024,80</MinimumSize>
-        <MaximumSize>1024,80</MaximumSize>
-        <Children>
-
-          <!-- Cover art -->
-          <CoverArt>
-            <Group>[Channel1]</Group>
-            <MinimumSize>72,72</MinimumSize>
-            <MaximumSize>72,72</MaximumSize>
-            <DefaultCover>cover_default.svg</DefaultCover>
-          </CoverArt>
-
-          <!-- Title / Artist -->
-          <WidgetGroup>
-            <Layout>vertical</Layout>
-            <SizePolicy>me,f</SizePolicy>
-            <Children>
-              <TrackProperty>
-                <ObjectName>TitleText</ObjectName>
-                <Group>[Channel1]</Group>
-                <Property>title</Property>
-                <Elide>right</Elide>
-              </TrackProperty>
-              <TrackProperty>
-                <ObjectName>ArtistText</ObjectName>
-                <Group>[Channel1]</Group>
-                <Property>artist</Property>
-                <Elide>right</Elide>
-              </TrackProperty>
-            </Children>
-          </WidgetGroup>
-
-          <!-- BPM / KEY column -->
-          <WidgetGroup>
-            <ObjectName>BpmKeyColumn</ObjectName>
-            <Layout>vertical</Layout>
-            <MinimumSize>120,72</MinimumSize>
-            <MaximumSize>120,72</MaximumSize>
-            <Children>
-              <NumberBpm>
-                <ObjectName>BpmDisplay</ObjectName>
-                <Group>[Channel1]</Group>
-                <NumberOfDigits>1</NumberOfDigits>
-              </NumberBpm>
-              <Key>
-                <ObjectName>KeyDisplay</ObjectName>
-                <Group>[Channel1]</Group>
-                <DisplayType>1</DisplayType>
-              </Key>
-            </Children>
-          </WidgetGroup>
-
-          <!-- TIME column -->
-          <WidgetGroup>
-            <ObjectName>TimeColumn</ObjectName>
-            <Layout>vertical</Layout>
-            <MinimumSize>140,72</MinimumSize>
-            <MaximumSize>140,72</MaximumSize>
-            <Children>
-              <NumberPos>
-                <ObjectName>TimeElapsed</ObjectName>
-                <Group>[Channel1]</Group>
-                <Connection>
-                  <ConfigKey>[Channel1],playposition</ConfigKey>
-                </Connection>
-              </NumberPos>
-              <NumberPos>
-                <ObjectName>TimeRemaining</ObjectName>
-                <Group>[Channel1]</Group>
-                <ShowRemaining>true</ShowRemaining>
-                <Connection>
-                  <ConfigKey>[Channel1],playposition</ConfigKey>
-                </Connection>
-              </NumberPos>
-            </Children>
-          </WidgetGroup>
-
-        </Children>
-      </WidgetGroup>
-
-      <!-- =========== MIDDLE: DECK VIEW (shown when library hidden) =========== -->
-      <WidgetGroup>
-        <ObjectName>DeckView</ObjectName>
+        <ObjectName>ShutdownOverlay</ObjectName>
         <Layout>vertical</Layout>
-        <MinimumSize>1024,390</MinimumSize>
-        <MaximumSize>1024,390</MaximumSize>
+        <MinimumSize>1024,600</MinimumSize>
+        <MaximumSize>1024,600</MaximumSize>
         <Connection>
-          <ConfigKey persist="true">[Master],show_library</ConfigKey>
-          <Transform><Not/></Transform>
+          <ConfigKey persist="false">[TriMixxx],shutdown_confirm</ConfigKey>
           <BindProperty>visible</BindProperty>
         </Connection>
         <Children>
+          <WidgetGroup><SizePolicy>e,e</SizePolicy><Children/></WidgetGroup>
 
-          <!-- Scrolling waveform -->
-          <Visual>
-            <ObjectName>ScrollingWaveform</ObjectName>
-            <Group>[Channel1]</Group>
-            <MinimumSize>1024,260</MinimumSize>
-            <MaximumSize>1024,260</MaximumSize>
-            <SignalHighColor>#ff5544</SignalHighColor>
-            <SignalMidColor>#88ff00</SignalMidColor>
-            <SignalLowColor>#2266ff</SignalLowColor>
-            <PlayPosColor>#ffffff</PlayPosColor>
-            <BgColor>#000000</BgColor>
-            <AxesColor>#444444</AxesColor>
-            <BeatColor>#cccccc</BeatColor>
-            <EndOfTrackColor>#ff2200</EndOfTrackColor>
-            <!-- Hotcues: one auto-mark per set hotcue (colored by the hotcue's
-                 own color); %1 = hotcue number. -->
-            <DefaultMark>
-              <Align>bottom|right</Align>
-              <Color>#88ff00</Color>
-              <TextColor>#0c0c0c</TextColor>
-              <Text> %1 </Text>
-            </DefaultMark>
-            <!-- Cue point (red, distinct from the orange loop) -->
-            <Mark>
-              <Control>cue_point</Control>
-              <Text>CUE</Text>
-              <Align>top|right</Align>
-              <Color>#ff0033</Color>
-              <TextColor>#ffffff</TextColor>
-            </Mark>
-            <!-- Active loop: an orange window between loop in/out.
-                 Bright while looping (loop_enabled=1); stays as a dimmer amber
-                 once you exit the loop (the in/out positions persist), and goes
-                 bright again on reloop. Cleared only by loop_remove. -->
-            <MarkRange>
-              <StartControl>loop_start_position</StartControl>
-              <EndControl>loop_end_position</EndControl>
-              <EnabledControl>loop_enabled</EnabledControl>
-              <Color>#ff8800</Color>
-              <Opacity>0.75</Opacity>
-              <DisabledColor>#b35f00</DisabledColor>
-              <DisabledOpacity>0.4</DisabledOpacity>
-            </MarkRange>
-            <Mark>
-              <Control>loop_start_position</Control>
-              <Text>&#8635;</Text>
-              <Align>top|left</Align>
-              <Color>#ff8800</Color>
-              <TextColor>#0c0c0c</TextColor>
-            </Mark>
-            <Mark>
-              <Control>loop_end_position</Control>
-              <Align>top|right</Align>
-              <Color>#ff8800</Color>
-              <TextColor>#0c0c0c</TextColor>
-            </Mark>
-          </Visual>
-
-          <!-- Overview (whole-track minimap) -->
-          <Overview>
-            <ObjectName>TrackOverview</ObjectName>
-            <Group>[Channel1]</Group>
-            <MinimumSize>1024,55</MinimumSize>
-            <MaximumSize>1024,55</MaximumSize>
-            <Connection>
-              <ConfigKey>[Channel1],playposition</ConfigKey>
-            </Connection>
-            <BgColor>#0c0c0c</BgColor>
-            <SignalHighColor>#ff5544</SignalHighColor>
-            <SignalMidColor>#88ff00</SignalMidColor>
-            <SignalLowColor>#2266ff</SignalLowColor>
-            <PlayPosColor>#ffffff</PlayPosColor>
-            <EndOfTrackColor>#ff2200</EndOfTrackColor>
-            <AxesColor>#333333</AxesColor>
-            <Type>RGB</Type>
-            <!-- Hotcues (auto), cue point, and active loop on the minimap -->
-            <DefaultMark>
-              <Align>bottom|right</Align>
-              <Color>#88ff00</Color>
-              <TextColor>#0c0c0c</TextColor>
-              <Text> %1 </Text>
-            </DefaultMark>
-            <Mark>
-              <Control>cue_point</Control>
-              <Text>C</Text>
-              <Align>top|right</Align>
-              <Color>#ff0033</Color>
-              <TextColor>#ffffff</TextColor>
-            </Mark>
-            <MarkRange>
-              <StartControl>loop_start_position</StartControl>
-              <EndControl>loop_end_position</EndControl>
-              <EnabledControl>loop_enabled</EnabledControl>
-              <Color>#ff8800</Color>
-              <Opacity>0.75</Opacity>
-              <DisabledColor>#b35f00</DisabledColor>
-              <DisabledOpacity>0.4</DisabledOpacity>
-            </MarkRange>
-          </Overview>
-
-          <!-- Hot cue row (4 pads) -->
           <WidgetGroup>
-            <ObjectName>HotcueRow</ObjectName>
-            <Layout>horizontal</Layout>
-            <MinimumSize>1024,75</MinimumSize>
-            <MaximumSize>1024,75</MaximumSize>
-            <Children>
-              <Template src="skin:/hotcue_pad.xml">
-                <SetVariable name="hotcuenum">1</SetVariable>
-              </Template>
-              <Template src="skin:/hotcue_pad.xml">
-                <SetVariable name="hotcuenum">2</SetVariable>
-              </Template>
-              <Template src="skin:/hotcue_pad.xml">
-                <SetVariable name="hotcuenum">3</SetVariable>
-              </Template>
-              <Template src="skin:/hotcue_pad.xml">
-                <SetVariable name="hotcuenum">4</SetVariable>
-              </Template>
-            </Children>
-          </WidgetGroup>
-
-        </Children>
-      </WidgetGroup>
-
-      <!-- =========== MIDDLE: LIBRARY VIEW (shown when toggled) =========== -->
-      <WidgetGroup>
-        <ObjectName>LibraryView</ObjectName>
-        <Layout>horizontal</Layout>
-        <MinimumSize>1024,390</MinimumSize>
-        <MaximumSize>1024,390</MaximumSize>
-        <Connection>
-          <ConfigKey persist="true">[Master],show_library</ConfigKey>
-          <BindProperty>visible</BindProperty>
-        </Connection>
-        <Children>
-          <WidgetGroup>
-            <ObjectName>LibrarySidebarCol</ObjectName>
+            <ObjectName>ShutdownDialog</ObjectName>
             <Layout>vertical</Layout>
-            <MinimumSize>240,390</MinimumSize>
-            <MaximumSize>240,390</MaximumSize>
+            <MinimumSize>1024,270</MinimumSize>
+            <MaximumSize>1024,270</MaximumSize>
             <Children>
-              <SearchBox>
-                <ObjectName>LibrarySearch</ObjectName>
-                <MinimumSize>240,40</MinimumSize>
-                <MaximumSize>240,40</MaximumSize>
-              </SearchBox>
-              <LibrarySidebar>
-                <ObjectName>LibrarySidebar</ObjectName>
-                <SizePolicy>f,e</SizePolicy>
-              </LibrarySidebar>
+              <Label>
+                <ObjectName>ShutdownTitle</ObjectName>
+                <MinimumSize>1024,80</MinimumSize>
+                <MaximumSize>1024,80</MaximumSize>
+                <Text>Shut down the deck?</Text>
+              </Label>
+              <Label>
+                <ObjectName>ShutdownHint</ObjectName>
+                <MinimumSize>1024,40</MinimumSize>
+                <MaximumSize>1024,40</MaximumSize>
+                <Text>Wait for the screen to go dark before cutting power.</Text>
+              </Label>
+              <WidgetGroup>
+                <Layout>horizontal</Layout>
+                <MinimumSize>1024,140</MinimumSize>
+                <MaximumSize>1024,140</MaximumSize>
+                <Children>
+                  <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
+
+                  <!-- CANCEL is momentary: the RELEASE writes 0 to
+                       shutdown_confirm, which hides this overlay.
+
+                       LeftClickIsPushButton is required, not decoration. A
+                       skin-created control is a ControlPushButton in TOGGLE
+                       mode, and WPushButton copies that mode off the control,
+                       which makes the connection EMIT_ON_PRESS only, so
+                       setControlParameterUp() drops the release. The press
+                       alone writes 1 to a control already at 1, i.e. nothing
+                       happens and the overlay can never be dismissed. Forcing
+                       PUSH restores EMIT_ON_PRESS_AND_RELEASE. -->
+                  <PushButton>
+                    <ObjectName>ShutdownNo</ObjectName>
+                    <MinimumSize>220,110</MinimumSize>
+                    <MaximumSize>220,110</MaximumSize>
+                    <NumberStates>1</NumberStates>
+                    <LeftClickIsPushButton>true</LeftClickIsPushButton>
+                    <State><Number>0</Number><Text>CANCEL</Text></State>
+                    <Connection>
+                      <ConfigKey persist="false">[TriMixxx],shutdown_confirm</ConfigKey>
+                      <ButtonState>LeftButton</ButtonState>
+                    </Connection>
+                  </PushButton>
+
+                  <WidgetGroup><MinimumSize>60,10</MinimumSize><MaximumSize>60,10</MaximumSize><Children/></WidgetGroup>
+
+                  <!-- SHUT DOWN pulses shutdown_now (1 on press, 0 on release);
+                       the mapping fires on the rising edge. The overlay stays up
+                       afterwards on purpose: the deck is on its way down, and
+                       if nothing happens CANCEL still gets you out. -->
+                  <PushButton>
+                    <ObjectName>ShutdownYes</ObjectName>
+                    <MinimumSize>220,110</MinimumSize>
+                    <MaximumSize>220,110</MaximumSize>
+                    <NumberStates>1</NumberStates>
+                    <!-- Same reason as CANCEL, plus one of its own: without the
+                         release, shutdown_now would latch at 1 forever, so a
+                         second press would write 1 to a control already at 1,
+                         raise no valueChanged, and never fire again. -->
+                    <LeftClickIsPushButton>true</LeftClickIsPushButton>
+                    <State><Number>0</Number><Text>SHUT DOWN</Text></State>
+                    <Connection>
+                      <ConfigKey persist="false">[TriMixxx],shutdown_now</ConfigKey>
+                      <ButtonState>LeftButton</ButtonState>
+                    </Connection>
+                  </PushButton>
+
+                  <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
+                </Children>
+              </WidgetGroup>
             </Children>
           </WidgetGroup>
-          <Library>
-            <ObjectName>LibraryTable</ObjectName>
-            <SizePolicy>e,e</SizePolicy>
-          </Library>
+
+          <WidgetGroup><SizePolicy>e,e</SizePolicy><Children/></WidgetGroup>
         </Children>
       </WidgetGroup>
 
-      <!-- =========== BOTTOM BUTTON BAR (always visible) =========== -->
       <WidgetGroup>
-        <ObjectName>BottomBar</ObjectName>
-        <Layout>horizontal</Layout>
-        <MinimumSize>1024,130</MinimumSize>
-        <MaximumSize>1024,130</MaximumSize>
+        <ObjectName>Root</ObjectName>
+        <Layout>vertical</Layout>
+        <MinimumSize>1024,600</MinimumSize>
+        <MaximumSize>1024,600</MaximumSize>
         <Children>
 
-          <!-- Library toggle -->
-          <PushButton>
-            <ObjectName>LibraryToggle</ObjectName>
-            <MinimumSize>140,110</MinimumSize>
-            <MaximumSize>140,110</MaximumSize>
-            <NumberStates>2</NumberStates>
-            <State><Number>0</Number><Text>LIBRARY</Text></State>
-            <State><Number>1</Number><Text>DECK</Text></State>
+          <!-- =========== TOP HEADER (always visible) =========== -->
+          <WidgetGroup>
+            <ObjectName>TopHeader</ObjectName>
+            <Layout>horizontal</Layout>
+            <MinimumSize>1024,80</MinimumSize>
+            <MaximumSize>1024,80</MaximumSize>
+            <Children>
+
+              <!-- Cover art -->
+              <CoverArt>
+                <Group>[Channel1]</Group>
+                <MinimumSize>72,72</MinimumSize>
+                <MaximumSize>72,72</MaximumSize>
+                <DefaultCover>cover_default.svg</DefaultCover>
+              </CoverArt>
+
+              <!-- Title / Artist -->
+              <WidgetGroup>
+                <Layout>vertical</Layout>
+                <SizePolicy>me,f</SizePolicy>
+                <Children>
+                  <TrackProperty>
+                    <ObjectName>TitleText</ObjectName>
+                    <Group>[Channel1]</Group>
+                    <Property>title</Property>
+                    <Elide>right</Elide>
+                  </TrackProperty>
+                  <TrackProperty>
+                    <ObjectName>ArtistText</ObjectName>
+                    <Group>[Channel1]</Group>
+                    <Property>artist</Property>
+                    <Elide>right</Elide>
+                  </TrackProperty>
+                </Children>
+              </WidgetGroup>
+
+              <!-- BPM / KEY column -->
+              <WidgetGroup>
+                <ObjectName>BpmKeyColumn</ObjectName>
+                <Layout>vertical</Layout>
+                <MinimumSize>120,72</MinimumSize>
+                <MaximumSize>120,72</MaximumSize>
+                <Children>
+                  <!-- Rate-adjusted BPM (local_bpm * rate_ratio), i.e. what is
+                       actually playing, not the file's stored BPM. NumberBpm is
+                       deprecated and parses as a plain Number, which has no
+                       implicit BPM binding; without this Connection it renders
+                       nothing. -->
+                  <Number>
+                    <ObjectName>BpmDisplay</ObjectName>
+                    <Group>[Channel1]</Group>
+                    <NumberOfDigits>1</NumberOfDigits>
+                    <Text>%1</Text>
+                    <Connection>
+                      <ConfigKey>[Channel1],bpm</ConfigKey>
+                    </Connection>
+                  </Number>
+                  <Key>
+                    <ObjectName>KeyDisplay</ObjectName>
+                    <Group>[Channel1]</Group>
+                    <DisplayType>1</DisplayType>
+                  </Key>
+                </Children>
+              </WidgetGroup>
+
+              <!-- Jog-touch indicator. Bound to scratch2_enable, which Mixxx sets
+                   to 1 inside scratchEnable() itself, before the scratch timer
+                   starts and before any tick arrives, so this lights on touch
+                   alone, with no rotation. It therefore answers exactly one
+                   question: did the 0x90/0x42 touch note reach Mixxx and fire
+                   TriMixxx.jogTouch? Dim = no. It carries no ButtonState
+                   connection, so it is display-only and cannot be clicked. -->
+              <WidgetGroup>
+                <ObjectName>TouchColumn</ObjectName>
+                <Layout>vertical</Layout>
+                <MinimumSize>84,72</MinimumSize>
+                <MaximumSize>84,72</MaximumSize>
+                <Children>
+                  <WidgetGroup><SizePolicy>f,e</SizePolicy><Children/></WidgetGroup>
+                  <PushButton>
+                    <ObjectName>TouchIndicator</ObjectName>
+                    <MinimumSize>78,28</MinimumSize>
+                    <MaximumSize>78,28</MaximumSize>
+                    <NumberStates>1</NumberStates>
+                    <State><Number>0</Number><Text>TOUCH</Text></State>
+                    <Connection>
+                      <ConfigKey>[Channel1],scratch2_enable</ConfigKey>
+                      <BindProperty>highlight</BindProperty>
+                    </Connection>
+                  </PushButton>
+                  <WidgetGroup><SizePolicy>f,e</SizePolicy><Children/></WidgetGroup>
+                </Children>
+              </WidgetGroup>
+
+              <!-- TIME column -->
+              <WidgetGroup>
+                <ObjectName>TimeColumn</ObjectName>
+                <Layout>vertical</Layout>
+                <MinimumSize>140,72</MinimumSize>
+                <MaximumSize>140,72</MaximumSize>
+                <Children>
+                  <NumberPos>
+                    <ObjectName>TimeElapsed</ObjectName>
+                    <Group>[Channel1]</Group>
+                    <Connection>
+                      <ConfigKey>[Channel1],playposition</ConfigKey>
+                    </Connection>
+                  </NumberPos>
+                  <NumberPos>
+                    <ObjectName>TimeRemaining</ObjectName>
+                    <Group>[Channel1]</Group>
+                    <ShowRemaining>true</ShowRemaining>
+                    <Connection>
+                      <ConfigKey>[Channel1],playposition</ConfigKey>
+                    </Connection>
+                  </NumberPos>
+                </Children>
+              </WidgetGroup>
+
+            </Children>
+          </WidgetGroup>
+
+          <!-- =========== MIDDLE: DECK VIEW (shown when library hidden) =========== -->
+          <WidgetGroup>
+            <ObjectName>DeckView</ObjectName>
+            <Layout>vertical</Layout>
+            <MinimumSize>1024,390</MinimumSize>
+            <MaximumSize>1024,390</MaximumSize>
             <Connection>
               <ConfigKey persist="true">[Master],show_library</ConfigKey>
-              <ButtonState>LeftButton</ButtonState>
-            </Connection>
-          </PushButton>
-
-          <!-- Loop-size controls: shown only while a loop is active. ÷2 / ×2
-               keep the loop start fixed and move the end (loop_anchor = 0).
-               Start/exit a loop from the hardware loop-in/out/reloop buttons. -->
-          <WidgetGroup>
-            <ObjectName>LoopControls</ObjectName>
-            <Layout>horizontal</Layout>
-            <SizePolicy>e,f</SizePolicy>
-            <Connection>
-              <ConfigKey>[Channel1],loop_enabled</ConfigKey>
-              <BindProperty>visible</BindProperty>
-            </Connection>
-            <Children>
-              <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
-              <PushButton>
-                <ObjectName>LoopHalve</ObjectName>
-                <MinimumSize>150,110</MinimumSize>
-                <MaximumSize>150,110</MaximumSize>
-                <NumberStates>1</NumberStates>
-                <State><Number>0</Number><Text>LOOP ÷2</Text></State>
-                <Connection>
-                  <ConfigKey>[Channel1],loop_halve</ConfigKey>
-                  <ButtonState>LeftButton</ButtonState>
-                </Connection>
-              </PushButton>
-              <PushButton>
-                <ObjectName>LoopDouble</ObjectName>
-                <MinimumSize>150,110</MinimumSize>
-                <MaximumSize>150,110</MaximumSize>
-                <NumberStates>1</NumberStates>
-                <State><Number>0</Number><Text>LOOP ×2</Text></State>
-                <Connection>
-                  <ConfigKey>[Channel1],loop_double</ConfigKey>
-                  <ButtonState>LeftButton</ButtonState>
-                </Connection>
-              </PushButton>
-              <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
-            </Children>
-          </WidgetGroup>
-
-          <!-- Spacer: fills the bar when no loop is active -->
-          <WidgetGroup>
-            <ObjectName>BottomSpacer</ObjectName>
-            <SizePolicy>e,f</SizePolicy>
-            <Connection>
-              <ConfigKey>[Channel1],loop_enabled</ConfigKey>
               <Transform><Not/></Transform>
               <BindProperty>visible</BindProperty>
             </Connection>
-            <Children/>
+            <Children>
+
+              <!-- Scrolling waveform -->
+              <Visual>
+                <ObjectName>ScrollingWaveform</ObjectName>
+                <Group>[Channel1]</Group>
+                <MinimumSize>1024,260</MinimumSize>
+                <MaximumSize>1024,260</MaximumSize>
+                <SignalHighColor>#ff5544</SignalHighColor>
+                <SignalMidColor>#88ff00</SignalMidColor>
+                <SignalLowColor>#2266ff</SignalLowColor>
+                <PlayPosColor>#ffffff</PlayPosColor>
+                <BgColor>#000000</BgColor>
+                <AxesColor>#444444</AxesColor>
+                <BeatColor>#cccccc</BeatColor>
+                <EndOfTrackColor>#ff2200</EndOfTrackColor>
+                <!-- Hotcues: one auto-mark per set hotcue (colored by the hotcue's
+                     own color); %1 = hotcue number. -->
+                <DefaultMark>
+                  <Align>bottom|right</Align>
+                  <Color>#88ff00</Color>
+                  <TextColor>#0c0c0c</TextColor>
+                  <Text> %1 </Text>
+                </DefaultMark>
+                <!-- Cue point (red, distinct from the orange loop) -->
+                <Mark>
+                  <Control>cue_point</Control>
+                  <Text>CUE</Text>
+                  <Align>top|right</Align>
+                  <Color>#ff0033</Color>
+                  <TextColor>#ffffff</TextColor>
+                </Mark>
+                <!-- Active loop: an orange window between loop in/out.
+                     Bright while looping (loop_enabled=1); stays as a dimmer amber
+                     once you exit the loop (the in/out positions persist), and goes
+                     bright again on reloop. Cleared only by loop_remove. -->
+                <MarkRange>
+                  <StartControl>loop_start_position</StartControl>
+                  <EndControl>loop_end_position</EndControl>
+                  <EnabledControl>loop_enabled</EnabledControl>
+                  <Color>#ff8800</Color>
+                  <Opacity>0.75</Opacity>
+                  <DisabledColor>#b35f00</DisabledColor>
+                  <DisabledOpacity>0.4</DisabledOpacity>
+                </MarkRange>
+                <Mark>
+                  <Control>loop_start_position</Control>
+                  <Text>&#8635;</Text>
+                  <Align>top|left</Align>
+                  <Color>#ff8800</Color>
+                  <TextColor>#0c0c0c</TextColor>
+                </Mark>
+                <Mark>
+                  <Control>loop_end_position</Control>
+                  <Align>top|right</Align>
+                  <Color>#ff8800</Color>
+                  <TextColor>#0c0c0c</TextColor>
+                </Mark>
+              </Visual>
+
+              <!-- Overview (whole-track minimap) -->
+              <Overview>
+                <ObjectName>TrackOverview</ObjectName>
+                <Group>[Channel1]</Group>
+                <MinimumSize>1024,55</MinimumSize>
+                <MaximumSize>1024,55</MaximumSize>
+                <Connection>
+                  <ConfigKey>[Channel1],playposition</ConfigKey>
+                </Connection>
+                <BgColor>#0c0c0c</BgColor>
+                <SignalHighColor>#ff5544</SignalHighColor>
+                <SignalMidColor>#88ff00</SignalMidColor>
+                <SignalLowColor>#2266ff</SignalLowColor>
+                <PlayPosColor>#ffffff</PlayPosColor>
+                <EndOfTrackColor>#ff2200</EndOfTrackColor>
+                <AxesColor>#333333</AxesColor>
+                <Type>RGB</Type>
+                <!-- Hotcues (auto), cue point, and active loop on the minimap -->
+                <DefaultMark>
+                  <Align>bottom|right</Align>
+                  <Color>#88ff00</Color>
+                  <TextColor>#0c0c0c</TextColor>
+                  <Text> %1 </Text>
+                </DefaultMark>
+                <Mark>
+                  <Control>cue_point</Control>
+                  <Text>C</Text>
+                  <Align>top|right</Align>
+                  <Color>#ff0033</Color>
+                  <TextColor>#ffffff</TextColor>
+                </Mark>
+                <MarkRange>
+                  <StartControl>loop_start_position</StartControl>
+                  <EndControl>loop_end_position</EndControl>
+                  <EnabledControl>loop_enabled</EnabledControl>
+                  <Color>#ff8800</Color>
+                  <Opacity>0.75</Opacity>
+                  <DisabledColor>#b35f00</DisabledColor>
+                  <DisabledOpacity>0.4</DisabledOpacity>
+                </MarkRange>
+              </Overview>
+
+              <!-- Hot cue row (4 pads) -->
+              <WidgetGroup>
+                <ObjectName>HotcueRow</ObjectName>
+                <Layout>horizontal</Layout>
+                <MinimumSize>1024,75</MinimumSize>
+                <MaximumSize>1024,75</MaximumSize>
+                <Children>
+                  <Template src="skin:/hotcue_pad.xml">
+                    <SetVariable name="hotcuenum">1</SetVariable>
+                  </Template>
+                  <Template src="skin:/hotcue_pad.xml">
+                    <SetVariable name="hotcuenum">2</SetVariable>
+                  </Template>
+                  <Template src="skin:/hotcue_pad.xml">
+                    <SetVariable name="hotcuenum">3</SetVariable>
+                  </Template>
+                  <Template src="skin:/hotcue_pad.xml">
+                    <SetVariable name="hotcuenum">4</SetVariable>
+                  </Template>
+                </Children>
+              </WidgetGroup>
+
+            </Children>
           </WidgetGroup>
 
-          <!-- SYNC button -->
-          <PushButton>
-            <ObjectName>SyncButton</ObjectName>
-            <MinimumSize>100,110</MinimumSize>
-            <MaximumSize>100,110</MaximumSize>
-            <NumberStates>2</NumberStates>
-            <State><Number>0</Number><Text>SYNC</Text></State>
-            <State><Number>1</Number><Text>SYNC</Text></State>
+          <!-- =========== MIDDLE: LIBRARY VIEW (shown when toggled) =========== -->
+          <WidgetGroup>
+            <ObjectName>LibraryView</ObjectName>
+            <Layout>horizontal</Layout>
+            <MinimumSize>1024,390</MinimumSize>
+            <MaximumSize>1024,390</MaximumSize>
             <Connection>
-              <ConfigKey>[Channel1],sync_enabled</ConfigKey>
-              <ButtonState>LeftButton</ButtonState>
+              <ConfigKey persist="true">[Master],show_library</ConfigKey>
+              <BindProperty>visible</BindProperty>
             </Connection>
-          </PushButton>
+            <Children>
+              <WidgetGroup>
+                <ObjectName>LibrarySidebarCol</ObjectName>
+                <Layout>vertical</Layout>
+                <MinimumSize>240,390</MinimumSize>
+                <MaximumSize>240,390</MaximumSize>
+                <Children>
+                  <SearchBox>
+                    <ObjectName>LibrarySearch</ObjectName>
+                    <MinimumSize>240,40</MinimumSize>
+                    <MaximumSize>240,40</MaximumSize>
+                  </SearchBox>
+                  <LibrarySidebar>
+                    <ObjectName>LibrarySidebar</ObjectName>
+                    <SizePolicy>f,e</SizePolicy>
+                  </LibrarySidebar>
+                </Children>
+              </WidgetGroup>
+              <Library>
+                <ObjectName>LibraryTable</ObjectName>
+                <SizePolicy>e,e</SizePolicy>
+              </Library>
+            </Children>
+          </WidgetGroup>
+
+          <!-- =========== BOTTOM BUTTON BAR (always visible) =========== -->
+          <WidgetGroup>
+            <ObjectName>BottomBar</ObjectName>
+            <Layout>horizontal</Layout>
+            <MinimumSize>1024,130</MinimumSize>
+            <MaximumSize>1024,130</MaximumSize>
+            <Children>
+
+              <!-- Library toggle -->
+              <PushButton>
+                <ObjectName>LibraryToggle</ObjectName>
+                <MinimumSize>140,110</MinimumSize>
+                <MaximumSize>140,110</MaximumSize>
+                <NumberStates>2</NumberStates>
+                <State><Number>0</Number><Text>LIBRARY</Text></State>
+                <State><Number>1</Number><Text>DECK</Text></State>
+                <Connection>
+                  <ConfigKey persist="true">[Master],show_library</ConfigKey>
+                  <ButtonState>LeftButton</ButtonState>
+                </Connection>
+              </PushButton>
+
+              <!-- Tempo-fader range: pick the span the hardware fader covers.
+                   These are radio pads, not a cycle button: legacy skin XML has
+                   no Multiply transform, so a single button cannot map its state
+                   index onto arbitrary values like 0.06/0.10/0.16. -->
+              <WidgetGroup>
+                <ObjectName>RangeRow</ObjectName>
+                <Layout>horizontal</Layout>
+                <MinimumSize>320,110</MinimumSize>
+                <MaximumSize>320,110</MaximumSize>
+                <Children>
+                  <Template src="skin:/rate_range_pad.xml">
+                    <SetVariable name="label">±6</SetVariable>
+                    <SetVariable name="range">0.06</SetVariable>
+                  </Template>
+                  <Template src="skin:/rate_range_pad.xml">
+                    <SetVariable name="label">±10</SetVariable>
+                    <SetVariable name="range">0.10</SetVariable>
+                  </Template>
+                  <Template src="skin:/rate_range_pad.xml">
+                    <SetVariable name="label">±16</SetVariable>
+                    <SetVariable name="range">0.16</SetVariable>
+                  </Template>
+                  <Template src="skin:/rate_range_pad.xml">
+                    <SetVariable name="label">WIDE</SetVariable>
+                    <SetVariable name="range">1.00</SetVariable>
+                  </Template>
+                </Children>
+              </WidgetGroup>
+
+              <!-- Loop-size controls: shown only while a loop is active. ÷2 / ×2
+                   keep the loop start fixed and move the end (loop_anchor = 0).
+                   Start/exit a loop from the hardware loop-in/out/reloop buttons. -->
+              <WidgetGroup>
+                <ObjectName>LoopControls</ObjectName>
+                <Layout>horizontal</Layout>
+                <SizePolicy>e,f</SizePolicy>
+                <Connection>
+                  <ConfigKey>[Channel1],loop_enabled</ConfigKey>
+                  <BindProperty>visible</BindProperty>
+                </Connection>
+                <Children>
+                  <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
+                  <PushButton>
+                    <ObjectName>LoopHalve</ObjectName>
+                    <MinimumSize>150,110</MinimumSize>
+                    <MaximumSize>150,110</MaximumSize>
+                    <NumberStates>1</NumberStates>
+                    <State><Number>0</Number><Text>LOOP ÷2</Text></State>
+                    <Connection>
+                      <ConfigKey>[Channel1],loop_halve</ConfigKey>
+                      <ButtonState>LeftButton</ButtonState>
+                    </Connection>
+                  </PushButton>
+                  <PushButton>
+                    <ObjectName>LoopDouble</ObjectName>
+                    <MinimumSize>150,110</MinimumSize>
+                    <MaximumSize>150,110</MaximumSize>
+                    <NumberStates>1</NumberStates>
+                    <State><Number>0</Number><Text>LOOP ×2</Text></State>
+                    <Connection>
+                      <ConfigKey>[Channel1],loop_double</ConfigKey>
+                      <ButtonState>LeftButton</ButtonState>
+                    </Connection>
+                  </PushButton>
+                  <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
+                </Children>
+              </WidgetGroup>
+
+              <!-- Spacer: fills the bar when no loop is active -->
+              <WidgetGroup>
+                <ObjectName>BottomSpacer</ObjectName>
+                <SizePolicy>e,f</SizePolicy>
+                <Connection>
+                  <ConfigKey>[Channel1],loop_enabled</ConfigKey>
+                  <Transform><Not/></Transform>
+                  <BindProperty>visible</BindProperty>
+                </Connection>
+                <Children/>
+              </WidgetGroup>
+
+              <!-- SYNC button -->
+              <PushButton>
+                <ObjectName>SyncButton</ObjectName>
+                <MinimumSize>100,110</MinimumSize>
+                <MaximumSize>100,110</MaximumSize>
+                <NumberStates>2</NumberStates>
+                <State><Number>0</Number><Text>SYNC</Text></State>
+                <State><Number>1</Number><Text>SYNC</Text></State>
+                <Connection>
+                  <ConfigKey>[Channel1],sync_enabled</ConfigKey>
+                  <ButtonState>LeftButton</ButtonState>
+                </Connection>
+              </PushButton>
+
+              <!-- POWER: raises the shutdown confirm overlay. Deliberately a 2-state
+                   toggle, not a 1-state momentary button: a momentary one writes 1
+                   on press and 0 on release, so the overlay would flash up and
+                   vanish again. Sits far right, away from the transport. -->
+              <PushButton>
+                <ObjectName>PowerButton</ObjectName>
+                <MinimumSize>100,110</MinimumSize>
+                <MaximumSize>100,110</MaximumSize>
+                <NumberStates>2</NumberStates>
+                <State><Number>0</Number><Text>POWER</Text></State>
+                <State><Number>1</Number><Text>POWER</Text></State>
+                <Connection>
+                  <ConfigKey persist="false">[TriMixxx],shutdown_confirm</ConfigKey>
+                  <ButtonState>LeftButton</ButtonState>
+                </Connection>
+              </PushButton>
+
+            </Children>
+          </WidgetGroup>
 
         </Children>
       </WidgetGroup>
-
     </Children>
   </WidgetGroup>
 </skin>

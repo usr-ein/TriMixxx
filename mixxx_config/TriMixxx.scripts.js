@@ -15,6 +15,38 @@ TriMixxx.DECK          = "[Channel1]";
 TriMixxx.DECK_NUM      = 1;      // [Channel1] = deck 1 (single fixed deck)
 TriMixxx.JOG_TICKS_REV = 12960; // JogWheel::TICKS_PER_REV (full-quad ticks / rev)
 TriMixxx.RATE_RANGE    = 0.16;  // tempo fader span = +/-16% (raise for wider pitch)
+// ---- Jog feel ----------------------------------------------------------
+// Pitch-bend sensitivity, as a fraction of raw hardware movement: 0.3 = 70%
+// less sensitive. Bend only -- scratch is deliberately left at 1:1 below.
+TriMixxx.JOG_BEND_SENSITIVITY = 0.3;
+
+// Scratch gearing. 1.0 = the platter tracks vinyl 1:1, which is the only ratio
+// that feels physically right: Mixxx needs ~0.56 rev/s to reach 1x playback, so
+// gearing this down means turning proportionally harder before the track moves
+// at all, which reads as lag rather than as calm. Lower it only if you want
+// scratch geared down and accept that trade.
+TriMixxx.JOG_SCRATCH_RATIO = 1.0;
+
+// Alpha-beta filter for scratch. Mixxx runs this on a 1ms timer and uses its
+// predicted velocity *as* the scratch rate: m_v += residual * beta / dt, with
+// dt = 1ms. With no input the velocity decays by (1 - beta) per tick, so:
+//
+//     stop time constant (ms) ~= 1 / beta
+//
+// That rule predicted the tuning history exactly: Mixxx's stock alpha/32
+// (0.0039) gives ~256ms and drifted forever; alpha/8 (0.0156) gives ~64ms and
+// still had a felt delay. 1/16 gives ~16ms, which is below perception.
+//
+// beta cannot be raised alone: an alpha-beta filter is critically damped near
+// beta ~= alpha^2 / (2 - alpha), and going far above that makes it under-damped
+// so it overshoots and rings. Solving for beta = 1/16 puts alpha ~= 1/3, which
+// is why both moved together.
+//
+// To tune: pick the stop time you want, set beta = 1 / (that many ms), then set
+// alpha so the critical-damping relation roughly holds. Jitter means alpha/beta
+// are too high for the encoder's noise; sluggishness means too low.
+TriMixxx.JOG_ALPHA = 1.0 / 3;
+TriMixxx.JOG_BETA  = 1.0 / 16;
 
 TriMixxx.scratching = false;
 TriMixxx.ringLast    = -1;      // last pad lit by the position indicator
@@ -26,6 +58,11 @@ TriMixxx.init = function (id, debugging) {
     // Quantize on by default: native loop in/out, cue and hotcues snap to the
     // beatgrid, which is what makes Mixxx's manual looping land cleanly on beats.
     engine.setValue(TriMixxx.DECK, "quantize", 1);
+    // Master tempo (CDJ naming) = Mixxx's `keylock`: hold the track's pitch
+    // while the tempo fader changes speed. It's a persisted control, so Mixxx
+    // saves whatever state the last session ended in -- forcing it here means
+    // every boot starts locked regardless of how the previous DJ left it.
+    engine.setValue(TriMixxx.DECK, "keylock", 1);
     // Ring = play-position indicator: one lit pad follows playback.
     TriMixxx.ringConn = engine.makeConnection(TriMixxx.DECK, "playposition", TriMixxx.ringUpdate);
     TriMixxx.ringConn.trigger();
@@ -86,11 +123,21 @@ TriMixxx.browse = function (channel, control, value, status, group) {
 // ---- Jog touch: enable scratch while held, pitch-bend when released ----
 TriMixxx.jogTouch = function (channel, control, value, status, group) {
     if (value) {
-        // ticks/rev, 33.3 rpm vinyl, standard alpha/beta filter.
-        engine.scratchEnable(TriMixxx.DECK_NUM, TriMixxx.JOG_TICKS_REV, 33 + 1 / 3, 1.0 / 8, (1.0 / 8) / 32);
+        // ticks/rev, 33.3 rpm vinyl. Gearing goes through ticks/rev rather than
+        // through the tick delta: scratchTick() takes an *int*, so a scaled
+        // delta would truncate to 0 on slow turns and drop fine movement
+        // entirely. Mixxx derives m_dx = 60 / (rpm * intervalsPerRev), so a
+        // larger ticks/rev means less track movement per tick.
+        engine.scratchEnable(
+            TriMixxx.DECK_NUM,
+            Math.round(TriMixxx.JOG_TICKS_REV / TriMixxx.JOG_SCRATCH_RATIO),
+            33 + 1 / 3, TriMixxx.JOG_ALPHA, TriMixxx.JOG_BETA);
         TriMixxx.scratching = true;
     } else {
-        engine.scratchDisable(TriMixxx.DECK_NUM);
+        // ramp=false: the default (true) ramps the deck back to its playback
+        // rate on release, i.e. a spinback-style coast. Cutting straight to the
+        // deck rate is what makes the release feel stable rather than loose.
+        engine.scratchDisable(TriMixxx.DECK_NUM, false);
         TriMixxx.scratching = false;
     }
 };
@@ -101,8 +148,10 @@ TriMixxx.jogTouch = function (channel, control, value, status, group) {
 TriMixxx.jog = function (channel, control, value, status, group) {
     var delta = -((value < 64) ? value : value - 128);
     if (TriMixxx.scratching) {
+        // Raw delta: scratch sensitivity is already baked into ticks/rev above.
         engine.scratchTick(TriMixxx.DECK_NUM, delta);
     } else {
-        engine.setValue(group, "jog", delta); // pitch bend when the platter isn't touched
+        // `jog` takes a double, so the bend path scales the delta directly.
+        engine.setValue(group, "jog", delta * TriMixxx.JOG_BEND_SENSITIVITY);
     }
 };
