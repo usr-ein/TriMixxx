@@ -694,7 +694,7 @@
         "uuid": "4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
       }
     ],
-    "used_designators": "",
+    "used_designators": "D_periph1,C_3V3-4,U2,JP1,R9-13,Q1,D1-2,C1-3,C5-6,C16-18,#PWR1-2,#PWR4-8,#PWR15-17,#PWR20-21,#PWR24,#PWR27-28,#PWR60-62,J1-2,J15",
     "variants": []
   },
   "sheets": [
@@ -705,6 +705,10 @@
     [
       "000082a9-0d26-4c90-bc70-4bba8221bfab",
       "JOGB_ASSY"
+    ],
+    [
+      "4b6ad378-0845-4934-aae1-629acf6eca96",
+      "Power"
     ]
   ],
   "text_variables": {},
