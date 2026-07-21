@@ -4348,6 +4348,10 @@
 		(uuid "40bb40c4-da94-45e3-8c97-a4dc4c3a992a")
 	)
 	(no_connect
+		(at 76.2 278.13)
+		(uuid "4beb65e1-a3fa-484a-94ad-c9a148c8e76a")
+	)
+	(no_connect
 		(at 133.35 48.26)
 		(uuid "550a1830-7072-48e7-9ae4-40544d4af48a")
 	)
@@ -4926,16 +4930,6 @@
 			(justify right bottom)
 		)
 		(uuid "06a7613f-75ce-470d-9c61-e7b4f99f89ff")
-	)
-	(label "RELOOP_BTN"
-		(at 76.2 278.13 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "0915b3e4-002f-4fd0-83ca-6988b2ace53e")
 	)
 	(label "JOG_TCH"
 		(at 100.33 53.34 180)
@@ -5747,6 +5741,16 @@
 		)
 		(uuid "cd77ead9-c876-4acd-890c-b2c031aff0b5")
 	)
+	(label "1BTNB_RX"
+		(at 246.38 80.01 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "ce21d33a-664c-4488-8f06-2c5fc12a38ed")
+	)
 	(label "RAW_LOOP_END_BTN"
 		(at 118.11 180.34 180)
 		(effects
@@ -5966,16 +5970,6 @@
 			(justify right bottom)
 		)
 		(uuid "f96cf32d-8bde-4539-8523-2e0de27bf589")
-	)
-	(label "1BTNA_RX"
-		(at 246.38 80.01 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "fa8dd83a-a011-4b68-9916-5c5725fb74bd")
 	)
 	(label "LOOP_END_LED"
 		(at 60.96 182.88 180)
