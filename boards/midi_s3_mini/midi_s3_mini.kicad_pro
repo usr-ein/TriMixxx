@@ -694,7 +694,7 @@
         "uuid": "4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
       }
     ],
-    "used_designators": "D_periph1,C_3V3-4,U2,JP1,R9-13,Q1,D1-2,C1-3,C5-6,C16-18,#PWR1-2,#PWR4-8,#PWR15-17,#PWR20-21,#PWR24,#PWR27-28,#PWR60-62,J1-2,J15",
+    "used_designators": "TP1-3,LED_3V3_PERIPH1,LED_3V3_S4,LED1,Q1,D_periph1,JP1,C_3V3-4,C1-3,C5-6,C16-18,U2,R9-15,D1-2,#PWR1-8,#PWR15-17,#PWR20-21,#PWR24,#PWR27-28,#PWR60-66,J1-2,J15-18",
     "variants": []
   },
   "sheets": [
