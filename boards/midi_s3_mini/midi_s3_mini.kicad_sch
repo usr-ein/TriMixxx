@@ -3043,6 +3043,17 @@
 		)
 		(uuid "04ad1513-4263-46ec-8683-3eb3d8359908")
 	)
+	(text "S3 pin notes:\n\nIO14 --> I burnt down on some early chips, avoid if can\nIO3 --> strapping pin for JTAG\nit only does anything if you've burned the \nJTAG-select eFuse, so on a stock chip it's inert\n\nIO34 --> \nonly free when the module uses quad flash/PSRAM; \non octal parts (ESP32-S3R8) they're wired to the extra SPI \ndata lines and are off-limits.\nOn the LOLIN S3 which has the ESP32-S3FH4R2 it's ok since \nthe PSRAM is the R2 (2 MB) quad. But it's tied to the \nspecific memory variant. "
+		(exclude_from_sim no)
+		(at 21.336 58.166 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "21d3d49a-f2df-472f-b292-97602f68c2cd")
+	)
 	(text "Optical enc is used to be +5V,\njust should run fine at +3.3V\nTCH is normally opened,\nand GND when closed.\nClosed it has a 33ohms R to GND"
 		(exclude_from_sim no)
 		(at 87.376 121.158 0)
@@ -3173,10 +3184,6 @@
 	(no_connect
 		(at 133.35 48.26)
 		(uuid "550a1830-7072-48e7-9ae4-40544d4af48a")
-	)
-	(no_connect
-		(at 100.33 53.34)
-		(uuid "5c751f98-46cc-4b3a-8ad2-e0f99d4a3d9e")
 	)
 	(no_connect
 		(at 133.35 73.66)
@@ -3515,6 +3522,16 @@
 			(justify right bottom)
 		)
 		(uuid "001cc361-9aa0-4f6a-9e32-95c20634d149")
+	)
+	(label "JOG_TCH"
+		(at 100.33 53.34 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "0bf234c3-f5f3-4e44-bda7-c0c2e3d9053d")
 	)
 	(label "LED_CUE"
 		(at 133.35 133.35 180)
@@ -3955,16 +3972,6 @@
 			(justify right bottom)
 		)
 		(uuid "f95df3ba-9ec0-49fe-a657-577072306902")
-	)
-	(label "JOG_TCH"
-		(at 86.36 78.74 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "fa4f4b64-4b65-4366-9e27-452125f8e797")
 	)
 	(global_label "S3_VBUS_5V"
 		(shape input)

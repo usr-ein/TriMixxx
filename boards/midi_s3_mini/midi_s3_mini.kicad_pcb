@@ -14,7 +14,7 @@
 		(company "V1-V2: Switch to all SMD")
 		(comment 1 "V1-V2: Add TVS to all IO pins")
 		(comment 2 "V1-V2: Protect from power surge from plugging USB-C into the S3 while ext powered 5V")
-		(comment 3 "V1-V2: Switch the JOG_TCH from IO14 to a different IO (I burnt that one in V1 boards..)")
+		(comment 3 "V1-V2: Switch the JOG_TCH from IO14 to IO11 (I burnt IO14 in some V1 boards..)")
 	)
 	(layers
 		(0 "F.Cu" signal)
