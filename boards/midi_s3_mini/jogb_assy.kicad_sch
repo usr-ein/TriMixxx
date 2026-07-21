@@ -9814,7 +9814,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(uuid "0b28214f-c8eb-4668-92f3-d054adeeb6ed")
-		(property "Reference" "#PWR059"
+		(property "Reference" "#PWR057"
 			(at 105.41 83.82 0)
 			(hide yes)
 			(show_name no)
@@ -9874,7 +9874,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/000082a9-0d26-4c90-bc70-4bba8221bfab"
-					(reference "#PWR059")
+					(reference "#PWR057")
 					(unit 1)
 				)
 			)
@@ -9972,7 +9972,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2da3a02f-9213-44f3-9152-7c0b67c48860")
-		(property "Reference" "C12"
+		(property "Reference" "C11"
 			(at 109.22 82.5499 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10036,7 +10036,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/000082a9-0d26-4c90-bc70-4bba8221bfab"
-					(reference "C12")
+					(reference "C11")
 					(unit 1)
 				)
 			)
@@ -10134,7 +10134,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5f60b70e-abc4-4ebc-889d-06634164d3a0")
-		(property "Reference" "#PWR063"
+		(property "Reference" "#PWR061"
 			(at 76.2 105.41 0)
 			(hide yes)
 			(show_name no)
@@ -10194,7 +10194,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/000082a9-0d26-4c90-bc70-4bba8221bfab"
-					(reference "#PWR063")
+					(reference "#PWR061")
 					(unit 1)
 				)
 			)
@@ -10212,7 +10212,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "625178f0-de02-4aca-9937-2cd0a8a3bd9b")
-		(property "Reference" "#PWR061"
+		(property "Reference" "#PWR059"
 			(at 125.73 88.9 0)
 			(hide yes)
 			(show_name no)
@@ -10272,7 +10272,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/000082a9-0d26-4c90-bc70-4bba8221bfab"
-					(reference "#PWR061")
+					(reference "#PWR059")
 					(unit 1)
 				)
 			)
@@ -10290,7 +10290,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7be455b3-f14f-49f7-88f1-3f6ffec60770")
-		(property "Reference" "#PWR060"
+		(property "Reference" "#PWR058"
 			(at 129.54 80.01 0)
 			(hide yes)
 			(show_name no)
@@ -10351,7 +10351,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/000082a9-0d26-4c90-bc70-4bba8221bfab"
-					(reference "#PWR060")
+					(reference "#PWR058")
 					(unit 1)
 				)
 			)
@@ -10369,7 +10369,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "a6c10160-ddb5-402a-8468-4002f23e0dad")
-		(property "Reference" "#PWR062"
+		(property "Reference" "#PWR060"
 			(at 105.41 93.98 0)
 			(hide yes)
 			(show_name no)
@@ -10429,7 +10429,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/000082a9-0d26-4c90-bc70-4bba8221bfab"
-					(reference "#PWR062")
+					(reference "#PWR060")
 					(unit 1)
 				)
 			)
@@ -10535,7 +10535,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "c6241352-b6a3-4a8c-a87c-ccc0edf4ae8b")
-		(property "Reference" "C13"
+		(property "Reference" "C12"
 			(at 80.01 93.9799 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10599,7 +10599,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/000082a9-0d26-4c90-bc70-4bba8221bfab"
-					(reference "C13")
+					(reference "C12")
 					(unit 1)
 				)
 			)
@@ -10789,7 +10789,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f414ee6c-44c7-479c-bf17-97405a9356fa")
-		(property "Reference" "#PWR058"
+		(property "Reference" "#PWR056"
 			(at 82.55 71.12 0)
 			(hide yes)
 			(show_name no)
@@ -10849,7 +10849,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/000082a9-0d26-4c90-bc70-4bba8221bfab"
-					(reference "#PWR058")
+					(reference "#PWR056")
 					(unit 1)
 				)
 			)

@@ -694,7 +694,7 @@
         "uuid": "4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
       }
     ],
-    "used_designators": "TP1-3,LED_5V1,LED_3V3_S1,LED_3V3_PERI1,R1-36,H1-4,#PWR1-84,D1-2,C_LDO_out1,Q1,C_LDO_in1,JP1,D_PERI1,U1-2,C1-31,J1-19,D_S1,TVS1-8",
+    "used_designators": "TP1-3,LED_5V1,LED_3V3_S1,LED_3V3_PERI1,R1-40,H1-4,#PWR1-84,D1-2,C_LDO_out1,Q1,C_LDO_in1,JP1,D_PERI1,U1-2,C1-31,J1-19,D_S1,TVS1-8",
     "variants": []
   },
   "sheets": [

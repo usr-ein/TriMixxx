@@ -1044,13 +1044,13 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "easyeda2kicad:178MU0006"
+		(symbol "easyeda2kicad:0402WGF1002TCE"
 			(exclude_from_sim no)
 			(in_bom yes)
 			(on_board yes)
 			(in_pos_files yes)
 			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "C"
+			(property "Reference" "R"
 				(at 0 5.08 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1060,7 +1060,7 @@
 					)
 				)
 			)
-			(property "Value" "178MU0006"
+			(property "Value" "0402WGF1002TCE"
 				(at 0 -5.08 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1070,7 +1070,7 @@
 					)
 				)
 			)
-			(property "Footprint" "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5"
+			(property "Footprint" "easyeda2kicad:R0402"
 				(at 0 -7.62 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1081,7 +1081,7 @@
 					)
 				)
 			)
-			(property "Datasheet" "https://www.lcsc.com/datasheet/C5632430.pdf"
+			(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_10KR-1002-1_C25744.html"
 				(at 0 -10.16 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1092,8 +1092,8 @@
 					)
 				)
 			)
-			(property "Description" ""
-				(at 0 0 0)
+			(property "Description" "10KΩ (1002) ±1%"
+				(at 0 -22.86 0)
 				(show_name no)
 				(do_not_autoplace no)
 				(hide yes)
@@ -1103,7 +1103,7 @@
 					)
 				)
 			)
-			(property "Manufacturer" "KNSCHA(科尼盛)"
+			(property "Manufacturer" "UNI-ROYAL(厚声)"
 				(at 0 -12.7 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1114,7 +1114,7 @@
 					)
 				)
 			)
-			(property "MPN" "178MU0006"
+			(property "MPN" "0402WGF1002TCE"
 				(at 0 -15.24 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1125,7 +1125,7 @@
 					)
 				)
 			)
-			(property "LCSC Part" "C5632430"
+			(property "LCSC Part" "C25744"
 				(at 0 -17.78 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1136,7 +1136,7 @@
 					)
 				)
 			)
-			(property "ki_keywords" "Multilayer Ceramic Capacitors MLCC - Leaded"
+			(property "ki_keywords" "Resistors"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1147,56 +1147,19 @@
 					)
 				)
 			)
-			(symbol "178MU0006_0_1"
-				(polyline
-					(pts
-						(xy -0.51 0) (xy -2.54 0)
-					)
+			(symbol "0402WGF1002TCE_0_1"
+				(rectangle
+					(start -2.54 1.02)
+					(end 2.54 -1.02)
 					(stroke
 						(width 0)
 						(type default)
 					)
 					(fill
-						(type none)
+						(type background)
 					)
 				)
-				(polyline
-					(pts
-						(xy -0.51 -2.03) (xy -0.51 2.03)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0.51 2.03) (xy 0.51 -2.03)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 2.54 0) (xy 0.51 0)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(pin unspecified line
+				(pin input line
 					(at -5.08 0 0)
 					(length 2.54)
 					(name "1"
@@ -1214,7 +1177,315 @@
 						)
 					)
 				)
-				(pin unspecified line
+				(pin input line
+					(at 5.08 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "easyeda2kicad:0402WGF3301TCE"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 0 5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "0402WGF3301TCE"
+				(at 0 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "easyeda2kicad:R0402"
+				(at 0 -7.62 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_3-3KR-3301-1_C25890.html"
+				(at 0 -10.16 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "3.3KΩ (3301) ±1%"
+				(at 0 -22.86 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "UNI-ROYAL(厚声)"
+				(at 0 -12.7 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "MPN" "0402WGF3301TCE"
+				(at 0 -15.24 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "LCSC Part" "C25890"
+				(at 0 -17.78 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "Resistors"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "0402WGF3301TCE_0_1"
+				(rectangle
+					(start -2.54 1.02)
+					(end 2.54 -1.02)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(pin input line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 5.08 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "easyeda2kicad:0603WAF1801T5E"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "R"
+				(at 0 5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "0603WAF1801T5E"
+				(at 0 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "easyeda2kicad:R0603"
+				(at 0 -7.62 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_1-8KR-1801-1_C4177.html"
+				(at 0 -10.16 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "1.8KΩ (1801) ±1%"
+				(at 0 -22.86 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "UNI-ROYAL(厚声)"
+				(at 0 -12.7 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "MPN" "0603WAF1801T5E"
+				(at 0 -15.24 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "LCSC Part" "C4177"
+				(at 0 -17.78 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "Resistors"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "0603WAF1801T5E_0_1"
+				(rectangle
+					(start -2.54 1.02)
+					(end 2.54 -1.02)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(pin input line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
 					(at 5.08 0 180)
 					(length 2.54)
 					(name "2"
@@ -1597,468 +1868,6 @@
 					)
 				)
 				(pin unspecified line
-					(at 5.08 0 180)
-					(length 2.54)
-					(name "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
-		(symbol "easyeda2kicad:MFR-25FTE52-1K8"
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "R"
-				(at 0 5.08 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "MFR-25FTE52-1K8"
-				(at 0 -5.08 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "easyeda2kicad:RES-TH_BD2.4-L6.3-P10.30-D0.6"
-				(at 0 -7.62 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_YAGEO-MFR-25FTE52-1K8_C172980.html"
-				(at 0 -10.16 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Manufacturer" "YAGEO(国巨)"
-				(at 0 -12.7 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "MPN" "MFR-25FTE52-1K8"
-				(at 0 -15.24 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "LCSC Part" "C172980"
-				(at 0 -17.78 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "Through Hole Resistors"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "MFR-25FTE52-1K8_0_1"
-				(rectangle
-					(start -2.54 1.02)
-					(end 2.54 -1.02)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-				(pin unspecified line
-					(at -5.08 0 0)
-					(length 2.54)
-					(name "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin unspecified line
-					(at 5.08 0 180)
-					(length 2.54)
-					(name "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
-		(symbol "easyeda2kicad:MFR0W4F1002A50"
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "R"
-				(at 0 5.08 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "MFR0W4F1002A50"
-				(at 0 -5.08 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "easyeda2kicad:RES-TH_BD2.5-L6.5-P10.50-D0.6"
-				(at 0 -7.62 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_10KR-1002-1_C57436.html"
-				(at 0 -10.16 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "10KΩ (1002) ±1%"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Manufacturer" "UNI-ROYAL(厚声)"
-				(at 0 -12.7 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "MPN" "MFR0W4F1002A50"
-				(at 0 -15.24 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "LCSC Part" "C57436"
-				(at 0 -17.78 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "Through Hole Resistors"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "MFR0W4F1002A50_0_1"
-				(rectangle
-					(start -2.54 1.02)
-					(end 2.54 -1.02)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-				(pin input line
-					(at -5.08 0 0)
-					(length 2.54)
-					(name "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at 5.08 0 180)
-					(length 2.54)
-					(name "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
-		(symbol "easyeda2kicad:MFR0W4F3301A50"
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "R"
-				(at 0 5.08 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "MFR0W4F3301A50"
-				(at 0 -5.08 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "easyeda2kicad:RES-TH_BD2.2-L6.5-P10.50-D0.6"
-				(at 0 -7.62 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_3-3KR-3301-1_C58610.html"
-				(at 0 -10.16 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "3.3KΩ (3301) ±1%"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Manufacturer" "UNI-ROYAL(厚声)"
-				(at 0 -12.7 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "MPN" "MFR0W4F3301A50"
-				(at 0 -15.24 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "LCSC Part" "C58610"
-				(at 0 -17.78 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "Through Hole Resistors"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "MFR0W4F3301A50_0_1"
-				(rectangle
-					(start -2.54 1.02)
-					(end 2.54 -1.02)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type background)
-					)
-				)
-				(pin input line
-					(at -5.08 0 0)
-					(length 2.54)
-					(name "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
 					(at 5.08 0 180)
 					(length 2.54)
 					(name "2"
@@ -4453,10 +4262,10 @@
 		(uuid "10391a44-8b8f-4721-a17d-4efe9ab39fb9")
 	)
 	(junction
-		(at 276.86 87.63)
+		(at 285.75 232.41)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "3d3e4d14-8c6e-464b-b195-7655562cb8db")
+		(uuid "10ae0d7d-40c2-42b1-bcbc-0a0f936b95fd")
 	)
 	(junction
 		(at 308.61 170.18)
@@ -4471,28 +4280,22 @@
 		(uuid "6ac6fdf0-4bfb-4046-a302-926bdae3afa7")
 	)
 	(junction
+		(at 276.86 87.63)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "73390328-41f5-43c1-996a-8e5a352b13f2")
+	)
+	(junction
 		(at 25.4 237.49)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "75eb16ac-3845-4329-8508-2c76ff442ebc")
 	)
 	(junction
-		(at 294.64 232.41)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "89dc8754-9dd3-4caf-aee3-8867949e9799")
-	)
-	(junction
 		(at 273.05 52.07)
 		(diameter 0)
 		(color 0 0 0 0)
-		(uuid "b506bf1b-ceb6-49d5-904f-35832395311a")
-	)
-	(junction
-		(at 292.1 232.41)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "c0caa83c-afc1-4f51-8bf0-8f580c01157e")
+		(uuid "a222f7ea-f762-43df-ae6f-88ec312c1946")
 	)
 	(junction
 		(at 298.45 172.72)
@@ -4505,6 +4308,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "f1b3aec7-73d5-4262-913c-3f3abb66eeaf")
+	)
+	(junction
+		(at 294.64 232.41)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "fd61302b-69d4-4e1b-84ac-6b57bbcf7f1b")
 	)
 	(no_connect
 		(at 66.04 156.21)
@@ -4640,6 +4449,16 @@
 	)
 	(wire
 		(pts
+			(xy 285.75 232.41) (xy 294.64 232.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "43c24b76-19df-4473-b36f-5810a40d4519")
+	)
+	(wire
+		(pts
 			(xy 143.51 58.42) (xy 133.35 58.42)
 		)
 		(stroke
@@ -4667,6 +4486,16 @@
 			(type default)
 		)
 		(uuid "4847a2ff-1385-493a-9587-1f084e03cbbe")
+	)
+	(wire
+		(pts
+			(xy 276.86 87.63) (xy 283.21 87.63)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "4a867b01-d406-4875-9056-9301799246c9")
 	)
 	(wire
 		(pts
@@ -4810,17 +4639,17 @@
 	)
 	(wire
 		(pts
-			(xy 273.05 87.63) (xy 276.86 87.63)
+			(xy 273.05 52.07) (xy 279.4 52.07)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "941654c7-5dbf-429c-a10d-f125d90f337a")
+		(uuid "8bba642c-963c-4bf5-a3bd-5ab8d9276006")
 	)
 	(wire
 		(pts
-			(xy 288.29 232.41) (xy 292.1 232.41)
+			(xy 281.94 232.41) (xy 285.75 232.41)
 		)
 		(stroke
 			(width 0)
@@ -4850,6 +4679,16 @@
 	)
 	(wire
 		(pts
+			(xy 294.64 232.41) (xy 299.72 232.41)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ab31629c-b134-4873-b87e-34a59cf769f1")
+	)
+	(wire
+		(pts
 			(xy 269.24 52.07) (xy 273.05 52.07)
 		)
 		(stroke
@@ -4867,16 +4706,6 @@
 			(type default)
 		)
 		(uuid "ae1d329b-915c-4479-8e16-cf2de91ec48e")
-	)
-	(wire
-		(pts
-			(xy 273.05 52.07) (xy 279.4 52.07)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b43a29a6-a5e6-45ea-9684-dc84a27e6827")
 	)
 	(wire
 		(pts
@@ -4980,16 +4809,6 @@
 	)
 	(wire
 		(pts
-			(xy 292.1 232.41) (xy 294.64 232.41)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "df0f20d1-7c4a-4c17-919e-77b07ddea2e5")
-	)
-	(wire
-		(pts
 			(xy 118.11 199.39) (xy 119.38 199.39)
 		)
 		(stroke
@@ -5017,16 +4836,6 @@
 			(type default)
 		)
 		(uuid "eee459c4-43b6-4071-a523-0cd05febfd6b")
-	)
-	(wire
-		(pts
-			(xy 294.64 232.41) (xy 299.72 232.41)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f8408402-180f-4877-adf8-3f1c658aa1d1")
 	)
 	(wire
 		(pts
@@ -5060,7 +4869,7 @@
 	)
 	(wire
 		(pts
-			(xy 276.86 87.63) (xy 283.21 87.63)
+			(xy 273.05 87.63) (xy 276.86 87.63)
 		)
 		(stroke
 			(width 0)
@@ -5849,7 +5658,7 @@
 		(uuid "b9e4a533-98df-4e4c-b1ec-c3015f6c89e3")
 	)
 	(label "JOG_TCH"
-		(at 288.29 232.41 180)
+		(at 281.94 232.41 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -6563,7 +6372,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "09e57900-cff4-463a-bbe6-f78fe22af98c")
-		(property "Reference" "C11"
+		(property "Reference" "C10"
 			(at 213.36 247.65 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6573,7 +6382,7 @@
 				)
 			)
 		)
-		(property "Value" "100n s"
+		(property "Value" "100n"
 			(at 213.36 250.19 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6658,7 +6467,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C11")
+					(reference "C10")
 					(unit 1)
 				)
 			)
@@ -6857,7 +6666,7 @@
 	)
 	(symbol
 		(lib_id "power:+3.3V")
-		(at 292.1 222.25 0)
+		(at 285.75 222.25 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -6867,8 +6676,8 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "18947aee-68ce-4e6e-9475-9c3f288c95f5")
-		(property "Reference" "#PWR038"
-			(at 292.1 226.06 0)
+		(property "Reference" "#PWR036"
+			(at 285.75 226.06 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6879,7 +6688,7 @@
 			)
 		)
 		(property "Value" "+3.3V"
-			(at 292.1 217.17 0)
+			(at 285.75 217.17 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -6889,7 +6698,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 292.1 222.25 0)
+			(at 285.75 222.25 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6900,7 +6709,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 292.1 222.25 0)
+			(at 285.75 222.25 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6911,7 +6720,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 292.1 222.25 0)
+			(at 285.75 222.25 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6927,7 +6736,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR038")
+					(reference "#PWR036")
 					(unit 1)
 				)
 			)
@@ -7052,6 +6861,119 @@
 		)
 	)
 	(symbol
+		(lib_id "easyeda2kicad:0603WAF1801T5E")
+		(at 284.48 52.07 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "1d5e5ce6-ad58-4574-ade9-8dd1329d1d64")
+		(property "Reference" "R37"
+			(at 284.48 45.72 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "1.8KΩ ±1%"
+			(at 284.48 48.26 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:R0603"
+			(at 284.48 59.69 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_1-8KR-1801-1_C4177.html"
+			(at 284.48 62.23 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "1.8KΩ (1801) ±1%"
+			(at 284.48 74.93 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
+			(at 284.48 64.77 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "0603WAF1801T5E"
+			(at 284.48 67.31 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C4177"
+			(at 284.48 69.85 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "c2b3778d-c97b-4fdf-82bd-5b75126687ce")
+		)
+		(pin "1"
+			(uuid "700f739c-8ea6-4efe-b267-a4273e8bf047")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "R37")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 25.4 247.65 0)
 		(unit 1)
@@ -7063,7 +6985,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "1f70c3a2-11c9-46b6-8046-fc6f13e3d83f")
-		(property "Reference" "#PWR048"
+		(property "Reference" "#PWR046"
 			(at 25.4 254 0)
 			(hide yes)
 			(show_name no)
@@ -7123,7 +7045,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR048")
+					(reference "#PWR046")
 					(unit 1)
 				)
 			)
@@ -7141,7 +7063,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2039cb32-ed71-4bb4-b0e8-9c3609ee1aa9")
-		(property "Reference" "#PWR043"
+		(property "Reference" "#PWR041"
 			(at 294.64 248.92 0)
 			(hide yes)
 			(show_name no)
@@ -7201,7 +7123,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR043")
+					(reference "#PWR041")
 					(unit 1)
 				)
 			)
@@ -7219,7 +7141,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2403ba4f-9006-47b4-9b77-df372d6dd76c")
-		(property "Reference" "#PWR057"
+		(property "Reference" "#PWR055"
 			(at 181.61 284.48 0)
 			(hide yes)
 			(show_name no)
@@ -7279,7 +7201,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR057")
+					(reference "#PWR055")
 					(unit 1)
 				)
 			)
@@ -7359,121 +7281,6 @@
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
 					(reference "#PWR08")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "easyeda2kicad:MFR0W4F3301A50")
-		(at 276.86 92.71 90)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "2a94667c-89a3-44bc-ac45-bf5ba4427a5c")
-		(property "Reference" "R6"
-			(at 279.4 91.4399 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Value" "3.3k"
-			(at 279.4 93.9799 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" "easyeda2kicad:RES-TH_BD2.2-L6.5-P10.50-D0.6"
-			(at 284.48 92.71 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_3-3KR-3301-1_C58610.html"
-			(at 287.02 92.71 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "3.3KΩ (3301) ±1%"
-			(at 276.86 92.71 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Manufacturer" "UNI-ROYAL(厚声)"
-			(at 289.56 92.71 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "MPN" "MFR0W4F3301A50"
-			(at 292.1 92.71 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC Part" "C58610"
-			(at 294.64 92.71 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "ffba8c02-d812-4573-b417-df548d531fbf")
-		)
-		(pin "1"
-			(uuid "b59a0886-fec9-4909-a031-4962d9c62d07")
-		)
-		(instances
-			(project "midi_s3_mini"
-				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R6")
 					(unit 1)
 				)
 			)
@@ -7943,7 +7750,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3233b260-9bc5-4934-935d-e72958eaee94")
-		(property "Reference" "#PWR015"
+		(property "Reference" "#PWR013"
 			(at 276.86 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -8003,7 +7810,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR015")
+					(reference "#PWR013")
 					(unit 1)
 				)
 			)
@@ -8021,7 +7828,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "361a4fe9-a652-4499-88f0-ab76aa4597fd")
-		(property "Reference" "#PWR020"
+		(property "Reference" "#PWR018"
 			(at 353.06 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -8082,7 +7889,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR020")
+					(reference "#PWR018")
 					(unit 1)
 				)
 			)
@@ -8221,7 +8028,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3d20c0ea-c162-4dfd-9fd8-1c286776c4d7")
-		(property "Reference" "#PWR041"
+		(property "Reference" "#PWR039"
 			(at 208.28 245.11 0)
 			(hide yes)
 			(show_name no)
@@ -8281,7 +8088,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR041")
+					(reference "#PWR039")
 					(unit 1)
 				)
 			)
@@ -8454,7 +8261,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3f594368-ceb6-46f2-a1c5-bb3de088fb05")
-		(property "Reference" "#PWR034"
+		(property "Reference" "#PWR032"
 			(at 132.08 203.2 0)
 			(hide yes)
 			(show_name no)
@@ -8514,7 +8321,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR034")
+					(reference "#PWR032")
 					(unit 1)
 				)
 			)
@@ -8532,7 +8339,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3f7fbfd8-02ed-46ea-b5d1-1f7bc96dc2a2")
-		(property "Reference" "#PWR016"
+		(property "Reference" "#PWR014"
 			(at 318.77 107.95 0)
 			(hide yes)
 			(show_name no)
@@ -8592,122 +8399,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR016")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "easyeda2kicad:MFR0W4F3301A50")
-		(at 273.05 57.15 90)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "3fb6bd3b-0fc8-48d1-8123-51264fb19c6c")
-		(property "Reference" "R4"
-			(at 275.59 55.8799 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Value" "3.3k"
-			(at 275.59 58.4199 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" "easyeda2kicad:RES-TH_BD2.2-L6.5-P10.50-D0.6"
-			(at 280.67 57.15 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_3-3KR-3301-1_C58610.html"
-			(at 283.21 57.15 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "3.3KΩ (3301) ±1%"
-			(at 273.05 57.15 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Manufacturer" "UNI-ROYAL(厚声)"
-			(at 285.75 57.15 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "MPN" "MFR0W4F3301A50"
-			(at 288.29 57.15 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC Part" "C58610"
-			(at 290.83 57.15 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "9e370d66-33f7-4d6b-9a4e-94f2e69987ff")
-		)
-		(pin "1"
-			(uuid "e8ac8c98-9fab-402d-8068-cb2cb4b9c22b")
-		)
-		(instances
-			(project "midi_s3_mini"
-				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R4")
+					(reference "#PWR014")
 					(unit 1)
 				)
 			)
@@ -9205,7 +8897,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "47e09fc4-beac-4e6c-8be3-ba0e32cc18f5")
-		(property "Reference" "#PWR039"
+		(property "Reference" "#PWR037"
 			(at 208.28 229.87 0)
 			(hide yes)
 			(show_name no)
@@ -9265,7 +8957,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR039")
+					(reference "#PWR037")
 					(unit 1)
 				)
 			)
@@ -9359,7 +9051,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "4e686f0f-4205-4db7-9504-f5748bb99d05")
-		(property "Reference" "#PWR032"
+		(property "Reference" "#PWR030"
 			(at 39.37 200.66 0)
 			(hide yes)
 			(show_name no)
@@ -9419,7 +9111,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR032")
+					(reference "#PWR030")
 					(unit 1)
 				)
 			)
@@ -9564,7 +9256,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "513ab227-f568-435d-92a7-6fd459b3e820")
-		(property "Reference" "#PWR028"
+		(property "Reference" "#PWR026"
 			(at 308.61 193.04 0)
 			(hide yes)
 			(show_name no)
@@ -9624,7 +9316,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR028")
+					(reference "#PWR026")
 					(unit 1)
 				)
 			)
@@ -9642,7 +9334,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "520d60ac-7bad-4cf7-abb7-924d2f987e94")
-		(property "Reference" "#PWR035"
+		(property "Reference" "#PWR033"
 			(at 383.54 212.09 0)
 			(hide yes)
 			(show_name no)
@@ -9702,7 +9394,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR035")
+					(reference "#PWR033")
 					(unit 1)
 				)
 			)
@@ -9836,6 +9528,121 @@
 		)
 	)
 	(symbol
+		(lib_id "easyeda2kicad:0402WGF1002TCE")
+		(at 285.75 227.33 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "548123df-3201-4473-94ba-43dd66510d8f")
+		(property "Reference" "R5"
+			(at 288.29 226.0599 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "10KΩ ±1%"
+			(at 288.29 228.5999 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:R0402"
+			(at 293.37 227.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_10KR-1002-1_C25744.html"
+			(at 295.91 227.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "10KΩ (1002) ±1%"
+			(at 308.61 227.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
+			(at 298.45 227.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "0402WGF1002TCE"
+			(at 300.99 227.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C25744"
+			(at 303.53 227.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "783036f3-b1f5-466c-8498-01ca44868f52")
+		)
+		(pin "2"
+			(uuid "c16918da-d3c3-43fe-b6c6-53bb7afab227")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "R5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:+3.3V")
 		(at 118.11 172.72 0)
 		(unit 1)
@@ -9847,7 +9654,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "54b2fbb4-594c-4e04-a88e-835c17baaa05")
-		(property "Reference" "#PWR025"
+		(property "Reference" "#PWR023"
 			(at 118.11 176.53 0)
 			(hide yes)
 			(show_name no)
@@ -9907,7 +9714,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR025")
+					(reference "#PWR023")
 					(unit 1)
 				)
 			)
@@ -9925,7 +9732,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5957f828-395d-4965-978a-827a2ba02027")
-		(property "Reference" "#PWR027"
+		(property "Reference" "#PWR025"
 			(at 383.54 189.23 0)
 			(hide yes)
 			(show_name no)
@@ -9985,7 +9792,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR027")
+					(reference "#PWR025")
 					(unit 1)
 				)
 			)
@@ -10003,7 +9810,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5b097bc2-1413-413a-966b-2fa15f0e7bf9")
-		(property "Reference" "#PWR050"
+		(property "Reference" "#PWR048"
 			(at 222.25 257.81 0)
 			(hide yes)
 			(show_name no)
@@ -10063,7 +9870,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR050")
+					(reference "#PWR048")
 					(unit 1)
 				)
 			)
@@ -10194,7 +10001,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5fb4b9f1-b189-4906-9691-24b7b49b9c9d")
-		(property "Reference" "#PWR056"
+		(property "Reference" "#PWR054"
 			(at 83.82 284.48 0)
 			(hide yes)
 			(show_name no)
@@ -10254,7 +10061,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR056")
+					(reference "#PWR054")
 					(unit 1)
 				)
 			)
@@ -10272,7 +10079,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6197729e-279c-4844-aa5e-be38afeabecc")
-		(property "Reference" "#PWR055"
+		(property "Reference" "#PWR053"
 			(at 276.86 283.21 0)
 			(hide yes)
 			(show_name no)
@@ -10332,7 +10139,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR055")
+					(reference "#PWR053")
 					(unit 1)
 				)
 			)
@@ -10590,7 +10397,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "64c4147f-7b5e-4011-86d2-f918c5a6c2ca")
-		(property "Reference" "#PWR042"
+		(property "Reference" "#PWR040"
 			(at 341.63 240.03 0)
 			(hide yes)
 			(show_name no)
@@ -10651,7 +10458,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR042")
+					(reference "#PWR040")
 					(unit 1)
 				)
 			)
@@ -10669,7 +10476,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "65bd8e68-c8c2-4955-9a5d-6ae29b6b9570")
-		(property "Reference" "#PWR044"
+		(property "Reference" "#PWR042"
 			(at 351.79 242.57 0)
 			(hide yes)
 			(show_name no)
@@ -10730,7 +10537,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR044")
+					(reference "#PWR042")
 					(unit 1)
 				)
 			)
@@ -10748,7 +10555,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6792ff40-440d-49f1-9743-5eee8a8f6d3c")
-		(property "Reference" "C8"
+		(property "Reference" "C7"
 			(at 29.21 241.2999 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10759,7 +10566,7 @@
 				(justify left)
 			)
 		)
-		(property "Value" "100n s"
+		(property "Value" "100n"
 			(at 29.21 243.8399 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10845,7 +10652,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C8")
+					(reference "C7")
 					(unit 1)
 				)
 			)
@@ -10863,7 +10670,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6aad85cb-1b19-47e6-b8e0-9f084579d842")
-		(property "Reference" "#PWR022"
+		(property "Reference" "#PWR020"
 			(at 58.42 162.56 0)
 			(hide yes)
 			(show_name no)
@@ -10923,7 +10730,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR022")
+					(reference "#PWR020")
 					(unit 1)
 				)
 			)
@@ -10941,7 +10748,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6afc7bc3-55d5-46e0-8fa9-522ef4b89258")
-		(property "Reference" "#PWR033"
+		(property "Reference" "#PWR031"
 			(at 118.11 205.74 0)
 			(hide yes)
 			(show_name no)
@@ -11001,7 +10808,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR033")
+					(reference "#PWR031")
 					(unit 1)
 				)
 			)
@@ -11019,7 +10826,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "70aad90c-87a1-4409-a26b-02fbb6f91c18")
-		(property "Reference" "#PWR026"
+		(property "Reference" "#PWR024"
 			(at 292.1 191.77 0)
 			(hide yes)
 			(show_name no)
@@ -11079,7 +10886,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR026")
+					(reference "#PWR024")
 					(unit 1)
 				)
 			)
@@ -11097,7 +10904,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "71d79678-a786-44af-85e3-a2982930f0a2")
-		(property "Reference" "#PWR019"
+		(property "Reference" "#PWR017"
 			(at 58.42 139.7 0)
 			(hide yes)
 			(show_name no)
@@ -11157,7 +10964,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR019")
+					(reference "#PWR017")
 					(unit 1)
 				)
 			)
@@ -11175,7 +10982,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7229d8e1-c8d2-474c-a205-287e6ed091f7")
-		(property "Reference" "#PWR030"
+		(property "Reference" "#PWR028"
 			(at 88.9 196.85 0)
 			(hide yes)
 			(show_name no)
@@ -11235,7 +11042,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR030")
+					(reference "#PWR028")
 					(unit 1)
 				)
 			)
@@ -11331,7 +11138,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "762a881f-ea5f-4071-a935-70181e7df9d2")
-		(property "Reference" "#PWR037"
+		(property "Reference" "#PWR035"
 			(at 39.37 223.52 0)
 			(hide yes)
 			(show_name no)
@@ -11391,7 +11198,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR037")
+					(reference "#PWR035")
 					(unit 1)
 				)
 			)
@@ -11431,7 +11238,7 @@
 				(justify right)
 			)
 		)
-		(property "Footprint" ""
+		(property "Footprint" "TestPoint:TestPoint_Pad_D2.5mm"
 			(at 129.54 80.01 0)
 			(hide yes)
 			(show_name no)
@@ -12074,6 +11881,121 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:CL05B104KB54PNC")
+		(at 294.64 237.49 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "964cd92a-7ab5-41b3-9d4d-a92d38f7b076")
+		(property "Reference" "C22"
+			(at 298.45 236.2199 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "100n"
+			(at 298.45 238.7599 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:C0402"
+			(at 302.26 237.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/Others_Samsung-Electro-Mechanics_CL05B104KB54PNC_Samsung-Electro-Mechanics-CL05B104KB54PNC_C307331.html"
+			(at 304.8 237.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 294.64 237.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "SAMSUNG(三星)"
+			(at 307.34 237.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "CL05B104KB54PNC"
+			(at 309.88 237.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C307331"
+			(at 312.42 237.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "6f0d2e44-55d9-479a-a806-9c6946aa07f8")
+		)
+		(pin "1"
+			(uuid "3686ffd7-3c8d-4cf7-9711-94809bb548bc")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "C22")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "easyeda2kicad:CL05B104KB54PNC")
 		(at 323.85 243.84 0)
 		(unit 1)
 		(body_style 1)
@@ -12084,7 +12006,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "964d312f-41ff-4cf0-be1d-3229477cca04")
-		(property "Reference" "C9"
+		(property "Reference" "C8"
 			(at 323.85 237.49 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12094,7 +12016,7 @@
 				)
 			)
 		)
-		(property "Value" "100n s"
+		(property "Value" "100n"
 			(at 323.85 240.03 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -12179,7 +12101,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C9")
+					(reference "C8")
 					(unit 1)
 				)
 			)
@@ -12197,7 +12119,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "9788406f-88aa-44fc-ae19-0e9232291fc6")
-		(property "Reference" "#PWR024"
+		(property "Reference" "#PWR022"
 			(at 382.27 173.99 0)
 			(hide yes)
 			(show_name no)
@@ -12257,7 +12179,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR024")
+					(reference "#PWR022")
 					(unit 1)
 				)
 			)
@@ -12275,7 +12197,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "97c0d45b-0f8c-4816-8cd2-e003a9ee6d90")
-		(property "Reference" "#PWR029"
+		(property "Reference" "#PWR027"
 			(at 118.11 194.31 0)
 			(hide yes)
 			(show_name no)
@@ -12335,7 +12257,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR029")
+					(reference "#PWR027")
 					(unit 1)
 				)
 			)
@@ -12353,7 +12275,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "97f93579-1740-4aba-ab2f-3f29f2cbe67a")
-		(property "Reference" "#PWR018"
+		(property "Reference" "#PWR016"
 			(at 78.74 132.08 0)
 			(hide yes)
 			(show_name no)
@@ -12413,7 +12335,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR018")
+					(reference "#PWR016")
 					(unit 1)
 				)
 			)
@@ -12431,7 +12353,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "985465e3-d6a4-4ff4-9914-ebde1db5bd87")
-		(property "Reference" "#PWR013"
+		(property "Reference" "#PWR011"
 			(at 297.18 96.52 0)
 			(hide yes)
 			(show_name no)
@@ -12491,7 +12413,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR013")
+					(reference "#PWR011")
 					(unit 1)
 				)
 			)
@@ -12822,7 +12744,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "9b1a3b83-4dde-411e-8f82-4d0e691e5b10")
-		(property "Reference" "#PWR040"
+		(property "Reference" "#PWR038"
 			(at 99.06 238.76 0)
 			(hide yes)
 			(show_name no)
@@ -12883,7 +12805,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR040")
+					(reference "#PWR038")
 					(unit 1)
 				)
 			)
@@ -12901,7 +12823,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "9e171ae4-28b4-4c51-a940-6a71276742a5")
-		(property "Reference" "#PWR052"
+		(property "Reference" "#PWR050"
 			(at 83.82 261.62 0)
 			(hide yes)
 			(show_name no)
@@ -12961,7 +12883,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR052")
+					(reference "#PWR050")
 					(unit 1)
 				)
 			)
@@ -12979,7 +12901,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "9f7ac5c4-75c1-4cfd-b8c3-1b7cf5f9a5e9")
-		(property "Reference" "#PWR017"
+		(property "Reference" "#PWR015"
 			(at 78.74 111.76 0)
 			(hide yes)
 			(show_name no)
@@ -13039,7 +12961,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR017")
+					(reference "#PWR015")
 					(unit 1)
 				)
 			)
@@ -13175,7 +13097,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "a43f6b17-ed4c-431c-94c1-20a36656da22")
-		(property "Reference" "#PWR049"
+		(property "Reference" "#PWR047"
 			(at 207.01 260.35 0)
 			(hide yes)
 			(show_name no)
@@ -13235,7 +13157,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR049")
+					(reference "#PWR047")
 					(unit 1)
 				)
 			)
@@ -13823,7 +13745,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "ab6291f3-c2f1-42f7-8de1-5cd602e7c2ef")
-		(property "Reference" "#PWR047"
+		(property "Reference" "#PWR045"
 			(at 88.9 246.38 0)
 			(hide yes)
 			(show_name no)
@@ -13884,7 +13806,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR047")
+					(reference "#PWR045")
 					(unit 1)
 				)
 			)
@@ -14015,7 +13937,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "b288494b-a1e6-4adf-9706-4f7318df2559")
-		(property "Reference" "#PWR023"
+		(property "Reference" "#PWR021"
 			(at 367.03 176.53 0)
 			(hide yes)
 			(show_name no)
@@ -14075,7 +13997,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR023")
+					(reference "#PWR021")
 					(unit 1)
 				)
 			)
@@ -14152,6 +14074,121 @@
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
 					(reference "H4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "easyeda2kicad:0402WGF3301TCE")
+		(at 276.86 92.71 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "b58e88a1-04de-4d3a-8a6d-2dfca5ad1eee")
+		(property "Reference" "R39"
+			(at 279.4 91.4399 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "3.3KΩ ±1%"
+			(at 279.4 93.9799 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:R0402"
+			(at 284.48 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_3-3KR-3301-1_C25890.html"
+			(at 287.02 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "3.3KΩ (3301) ±1%"
+			(at 299.72 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
+			(at 289.56 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "0402WGF3301TCE"
+			(at 292.1 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C25890"
+			(at 294.64 92.71 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "b45d5d00-4a4f-403a-81c0-baa555b3e9ee")
+		)
+		(pin "2"
+			(uuid "46096f61-5bdb-4b2e-be11-9fece5d8c5fc")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "R39")
 					(unit 1)
 				)
 			)
@@ -14486,7 +14523,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "bc658363-f42b-4c93-bacf-af33ba365e63")
-		(property "Reference" "#PWR054"
+		(property "Reference" "#PWR052"
 			(at 43.18 265.43 0)
 			(hide yes)
 			(show_name no)
@@ -14546,7 +14583,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR054")
+					(reference "#PWR052")
 					(unit 1)
 				)
 			)
@@ -14564,7 +14601,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "c4598e53-5dc0-4be3-869a-bad1adc3b176")
-		(property "Reference" "#PWR021"
+		(property "Reference" "#PWR019"
 			(at 360.68 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -14625,7 +14662,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR021")
+					(reference "#PWR019")
 					(unit 1)
 				)
 			)
@@ -14770,7 +14807,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "c727b49e-61af-4a71-b703-ee6da29fc999")
-		(property "Reference" "C6"
+		(property "Reference" "C5"
 			(at 124.46 193.04 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14780,7 +14817,7 @@
 				)
 			)
 		)
-		(property "Value" "100n s"
+		(property "Value" "100n"
 			(at 124.46 195.58 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14865,7 +14902,120 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C6")
+					(reference "C5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "easyeda2kicad:0603WAF1801T5E")
+		(at 288.29 87.63 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "c95de8ff-d3c6-4311-8e01-2e7fe94d6d8e")
+		(property "Reference" "R40"
+			(at 288.29 81.28 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "1.8KΩ ±1%"
+			(at 288.29 83.82 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:R0603"
+			(at 288.29 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_1-8KR-1801-1_C4177.html"
+			(at 288.29 97.79 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "1.8KΩ (1801) ±1%"
+			(at 288.29 110.49 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
+			(at 288.29 100.33 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "0603WAF1801T5E"
+			(at 288.29 102.87 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C4177"
+			(at 288.29 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "d81d6465-08c8-4e92-8a68-7b3306fa073b")
+		)
+		(pin "1"
+			(uuid "bfb681dd-1ae6-46f2-8561-0b1f733d7df9")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "R40")
 					(unit 1)
 				)
 			)
@@ -15088,7 +15238,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "cf392afe-c2de-4d7d-b170-f145ca567bca")
-		(property "Reference" "#PWR014"
+		(property "Reference" "#PWR012"
 			(at 318.77 100.33 0)
 			(hide yes)
 			(show_name no)
@@ -15148,7 +15298,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR014")
+					(reference "#PWR012")
 					(unit 1)
 				)
 			)
@@ -15166,7 +15316,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "d001cca6-e4ff-472f-930f-eaf780f4dea8")
-		(property "Reference" "C4"
+		(property "Reference" "C3"
 			(at 312.42 181.6099 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15263,7 +15413,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C4")
+					(reference "C3")
 					(unit 1)
 				)
 			)
@@ -15281,7 +15431,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "d3e45f74-977c-40fc-ae30-95e304d46884")
-		(property "Reference" "#PWR046"
+		(property "Reference" "#PWR044"
 			(at 331.47 247.65 0)
 			(hide yes)
 			(show_name no)
@@ -15341,7 +15491,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR046")
+					(reference "#PWR044")
 					(unit 1)
 				)
 			)
@@ -15475,6 +15625,121 @@
 		)
 	)
 	(symbol
+		(lib_id "easyeda2kicad:0402WGF3301TCE")
+		(at 273.05 57.15 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "d7c815ff-ff29-445a-a0d1-535707822f6c")
+		(property "Reference" "R38"
+			(at 275.59 55.8799 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "3.3KΩ ±1%"
+			(at 275.59 58.4199 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:R0402"
+			(at 280.67 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_3-3KR-3301-1_C25890.html"
+			(at 283.21 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "3.3KΩ (3301) ±1%"
+			(at 295.91 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "UNI-ROYAL(厚声)"
+			(at 285.75 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "0402WGF3301TCE"
+			(at 288.29 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C25890"
+			(at 290.83 57.15 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "182eef87-6bb9-40e3-a1e8-d60e9a32e9dd")
+		)
+		(pin "2"
+			(uuid "c231c3a2-995c-43b5-96d2-1b6e5b5c96c0")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "R38")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "easyeda2kicad:0402WGF1001TCE")
 		(at 66.04 182.88 0)
 		(unit 1)
@@ -15599,7 +15864,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "db5a3a02-40ca-41b6-8d03-552cd38efdcc")
-		(property "Reference" "C3"
+		(property "Reference" "C2"
 			(at 295.91 179.0699 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15610,7 +15875,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "100n s"
+		(property "Value" "100n"
 			(at 295.91 181.6099 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15696,7 +15961,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C3")
+					(reference "C2")
 					(unit 1)
 				)
 			)
@@ -15714,7 +15979,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e07476ba-ee2e-47d5-a4c1-218d3cdfeee6")
-		(property "Reference" "#PWR045"
+		(property "Reference" "#PWR043"
 			(at 317.5 250.19 0)
 			(hide yes)
 			(show_name no)
@@ -15774,7 +16039,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR045")
+					(reference "#PWR043")
 					(unit 1)
 				)
 			)
@@ -15792,7 +16057,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e13b598a-5c83-4b9d-b968-018bd8a81f62")
-		(property "Reference" "#PWR036"
+		(property "Reference" "#PWR034"
 			(at 88.9 219.71 0)
 			(hide yes)
 			(show_name no)
@@ -15852,7 +16117,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR036")
+					(reference "#PWR034")
 					(unit 1)
 				)
 			)
@@ -15870,7 +16135,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e216d660-ef14-4e1d-9b87-8c65c60b4715")
-		(property "Reference" "C10"
+		(property "Reference" "C9"
 			(at 46.99 252.7299 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15881,7 +16146,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "100n s"
+		(property "Value" "100n"
 			(at 46.99 255.2699 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15967,7 +16232,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C10")
+					(reference "C9")
 					(unit 1)
 				)
 			)
@@ -16413,121 +16678,6 @@
 		)
 	)
 	(symbol
-		(lib_id "easyeda2kicad:MFR0W4F1002A50")
-		(at 292.1 227.33 90)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "e5105bbb-a567-4734-8c9b-f7233b6b95ec")
-		(property "Reference" "R17"
-			(at 294.64 226.0599 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Value" "10k"
-			(at 294.64 228.5999 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" "easyeda2kicad:RES-TH_BD2.5-L6.5-P10.50-D0.6"
-			(at 299.72 227.33 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_10KR-1002-1_C57436.html"
-			(at 302.26 227.33 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "10KΩ (1002) ±1%"
-			(at 292.1 227.33 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Manufacturer" "UNI-ROYAL(厚声)"
-			(at 304.8 227.33 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "MPN" "MFR0W4F1002A50"
-			(at 307.34 227.33 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC Part" "C57436"
-			(at 309.88 227.33 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "c4cbf901-ec03-4458-bc1e-c7e4e369ec06")
-		)
-		(pin "2"
-			(uuid "e2bcc5a2-7e2d-43a7-81f8-3a880bac8ba5")
-		)
-		(instances
-			(project "midi_s3_mini"
-				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R17")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:+3.3V")
 		(at 276.86 256.54 0)
 		(unit 1)
@@ -16539,7 +16689,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e8988320-44d0-4436-9bdb-e53f01c8333b")
-		(property "Reference" "#PWR051"
+		(property "Reference" "#PWR049"
 			(at 276.86 260.35 0)
 			(hide yes)
 			(show_name no)
@@ -16599,7 +16749,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR051")
+					(reference "#PWR049")
 					(unit 1)
 				)
 			)
@@ -16684,119 +16834,6 @@
 		)
 	)
 	(symbol
-		(lib_id "easyeda2kicad:MFR-25FTE52-1K8")
-		(at 288.29 87.63 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "f26fa735-f4e1-489d-a83f-ae6d8054f847")
-		(property "Reference" "R5"
-			(at 288.29 81.28 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "1.8k"
-			(at 288.29 83.82 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "easyeda2kicad:RES-TH_BD2.4-L6.3-P10.30-D0.6"
-			(at 288.29 95.25 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_YAGEO-MFR-25FTE52-1K8_C172980.html"
-			(at 288.29 97.79 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 288.29 87.63 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Manufacturer" "YAGEO(国巨)"
-			(at 288.29 100.33 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "MPN" "MFR-25FTE52-1K8"
-			(at 288.29 102.87 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC Part" "C172980"
-			(at 288.29 105.41 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "e0e928a7-87ad-4234-80bb-e2f6431e4b53")
-		)
-		(pin "1"
-			(uuid "47ab94a8-c6d4-4185-a039-bce0c6c8bd6a")
-		)
-		(instances
-			(project "midi_s3_mini"
-				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R5")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "easyeda2kicad:CL05B104KB54PNC")
 		(at 298.45 187.96 90)
 		(unit 1)
@@ -16808,7 +16845,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f3070086-967f-4f6b-bdc0-581dc2925649")
-		(property "Reference" "C5"
+		(property "Reference" "C4"
 			(at 302.26 186.6899 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16819,7 +16856,7 @@
 				(justify right)
 			)
 		)
-		(property "Value" "100n s"
+		(property "Value" "100n"
 			(at 302.26 189.2299 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -16905,7 +16942,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C5")
+					(reference "C4")
 					(unit 1)
 				)
 			)
@@ -16923,7 +16960,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f4b03538-5c42-4e13-8a8d-b09adda8b69d")
-		(property "Reference" "#PWR053"
+		(property "Reference" "#PWR051"
 			(at 181.61 261.62 0)
 			(hide yes)
 			(show_name no)
@@ -16983,7 +17020,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR053")
+					(reference "#PWR051")
 					(unit 1)
 				)
 			)
@@ -17001,7 +17038,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f5384944-c885-46f8-970e-d862999a1aaf")
-		(property "Reference" "C2"
+		(property "Reference" "C1"
 			(at 373.38 163.83 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -17011,7 +17048,7 @@
 				)
 			)
 		)
-		(property "Value" "100n s"
+		(property "Value" "100n"
 			(at 373.38 166.37 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -17096,7 +17133,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C2")
+					(reference "C1")
 					(unit 1)
 				)
 			)
@@ -17114,7 +17151,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f58bdf4e-d753-412e-a727-fa4089f14161")
-		(property "Reference" "#PWR031"
+		(property "Reference" "#PWR029"
 			(at 298.45 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -17174,235 +17211,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR031")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "easyeda2kicad:MFR-25FTE52-1K8")
-		(at 284.48 52.07 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "ff4a740d-447e-45c7-963e-b3bbc9fbb1cd")
-		(property "Reference" "R3"
-			(at 284.48 45.72 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "1.8k"
-			(at 284.48 48.26 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "easyeda2kicad:RES-TH_BD2.4-L6.3-P10.30-D0.6"
-			(at 284.48 59.69 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://lcsc.com/product-detail/Metal-Film-Resistor-TH_YAGEO-MFR-25FTE52-1K8_C172980.html"
-			(at 284.48 62.23 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 284.48 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Manufacturer" "YAGEO(国巨)"
-			(at 284.48 64.77 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "MPN" "MFR-25FTE52-1K8"
-			(at 284.48 67.31 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC Part" "C172980"
-			(at 284.48 69.85 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "292b8066-912c-4bb6-bbfa-33c0f0fb2304")
-		)
-		(pin "1"
-			(uuid "5931bf1a-0263-4b69-9d0e-3882727df3c7")
-		)
-		(instances
-			(project "midi_s3_mini"
-				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R3")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "easyeda2kicad:178MU0006")
-		(at 294.64 237.49 90)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "ffed784d-eced-4dac-b254-126e41391c14")
-		(property "Reference" "C7"
-			(at 298.45 236.2199 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Value" "100n"
-			(at 298.45 238.7599 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-			)
-		)
-		(property "Footprint" "easyeda2kicad:CAP-TH_L4.2-W3.5-P2.54-D0.5"
-			(at 302.26 237.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" "https://www.lcsc.com/datasheet/C5632430.pdf"
-			(at 304.8 237.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 294.64 237.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Manufacturer" "KNSCHA(科尼盛)"
-			(at 307.34 237.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "MPN" "178MU0006"
-			(at 309.88 237.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "LCSC Part" "C5632430"
-			(at 312.42 237.49 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "b8f657c9-f4a1-476a-a1e9-6a487b9f0484")
-		)
-		(pin "2"
-			(uuid "10446660-6575-4215-9cff-74641990fdc7")
-		)
-		(instances
-			(project "midi_s3_mini"
-				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C7")
+					(reference "#PWR029")
 					(unit 1)
 				)
 			)
