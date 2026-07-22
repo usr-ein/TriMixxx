@@ -4296,17 +4296,6 @@
 		)
 		(uuid "61e014a8-f7a2-47f2-a998-9d9aa226d0cb")
 	)
-	(text "Here is my V1 feedback to take to V2:\n1. Have some diode on the 5V rail, so that plugging the USB-C into the S3 DOES NOT POEWR THE PI etc\n  --> Just protect more shit with diode. I don't want my pins dying. Again. *sigh*\n2. Maybe have a switch so the board can either be powered from the S3's 5V (e.g. when the board is standalone and I'm debugging it) OR via the ext power (when the board is mounted in the chassis)\n3. Have some test pins for 3.3V, 5V. GND, so I can hook up the multimeter more easily than clamps\n4. Use a kind of wire like ribbon cables perhaps? Or something with levers. JSTs are nice bug I don't have nails to remove them well\n5. Mark where the USB-C side is, just in case.\n6. Have a status LED for 5V and for 3.3V power on the board. That way I can also discharge the big caps.\n7. Defo use a different connector for power. Maybe a screw terminal would be nice. The JST cables are too thin for the max draw.\n\nI fried IO14 on two boards already. In order to use them again, I will switch the IO that the JOG_TCH is wired into to a different, free IO, and this time do proper ESD.\n\nUnverified, but to prevent the JOG_TCH from having a negative voltage (below GND), I should add a Schotky between JOG_TCH (cath) and GND (anode) in the V2 of this board."
-		(exclude_from_sim no)
-		(at 24.892 -5.842 0)
-		(effects
-			(font
-				(size 1 1)
-			)
-			(justify left)
-		)
-		(uuid "681ad0ec-a952-48bd-8d24-ab5408f612b6")
-	)
 	(text "This comes back from the \nOneButton boards as 5V,\nand would fry the S3 so \nI have a divider down to 3.24V"
 		(exclude_from_sim no)
 		(at 296.672 37.592 0)
