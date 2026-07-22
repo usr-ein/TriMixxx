@@ -21,6 +21,8 @@ This project has been through several complete redesigns. It's worth keeping the
 
 3. **Where it is now.** `boards/midi_s3_mini` is the current controller board (fabricated), hosting a **LOLIN S3 Mini (ESP32-S3)**. The audio DAC and power delivery are no longer TriMixxx's job — a Raspberry Pi handles Mixxx and audio directly, and the S3 is purely the controller brain. The controls are spread across small purpose-built satellite boards, all of them already fabricated.
 
+![midi_s3_mini v2 board render](boards/midi_s3_mini/midi_s3_mini_v2.png)
+
 The old monolithic design is preserved in this README's history and in `screenshots/` as a record of the road not taken.
 
 ## Current architecture

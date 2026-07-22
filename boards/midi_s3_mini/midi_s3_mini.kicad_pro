@@ -645,12 +645,42 @@
           "label": "Datasheet",
           "name": "Datasheet",
           "show": true
+        },
+        {
+          "group_by": false,
+          "label": "MPN",
+          "name": "MPN",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Manufacturer",
+          "name": "Manufacturer",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "LCSC Part",
+          "name": "LCSC Part",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "Description",
+          "name": "Description",
+          "show": false
+        },
+        {
+          "group_by": false,
+          "label": "#",
+          "name": "${ITEM_NUMBER}",
+          "show": false
         }
       ],
       "filter_string": "",
       "group_symbols": true,
       "include_excluded_from_bom": true,
-      "name": "Default Editing",
+      "name": "",
       "sort_asc": true,
       "sort_field": "Reference"
     },
@@ -695,7 +725,7 @@
         "uuid": "4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
       }
     ],
-    "used_designators": "FID1-3,F1,TVS1-9,TP1-3,LED_5V1,LED_3V3_S1,J1-18,R1-36,H1-4,D_S1,JP1-2,D_PERI1,C_LDO_out1,D1-2,#PWR1-78,U1-2,C1-21,LED_3V3_PERI1,Q1,C_LDO_in1",
+    "used_designators": "FID1-3,F1,TVS1-9,TP1-3,LED_5V1,LED_3V3_S1,J1-18,R1-37,H1-4,D_S1,JP1-2,D_PERI1,C_LDO_out1,D1-2,#PWR1-78,U1-2,C1-22,LED_3V3_PERI1,Q1,C_LDO_in1",
     "variants": []
   },
   "sheets": [
