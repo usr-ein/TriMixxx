@@ -197,6 +197,7 @@
         0.0,
         0.2,
         0.4,
+        0.7,
         1.0,
         1.5,
         2.0,
@@ -694,7 +695,7 @@
         "uuid": "4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
       }
     ],
-    "used_designators": "",
+    "used_designators": "FID1-3,F1,TVS1-9,TP1-3,LED_5V1,LED_3V3_S1,J1-18,R1-36,H1-4,D_S1,JP1-2,D_PERI1,C_LDO_out1,D1-2,#PWR1-78,U1-2,C1-21,LED_3V3_PERI1,Q1,C_LDO_in1",
     "variants": []
   },
   "sheets": [

@@ -128,6 +128,102 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "Mechanical:Fiducial"
+			(exclude_from_sim no)
+			(in_bom no)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "FID"
+				(at 0 5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "Fiducial"
+				(at 0 3.175 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Fiducial Marker"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "fiducial marker"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "Fiducial*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "Fiducial_0_1"
+				(circle
+					(center 0 0)
+					(radius 1.27)
+					(stroke
+						(width 0.508)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "Mechanical:MountingHole"
 			(pin_names
 				(offset 1.016)
@@ -4320,12 +4416,12 @@
 		(uuid "0062c7ad-aa31-40eb-8046-99ec341f2e15")
 	)
 	(no_connect
-		(at 46.99 217.17)
-		(uuid "0e5b3550-73b5-4a85-91fa-547e6174996e")
-	)
-	(no_connect
 		(at 91.44 278.13)
 		(uuid "143f6c8a-7aa7-42d4-b645-01c099582518")
+	)
+	(no_connect
+		(at 91.44 257.81)
+		(uuid "190da52d-fe79-4dba-87e2-aa4ee94bffef")
 	)
 	(no_connect
 		(at 100.33 78.74)
@@ -4340,24 +4436,36 @@
 		(uuid "2a6d1542-5ab5-4184-8331-b647e1a70564")
 	)
 	(no_connect
-		(at 284.48 276.86)
-		(uuid "2a7c772e-ffdb-4f60-b91d-d40b3c23d136")
+		(at 226.06 95.25)
+		(uuid "343aa4a2-f7b1-4c1f-bd6d-8fe6e0a017b1")
+	)
+	(no_connect
+		(at 226.06 115.57)
+		(uuid "3ffc978c-f45a-40b1-a92d-e9ace85c60f7")
 	)
 	(no_connect
 		(at 100.33 40.64)
 		(uuid "40bb40c4-da94-45e3-8c97-a4dc4c3a992a")
 	)
 	(no_connect
-		(at 76.2 278.13)
-		(uuid "4beb65e1-a3fa-484a-94ad-c9a148c8e76a")
-	)
-	(no_connect
 		(at 133.35 48.26)
 		(uuid "550a1830-7072-48e7-9ae4-40544d4af48a")
 	)
 	(no_connect
-		(at 50.8 156.21)
-		(uuid "60f8c6c2-ad90-4cdb-812a-d2a421b85ffe")
+		(at 246.38 80.01)
+		(uuid "6a8ceb79-2333-473d-af4d-64f23d3f79e9")
+	)
+	(no_connect
+		(at 96.52 193.04)
+		(uuid "6a8e4b2f-f55b-4f2b-a3a0-5d13b38ec442")
+	)
+	(no_connect
+		(at 269.24 276.86)
+		(uuid "6f0b04d9-9e15-46b8-9af2-7d7c23691f61")
+	)
+	(no_connect
+		(at 246.38 59.69)
+		(uuid "6f74aaf4-d493-4cbd-838b-aeaeb9ba4888")
 	)
 	(no_connect
 		(at 133.35 73.66)
@@ -4366,6 +4474,10 @@
 	(no_connect
 		(at 96.52 213.36)
 		(uuid "a9f4e680-f716-4679-bb7a-0f1d221a8c82")
+	)
+	(no_connect
+		(at 66.04 135.89)
+		(uuid "d46b19f7-e1d5-4938-b08c-62211bcea350")
 	)
 	(no_connect
 		(at 100.33 63.5)
@@ -4583,16 +4695,6 @@
 	)
 	(wire
 		(pts
-			(xy 269.24 279.4) (xy 269.24 276.86)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "7333b6dd-d04b-4571-8f74-8d0c2548240a")
-	)
-	(wire
-		(pts
 			(xy 161.29 231.14) (xy 176.53 231.14)
 		)
 		(stroke
@@ -4700,16 +4802,6 @@
 			(type default)
 		)
 		(uuid "ac115f6e-779e-4107-8b90-0a054f649496")
-	)
-	(wire
-		(pts
-			(xy 81.28 214.63) (xy 81.28 213.36)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "ae1d329b-915c-4479-8e16-cf2de91ec48e")
 	)
 	(wire
 		(pts
@@ -4891,16 +4983,6 @@
 		)
 		(uuid "001cc361-9aa0-4f6a-9e32-95c20634d149")
 	)
-	(label "RAW_LED_CUE"
-		(at 173.99 280.67 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "01521da6-7eca-4a90-97cc-9b764b004872")
-	)
 	(label "ENC_DT"
 		(at 289.56 172.72 180)
 		(effects
@@ -4950,6 +5032,16 @@
 			(justify right bottom)
 		)
 		(uuid "10aaa833-2433-4e13-992d-a5f9b32c2526")
+	)
+	(label "RAW_LOOP_START_BTN"
+		(at 46.99 217.17 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "171b27bd-51e2-4c36-b559-67644994749c")
 	)
 	(label "LOOP_START_LED"
 		(at 60.96 177.8 180)
@@ -5021,16 +5113,6 @@
 		)
 		(uuid "260fdb4e-8e03-4988-9dd9-80b471ed92e7")
 	)
-	(label "RAW_1BTNA_TX"
-		(at 246.38 59.69 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "26f7c097-2c6f-4c43-a551-cf793c9451df")
-	)
 	(label "ENC_CLK"
 		(at 133.35 40.64 0)
 		(effects
@@ -5041,6 +5123,26 @@
 		)
 		(uuid "2767ea61-3483-46bc-b093-3fbcf1741b6b")
 	)
+	(label "RAW_LED_CUE"
+		(at 173.99 257.81 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "29049066-7553-4691-9db3-0c86200eba85")
+	)
+	(label "RAW_LOOP_END_BTN"
+		(at 31.75 196.85 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "29f7ddea-5624-4d45-a14c-6ca019f762c7")
+	)
 	(label "LOOP_END_BTN"
 		(at 100.33 55.88 180)
 		(effects
@@ -5050,6 +5152,26 @@
 			(justify right bottom)
 		)
 		(uuid "2d5a6f6f-0c6b-4de6-bbff-c829025392fb")
+	)
+	(label "RAW_1BTNA_TX"
+		(at 231.14 59.69 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "2e496a71-82b2-44a5-8f2d-0e1fda79f828")
+	)
+	(label "RAW_1BTNB_TX"
+		(at 241.3 95.25 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "30526b04-79e8-4e85-8c8c-0d1f94406d11")
 	)
 	(label "1BTNA_RX"
 		(at 143.51 58.42 0)
@@ -5071,18 +5193,18 @@
 		)
 		(uuid "31f97ae0-18f9-4b7e-bd94-0dc1a04bfa71")
 	)
-	(label "RAW_LOOP_END_BTN"
-		(at 81.28 214.63 180)
+	(label "RAW_UART_RX_FROM_PI"
+		(at 50.8 156.21 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "3355fc65-f596-4432-81ab-80b965097a2d")
+		(uuid "394b6817-b0e7-4534-a71a-e09b676e1f12")
 	)
 	(label "1BTNA_TX"
-		(at 223.52 35.56 180)
+		(at 228.6 46.99 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -5131,15 +5253,15 @@
 		)
 		(uuid "42e432a6-b584-49f6-afb8-ac39d24a40ee")
 	)
-	(label "RAW_TEMPO_ADIN"
-		(at 76.2 257.81 180)
+	(label "RAW_UART_TX_TO_PI"
+		(at 50.8 135.89 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
 			(justify right bottom)
 		)
-		(uuid "47189f1c-a008-4edc-b31e-30b0825d0dc1")
+		(uuid "43c9caf3-d7f2-4292-8921-930fdfdd1319")
 	)
 	(label "RAW_UART_TX_TO_PI"
 		(at 78.74 120.65 180)
@@ -5241,8 +5363,18 @@
 		)
 		(uuid "5387bab9-0dca-4b54-a432-0068acfc8bd2")
 	)
+	(label "RAW_JOG1"
+		(at 284.48 276.86 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "53ddd13c-dce3-4d29-a0bc-8e0aeff2066f")
+	)
 	(label "RAW_1BTNB_TX"
-		(at 233.68 38.1 0)
+		(at 238.76 49.53 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -5261,6 +5393,16 @@
 		)
 		(uuid "596dd090-278c-4d12-8d3a-61dc0b8faaa6")
 	)
+	(label "RAW_BTN_CUE"
+		(at 189.23 257.81 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "5be07ef7-4049-4a28-b5b8-6586915203b8")
+	)
 	(label "RAW_1BTNA_TX"
 		(at 323.85 50.8 180)
 		(effects
@@ -5271,25 +5413,25 @@
 		)
 		(uuid "6115c202-39f9-449e-904f-01ee060abede")
 	)
-	(label "RAW_RELOOP_BTN"
-		(at 96.52 193.04 0)
+	(label "RAW_BTN_PLAY"
+		(at 173.99 280.67 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left bottom)
+			(justify right bottom)
 		)
-		(uuid "6400766e-6e70-49fc-9964-2669bea0f079")
+		(uuid "6284c2d5-fff7-4cb6-99be-a28db0a97993")
 	)
-	(label "RAW_LED_PLAY"
-		(at 189.23 257.81 0)
+	(label "RAW_ENC_DT"
+		(at 375.92 208.28 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left bottom)
+			(justify right bottom)
 		)
-		(uuid "64ded20d-e010-4a6d-9358-6cd6dc703afd")
+		(uuid "6311e5ef-e19c-4a9e-8099-9deb4139fcbe")
 	)
 	(label "ENC_SW"
 		(at 133.35 45.72 0)
@@ -5351,6 +5493,16 @@
 		)
 		(uuid "69e319b6-b12c-46c5-9c2d-da9c3806ae57")
 	)
+	(label "RAW_ENC_SW"
+		(at 375.92 185.42 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "6a7dde8c-0eee-47f7-bec5-8129d349852f")
+	)
 	(label "LOOP_START_BTN"
 		(at 100.33 60.96 180)
 		(effects
@@ -5371,8 +5523,18 @@
 		)
 		(uuid "6d221cdf-6da6-40b8-a1ee-ab4c17144c6f")
 	)
+	(label "RAW_LED_PLAY"
+		(at 189.23 278.13 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "6d28ea32-5393-4fce-ba76-1df7e8af1e6c")
+	)
 	(label "RAW_1BTNA_TX"
-		(at 233.68 35.56 0)
+		(at 238.76 46.99 0)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -5380,6 +5542,26 @@
 			(justify left bottom)
 		)
 		(uuid "793d9aa3-a7a0-4511-b132-c85883da0f58")
+	)
+	(label "RAW_TEMPO_ADIN"
+		(at 76.2 278.13 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "7a108158-c0b6-4d94-a71b-516efdcf726d")
+	)
+	(label "1BTNB_RX"
+		(at 241.3 115.57 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left bottom)
+		)
+		(uuid "7a50ad6f-f5e5-47e2-abe5-6a766e8cdc82")
 	)
 	(label "RAW_JOG_TCH"
 		(at 269.24 256.54 180)
@@ -5401,26 +5583,6 @@
 		)
 		(uuid "7c3f6f97-cc67-4860-9b9f-496f67b2c4cb")
 	)
-	(label "RAW_BTN_PLAY"
-		(at 173.99 257.81 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "7fedd0d3-de97-43b0-b3f1-156c2cc64d2f")
-	)
-	(label "RAW_JOG1"
-		(at 269.24 279.4 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "85bb2b0e-73d4-4e63-8df5-ebf9c58a3573")
-	)
 	(label "RAW_ENC_SW"
 		(at 359.41 152.4 180)
 		(effects
@@ -5431,6 +5593,16 @@
 		)
 		(uuid "868808be-d51c-47c4-af1e-8a115ca6676e")
 	)
+	(label "RAW_TEMPO_ADCT"
+		(at 76.2 257.81 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "87284579-accd-47bd-8348-517a4794fe20")
+	)
 	(label "RAW_JOG_TCH"
 		(at 347.98 237.49 180)
 		(effects
@@ -5440,16 +5612,6 @@
 			(justify right bottom)
 		)
 		(uuid "8c11a579-8b3d-45c6-aa9f-ad11575f0885")
-	)
-	(label "RAW_LOOP_END_LED"
-		(at 31.75 196.85 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "8d0a458a-12f7-4426-9000-4411d78e9247")
 	)
 	(label "RAW_BTN_PLAY"
 		(at 208.28 228.6 180)
@@ -5592,7 +5754,7 @@
 		(uuid "a5bd27f1-792e-4c70-b020-d13f72a18eab")
 	)
 	(label "1BTNB_TX"
-		(at 223.52 38.1 180)
+		(at 228.6 49.53 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -5631,6 +5793,16 @@
 		)
 		(uuid "b1fa3f8f-436d-4ade-9b42-549af43befc7")
 	)
+	(label "RAW_LOOP_END_LED"
+		(at 81.28 193.04 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right bottom)
+		)
+		(uuid "b415e22c-4df3-4a1e-a833-c552fd2b7f45")
+	)
 	(label "UART_TX_TO_PI"
 		(at 33.02 110.49 180)
 		(effects
@@ -5661,16 +5833,6 @@
 		)
 		(uuid "ba84cea9-fe33-4239-a0aa-feb06abcbadc")
 	)
-	(label "RAW_TEMPO_ADCT"
-		(at 91.44 257.81 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "bcf7b34b-9fa6-40ed-9535-8efc6f464aa6")
-	)
 	(label "UART_RX_FROM_PI"
 		(at 33.02 113.03 180)
 		(effects
@@ -5681,16 +5843,6 @@
 		)
 		(uuid "bed8ecba-e166-49f1-9d6e-5d230af0d0f5")
 	)
-	(label "1BTNA_RX"
-		(at 231.14 80.01 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "c8034c41-0b20-41a8-b24d-198012bfe254")
-	)
 	(label "LED_CUE"
 		(at 140.97 236.22 180)
 		(effects
@@ -5700,16 +5852,6 @@
 			(justify right bottom)
 		)
 		(uuid "c8759ef7-ae80-450f-a089-30b1c9f83045")
-	)
-	(label "RAW_ENC_DT"
-		(at 375.92 185.42 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "ca415d25-58bf-4697-aeba-db7c6a5e47f8")
 	)
 	(label "JOG1"
 		(at 100.33 68.58 180)
@@ -5741,16 +5883,6 @@
 		)
 		(uuid "cd77ead9-c876-4acd-890c-b2c031aff0b5")
 	)
-	(label "1BTNB_RX"
-		(at 246.38 80.01 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "ce21d33a-664c-4488-8f06-2c5fc12a38ed")
-	)
 	(label "RAW_LOOP_END_BTN"
 		(at 118.11 180.34 180)
 		(effects
@@ -5780,16 +5912,6 @@
 			(justify right bottom)
 		)
 		(uuid "d22713d5-4f2c-4869-9390-d50674e48921")
-	)
-	(label "RAW_1BTNB_TX"
-		(at 231.14 59.69 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "d5022801-922f-4973-9428-39eabb06b14c")
 	)
 	(label "RAW_TEMPO_ADCT"
 		(at 53.34 248.92 0)
@@ -5851,26 +5973,6 @@
 		)
 		(uuid "e88be66d-b775-471d-9eff-8a32872f3e92")
 	)
-	(label "RAW_LOOP_START_BTN"
-		(at 81.28 193.04 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "e90d92fb-eab0-40bd-aed5-a1445a0f10c0")
-	)
-	(label "RAW_ENC_SW"
-		(at 375.92 208.28 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "e986b12b-2e25-4394-bd06-89bdbad3cbf1")
-	)
 	(label "RAW_BTN_CUE"
 		(at 176.53 233.68 0)
 		(effects
@@ -5921,25 +6023,25 @@
 		)
 		(uuid "f2b8ad0b-96b3-4e87-bc53-8d4a119b53ff")
 	)
-	(label "RAW_BTN_CUE"
-		(at 189.23 278.13 0)
+	(label "RAW_RELOOP_BTN"
+		(at 81.28 213.36 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left bottom)
+			(justify right bottom)
 		)
-		(uuid "f7816858-4b26-42a0-a57b-88058132abd2")
+		(uuid "f6bcc05b-c976-435a-9381-046509107d77")
 	)
-	(label "RAW_UART_TX_TO_PI"
-		(at 66.04 135.89 0)
+	(label "1BTNA_RX"
+		(at 231.14 80.01 180)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left bottom)
+			(justify right bottom)
 		)
-		(uuid "f84baecc-1afc-452a-83cf-accc627d044c")
+		(uuid "f8a8af74-93ce-48b6-8900-cb4d39ce0be9")
 	)
 	(label "RAW_TEMPO_ADCT"
 		(at 95.25 241.3 180)
@@ -5960,16 +6062,6 @@
 			(justify right bottom)
 		)
 		(uuid "f95df3ba-9ec0-49fe-a657-577072306902")
-	)
-	(label "RAW_UART_RX_FROM_PI"
-		(at 50.8 135.89 180)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right bottom)
-		)
-		(uuid "f96cf32d-8bde-4539-8523-2e0de27bf589")
 	)
 	(label "LOOP_END_LED"
 		(at 60.96 182.88 180)
@@ -6468,6 +6560,82 @@
 		)
 	)
 	(symbol
+		(lib_id "Mechanical:Fiducial")
+		(at 312.42 17.78 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "0f9c4562-f3c6-4dcc-abd8-0593d1d710d3")
+		(property "Reference" "FID1"
+			(at 314.96 16.5099 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "Fiducial"
+			(at 314.96 19.0499 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Fiducial:Fiducial_1mm_Mask2mm"
+			(at 312.42 17.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 312.42 17.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Fiducial Marker"
+			(at 312.42 17.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "FID1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 238.76 80.01 0)
 		(unit 1)
@@ -6670,7 +6838,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "18947aee-68ce-4e6e-9475-9c3f288c95f5")
-		(property "Reference" "#PWR036"
+		(property "Reference" "#PWR038"
 			(at 285.75 226.06 0)
 			(hide yes)
 			(show_name no)
@@ -6730,7 +6898,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR036")
+					(reference "#PWR038")
 					(unit 1)
 				)
 			)
@@ -6866,7 +7034,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "1d5e5ce6-ad58-4574-ade9-8dd1329d1d64")
-		(property "Reference" "R37"
+		(property "Reference" "R3"
 			(at 284.48 45.72 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -6961,7 +7129,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R37")
+					(reference "R3")
 					(unit 1)
 				)
 			)
@@ -6979,7 +7147,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "1f70c3a2-11c9-46b6-8046-fc6f13e3d83f")
-		(property "Reference" "#PWR046"
+		(property "Reference" "#PWR048"
 			(at 25.4 254 0)
 			(hide yes)
 			(show_name no)
@@ -7039,7 +7207,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR046")
+					(reference "#PWR048")
 					(unit 1)
 				)
 			)
@@ -7057,7 +7225,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2039cb32-ed71-4bb4-b0e8-9c3609ee1aa9")
-		(property "Reference" "#PWR041"
+		(property "Reference" "#PWR043"
 			(at 294.64 248.92 0)
 			(hide yes)
 			(show_name no)
@@ -7117,7 +7285,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR041")
+					(reference "#PWR043")
 					(unit 1)
 				)
 			)
@@ -7135,7 +7303,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2403ba4f-9006-47b4-9b77-df372d6dd76c")
-		(property "Reference" "#PWR055"
+		(property "Reference" "#PWR057"
 			(at 181.61 284.48 0)
 			(hide yes)
 			(show_name no)
@@ -7195,7 +7363,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR055")
+					(reference "#PWR057")
 					(unit 1)
 				)
 			)
@@ -7744,7 +7912,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3233b260-9bc5-4934-935d-e72958eaee94")
-		(property "Reference" "#PWR013"
+		(property "Reference" "#PWR014"
 			(at 276.86 104.14 0)
 			(hide yes)
 			(show_name no)
@@ -7804,7 +7972,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR013")
+					(reference "#PWR014")
 					(unit 1)
 				)
 			)
@@ -7822,7 +7990,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "361a4fe9-a652-4499-88f0-ab76aa4597fd")
-		(property "Reference" "#PWR018"
+		(property "Reference" "#PWR020"
 			(at 353.06 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -7883,7 +8051,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR018")
+					(reference "#PWR020")
 					(unit 1)
 				)
 			)
@@ -8022,7 +8190,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3d20c0ea-c162-4dfd-9fd8-1c286776c4d7")
-		(property "Reference" "#PWR039"
+		(property "Reference" "#PWR041"
 			(at 208.28 245.11 0)
 			(hide yes)
 			(show_name no)
@@ -8082,7 +8250,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR039")
+					(reference "#PWR041")
 					(unit 1)
 				)
 			)
@@ -8255,7 +8423,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3f594368-ceb6-46f2-a1c5-bb3de088fb05")
-		(property "Reference" "#PWR032"
+		(property "Reference" "#PWR034"
 			(at 132.08 203.2 0)
 			(hide yes)
 			(show_name no)
@@ -8315,7 +8483,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR032")
+					(reference "#PWR034")
 					(unit 1)
 				)
 			)
@@ -8333,7 +8501,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3f7fbfd8-02ed-46ea-b5d1-1f7bc96dc2a2")
-		(property "Reference" "#PWR014"
+		(property "Reference" "#PWR015"
 			(at 318.77 107.95 0)
 			(hide yes)
 			(show_name no)
@@ -8393,7 +8561,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR014")
+					(reference "#PWR015")
 					(unit 1)
 				)
 			)
@@ -8524,7 +8692,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "422cbd93-8f3e-4207-b170-43d3e1b1dd34")
-		(property "Reference" "TVS2"
+		(property "Reference" "TVS3"
 			(at 72.39 144.7799 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8633,7 +8801,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "TVS2")
+					(reference "TVS3")
 					(unit 1)
 				)
 			)
@@ -8651,7 +8819,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "44a2ef1a-6f51-4013-9d93-4114667ccc23")
-		(property "Reference" "TVS8"
+		(property "Reference" "TVS9"
 			(at 195.58 266.6999 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8760,7 +8928,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "TVS8")
+					(reference "TVS9")
 					(unit 1)
 				)
 			)
@@ -8891,7 +9059,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "47e09fc4-beac-4e6c-8be3-ba0e32cc18f5")
-		(property "Reference" "#PWR037"
+		(property "Reference" "#PWR039"
 			(at 208.28 229.87 0)
 			(hide yes)
 			(show_name no)
@@ -8951,7 +9119,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR037")
+					(reference "#PWR039")
 					(unit 1)
 				)
 			)
@@ -9045,7 +9213,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "4e686f0f-4205-4db7-9504-f5748bb99d05")
-		(property "Reference" "#PWR030"
+		(property "Reference" "#PWR032"
 			(at 39.37 200.66 0)
 			(hide yes)
 			(show_name no)
@@ -9105,7 +9273,85 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR030")
+					(reference "#PWR032")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:+3.3V")
+		(at 233.68 95.25 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "4edb8c0f-d49e-4413-a3a7-b175e1d5055b")
+		(property "Reference" "#PWR012"
+			(at 233.68 99.06 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "+3.3V"
+			(at 233.68 90.17 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 233.68 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 233.68 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
+			(at 233.68 95.25 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "ffb68f3e-5ed4-4545-9780-b4ce32ea8f3f")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "#PWR012")
 					(unit 1)
 				)
 			)
@@ -9123,7 +9369,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "4f47851c-c248-49df-a3e8-21a7b9e5cc44")
-		(property "Reference" "TVS5"
+		(property "Reference" "TVS6"
 			(at 53.34 205.7399 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9232,7 +9478,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "TVS5")
+					(reference "TVS6")
 					(unit 1)
 				)
 			)
@@ -9250,7 +9496,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "513ab227-f568-435d-92a7-6fd459b3e820")
-		(property "Reference" "#PWR026"
+		(property "Reference" "#PWR028"
 			(at 308.61 193.04 0)
 			(hide yes)
 			(show_name no)
@@ -9310,7 +9556,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR026")
+					(reference "#PWR028")
 					(unit 1)
 				)
 			)
@@ -9328,7 +9574,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "520d60ac-7bad-4cf7-abb7-924d2f987e94")
-		(property "Reference" "#PWR033"
+		(property "Reference" "#PWR035"
 			(at 383.54 212.09 0)
 			(hide yes)
 			(show_name no)
@@ -9388,7 +9634,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR033")
+					(reference "#PWR035")
 					(unit 1)
 				)
 			)
@@ -9533,7 +9779,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "548123df-3201-4473-94ba-43dd66510d8f")
-		(property "Reference" "R5"
+		(property "Reference" "R17"
 			(at 288.29 226.0599 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -9630,7 +9876,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R5")
+					(reference "R17")
 					(unit 1)
 				)
 			)
@@ -9648,7 +9894,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "54b2fbb4-594c-4e04-a88e-835c17baaa05")
-		(property "Reference" "#PWR023"
+		(property "Reference" "#PWR025"
 			(at 118.11 176.53 0)
 			(hide yes)
 			(show_name no)
@@ -9708,7 +9954,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR023")
+					(reference "#PWR025")
 					(unit 1)
 				)
 			)
@@ -9726,7 +9972,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5957f828-395d-4965-978a-827a2ba02027")
-		(property "Reference" "#PWR025"
+		(property "Reference" "#PWR027"
 			(at 383.54 189.23 0)
 			(hide yes)
 			(show_name no)
@@ -9786,7 +10032,83 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR025")
+					(reference "#PWR027")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Mechanical:Fiducial")
+		(at 340.36 17.78 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "5accc679-25f6-4478-9cf9-ac2d09823cf1")
+		(property "Reference" "FID3"
+			(at 342.9 16.5099 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "Fiducial"
+			(at 342.9 19.0499 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Fiducial:Fiducial_1mm_Mask2mm"
+			(at 340.36 17.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 340.36 17.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Fiducial Marker"
+			(at 340.36 17.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "FID3")
 					(unit 1)
 				)
 			)
@@ -9804,7 +10126,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5b097bc2-1413-413a-966b-2fa15f0e7bf9")
-		(property "Reference" "#PWR048"
+		(property "Reference" "#PWR050"
 			(at 222.25 257.81 0)
 			(hide yes)
 			(show_name no)
@@ -9864,7 +10186,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR048")
+					(reference "#PWR050")
 					(unit 1)
 				)
 			)
@@ -9995,7 +10317,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5fb4b9f1-b189-4906-9691-24b7b49b9c9d")
-		(property "Reference" "#PWR054"
+		(property "Reference" "#PWR056"
 			(at 83.82 284.48 0)
 			(hide yes)
 			(show_name no)
@@ -10055,7 +10377,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR054")
+					(reference "#PWR056")
 					(unit 1)
 				)
 			)
@@ -10073,7 +10395,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6197729e-279c-4844-aa5e-be38afeabecc")
-		(property "Reference" "#PWR053"
+		(property "Reference" "#PWR055"
 			(at 276.86 283.21 0)
 			(hide yes)
 			(show_name no)
@@ -10133,7 +10455,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR053")
+					(reference "#PWR055")
 					(unit 1)
 				)
 			)
@@ -10141,7 +10463,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:0402WGF1001TCE")
-		(at 228.6 35.56 0)
+		(at 233.68 46.99 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -10152,7 +10474,7 @@
 		(fields_autoplaced yes)
 		(uuid "61d77e6e-0949-4619-a645-c7cd0d798234")
 		(property "Reference" "R1"
-			(at 228.6 29.21 0)
+			(at 233.68 40.64 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -10162,7 +10484,7 @@
 			)
 		)
 		(property "Value" "1KΩ ±1%"
-			(at 228.6 31.75 0)
+			(at 233.68 43.18 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -10172,7 +10494,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:R0402"
-			(at 228.6 43.18 0)
+			(at 233.68 54.61 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10183,7 +10505,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_1KR-1001-1_C11702.html"
-			(at 228.6 45.72 0)
+			(at 233.68 57.15 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10194,7 +10516,7 @@
 			)
 		)
 		(property "Description" "1KΩ (1001) ±1%"
-			(at 228.6 58.42 0)
+			(at 233.68 69.85 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10205,7 +10527,7 @@
 			)
 		)
 		(property "Manufacturer" "UNI-ROYAL(厚声)"
-			(at 228.6 48.26 0)
+			(at 233.68 59.69 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10216,7 +10538,7 @@
 			)
 		)
 		(property "MPN" "0402WGF1001TCE"
-			(at 228.6 50.8 0)
+			(at 233.68 62.23 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10227,7 +10549,7 @@
 			)
 		)
 		(property "LCSC Part" "C11702"
-			(at 228.6 53.34 0)
+			(at 233.68 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10264,7 +10586,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6210ff5a-7eb5-4687-853e-5413934f278a")
-		(property "Reference" "TVS4"
+		(property "Reference" "TVS5"
 			(at 102.87 201.9299 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10373,7 +10695,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "TVS4")
+					(reference "TVS5")
 					(unit 1)
 				)
 			)
@@ -10391,7 +10713,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "64c4147f-7b5e-4011-86d2-f918c5a6c2ca")
-		(property "Reference" "#PWR040"
+		(property "Reference" "#PWR042"
 			(at 341.63 240.03 0)
 			(hide yes)
 			(show_name no)
@@ -10452,7 +10774,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR040")
+					(reference "#PWR042")
 					(unit 1)
 				)
 			)
@@ -10470,7 +10792,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "65bd8e68-c8c2-4955-9a5d-6ae29b6b9570")
-		(property "Reference" "#PWR042"
+		(property "Reference" "#PWR044"
 			(at 351.79 242.57 0)
 			(hide yes)
 			(show_name no)
@@ -10531,7 +10853,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR042")
+					(reference "#PWR044")
 					(unit 1)
 				)
 			)
@@ -10664,7 +10986,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6aad85cb-1b19-47e6-b8e0-9f084579d842")
-		(property "Reference" "#PWR020"
+		(property "Reference" "#PWR022"
 			(at 58.42 162.56 0)
 			(hide yes)
 			(show_name no)
@@ -10724,7 +11046,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR020")
+					(reference "#PWR022")
 					(unit 1)
 				)
 			)
@@ -10742,7 +11064,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "6afc7bc3-55d5-46e0-8fa9-522ef4b89258")
-		(property "Reference" "#PWR031"
+		(property "Reference" "#PWR033"
 			(at 118.11 205.74 0)
 			(hide yes)
 			(show_name no)
@@ -10802,7 +11124,85 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR031")
+					(reference "#PWR033")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 233.68 115.57 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "6f2910fc-06c8-4953-923e-0c2312b3c6d3")
+		(property "Reference" "#PWR016"
+			(at 233.68 121.92 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "GND"
+			(at 233.68 120.65 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 233.68 115.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 233.68 115.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 233.68 115.57 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "69d99adc-bc67-4639-aaba-ff1bbe8d7ff9")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "#PWR016")
 					(unit 1)
 				)
 			)
@@ -10820,7 +11220,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "70aad90c-87a1-4409-a26b-02fbb6f91c18")
-		(property "Reference" "#PWR024"
+		(property "Reference" "#PWR026"
 			(at 292.1 191.77 0)
 			(hide yes)
 			(show_name no)
@@ -10880,7 +11280,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR024")
+					(reference "#PWR026")
 					(unit 1)
 				)
 			)
@@ -10898,7 +11298,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "71d79678-a786-44af-85e3-a2982930f0a2")
-		(property "Reference" "#PWR017"
+		(property "Reference" "#PWR019"
 			(at 58.42 139.7 0)
 			(hide yes)
 			(show_name no)
@@ -10958,7 +11358,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR017")
+					(reference "#PWR019")
 					(unit 1)
 				)
 			)
@@ -10976,7 +11376,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7229d8e1-c8d2-474c-a205-287e6ed091f7")
-		(property "Reference" "#PWR028"
+		(property "Reference" "#PWR030"
 			(at 88.9 196.85 0)
 			(hide yes)
 			(show_name no)
@@ -11036,7 +11436,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR028")
+					(reference "#PWR030")
 					(unit 1)
 				)
 			)
@@ -11121,6 +11521,82 @@
 		)
 	)
 	(symbol
+		(lib_id "Mechanical:Fiducial")
+		(at 326.39 17.78 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "7370efd4-33ed-447d-9449-a4824c05721b")
+		(property "Reference" "FID2"
+			(at 328.93 16.5099 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "Fiducial"
+			(at 328.93 19.0499 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Fiducial:Fiducial_1mm_Mask2mm"
+			(at 326.39 17.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 326.39 17.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Fiducial Marker"
+			(at 326.39 17.78 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "FID2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 39.37 217.17 0)
 		(unit 1)
@@ -11132,7 +11608,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "762a881f-ea5f-4071-a935-70181e7df9d2")
-		(property "Reference" "#PWR035"
+		(property "Reference" "#PWR037"
 			(at 39.37 223.52 0)
 			(hide yes)
 			(show_name no)
@@ -11192,7 +11668,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR035")
+					(reference "#PWR037")
 					(unit 1)
 				)
 			)
@@ -11758,7 +12234,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "94527a05-f9f2-4094-b97c-2ca48aa1cbe9")
-		(property "Reference" "TVS3"
+		(property "Reference" "TVS4"
 			(at 397.51 194.3099 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11867,7 +12343,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "TVS3")
+					(reference "TVS4")
 					(unit 1)
 				)
 			)
@@ -11885,7 +12361,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "964cd92a-7ab5-41b3-9d4d-a92d38f7b076")
-		(property "Reference" "C22"
+		(property "Reference" "C6"
 			(at 298.45 236.2199 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -11982,7 +12458,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "C22")
+					(reference "C6")
 					(unit 1)
 				)
 			)
@@ -12113,7 +12589,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "9788406f-88aa-44fc-ae19-0e9232291fc6")
-		(property "Reference" "#PWR022"
+		(property "Reference" "#PWR024"
 			(at 382.27 173.99 0)
 			(hide yes)
 			(show_name no)
@@ -12173,7 +12649,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR022")
+					(reference "#PWR024")
 					(unit 1)
 				)
 			)
@@ -12191,7 +12667,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "97c0d45b-0f8c-4816-8cd2-e003a9ee6d90")
-		(property "Reference" "#PWR027"
+		(property "Reference" "#PWR029"
 			(at 118.11 194.31 0)
 			(hide yes)
 			(show_name no)
@@ -12251,7 +12727,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR027")
+					(reference "#PWR029")
 					(unit 1)
 				)
 			)
@@ -12269,7 +12745,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "97f93579-1740-4aba-ab2f-3f29f2cbe67a")
-		(property "Reference" "#PWR016"
+		(property "Reference" "#PWR018"
 			(at 78.74 132.08 0)
 			(hide yes)
 			(show_name no)
@@ -12329,7 +12805,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR016")
+					(reference "#PWR018")
 					(unit 1)
 				)
 			)
@@ -12738,7 +13214,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "9b1a3b83-4dde-411e-8f82-4d0e691e5b10")
-		(property "Reference" "#PWR038"
+		(property "Reference" "#PWR040"
 			(at 99.06 238.76 0)
 			(hide yes)
 			(show_name no)
@@ -12799,7 +13275,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR038")
+					(reference "#PWR040")
 					(unit 1)
 				)
 			)
@@ -12817,7 +13293,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "9e171ae4-28b4-4c51-a940-6a71276742a5")
-		(property "Reference" "#PWR050"
+		(property "Reference" "#PWR052"
 			(at 83.82 261.62 0)
 			(hide yes)
 			(show_name no)
@@ -12877,7 +13353,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR050")
+					(reference "#PWR052")
 					(unit 1)
 				)
 			)
@@ -12895,7 +13371,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "9f7ac5c4-75c1-4cfd-b8c3-1b7cf5f9a5e9")
-		(property "Reference" "#PWR015"
+		(property "Reference" "#PWR017"
 			(at 78.74 111.76 0)
 			(hide yes)
 			(show_name no)
@@ -12955,7 +13431,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR015")
+					(reference "#PWR017")
 					(unit 1)
 				)
 			)
@@ -13091,7 +13567,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "a43f6b17-ed4c-431c-94c1-20a36656da22")
-		(property "Reference" "#PWR047"
+		(property "Reference" "#PWR049"
 			(at 207.01 260.35 0)
 			(hide yes)
 			(show_name no)
@@ -13151,7 +13627,134 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR047")
+					(reference "#PWR049")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "easyeda2kicad:SRV05-4_C558418")
+		(at 233.68 105.41 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "a5b8f62d-5500-496f-b960-2b5cef5289ad")
+		(property "Reference" "TVS2"
+			(at 247.65 104.1399 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "SRV05-4"
+			(at 247.65 106.6799 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:SOT-23-6_L2.9-W1.6-P0.95-LS2.8-BL"
+			(at 233.68 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/C558418.pdf"
+			(at 233.68 125.73 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 233.68 105.41 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "TECH PUBLIC(台舟)"
+			(at 233.68 128.27 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "SRV05-4"
+			(at 233.68 130.81 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C558418"
+			(at 233.68 133.35 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "6"
+			(uuid "4f31cbed-b5a4-4cee-b843-b85f098cd695")
+		)
+		(pin "5"
+			(uuid "4d449694-4010-4f41-b259-cb85fe720ebb")
+		)
+		(pin "4"
+			(uuid "9b89fb7c-02ad-4afd-99c0-cef84385b41c")
+		)
+		(pin "3"
+			(uuid "77e77013-e891-4ad2-88d9-62368c109ca1")
+		)
+		(pin "2"
+			(uuid "3ce38a76-5a94-40de-849f-dafc09effcfe")
+		)
+		(pin "1"
+			(uuid "34d938ae-5b04-45ba-ba16-10c692dd11c4")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
+					(reference "TVS2")
 					(unit 1)
 				)
 			)
@@ -13739,7 +14342,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "ab6291f3-c2f1-42f7-8de1-5cd602e7c2ef")
-		(property "Reference" "#PWR045"
+		(property "Reference" "#PWR047"
 			(at 88.9 246.38 0)
 			(hide yes)
 			(show_name no)
@@ -13800,7 +14403,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR045")
+					(reference "#PWR047")
 					(unit 1)
 				)
 			)
@@ -13808,7 +14411,7 @@
 	)
 	(symbol
 		(lib_id "easyeda2kicad:0402WGF1001TCE")
-		(at 228.6 38.1 0)
+		(at 233.68 49.53 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -13819,7 +14422,7 @@
 		(fields_autoplaced yes)
 		(uuid "ade991ae-4d32-42e0-a2b4-fb4bca08482d")
 		(property "Reference" "R2"
-			(at 228.6 31.75 0)
+			(at 233.68 43.18 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -13829,7 +14432,7 @@
 			)
 		)
 		(property "Value" "1KΩ ±1%"
-			(at 228.6 34.29 0)
+			(at 233.68 45.72 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -13839,7 +14442,7 @@
 			)
 		)
 		(property "Footprint" "easyeda2kicad:R0402"
-			(at 228.6 45.72 0)
+			(at 233.68 57.15 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13850,7 +14453,7 @@
 			)
 		)
 		(property "Datasheet" "https://lcsc.com/product-detail/Chip-Resistor-Surface-Mount-UniOhm_1KR-1001-1_C11702.html"
-			(at 228.6 48.26 0)
+			(at 233.68 59.69 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13861,7 +14464,7 @@
 			)
 		)
 		(property "Description" "1KΩ (1001) ±1%"
-			(at 228.6 60.96 0)
+			(at 233.68 72.39 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13872,7 +14475,7 @@
 			)
 		)
 		(property "Manufacturer" "UNI-ROYAL(厚声)"
-			(at 228.6 50.8 0)
+			(at 233.68 62.23 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13883,7 +14486,7 @@
 			)
 		)
 		(property "MPN" "0402WGF1001TCE"
-			(at 228.6 53.34 0)
+			(at 233.68 64.77 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13894,7 +14497,7 @@
 			)
 		)
 		(property "LCSC Part" "C11702"
-			(at 228.6 55.88 0)
+			(at 233.68 67.31 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -13931,7 +14534,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "b288494b-a1e6-4adf-9706-4f7318df2559")
-		(property "Reference" "#PWR021"
+		(property "Reference" "#PWR023"
 			(at 367.03 176.53 0)
 			(hide yes)
 			(show_name no)
@@ -13991,7 +14594,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR021")
+					(reference "#PWR023")
 					(unit 1)
 				)
 			)
@@ -14085,7 +14688,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "b58e88a1-04de-4d3a-8a6d-2dfca5ad1eee")
-		(property "Reference" "R39"
+		(property "Reference" "R6"
 			(at 279.4 91.4399 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14182,7 +14785,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R39")
+					(reference "R6")
 					(unit 1)
 				)
 			)
@@ -14517,7 +15120,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "bc658363-f42b-4c93-bacf-af33ba365e63")
-		(property "Reference" "#PWR052"
+		(property "Reference" "#PWR054"
 			(at 43.18 265.43 0)
 			(hide yes)
 			(show_name no)
@@ -14577,7 +15180,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR052")
+					(reference "#PWR054")
 					(unit 1)
 				)
 			)
@@ -14595,7 +15198,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "c4598e53-5dc0-4be3-869a-bad1adc3b176")
-		(property "Reference" "#PWR019"
+		(property "Reference" "#PWR021"
 			(at 360.68 147.32 0)
 			(hide yes)
 			(show_name no)
@@ -14656,7 +15259,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR019")
+					(reference "#PWR021")
 					(unit 1)
 				)
 			)
@@ -14674,7 +15277,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "c6b01285-53fc-4011-9224-c30d48cd3b6e")
-		(property "Reference" "TVS7"
+		(property "Reference" "TVS8"
 			(at 97.79 266.6999 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -14783,7 +15386,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "TVS7")
+					(reference "TVS8")
 					(unit 1)
 				)
 			)
@@ -14914,7 +15517,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "c95de8ff-d3c6-4311-8e01-2e7fe94d6d8e")
-		(property "Reference" "R40"
+		(property "Reference" "R5"
 			(at 288.29 81.28 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15009,7 +15612,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R40")
+					(reference "R5")
 					(unit 1)
 				)
 			)
@@ -15105,7 +15708,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "cd1e012a-4631-4d75-980d-2f1076a461a1")
-		(property "Reference" "TVS6"
+		(property "Reference" "TVS7"
 			(at 290.83 265.4299 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15214,7 +15817,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "TVS6")
+					(reference "TVS7")
 					(unit 1)
 				)
 			)
@@ -15232,7 +15835,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "cf392afe-c2de-4d7d-b170-f145ca567bca")
-		(property "Reference" "#PWR012"
+		(property "Reference" "#PWR013"
 			(at 318.77 100.33 0)
 			(hide yes)
 			(show_name no)
@@ -15292,7 +15895,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR012")
+					(reference "#PWR013")
 					(unit 1)
 				)
 			)
@@ -15425,7 +16028,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "d3e45f74-977c-40fc-ae30-95e304d46884")
-		(property "Reference" "#PWR044"
+		(property "Reference" "#PWR046"
 			(at 331.47 247.65 0)
 			(hide yes)
 			(show_name no)
@@ -15485,7 +16088,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR044")
+					(reference "#PWR046")
 					(unit 1)
 				)
 			)
@@ -15630,7 +16233,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "d7c815ff-ff29-445a-a0d1-535707822f6c")
-		(property "Reference" "R38"
+		(property "Reference" "R4"
 			(at 275.59 55.8799 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -15727,7 +16330,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "R38")
+					(reference "R4")
 					(unit 1)
 				)
 			)
@@ -15973,7 +16576,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e07476ba-ee2e-47d5-a4c1-218d3cdfeee6")
-		(property "Reference" "#PWR043"
+		(property "Reference" "#PWR045"
 			(at 317.5 250.19 0)
 			(hide yes)
 			(show_name no)
@@ -16033,7 +16636,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR043")
+					(reference "#PWR045")
 					(unit 1)
 				)
 			)
@@ -16051,7 +16654,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e13b598a-5c83-4b9d-b968-018bd8a81f62")
-		(property "Reference" "#PWR034"
+		(property "Reference" "#PWR036"
 			(at 88.9 219.71 0)
 			(hide yes)
 			(show_name no)
@@ -16111,7 +16714,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR034")
+					(reference "#PWR036")
 					(unit 1)
 				)
 			)
@@ -16683,7 +17286,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "e8988320-44d0-4436-9bdb-e53f01c8333b")
-		(property "Reference" "#PWR049"
+		(property "Reference" "#PWR051"
 			(at 276.86 260.35 0)
 			(hide yes)
 			(show_name no)
@@ -16743,7 +17346,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR049")
+					(reference "#PWR051")
 					(unit 1)
 				)
 			)
@@ -16954,7 +17557,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f4b03538-5c42-4e13-8a8d-b09adda8b69d")
-		(property "Reference" "#PWR051"
+		(property "Reference" "#PWR053"
 			(at 181.61 261.62 0)
 			(hide yes)
 			(show_name no)
@@ -17014,7 +17617,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR051")
+					(reference "#PWR053")
 					(unit 1)
 				)
 			)
@@ -17145,7 +17748,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "f58bdf4e-d753-412e-a727-fa4089f14161")
-		(property "Reference" "#PWR029"
+		(property "Reference" "#PWR031"
 			(at 298.45 199.39 0)
 			(hide yes)
 			(show_name no)
@@ -17205,7 +17808,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5"
-					(reference "#PWR029")
+					(reference "#PWR031")
 					(unit 1)
 				)
 			)

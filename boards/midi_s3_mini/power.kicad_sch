@@ -640,6 +640,184 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "Jumper:SolderJumper_2_Open"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom no)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "JP"
+				(at 0 2.032 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "SolderJumper_2_Open"
+				(at 0 -2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 -7.62 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Solder Jumper, 2-pole, open"
+				(at 0 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "solder jumper SPST"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "SolderJumper*Open*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "SolderJumper_2_Open_0_1"
+				(polyline
+					(pts
+						(xy -0.254 1.016) (xy -0.254 -1.016)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(arc
+					(start -0.254 -1.016)
+					(mid -1.2656 0)
+					(end -0.254 1.016)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(arc
+					(start 0.254 1.016)
+					(mid 1.2656 0)
+					(end 0.254 -1.016)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type outline)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0.254 1.016) (xy 0.254 -1.016)
+					)
+					(stroke
+						(width 0.1524)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "SolderJumper_2_Open_1_1"
+				(pin passive line
+					(at -5.08 0 0)
+					(length 3.81)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 0 180)
+					(length 3.81)
+					(name "B"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "easyeda2kicad:0402WGF1501TCE"
 			(exclude_from_sim no)
 			(in_bom yes)
@@ -3852,6 +4030,172 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "easyeda2kicad:MF-R250"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "F"
+				(at 0 5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "MF-R250"
+				(at 0 -5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "easyeda2kicad:FUSE-TH_L12.8-W3.0-P5.80-D1.2-S2.20"
+				(at 0 -7.62 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" "https://lcsc.com/product-detail/PTC-Fuse_BOURNS_MF-R250_BOURNS-MF-R250_C208486.html"
+				(at 0 -10.16 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Manufacturer" "BOURNS"
+				(at 0 -12.7 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "MPN" "MF-R250"
+				(at 0 -15.24 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "LCSC Part" "C208486"
+				(at 0 -17.78 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "Resettable Fuses"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "MF-R250_0_1"
+				(rectangle
+					(start -2.54 1.02)
+					(end 2.54 -1.02)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(polyline
+					(pts
+						(xy -2.54 0) (xy 2.54 0)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(pin unspecified line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin unspecified line
+					(at 5.08 0 180)
+					(length 2.54)
+					(name "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "easyeda2kicad:P6SMB6.8CA-C78395"
 			(exclude_from_sim no)
 			(in_bom yes)
@@ -4956,6 +5300,17 @@
 			(embedded_fonts no)
 		)
 	)
+	(text "The 100nF cap\nG<->S allows a soft start\nwhich limits inrush to the \n1000uF bulk cap"
+		(exclude_from_sim no)
+		(at 68.58 42.418 0)
+		(effects
+			(font
+				(size 0.8 0.8)
+			)
+			(justify left)
+		)
+		(uuid "134d81ba-e85f-4b65-9c4f-3d3eabb0b0ab")
+	)
 	(text "With Ext + Without USB:\n\n3V3 is high, but S3_VBUS os floating.\nThis makes the S3's LDO see a reverse voltage\nwhich would fry it.\nThis diode sets the VBUS = 3.3V so there is almost\nno reverse voltage through it protecting it\n(it has a small body diode)\n\nVith Ext + With USB:\nS3 VBUS is +5V. The diode reverse bias and S3 VBUS 5V \nis isolated so it doesn't try to power the 5V rail from the USB.\n\nVithout Ext + With USB:\n3.3V is driven by the S3's LDO, but the 5V board rail is not powered,\nand the S3 VBUS is not driving anything."
 		(exclude_from_sim no)
 		(at 210.312 123.19 0)
@@ -5022,6 +5377,17 @@
 		)
 		(uuid "f384c53e-6865-4158-8979-a21e5ebcf917")
 	)
+	(text "The fuse is not going to be added initially,\nbut to not refab I provision in."
+		(exclude_from_sim no)
+		(at 56.642 7.366 0)
+		(effects
+			(font
+				(size 0.8 0.8)
+			)
+			(justify left)
+		)
+		(uuid "f6ce76af-a27b-4255-b260-59382a1d8592")
+	)
 	(junction
 		(at 24.13 30.48)
 		(diameter 0)
@@ -5035,10 +5401,22 @@
 		(uuid "13e396b1-54b0-4008-9136-aae0fc2ad15d")
 	)
 	(junction
+		(at 77.47 29.21)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "16994ae1-8621-46ac-a951-6f3560abef8b")
+	)
+	(junction
 		(at 54.61 116.84)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "32de9637-b353-4611-9596-e4f007b1ee1c")
+	)
+	(junction
+		(at 87.63 36.83)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "36fabeb4-c7c4-4409-8868-8e7a70e9959a")
 	)
 	(junction
 		(at 184.15 64.77)
@@ -5089,10 +5467,22 @@
 		(uuid "6fb64059-199e-49c8-8756-2054d472e64b")
 	)
 	(junction
+		(at 44.45 20.32)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "6fc28516-b3c9-49f8-8d7c-872d6eeca69b")
+	)
+	(junction
 		(at 78.74 116.84)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "70602174-d5e7-4197-a9cc-364f9fe4cb6c")
+	)
+	(junction
+		(at 40.64 20.32)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "7be0ade1-5f38-4cc3-a265-cc03c96d1c77")
 	)
 	(junction
 		(at 227.33 77.47)
@@ -5149,6 +5539,12 @@
 		(uuid "b7973355-8334-46f4-b6e0-e430b445a8f5")
 	)
 	(junction
+		(at 58.42 20.32)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b924575e-d3f1-487b-aa22-f05233861f7b")
+	)
+	(junction
 		(at 139.7 80.01)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -5185,12 +5581,6 @@
 		(uuid "e8da0754-abe6-4f3b-acfd-315c410efb2f")
 	)
 	(junction
-		(at 40.64 20.32)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "eb1950e1-e675-4473-9bd0-f8d91a484568")
-	)
-	(junction
 		(at 46.99 116.84)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -5207,6 +5597,16 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "fcfee88b-3729-42cf-9758-a9f8d81f05cc")
+	)
+	(wire
+		(pts
+			(xy 76.2 29.21) (xy 77.47 29.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "02021fa7-cda2-4da5-b6a6-199d9922ab10")
 	)
 	(wire
 		(pts
@@ -5320,7 +5720,7 @@
 	)
 	(wire
 		(pts
-			(xy 49.53 30.48) (xy 52.07 30.48)
+			(xy 49.53 30.48) (xy 60.96 30.48)
 		)
 		(stroke
 			(width 0)
@@ -5347,6 +5747,16 @@
 			(type default)
 		)
 		(uuid "2f1ac844-2303-4796-8bd9-94232951e309")
+	)
+	(wire
+		(pts
+			(xy 55.88 20.32) (xy 58.42 20.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "3166dd9f-547d-492a-a99f-2dbb4ccbe449")
 	)
 	(wire
 		(pts
@@ -5400,6 +5810,16 @@
 	)
 	(wire
 		(pts
+			(xy 45.72 20.32) (xy 44.45 20.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "45903798-eb14-4294-8fa0-fb65312e8c08")
+	)
+	(wire
+		(pts
 			(xy 119.38 90.17) (xy 119.38 95.25)
 		)
 		(stroke
@@ -5407,6 +5827,16 @@
 			(type default)
 		)
 		(uuid "46a88217-05a9-40e1-8cc8-c12444ce47fc")
+	)
+	(wire
+		(pts
+			(xy 77.47 29.21) (xy 82.55 29.21)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "50476ce1-c230-499a-976a-eb9021592df8")
 	)
 	(wire
 		(pts
@@ -5450,6 +5880,16 @@
 	)
 	(wire
 		(pts
+			(xy 58.42 20.32) (xy 60.96 20.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5fef4fd8-8c1c-4d8d-b08e-4de89bb3448f")
+	)
+	(wire
+		(pts
 			(xy 33.02 83.82) (xy 33.02 116.84)
 		)
 		(stroke
@@ -5457,6 +5897,16 @@
 			(type default)
 		)
 		(uuid "63ccfa60-c74a-473b-b6bc-529ebff4b44e")
+	)
+	(wire
+		(pts
+			(xy 44.45 20.32) (xy 40.64 20.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "73edc71a-17df-457b-afba-4108822eec5a")
 	)
 	(wire
 		(pts
@@ -5520,6 +5970,16 @@
 	)
 	(wire
 		(pts
+			(xy 77.47 39.37) (xy 82.55 39.37)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "98c0593c-243d-4124-90c0-82f51bca2c3c")
+	)
+	(wire
+		(pts
 			(xy 105.41 29.21) (xy 92.71 29.21)
 		)
 		(stroke
@@ -5580,16 +6040,6 @@
 	)
 	(wire
 		(pts
-			(xy 40.64 20.32) (xy 52.07 20.32)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "b00229c1-03da-4376-b747-db3d0099c6d7")
-	)
-	(wire
-		(pts
 			(xy 179.07 64.77) (xy 184.15 64.77)
 		)
 		(stroke
@@ -5630,6 +6080,16 @@
 	)
 	(wire
 		(pts
+			(xy 44.45 11.43) (xy 45.72 11.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c68381bb-9165-43f1-b6ad-089b5dbc4d45")
+	)
+	(wire
+		(pts
 			(xy 149.86 80.01) (xy 153.67 80.01)
 		)
 		(stroke
@@ -5640,6 +6100,16 @@
 	)
 	(wire
 		(pts
+			(xy 55.88 11.43) (xy 58.42 11.43)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ceda3d7e-570a-49a6-85ec-cf95abe5a7d0")
+	)
+	(wire
+		(pts
 			(xy 222.25 77.47) (xy 222.25 72.39)
 		)
 		(stroke
@@ -5647,6 +6117,16 @@
 			(type default)
 		)
 		(uuid "cf11e093-fee5-461f-aa8b-ed89f0f01245")
+	)
+	(wire
+		(pts
+			(xy 44.45 11.43) (xy 44.45 20.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d1b0ad2c-5f35-499c-b09c-508f687672a7")
 	)
 	(wire
 		(pts
@@ -5670,6 +6150,16 @@
 	)
 	(wire
 		(pts
+			(xy 58.42 11.43) (xy 58.42 20.32)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "da3edd3d-b4e6-4567-a584-c4285793785c")
+	)
+	(wire
+		(pts
 			(xy 46.99 116.84) (xy 78.74 116.84)
 		)
 		(stroke
@@ -5690,6 +6180,16 @@
 	)
 	(wire
 		(pts
+			(xy 82.55 39.37) (xy 82.55 36.83)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dfb753d1-ae67-4111-a2c6-dab0b3ab994b")
+	)
+	(wire
+		(pts
 			(xy 118.11 29.21) (xy 121.92 29.21)
 		)
 		(stroke
@@ -5707,6 +6207,16 @@
 			(type default)
 		)
 		(uuid "e891c6af-7ac5-4f9c-aa5d-3521e741e223")
+	)
+	(wire
+		(pts
+			(xy 82.55 36.83) (xy 87.63 36.83)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ec4a4153-e579-4547-9c2c-fdbbe4c4f2a8")
 	)
 	(wire
 		(pts
@@ -5740,7 +6250,7 @@
 	)
 	(wire
 		(pts
-			(xy 52.07 30.48) (xy 52.07 22.86)
+			(xy 60.96 30.48) (xy 60.96 22.86)
 		)
 		(stroke
 			(width 0)
@@ -5799,7 +6309,7 @@
 		(uuid "8422094e-23aa-45a2-afaf-fa99b4993999")
 	)
 	(label "VIN_5V"
-		(at 82.55 29.21 180)
+		(at 76.2 29.21 180)
 		(effects
 			(font
 				(size 1.27 1.27)
@@ -5807,6 +6317,30 @@
 			(justify right bottom)
 		)
 		(uuid "af0e6105-b91d-4095-949d-8f6459bb83c7")
+	)
+	(global_label "S3_3.3V"
+		(shape input)
+		(at 190.5 120.65 0)
+		(fields_autoplaced yes)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "293a1dd8-d63c-4f42-944d-5bc34dbb099e")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 200.9842 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
 	)
 	(global_label "S3_VBUS_5V"
 		(shape input)
@@ -5868,7 +6402,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "0289dde0-9d64-46d3-9d07-052b8b0f050b")
-		(property "Reference" "#PWR066"
+		(property "Reference" "#PWR068"
 			(at 118.11 62.23 0)
 			(hide yes)
 			(show_name no)
@@ -5928,7 +6462,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR066")
+					(reference "#PWR068")
 					(unit 1)
 				)
 			)
@@ -6255,7 +6789,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "0a5b1a9a-7518-42cf-a5a6-b1a88a9297c7")
-		(property "Reference" "#PWR067"
+		(property "Reference" "#PWR069"
 			(at 179.07 68.58 0)
 			(hide yes)
 			(show_name no)
@@ -6315,7 +6849,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR067")
+					(reference "#PWR069")
 					(unit 1)
 				)
 			)
@@ -6674,84 +7208,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+3.3V")
-		(at 190.5 120.65 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "23477e70-387f-4fa9-b164-f4977d36cc30")
-		(property "Reference" "#PWR074"
-			(at 190.5 124.46 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "+3.3V"
-			(at 190.5 115.57 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 190.5 120.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 190.5 120.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+3.3V\""
-			(at 190.5 120.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "1"
-			(uuid "de06a6c4-aa07-4b84-9aae-2b2e803a82be")
-		)
-		(instances
-			(project "midi_s3_mini"
-				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR074")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "easyeda2kicad:CL05B104KB54PNC")
 		(at 144.78 95.25 180)
 		(unit 1)
@@ -6876,7 +7332,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2c0c37cf-ddfc-4657-97f7-8b7e14e471af")
-		(property "Reference" "#PWR068"
+		(property "Reference" "#PWR072"
 			(at 227.33 93.98 0)
 			(hide yes)
 			(show_name no)
@@ -6936,7 +7392,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR068")
+					(reference "#PWR072")
 					(unit 1)
 				)
 			)
@@ -6954,7 +7410,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "2d1bc544-3bbb-489a-bceb-ef6a6c1df68f")
-		(property "Reference" "#PWR071"
+		(property "Reference" "#PWR073"
 			(at 129.54 101.6 0)
 			(hide yes)
 			(show_name no)
@@ -7014,7 +7470,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR071")
+					(reference "#PWR073")
 					(unit 1)
 				)
 			)
@@ -7032,7 +7488,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "3147b8a2-c664-42d4-9229-a032dd5fb29f")
-		(property "Reference" "#PWR065"
+		(property "Reference" "#PWR067"
 			(at 87.63 53.34 0)
 			(hide yes)
 			(show_name no)
@@ -7092,7 +7548,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR065")
+					(reference "#PWR067")
 					(unit 1)
 				)
 			)
@@ -7100,7 +7556,7 @@
 	)
 	(symbol
 		(lib_id "Connector:Screw_Terminal_01x02")
-		(at 57.15 20.32 0)
+		(at 66.04 20.32 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -7111,7 +7567,7 @@
 		(fields_autoplaced yes)
 		(uuid "337e5f03-c4cc-4bc5-b5e2-256dd88cba12")
 		(property "Reference" "J13"
-			(at 59.69 20.3199 0)
+			(at 68.58 20.3199 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7122,7 +7578,7 @@
 			)
 		)
 		(property "Value" "PowerIn"
-			(at 59.69 22.8599 0)
+			(at 68.58 22.8599 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7133,7 +7589,7 @@
 			)
 		)
 		(property "Footprint" "TerminalBlock_Altech:Altech_AK300_1x02_P5.00mm_45-Degree"
-			(at 57.15 20.32 0)
+			(at 66.04 20.32 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7144,7 +7600,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 57.15 20.32 0)
+			(at 66.04 20.32 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7155,7 +7611,7 @@
 			)
 		)
 		(property "Description" "Generic screw terminal, single row, 01x02, script generated (kicad-library-utils/schlib/autogen/connector/)"
-			(at 57.15 20.32 0)
+			(at 66.04 20.32 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7271,7 +7727,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "382086cf-0bdc-41db-92ba-034f2deac110")
-		(property "Reference" "#PWR070"
+		(property "Reference" "#PWR071"
 			(at 243.84 91.44 0)
 			(hide yes)
 			(show_name no)
@@ -7331,7 +7787,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR070")
+					(reference "#PWR071")
 					(unit 1)
 				)
 			)
@@ -7539,7 +7995,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "463ece33-7358-489f-ae58-ad9311d70666")
-		(property "Reference" "#PWR063"
+		(property "Reference" "#PWR065"
 			(at 24.13 36.83 0)
 			(hide yes)
 			(show_name no)
@@ -7599,7 +8055,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR063")
+					(reference "#PWR065")
 					(unit 1)
 				)
 			)
@@ -7617,7 +8073,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "47ba9e60-a774-4613-8be1-28a5868f9df2")
-		(property "Reference" "#PWR064"
+		(property "Reference" "#PWR066"
 			(at 105.41 45.72 0)
 			(hide yes)
 			(show_name no)
@@ -7677,7 +8133,122 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR064")
+					(reference "#PWR066")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "easyeda2kicad:CL05B104KB54PNC")
+		(at 77.47 34.29 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "4b334381-7e01-4018-90a8-3ec18fae4e23")
+		(property "Reference" "C21"
+			(at 81.28 33.0199 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Value" "100n"
+			(at 81.28 35.5599 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:C0402"
+			(at 85.09 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/Others_Samsung-Electro-Mechanics_CL05B104KB54PNC_Samsung-Electro-Mechanics-CL05B104KB54PNC_C307331.html"
+			(at 87.63 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 77.47 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "SAMSUNG(三星)"
+			(at 90.17 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "CL05B104KB54PNC"
+			(at 92.71 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C307331"
+			(at 95.25 34.29 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "afecea24-e8f4-472f-8534-b24dc7a05038")
+		)
+		(pin "1"
+			(uuid "72d3681f-5f63-41b3-9f68-01a5b9fb06be")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
+					(reference "C21")
 					(unit 1)
 				)
 			)
@@ -7695,7 +8266,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "5403c373-8177-4227-9425-c5d87090165a")
-		(property "Reference" "#PWR062"
+		(property "Reference" "#PWR064"
 			(at 118.11 29.21 0)
 			(hide yes)
 			(show_name no)
@@ -7756,7 +8327,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR062")
+					(reference "#PWR064")
 					(unit 1)
 				)
 			)
@@ -8194,7 +8765,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "7056d61f-3327-4025-a71b-fcac7facdbf0")
-		(property "Reference" "R4"
+		(property "Reference" "R32"
 			(at 229.87 71.1199 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8291,7 +8862,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "R4")
+					(reference "R32")
 					(unit 1)
 				)
 			)
@@ -8309,7 +8880,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "70f917ed-3de3-4acd-8896-f915c377af67")
-		(property "Reference" "R3"
+		(property "Reference" "R34"
 			(at 229.87 81.2799 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8406,7 +8977,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "R3")
+					(reference "R34")
 					(unit 1)
 				)
 			)
@@ -8539,7 +9110,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "74f75882-238e-4215-8f5c-a81e5744dd36")
-		(property "Reference" "#PWR075"
+		(property "Reference" "#PWR076"
 			(at 78.74 130.81 0)
 			(hide yes)
 			(show_name no)
@@ -8599,7 +9170,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR075")
+					(reference "#PWR076")
 					(unit 1)
 				)
 			)
@@ -8617,7 +9188,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "751dd9e8-f47e-45a7-8941-3e5857fc6382")
-		(property "Reference" "#PWR073"
+		(property "Reference" "#PWR075"
 			(at 85.09 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -8678,7 +9249,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR073")
+					(reference "#PWR075")
 					(unit 1)
 				)
 			)
@@ -8890,7 +9461,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "984b3cac-817c-4fa7-bbd7-6eb7c0e77f97")
-		(property "Reference" "R34"
+		(property "Reference" "R33"
 			(at 246.38 78.7399 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8987,7 +9558,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "R34")
+					(reference "R33")
 					(unit 1)
 				)
 			)
@@ -9465,7 +10036,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "aedf312b-388d-4a42-b5cd-0595c396b742")
-		(property "Reference" "#PWR069"
+		(property "Reference" "#PWR070"
 			(at 179.07 88.9 0)
 			(hide yes)
 			(show_name no)
@@ -9525,7 +10096,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR069")
+					(reference "#PWR070")
 					(unit 1)
 				)
 			)
@@ -9659,7 +10230,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "ba196986-606a-48e3-b6e0-6745eeabb45a")
-		(property "Reference" "#PWR077"
+		(property "Reference" "#PWR078"
 			(at 54.61 143.51 0)
 			(hide yes)
 			(show_name no)
@@ -9719,7 +10290,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR077")
+					(reference "#PWR078")
 					(unit 1)
 				)
 			)
@@ -9917,6 +10488,199 @@
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
 					(reference "JP1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "easyeda2kicad:MF-R250")
+		(at 50.8 11.43 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "c223bc44-666f-4c0e-9c45-907f7e9e850c")
+		(property "Reference" "F1"
+			(at 50.8 5.08 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "MF-R250"
+			(at 50.8 7.62 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "easyeda2kicad:FUSE-TH_L12.8-W3.0-P5.80-D1.2-S2.20"
+			(at 50.8 19.05 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" "https://lcsc.com/product-detail/PTC-Fuse_BOURNS_MF-R250_BOURNS-MF-R250_C208486.html"
+			(at 50.8 21.59 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 50.8 11.43 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Manufacturer" "BOURNS"
+			(at 50.8 24.13 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "MPN" "MF-R250"
+			(at 50.8 26.67 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "LCSC Part" "C208486"
+			(at 50.8 29.21 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "f4535eb7-afde-4912-bdcd-042bf50f6d77")
+		)
+		(pin "1"
+			(uuid "306a5376-80da-463e-bda0-cfc4fc01ff2d")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
+					(reference "F1")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Jumper:SolderJumper_2_Open")
+		(at 50.8 20.32 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom no)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "cf3194ad-dbab-4909-b025-2002408f6915")
+		(property "Reference" "JP2"
+			(at 50.8 13.97 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "SolderJumper_2_Open"
+			(at 50.8 16.51 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Jumper:SolderJumper-2_P1.3mm_Open_TrianglePad1.0x1.5mm"
+			(at 50.8 20.32 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 50.8 27.94 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Solder Jumper, 2-pole, open"
+			(at 50.8 25.4 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "1"
+			(uuid "a4f2d533-737e-4053-b925-aa46957b9e62")
+		)
+		(pin "2"
+			(uuid "bd7d3951-1994-40a8-9f65-b79adf5bdc95")
+		)
+		(instances
+			(project "midi_s3_mini"
+				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
+					(reference "JP2")
 					(unit 1)
 				)
 			)
@@ -10473,7 +11237,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "db8fc2c0-632b-4228-90c5-6275f844ed59")
-		(property "Reference" "#PWR072"
+		(property "Reference" "#PWR074"
 			(at 97.79 106.68 0)
 			(hide yes)
 			(show_name no)
@@ -10533,7 +11297,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR072")
+					(reference "#PWR074")
 					(unit 1)
 				)
 			)
@@ -10551,7 +11315,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "efa9df24-b094-4941-9cf4-eae150a79990")
-		(property "Reference" "#PWR076"
+		(property "Reference" "#PWR077"
 			(at 87.63 140.97 0)
 			(hide yes)
 			(show_name no)
@@ -10611,7 +11375,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "#PWR076")
+					(reference "#PWR077")
 					(unit 1)
 				)
 			)
@@ -10706,7 +11470,7 @@
 		(dnp no)
 		(fields_autoplaced yes)
 		(uuid "fa744f0b-2ac9-478a-b888-a8a4e8b1f4ee")
-		(property "Reference" "C21"
+		(property "Reference" "C13"
 			(at 44.45 24.1299 90)
 			(show_name no)
 			(do_not_autoplace no)
@@ -10803,7 +11567,7 @@
 		(instances
 			(project "midi_s3_mini"
 				(path "/4a4c0c1b-df1c-48df-9685-1cfae0dce3a5/4b6ad378-0845-4934-aae1-629acf6eca96"
-					(reference "C21")
+					(reference "C13")
 					(unit 1)
 				)
 			)
