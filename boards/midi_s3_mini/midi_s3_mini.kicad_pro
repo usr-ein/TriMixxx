@@ -529,7 +529,7 @@
         "wire_width": 6
       },
       {
-        "clearance": 0.3,
+        "clearance": 0.2938,
         "name": "HighPower",
         "pcb_color": "rgb(255, 153, 0)",
         "priority": 0,
