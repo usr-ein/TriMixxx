@@ -166,6 +166,7 @@ Derived from modelling:
 	- -- For Now I will use the 0.7mm wire dia.
 - `btn_spring_id` The inner dia of the spring's coil. Function of `btn_spring_wire_dia` = `btn_spring_od - 2* btn_spring_wire_dia`. Confirmed experimentally.
 - `btn_compliant_join_bar_h` the height of the bar that joins the buttons together onto a compliant structure. This adds to the distance between the PCB and the  `1mm`
+- `btn_1btn_pcb_h` The height of the 1btn pcb to the underside of the top plate. Since they're smaller boards, I'm putting them closer to the top plate. `3mm`
 
 ### Screen half (SH)
 
@@ -249,5 +250,9 @@ They're pitched at 0.5 by standard.
 
 - Thread major diameter: 3.0 mm nominal (min 2.98mm)
 - `s_head_dia` Head diameter: 5.5 mm nominal (5.68 mm max)
-- `s_insert_od` screw insert outer diameter 4.7mm
+- `s_insert_od` screw insert outer diameter ~4.7mm~
+  - I started with 4.7mm: way too big, the spec says they're 4.6mm
+  - I moved to 4.55mm: okay, but easy to pull out with overtwisting the screw
+  - Now I moved to **4.00mm**.
+  - Main shaft is 3.9mm, and with the "teeth" on each side, the insert full dia is 4.65mm for the top teeth, and 4.40mm for the bottom teeth. The teethless bottom shaft is 3.9mm, so for both teeth to bite well, I think 4.00mm plastic sleeves is good. The plastic will melt by 0.4mm on the bottom teeth, giving 0.2mm of molten plastic per side.
 - `s_bore_dia` Bore hole (the hole where the screwdriver/allen key fits) diameter: 7mm
