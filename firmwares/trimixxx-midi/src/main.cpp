@@ -16,7 +16,7 @@
 //  UART allocation on the ESP32-S3:
 //    UART0 (Serial0) -> Raspberry Pi   (IO43 TX, IO44 RX)  -- MIDI, 3.3V
 //    UART1 (Serial1) -> OneButton ring A                   -- 5V, needs shifter
-//    UART2           -> reserved for a 2nd OneButton ring (not built)
+//    UART2 (Serial2) -> OneButton ring B  (IO13 TX, IO12 RX)  -- 5V, needs shifter
 //
 //  Every control has a driver: ring pads, jog, tempo, track encoder, play/cue,
 //  loop. main wires them to MIDI; each module self-tests via debug() (below).
@@ -36,6 +36,15 @@
 OneButtonRing ringA(Serial1, RING_A_TX, RING_A_RX, RING_A_NODES, 500000,
                     /*core=*/0); // 500 kbps: MUST match the node firmware
 
+// ---- Ring B (UART2) -------------------------------------------------------
+#define RING_B_TX 13
+#define RING_B_RX 12
+#define RING_B_NODES 50
+OneButtonRing ringB(Serial2, RING_B_TX, RING_B_RX, RING_B_NODES, 500000,
+                    /*core=*/0); // shares core 0 with ring A; both block on UART + yield
+// Ring B pads/LEDs are on the MIDI bus like ring A: pad notes at PAD_B_BASE, and
+// RGB via SysEx cmd 0x03. The Mixxx mapping must add matching addresses.
+
 // ---- Pi MIDI link on UART0 ------------------------------------------------
 #define PI_TX 43
 #define PI_RX 44
@@ -44,7 +53,7 @@ PiLink pi(Serial0, PI_TX, PI_RX, 115200);
 // ---- Jog wheel (PCNT quad + touch) ----------------------------------------
 #define JOG_A 6
 #define JOG_B 7
-#define JOG_TCH 14
+#define JOG_TCH 11
 // Touch is active-low (built in). Encoder needs no pull (OPIC drives it);
 // set encoderPullup=true only as insurance against phantom counts if the
 // jog cable is ever unplugged.
@@ -68,14 +77,20 @@ TrackEncoder trackEnc(ENC_CLK, ENC_DT, ENC_SW);
 PlayCueBoard playCue;
 LoopBoard    loopBoard;
 
-static bool padPendingOff[RING_A_NODES] = {false};
+static bool padPendingOff[RING_A_NODES]  = {false};
+static bool padPendingOffB[RING_B_NODES] = {false};
 
 // -------- incoming MIDI from Mixxx -> LEDs (Mixxx owns LED state) ----------
 static void onMidiFromMixxx(uint8_t status, uint8_t d1, uint8_t d2, void* ctx) {
     uint8_t type = status & 0xF0;
-    if (type == 0x90 && d1 >= midimap::PAD_BASE && d1 < midimap::PAD_BASE + RING_A_NODES) {
-        uint8_t pad = d1 - midimap::PAD_BASE;
+    if (type == 0x90 && d1 >= midimap::PAD_A_BASE && d1 < midimap::PAD_A_BASE + RING_A_NODES) {
+        uint8_t pad = d1 - midimap::PAD_A_BASE;
         ringA.setLed(pad, 0, d2, d2, d2); // velocity = white brightness
+        return;
+    }
+    if (type == 0x90 && d1 >= midimap::PAD_B_BASE && d1 < midimap::PAD_B_BASE + RING_B_NODES) {
+        uint8_t pad = d1 - midimap::PAD_B_BASE;
+        ringB.setLed(pad, 0, d2, d2, d2); // velocity = white brightness
         return;
     }
     // Play/cue + loop LEDs: Note-On velocity>0 = on, Note-Off (or vel 0) = off.
@@ -98,6 +113,19 @@ static void onMidiFromMixxx(uint8_t status, uint8_t d1, uint8_t d2, void* ctx) {
 //  each one keeps its full 0..255 range despite SysEx's 7-bit data limit.
 static inline uint8_t nib(const uint8_t* p) { return (uint8_t)((p[0] << 4) | (p[1] & 0x0F)); }
 
+// Apply a ring-LED SysEx (cmd 0x01 = ring A, 0x03 = ring B) to one ring. args[0]
+// = node; then colour nibble-pairs R,G,B -- 6 args = one colour on both LEDs, 12
+// = LED0 then LED1 independently. Wrong length or node out of range = ignored.
+static void applyRingLed(OneButtonRing& ring, uint8_t maxNodes, const uint8_t* args, uint8_t n) {
+    if (n != midimap::SYSEX_RING_LED_ARGS_ONE && n != midimap::SYSEX_RING_LED_ARGS_TWO) return;
+    const uint8_t node = args[0];
+    if (node >= maxNodes) return;
+    const uint8_t r1 = nib(args + 1), g1 = nib(args + 3), b1 = nib(args + 5);
+    ring.setLed(node, 0, r1, g1, b1);
+    if (n == midimap::SYSEX_RING_LED_ARGS_ONE) ring.setLed(node, 1, r1, g1, b1); // mirror onto LED1
+    else ring.setLed(node, 1, nib(args + 7), nib(args + 9), nib(args + 11));
+}
+
 static void onSysExFromMixxx(const uint8_t* payload, uint8_t len, void* ctx) {
     if (len < 2 || payload[0] != midimap::SYSEX_MFR_ID) return; // not ours
     const uint8_t  cmd  = payload[1];
@@ -105,17 +133,8 @@ static void onSysExFromMixxx(const uint8_t* payload, uint8_t len, void* ctx) {
     const uint8_t  n    = len - 2;
 
     switch (cmd) {
-    case midimap::SYSEX_CMD_RING_LED: {
-        if (n != midimap::SYSEX_RING_LED_ARGS_ONE && n != midimap::SYSEX_RING_LED_ARGS_TWO) return;
-        const uint8_t node = args[0];
-        if (node >= RING_A_NODES) return;
-        const uint8_t r1 = nib(args + 1), g1 = nib(args + 3), b1 = nib(args + 5);
-        ringA.setLed(node, 0, r1, g1, b1);
-        // Short form (one colour): mirror it onto LED1 so both match.
-        if (n == midimap::SYSEX_RING_LED_ARGS_ONE) ringA.setLed(node, 1, r1, g1, b1);
-        else ringA.setLed(node, 1, nib(args + 7), nib(args + 9), nib(args + 11));
-        return;
-    }
+    case midimap::SYSEX_CMD_RING_LED: applyRingLed(ringA, RING_A_NODES, args, n); return;
+    case midimap::SYSEX_CMD_RING_B_LED: applyRingLed(ringB, RING_B_NODES, args, n); return;
     case midimap::SYSEX_CMD_RESET: {
         // Magic-gated so a stray/corrupt SysEx can never reboot the deck mid-set.
         if (n != sizeof(midimap::SYSEX_RESET_MAGIC)) return;
@@ -152,6 +171,23 @@ static void tempoPollTask(void*) {
     for (;;) {
         tempo.poll();
         vTaskDelay(pdMS_TO_TICKS(4)); // ~6ms cadence (poll ~2ms + 4ms) -- ample for a fader
+    }
+}
+
+// Ring pads -> MIDI: Note-On on a latched press, Note-Off when released. Nodes
+// past the ring's enumerated count read !pressed/!level, so unused pads never
+// fire. Shared by both rings; each has its own note base + pending array.
+static void ringPadsToMidi(OneButtonRing& ring, uint8_t base, uint8_t count, bool* pending) {
+    for (uint8_t i = 0; i < count; i++) {
+        const bool held = ring.level(i);
+        if (ring.pressed(i)) {
+            pi.noteOn(base + i, 127);
+            pending[i] = true;
+        }
+        if (pending[i] && !held) {
+            pi.noteOff(base + i);
+            pending[i] = false;
+        }
     }
 }
 
@@ -348,6 +384,7 @@ void setup() {
     trackEnc.begin();
 
     if (!ringA.begin()) Serial.println("ringA: allocation failed");
+    if (!ringB.begin()) Serial.println("ringB: allocation failed");
 
     playCue.begin();
     loopBoard.begin();
@@ -387,6 +424,7 @@ void loop() {
 #if DECK_DEBUG
     // Each module self-tests; no MIDI is sent.
     ringA.debug();
+    ringB.debug();
     playCue.debug();
     loopBoard.debug();
     jog.debug();
@@ -424,18 +462,9 @@ void loop() {
     if ((uint32_t)(nowMs - lastCtrlMs) < CTRL_POLL_MS) return; // unsigned: rollover-safe
     lastCtrlMs = nowMs;
 
-    // ---- ring pads -> MIDI notes ----
-    for (uint8_t i = 0; i < RING_A_NODES; i++) {
-        bool held = ringA.level(i);
-        if (ringA.pressed(i)) {
-            pi.noteOn(midimap::PAD_BASE + i, 127);
-            padPendingOff[i] = true;
-        }
-        if (padPendingOff[i] && !held) {
-            pi.noteOff(midimap::PAD_BASE + i);
-            padPendingOff[i] = false;
-        }
-    }
+    // ---- ring pads -> MIDI notes (both rings) ----
+    ringPadsToMidi(ringA, midimap::PAD_A_BASE, RING_A_NODES, padPendingOff);
+    ringPadsToMidi(ringB, midimap::PAD_B_BASE, RING_B_NODES, padPendingOffB);
 
     // ---- jog touch -> scratch enable note (sample-count debounce: keep at 2ms) ----
     jog.poll();

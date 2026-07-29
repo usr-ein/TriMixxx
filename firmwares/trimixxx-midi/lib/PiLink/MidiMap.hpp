@@ -9,9 +9,15 @@
 namespace midimap {
 constexpr uint8_t CHANNEL = 0; // MIDI channel 1
 
-// ---- Ring pads: node i  <->  note PAD_BASE + i (0..49) ----
-constexpr uint8_t PAD_BASE  = 0; // notes 0x00..0x31
-constexpr uint8_t PAD_COUNT = 50;
+// ---- Ring A pads: node i  <->  note PAD_A_BASE + i (0..49) ----
+constexpr uint8_t PAD_A_BASE  = 0; // notes 0x00..0x31
+constexpr uint8_t PAD_A_COUNT = 50;
+
+// ---- Ring B pads: node i  <->  note PAD_B_BASE + i ----
+// Placed above the named controls (60..66); ring A already owns 0..49. 50-wide
+// reservation matches ring A even though fewer nodes are populated today.
+constexpr uint8_t PAD_B_BASE  = 67; // notes 0x43..0x74
+constexpr uint8_t PAD_B_COUNT = 50;
 
 // ---- Transport (play/cue board) ----  notes, LED feedback on same note
 constexpr uint8_t NOTE_PLAY = 60; // 0x3C
@@ -57,6 +63,9 @@ constexpr uint8_t SYSEX_MFR_ID = 0x7D; // reserved non-commercial/educational ID
 constexpr uint8_t SYSEX_CMD_RING_LED      = 0x01;
 constexpr uint8_t SYSEX_RING_LED_ARGS_ONE = 1 + 6;  // node + 3 channels x 2 nibbles
 constexpr uint8_t SYSEX_RING_LED_ARGS_TWO = 1 + 12; // node + 6 channels x 2 nibbles
+
+// ---- CMD 0x03: identical layout + semantics to 0x01, but targets ring B ----
+constexpr uint8_t SYSEX_CMD_RING_B_LED = 0x03;
 
 // ---- CMD 0x02: reboot the S3 (equivalent to the physical RESET button) ----
 //   F0 7D 02 52 53 54 F7      ("RST")
