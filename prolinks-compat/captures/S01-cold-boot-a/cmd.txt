@@ -1,0 +1,1 @@
+sudo tcpdump -i bridge1 -s 0 -n -w captures/S01-cold-boot-a/run.pcap

@@ -1,6 +1,16 @@
-# Network captures, journals and fetched media. Large, machine-specific,
-# and regenerated on demand. Fixtures under fixtures/ ARE committed.
-captures/
+# Capture payloads are large, binary and machine-specific -- but the NOTES.md
+# beside them is the part that makes a capture interpretable six months later,
+# so those are tracked. A small, interesting pcap can be force-added as a
+# fixture with `git add -f`.
+# A global ignore (~/.gitignore_global) excludes `captures/` outright, and an
+# excluded *directory* stops git descending into it -- so the directory has to
+# be un-ignored first before anything inside can be selectively kept.
+!captures/
+captures/*
+!captures/*/
+captures/*/*
+!captures/*/NOTES.md
+!captures/*/cmd.txt
 
 # Local cache of files pulled off CDJs
 cache/
