@@ -56,6 +56,7 @@ and analysis files · **METH** capture methodology.
 | [F36](#f36) | DISC | **Auto numbering**: byte `31` = `01`, and a type-`05` "number in use" reply |
 | [F37](#f37) | NFS | SD is `/B/`; **one** dbserver connection multiplexes both slots by descriptor byte |
 | [F38](#f38) | STAT | **LOAD SETTINGS** is a UDP `0x35`/`0x36` exchange reading `PIONEER/MYSETTING.DAT` |
+| [F39](#f39) | — | **All four containers play and settings load.** Serve objective complete |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1447,6 +1448,34 @@ that is open.
 enumerations (`80`/`81`/`88`/`01`/`00`) but nothing maps them to the named
 options on the deck's screen, and a server only has to hand over what the medium
 holds. Decoding them would be needed to *display* settings, not to serve them.
+
+
+<a id="f39"></a>
+
+### F39 — **Every supported container plays, and settings load.** Serve objective complete
+
+With item 1 of `GET_TRACK_INFO` carrying the container from pdb `0x5a`, a real
+CDJ-2000NXS loads and plays all four formats off the Mac. **Zero dbserver
+errors** in the session — 1089 messages, none refused.
+
+| File | READs | highest byte touched |
+|---|---|---|
+| `37 AIFF 16b 44k1.aiff` | 704 | 75,081,912 |
+| `33 WAV 16b 44k1.wav` | 603 | 74,972,300 |
+| `03 MP3 MPEG1 128k 44k1.mp3` | 95 | 6,911,124 |
+| `29 AAC 128k 44k1 st.m4a` | 89 | 7,078,404 |
+
+The two lossless files are ~75 MB and the deck read across their whole length —
+so streaming a 24-bit-scale file over NFS from a general-purpose host holds up,
+not just the small compressed ones. The MP3 is the disc-2 track that F34's
+regression broke, which confirms that fix is genuinely gone rather than masked.
+
+`LOAD SETTINGS` also worked in the same run: one `0x35`, one `0x36`, answered
+from the medium's own `MYSETTING.DAT` (F38).
+
+**Both objectives are now demonstrated end to end against real hardware.** What
+remains in Phase A is the two-slot work (F37) and the unexplained fields listed
+in `STATUS.md`, none of which block anything.
 
 
 

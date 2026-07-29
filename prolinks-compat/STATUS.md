@@ -42,7 +42,7 @@ A real CDJ-2000NXS, with nothing but a Mac and a USB stick on the other end:
 | Category contents list, with pagination | works | F27 |
 | Metadata + artwork on the INFO screen | works | F27 |
 | NFS mount, path walk to the audio file | works | F28 |
-| **Load and play a track** | works | F30, F31, F32 |
+| **Load and play a track** | works — MP3, AAC, WAV, AIFF | F30-F32, F35, F39 |
 | Hot cues, preview waveform, scrubbing | works | F32 |
 | LOAD SETTINGS from our medium | works | F38 |
 | **Scrolling (main) waveform** | works | F33 |
@@ -64,8 +64,9 @@ tidying rather than discovery:
   unknown (F35);
 - `0x3d03` is acknowledged with a guessed reply — no capture shows a real one.
 
-All four containers should now load: item 1 of `GET_TRACK_INFO` carries the
-container, taken from pdb offset `0x5a` (F34, F35).
+All four supported containers play, including 75 MB lossless files read across
+their whole length, and LOAD SETTINGS works. Zero dbserver errors in the
+session (F39).
 
 ## Next up — two media at once
 
