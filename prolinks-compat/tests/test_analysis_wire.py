@@ -81,7 +81,7 @@ def test_beat_grid_prefix_and_entries():
     )
     constant, count, entry_bytes, one, opaque = struct.unpack_from("<5I", grid, 0)
     assert (constant, count, entry_bytes, one) == (0x80000, 3, 48, 1)
-    assert opaque == wire.PREFIX_OPAQUE
+    assert opaque >= wire._OPAQUE_BASE, "must be non-zero and deck-shaped"
 
     # The file's 8-byte big-endian entry becomes 8 little-endian bytes plus a
     # 0xff pad, for 16 -- confirmed against all 1038 entries of the capture.
@@ -120,7 +120,7 @@ def test_waveform_detail_is_the_payload_verbatim_behind_a_prefix():
     )
     count, width, count2, fps, opaque = struct.unpack_from("<5I", out, 0)
     assert (count, width, count2, fps) == (len(payload), 1, len(payload), 0x96)
-    assert opaque == wire.PREFIX_OPAQUE
+    assert opaque >= wire._OPAQUE_BASE, "must be non-zero and deck-shaped"
     assert out[20:] == payload
 
 
@@ -139,3 +139,16 @@ def test_a_missing_file_or_tag_yields_an_empty_blob(convert):
 def test_missing_cue_tag_yields_an_empty_reply():
     assert wire.cue_points(None) == (b"", 0, b"")
     assert wire.cue_points(container()) == (b"", 0, b"")
+
+
+def test_the_opaque_prefix_word_is_non_zero_and_advances():
+    """docs/FINDINGS.md O7, under test.
+
+    A real deck's value is per-reply and monotonic, not a property of the
+    track: the two observed values are for the same track in the same load.
+    Sending zero was the last difference between our replies and a real one.
+    """
+    first = wire.prefix_opaque()
+    assert first != 0
+    assert first >= wire._OPAQUE_BASE
+    assert wire.prefix_opaque() >= first, "must never go backwards"

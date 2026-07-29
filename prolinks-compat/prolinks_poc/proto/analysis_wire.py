@@ -14,24 +14,48 @@ the tests reproduce the captured bytes exactly.
 One field defeats derivation. Both the beat grid and the detail waveform carry
 a fifth prefix word (``0x06114a48`` and ``0x0612e0b4`` in that capture) that is
 neither in the file nor a function of it, and differs between two replies
-recorded seconds apart. It has the look of a pointer or a timestamp on the
-serving deck. We send zero. If a player ever turns out to care, this is the
-field to suspect.
+recorded seconds apart -- for the same track. See :func:`prefix_opaque`.
 """
 
 from __future__ import annotations
 
 import struct
+import time
 
 from . import anlz
 
 __all__ = [
     "vbr_index", "beat_grid", "waveform_preview", "waveform_detail",
-    "cue_points", "PREFIX_OPAQUE",
+    "cue_points", "prefix_opaque",
 ]
 
-#: The prefix word we cannot derive; see the module docstring.
-PREFIX_OPAQUE = 0
+#: Base and rate for the fifth prefix word; see :func:`prefix_opaque`.
+_OPAQUE_BASE = 0x06000000
+_OPAQUE_RATE = 40_000
+_STARTED = time.monotonic()
+
+
+def prefix_opaque() -> int:
+    """The fifth prefix word of ``BEAT_GRID`` and ``WAVEFORM_DETAIL``.
+
+    We cannot derive it. What is known: the two observed values,
+    ``0x06114a48`` and ``0x0612e0b4``, are **for the same track in the same
+    load**, so it is not a property of the content -- it is per reply. They are
+    2.58 s apart and differ by 104,044, i.e. roughly 40,000 per second, which
+    makes it a free-running counter or an allocator address on the serving
+    deck. Either way a client cannot validate it.
+
+    So this emits a counter of the same shape rather than a constant. That is a
+    **hypothesis under test**: after everything else in a load was made
+    byte-identical to a real deck's, this word -- sent as zero -- was the only
+    remaining difference, and it appears in exactly the two replies that feed
+    the main waveform, which is the one thing that still does not display. If a
+    non-zero value changes nothing, the cause is outside these replies and this
+    should go back to being a constant.
+    """
+    elapsed = time.monotonic() - _STARTED
+    return (_OPAQUE_BASE + int(elapsed * _OPAQUE_RATE)) & 0xFFFFFFFF
+
 
 #: A tag payload is a run of big-endian words; the wire wants them
 #: little-endian. Applied whole-payload where the layout is otherwise unchanged.
@@ -88,7 +112,7 @@ def beat_grid(dat: anlz.AnlzFile | None) -> bytes:
     )
     # Word 0 is the tag's own constant; word 2 is the entry-block length.
     prefix = struct.pack(
-        "<5I", 0x80000, count, len(entries), 1, PREFIX_OPAQUE
+        "<5I", 0x80000, count, len(entries), 1, prefix_opaque()
     )
     return prefix + entries
 
@@ -133,7 +157,7 @@ def waveform_detail(ext: anlz.AnlzFile | None) -> bytes:
     if len(tag.raw) >= 24:
         width = struct.unpack_from(">I", tag.raw, 12)[0] or 1
     prefix = struct.pack(
-        "<5I", len(payload), width, len(payload), 0x96, PREFIX_OPAQUE
+        "<5I", len(payload), width, len(payload), 0x96, prefix_opaque()
     )
     return prefix + payload
 

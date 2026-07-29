@@ -31,7 +31,7 @@ same file read off the physically ejected stick, modulo two header bytes the
 deck itself rewrites (F13 — this is why the Mixxx cache key must be
 `stable_digest`, not a raw hash).
 
-### Objective 2 — serve: a CDJ browses us, but will not load
+### Objective 2 — serve: a CDJ plays from us
 
 A real CDJ-2000NXS, with nothing but a Mac and a USB stick on the other end:
 
@@ -74,7 +74,7 @@ The one remaining defect is the main waveform.
 STATUS.md          this file — current state
 README.md          what the repo is, how to run it
 docs/
-  FINDINGS.md      F1-F29, C1-C14, O1-O6 with evidence. Has an index.
+  FINDINGS.md      F1-F32, C1-C14, O1-O7 with evidence. Has an index.
   HARDWARE.md      runbook for a session with real CDJs
   CAPTURE-PLAN.md  the S1..S10 capture scenarios
 research/
@@ -86,7 +86,7 @@ prolinks_poc/
   net/             sockets, event loop, RPC/NFS client *and* server
   core/            discovery, announcer, library model, slots
   capture/         journal recorder, pcap reader, passivity guard
-tests/             183 tests, no hardware required
+tests/             209 tests, no hardware required
 tools/capture.sh   start a named scenario capture
 captures/
   S*/              named scenarios; NOTES.md and cmd.txt are tracked, pcaps are not
