@@ -51,7 +51,7 @@ and analysis files · **METH** capture methodology.
 | [F31](#f31) | DB | `GET_TRACK_INFO` is **six** items, and argument 0 of the path item is the **file size** |
 | [F32](#f32) | DB | **Playback works.** `GET_METADATA` is **13** items carrying *referenced* row ids |
 | [F33](#f33) | DB | **Serve side complete.** The opaque prefix word must be non-zero |
-| [F34](#f34) | PDB | Row offset `0x5a` is the **container** (MP3 1, AAC 4, FLAC 5, WAV 11, AIFF 12) |
+| [F34](#f34) | PDB | Row offset `0x5a` is the **container**; the disc-number half was **wrong** and is reverted |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1212,18 +1212,17 @@ shape. A player evidently checks that it is *there*, not what it is.
 
 <a id="f34"></a>
 
-### F34 — Row offset `0x5a` is the **container**, and a player believes what we tell it
+### F34 — Row offset `0x5a` is the container. **The disc-number half was wrong**
 
-Only MP3 played. AAC, WAV and AIFF were each fetched and then rejected with
-**"CDJ DOES NOT DECODE THIS FORMAT"** — the message F31 chased for a different
-reason. The cause was the hardcoded `1` in `GET_TRACK_INFO` item 6.
+Only MP3 played: AAC, WAV and AIFF were each fetched and then rejected with
+**"CDJ DOES NOT DECODE THIS FORMAT"**, with a hardcoded `1` in `GET_TRACK_INFO`
+item 6.
 
-Settled by building the medium the question needed: one source track rendered
-into all 40 formats a CDJ-2000NXS accepts, each file's **title tag carrying its
-own format** so it is identifiable from the deck's display, then diffing the raw
-pdb rows across containers. Every field but one is explained by
-`research/05`; the exception is `0x5a`, which dysentery's schema leaves as
-`unknown6`:
+Settled *for the pdb* by building the medium the question needed — one source
+track rendered into all 40 formats a CDJ-2000NXS accepts, each file's title tag
+carrying its own format so it is identifiable from the deck's display — then
+diffing raw pdb rows across containers. Offset `0x5a`, which dysentery's schema
+leaves as `unknown6`:
 
 | Container | `0x5a` | rows |
 |---|---|---|
@@ -1233,30 +1232,37 @@ pdb rows across containers. Every field but one is explained by
 | `.wav` | **11** | 12 |
 | `.aiff` | **12** | 4 |
 
-No exceptions within a container, across the whole 651-track library. And MP3 = 1
-is exactly the constant we had been sending, which is why MP3 was the one format
-that worked: every other file was announced as an MP3, so the deck fetched it,
-tried to decode it as one, and failed.
+No exceptions within a container across the whole 651-track library. That part
+stands, and it is now parsed as `FileType`.
 
-**Item 1, type `0x04`, is the disc number.** Same medium answered it: the stick
-carries tracks on discs 0, 1 and 2. The only real capture showed `1`, and that
-track is disc 1.
+### What this got wrong
 
-Both unknowns from F31 are therefore closed, and our six track-info items remain
-byte-identical to the real deck's for that capture's track — a useful check,
-since a wrong derivation that happened to produce 1 for a disc-1 MP3 would have
-passed everything we had before.
+**Item 1, type `0x04`, is not the disc number.** Serving `disc_number` there
+**broke MP3 loading** — the two MP3s tested are disc 2 and disc 1, and the
+disc-2 one stopped working. So `0x04` does not carry it, and a value of 2 is not
+acceptable there.
 
-*Method note.* This is the first finding here obtained by **constructing** the
-evidence rather than by capturing more of what the hardware happened to do.
-Three sessions of guessing at two fields were worth less than one stick built so
-that each variable moves alone — and the naming mattered as much as the formats,
-because a field is only attributable if you can tell from the deck's screen which
-file produced it.
+The reasoning had been: the one real observation was `1`, and `disc_number` was
+the only field of that track equal to 1. That is a coincidence dressed as a
+derivation, and it should not have been shipped to hardware as a conclusion —
+especially in the same change as a genuinely evidenced finding, which is what
+made the regression hard to attribute at a glance. **Both items are reverted to
+the observed constant `1`.**
 
-*Still not attributable from this medium:* nothing. Both fields are resolved.
-The remaining unknowns are the opaque prefix word (F33, must be non-zero) and
-`0x3d03`'s real reply.
+Item 6 is a *separate* question this does not settle either way. `0x5a` is
+certainly the container, and for an MP3 it is `1` — identical to the constant —
+so serving it cannot be what broke MP3. But nothing yet shows that this argument
+is where a player expects it, so it is pinned to the constant until a capture
+says otherwise.
+
+*Lesson, and it is the same one as F29 and F32.* Constructing the evidence was
+the right move and produced a real finding. The error was bundling an inference
+with it and describing both as resolved. A guess and a measurement should not
+travel in the same commit.
+
+*Next:* a deck-to-deck capture of **deck B loading these format variants from
+deck A's USB** — the only source of truth for what a real player sends in items
+1 and 6 for a non-MP3.
 
 
 

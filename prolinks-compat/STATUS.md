@@ -58,13 +58,14 @@ Both objectives work against real hardware. What remains in the PoC is
 tidying rather than discovery:
 
 - the opaque prefix word (F33) must be non-zero but is still unexplained;
-- argument 0 of the metadata items is reproduced as an observed constant
-  rather than derived (F32);
+- argument 0 of the metadata items, and items 1 and 6 of `GET_TRACK_INFO`,
+  are observed constants rather than derived (F32, F34). Item 6 being the
+  container is plausible but unconfirmed; item 1 is **not** the disc number;
 - `0x3d03` is acknowledged with a guessed reply — no capture shows a real one.
 
-None of these blocks anything. Items 1 and 6 of `GET_TRACK_INFO` *were* on
-this list and are now resolved (F34) by building a stick holding one track in
-all 40 supported formats — `tools/make-format-matrix.sh`.
+Only MP3 loads from us. Non-MP3 formats are announced as MP3 and rejected.
+The next capture — deck B loading the format variants from deck A's USB — is
+the ground truth for what a real player sends there.
 
 ## Not started
 

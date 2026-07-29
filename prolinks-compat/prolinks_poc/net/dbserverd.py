@@ -620,15 +620,24 @@ class DbServer:
         could not decode the format -- having never read a byte of the file, so
         the verdict came from this reply and nowhere else.
 
-        Both of the two that were unresolved are now attributed, by serving a
-        stick holding one track rendered into every format a CDJ accepts:
+        Items 1 and 6 are **still unattributed**, and both are sent as the
+        constant ``1`` observed in the only capture that contains this exchange.
 
-        * item 6, type ``0x2f``, is the **container** -- pdb row offset
-          ``0x5a``. Sending a hardcoded ``1`` meant every file was announced as
-          MP3, so MP3s played and AAC, WAV and AIFF were all fetched and then
-          rejected with "CDJ DOES NOT DECODE THIS FORMAT";
-        * item 1, type ``0x04``, is the **disc number**, which is why the only
-          real capture showed ``1``.
+        F34 claimed to have resolved them and was wrong about item 1. Serving
+        ``disc_number`` there broke MP3 loading outright -- the two MP3s tested
+        are disc 2 and disc 1, and the disc-2 one stopped working -- so
+        whatever ``0x04`` means, it is not the disc number, and a value of 2 is
+        not acceptable. The reasoning had been: the one real observation was
+        ``1`` and ``disc_number`` was the only field of that track equal to 1.
+        That is a coincidence, not a derivation, and it should not have been
+        shipped to hardware as a conclusion.
+
+        Item 6 is a **separate question that this revert does not settle.**
+        ``0x5a`` is definitely the container (F34, 651 rows, no exceptions), and
+        for an MP3 it is ``1`` -- identical to the constant -- so serving it
+        cannot be what broke MP3. But it is unverified as *this* argument's
+        meaning, so it goes back to the constant too until a deck-to-deck
+        capture of a non-MP3 load shows what a real player sends.
         """
         track = self.library.tracks.get(track_id)
         if track is None:
@@ -639,7 +648,7 @@ class DbServer:
                                      item_type=item_type, flags=0)
 
         return [
-            item(track.disc_number, db.ItemType.TRACK_TITLE),
+            item(1, db.ItemType.TRACK_TITLE),
             item(track.duration, db.ItemType.DURATION),
             item(track.bpm_100, db.ItemType.TEMPO),
             item(track.id, db.ItemType.COMMENT, track.comment),
@@ -649,7 +658,7 @@ class DbServer:
             # that browsing does not, which fits a deck that renders the track
             # perfectly and then cannot open it.
             item(track.id, db.ItemType.PATH, track.path, parent=track.file_size),
-            item(track.file_type, db.ItemType.FILE_TYPE),
+            item(1, db.ItemType.FILE_TYPE),
         ]
 
     def _search(self, term: str) -> list[db.Message]:
