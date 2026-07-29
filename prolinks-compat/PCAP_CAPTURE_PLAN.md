@@ -287,6 +287,19 @@ Immediately after, with media still in, run the probe from the Mac:
 prolinks rpcinfo <IP-A> --notes "S4: USB inserted, idle"
 ```
 
+### S4b — media insert/eject, **on the correct tap**  *(re-run of S04)*
+**Answers:** whether a player advertises media changes, and where. S04 was
+captured on `bridge1` and so could not see the unicast 50002 status traffic that
+S05/S06 later showed exists in quantity (1440 and 2020 packets). Its apparent
+"media events are invisible" result was an artefact and has been retracted.
+
+Same steps as S4, but `pktap,en12,en9`, and with a specific question: does
+anything appear on 50002 when a stick goes in or out, and does its content
+change? This decides whether the Mixxx feature can learn media presence by
+listening or must poll MOUNT `EXPORT`.
+
+Worth doing *before* trusting any other negative result from the S04 window.
+
 ### S5 — LINK browse, deck A → deck B  *(the most important capture)*
 **Answers:** FINDINGS C11 / O4 — the three undocumented message types
 (`0x3e03`, `0x4b02`, `0x3100`) that appear in an ordinary browse. **`0x3e03` is

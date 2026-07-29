@@ -308,47 +308,38 @@ zero-string-offset path (see the `comment` bug fixed earlier), and the
 multi-page table chain walking all work on real data.
 
 
-### F15 — Media insert/eject is **invisible** to a passive observer  *(negative result, design-relevant)*
+### ~~F15~~ — **RETRACTED.** The evidence was a tap artefact
 
-Through a whole S4 session — stick inserted into deck A, stick inserted into
-deck B, stick ejected, stick re-inserted, plus browsing the library on the deck
-itself — the DJ-Link ports carried **nothing but keep-alives**:
+F15 claimed that media insert/eject produces no DJ-Link traffic, on the strength
+of an S04 capture showing 844 keep-alives and zero packets on 50001, 50002 and
+TCP. From that I concluded that `ProLinkStatusListener` could never learn media
+presence passively, and changed the Mixxx design to poll MOUNT `EXPORT` instead.
 
-```
-udp/50000: 844   (keep-alives, both decks)
-udp/50001: ZERO
-udp/50002: ZERO
-udp/50004: ZERO
-tcp:       ZERO
-```
+**That capture was taken on `bridge1`, which cannot see deck-to-deck unicast**
+(F17). Status packets on 50002 are unicast. So the capture could not have shown
+them whatever the decks were doing, and the "zero" measured our tap, not the
+protocol.
 
-`research/06` §3 says the slot to use "comes from the device's media-slot
-status (media-slot broadcast / status packets)", and dysentery's `media.adoc`
-describes standalone players *broadcasting* a media announcement when their
-media changes. On a CDJ-2000NXS, with a second player present, we observed no
-such packet — and no status traffic at all.
+The comparison is unambiguous — same two decks, same network, only the tap
+differs:
 
-The likely reason is that status on 50002 is **unicast to announced peers**,
-and we never announced. Neither deck had linked to the other either, so neither
-had reason to unicast anything.
+| Capture | Tap | udp/50002 | udp/50001 | TCP |
+|---|---|---|---|---|
+| S04 | `bridge1` | **0** | 0 | 0 |
+| S05 | `pktap,en12,en9` | **1440** | 0 | 1672 |
+| S06 | `pktap,en12,en9` | **2020** | 186 | 636 |
 
-**Consequence for the Mixxx design, and it is a real one.** `research/10` gives
-`ProLinkStatusListener` the job of learning media presence by listening on
-50002, with speculative slot probing only as a fallback. That is backwards on
-this hardware: passively, 50002 is silent, so the listener would never fire and
-media would never appear. The fallback has to become the primary mechanism.
+So: **status traffic on 50002 exists in quantity between decks**, and whether
+media presence is advertised there is **reopened, not answered**. The design
+change to `research/10` is reverted pending a proper S4b capture on the members.
 
-The good news is there is a cheap primary mechanism available: **MOUNT
-`EXPORT`**. It is one RPC round trip, needs no announcement, and F12 suggests it
-lists only populated slots. Polling it every few seconds per known device is a
-better media detector than a listener that never fires — and it is the same call
-already used to resolve the export path.
+*Method note worth keeping.* This is the second finding contaminated by the same
+tap bug, and both times the capture looked healthy — keep-alives present, decks
+visible, packets round-tripping byte-exactly. A negative result is only as good
+as the instrument's ability to have seen a positive one, and that has to be
+demonstrated rather than assumed. Caught by the author asking whether F15's
+evidence predated the pktap fix. It did.
 
-*Caveat:* "lists only populated slots" is still unconfirmed — both decks show
-only `/C/` and neither had an SD card in. Worth 30 seconds with an SD card to
-check `/B/` appears, because the whole polling design rests on it.
-
-*Evidence:* `captures/S04-media-insert`.
 
 
 ### F16 — A real LINK browse decoded end to end. `0x0001` identified; `0x3e03` absent
