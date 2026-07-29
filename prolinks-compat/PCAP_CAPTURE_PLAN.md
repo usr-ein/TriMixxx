@@ -46,13 +46,23 @@ sudo ifconfig bridge1 create
 sudo ifconfig bridge1 addm en9 addm en12
 sudo ifconfig bridge1 up
 
-# 3. Give the Mac an address on the segment, so prolinks can participate too
-sudo ipconfig set bridge1 AUTOMATIC-V4     # self-assigns 169.254/16
+# 3. Give the Mac an address on the segment, so prolinks can participate too.
+#    169.254/16 is the link-local range the CDJs self-assign into when there is
+#    no DHCP server. A static address is instant and deterministic; `DHCP`
+#    also works but spends ~20 s timing out before falling back to IPv4LL.
+sudo ipconfig set bridge1 MANUAL 169.254.99.100 255.255.0.0
 ```
 
-Give it ~15 s. Link-local self-assignment is not instant, on the Mac or on the
-players. Both members will read `status: inactive` until a powered CDJ is
-plugged in — that is expected, not a fault.
+> `ipconfig set` takes only `BOOTP, MANUAL, DHCP, INFORM, NONE` for IPv4 —
+> `AUTOMATIC-V4` is a `networksetup` method name and is rejected here.
+
+Once the decks are up, confirm neither of them picked `169.254.99.100` — the
+address is chosen statically here rather than ARP-probed, so a collision is
+possible if unlikely. `prolinks devices` shows their addresses; pick another
+host part if it clashes.
+
+Both members will read `status: inactive` until a powered CDJ is plugged in —
+that is expected, not a fault.
 
 Confirm the bridge came up with both members:
 
