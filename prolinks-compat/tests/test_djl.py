@@ -269,3 +269,69 @@ def test_our_announcer_matches_the_real_keepalive_except_for_identity():
         ip="169.254.103.172", peer_count=1, const_25=0x02,
     ).encode()
     assert ours == NXS_KEEPALIVE
+
+
+# The complete claim handshake deck A sent on cold boot, in order: 3x hello,
+# 3x stage-1, 3x stage-2, 3x stage-3. Player number was set **manually** to 1.
+NXS_CLAIM_SEQUENCE = [
+    "5173707431576d4a4f4c0a0043444a2d323030306e65787573000000000000000102002501",
+    "5173707431576d4a4f4c0a0043444a2d323030306e65787573000000000000000102002501",
+    "5173707431576d4a4f4c0a0043444a2d323030306e65787573000000000000000102002501",
+    "5173707431576d4a4f4c000043444a2d323030306e65787573000000000000000102002c0101745e1c5667ac",
+    "5173707431576d4a4f4c000043444a2d323030306e65787573000000000000000102002c0201745e1c5667ac",
+    "5173707431576d4a4f4c000043444a2d323030306e65787573000000000000000102002c0301745e1c5667ac",
+    "5173707431576d4a4f4c020043444a2d323030306e657875730000000000000001020032a9fe67ac745e1c5667ac01010102",
+    "5173707431576d4a4f4c020043444a2d323030306e657875730000000000000001020032a9fe67ac745e1c5667ac01020102",
+    "5173707431576d4a4f4c020043444a2d323030306e657875730000000000000001020032a9fe67ac745e1c5667ac01030102",
+    "5173707431576d4a4f4c040043444a2d323030306e6578757300000000000000010200260101",
+    "5173707431576d4a4f4c040043444a2d323030306e6578757300000000000000010200260102",
+    "5173707431576d4a4f4c040043444a2d323030306e6578757300000000000000010200260103",
+]
+
+
+def test_real_nxs_claim_sequence_decodes_in_the_documented_order():
+    kinds = [type(djl.decode(bytes.fromhex(h))).__name__ for h in NXS_CLAIM_SEQUENCE]
+    assert kinds == ["Hello"] * 3 + ["ClaimMac"] * 3 + ["ClaimIp"] * 3 + ["ClaimNumber"] * 3
+
+
+def test_manual_mode_still_sends_three_stage_three_packets():
+    """FINDINGS C13. research/02 §1.0 says a manually-numbered device sends
+    *one* stage-3 packet and only auto-assign sends three. This deck was set
+    manually to player 1 -- byte 0x31 is 02, confirming the mode reading -- and
+    it sent three anyway. The packet-count half of the claim is wrong."""
+    claims = [djl.decode(bytes.fromhex(h)) for h in NXS_CLAIM_SEQUENCE]
+    stage_two = [c for c in claims if isinstance(c, djl.ClaimIp)]
+    stage_three = [c for c in claims if isinstance(c, djl.ClaimNumber)]
+
+    assert all(c.assignment_mode == djl.AssignmentMode.MANUAL for c in stage_two)
+    assert len(stage_three) == 3
+    assert [c.iteration for c in stage_three] == [1, 2, 3]
+
+
+def test_our_announcer_reproduces_the_claim_handshake_byte_for_byte():
+    """The strongest impersonation check available without transmitting.
+
+    Rebuilds the whole handshake with deck A's identity and demands every one
+    of the twelve packets match the real unit exactly. If the announcer ever
+    drifts -- a wrong role byte, a dropped iteration, a changed length -- this
+    catches it before a CDJ does.
+    """
+    mac = bytes.fromhex("745e1c5667ac")
+    ip = "169.254.103.172"
+    common = dict(name="CDJ-2000nexus", name_raw=b"", device_kind=djl.DeviceKind.CDJ)
+    role = djl.default_role(djl.DeviceKind.CDJ)
+
+    ours = (
+        [djl.Hello(**common, payload=0x01) for _ in range(3)]
+        + [djl.ClaimMac(**common, iteration=n, flags=role, mac=mac) for n in (1, 2, 3)]
+        + [
+            djl.ClaimIp(
+                **common, ip=ip, mac=mac, device_number=1, iteration=n,
+                assignment_mode=djl.AssignmentMode.MANUAL,
+            )
+            for n in (1, 2, 3)
+        ]
+        + [djl.ClaimNumber(**common, device_number=1, iteration=n) for n in (1, 2, 3)]
+    )
+
+    assert [p.encode().hex() for p in ours] == NXS_CLAIM_SEQUENCE

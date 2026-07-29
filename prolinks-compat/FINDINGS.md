@@ -276,6 +276,32 @@ arithmetic: the 10 s device timeout is **5** missed keep-alives, not the "6-7"
 *Evidence:* `captures/S01-cold-boot-a`.
 
 
+### C13 — A manually-numbered device still sends **three** stage-3 packets
+
+`research/02` §1.3 reads byte `31` of the stage-2 claim as `01` auto-assign /
+`02` specific number, and §1.0 adds: *"When set to a specific (manual) number,
+the device sends only **one** stage-3 packet (N=01) then proceeds to
+keep-alive."*
+
+Deck A's `PLAYER No.` was set **manually to 1**, and the capture shows byte
+`31` = `02` — so the *mode* reading is correct and confirmed. But it sent
+**three** stage-3 packets, N=1,2,3, exactly like the auto-assign case. The
+packet-count half of the claim is wrong.
+
+*Impact:* none on our code, which already sends three of every stage — but it
+would have been a natural "optimisation" to make, and doing so would have made
+our claim sequence detectably unlike a real deck's.
+
+**Consequence worth noting:** with the doc corrected, our announcer's claim
+handshake is now **byte-identical to a real CDJ-2000NXS** across all twelve
+packets — hellos, stage-1, stage-2 and stage-3 — given the same identity. Held
+as a golden vector in `tests/test_djl.py::NXS_CLAIM_SEQUENCE`, so any future
+drift in the announcer fails a test rather than a CDJ.
+
+*Evidence:* `captures/S01-cold-boot-a`;
+`test_our_announcer_reproduces_the_claim_handshake_byte_for_byte`.
+
+
 ### C5 — Reference-repo licences (already applied to `research/09` and `10`)
 
 `research/09` described python-prodj-link as "GPL-ish". It is **Apache-2.0**,
@@ -321,20 +347,7 @@ byte is not random and not a role: it plausibly encodes something about the
 *other* devices present. S2 and S3 should settle it, since they add a second
 deck to an otherwise identical setup.
 
-### O5 — Does byte `31` really mean auto-vs-manual? *(new)*
-
-`research/02` §1.3 reads byte `31` of the stage-2 claim as `01` = auto-assign,
-`02` = claiming a specific number, and §1.0 adds that a manually-numbered device
-sends **one** stage-3 packet rather than three.
-
-The S01 capture shows byte `31` = `02` (i.e. "manual") **together with three
-stage-3 packets** (N=1,2,3) — the two halves of the documented behaviour
-disagree. Either the deck was configured with a manual player number and the
-one-packet claim is wrong, or the deck was on AUTO and the byte does not mean
-what the doc says.
-
-Resolvable by checking the unit's `PLAYER No.` setting against the capture, and
-by re-running S1 with the setting deliberately flipped.
+### ~~O5~~ — resolved, see C13.
 
 ### O4 — What are `0x3e03` and `0x3100`? *(see C11)*
 

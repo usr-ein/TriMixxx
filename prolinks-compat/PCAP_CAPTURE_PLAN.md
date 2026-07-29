@@ -166,8 +166,8 @@ not recoverable from the bytes.
 
 - Two USB sticks, both prepared by rekordbox, **with different content** so it
   is unambiguous which library came from which deck. Label them A and B.
-- Both decks' player numbers set to **AUTO** to begin with (UTILITY menu). We
-  change this deliberately in S2b.
+- Deck A's `PLAYER No.` is set **manually to 1** (confirmed in S1, and the
+  basis of FINDINGS C13). Note deck B's setting before you start.
 - Note each unit's **firmware version** from its UTILITY screen — captures are
   only comparable against other captures of the same firmware.
 - The deck↔NIC mapping is fixed above (**deck A on `en12`, deck B on `en9`**).
@@ -205,12 +205,13 @@ claim look like?
 capture we have** — our only reference for it is a hand-written libcdj fixture,
 so our encoder for it is effectively unverified.
 
+Deck A is already set manually to player **1**, so this is a one-setting change.
+
 1. Power both decks off.
-2. In UTILITY on **both** decks, set the player number **manually to the same
-   value** (e.g. force both to `3`).
+2. In UTILITY on **deck B**, set `PLAYER No.` manually to **1** as well.
 3. Start capture. Power on deck A, let it settle, then power on deck B.
 4. Watch deck B's display — it should complain or renumber. Stop capture.
-5. **Set both back to AUTO afterwards.**
+5. **Put deck B back to its own number afterwards.**
 
 ### S3 — Idle steady state, 3 minutes
 **Answers:** keep-alive cadence over time, and the still-unexplained variation
