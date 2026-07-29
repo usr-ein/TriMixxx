@@ -65,12 +65,19 @@ DISCOVERY_PORT = 50000
 BEAT_PORT = 50001
 STATUS_PORT = 50002
 
-#: Steady-state keep-alive cadence. research/02 §0: confirmed 1.5 s.
-KEEPALIVE_INTERVAL_S = 1.5
+#: Steady-state keep-alive cadence.
+#:
+#: research/02 §0 gives 1.5 s and marks it "confirmed", but all four of its
+#: citations are either the *send* interval of a reference tool or loose
+#: prose -- nobody had measured hardware. A real CDJ-2000NXS sends every
+#: **2.0026 s** (n=28, min 2.002, max 2.003). Since the goal is to be
+#: indistinguishable from a CDJ, match the hardware. See FINDINGS C12.
+KEEPALIVE_INTERVAL_S = 2.0
 #: Cadence of the startup handshake packets. research/02 §1.0.
 DISCOVERY_INTERVAL_S = 0.3
-#: How long after the last keep-alive a peer is considered gone.
-#: ~6-7 missed keep-alives; research/02 §2.
+#: How long after the last keep-alive a peer is considered gone. At the
+#: observed 2.0 s cadence that is 5 missed keep-alives, not the "6-7"
+#: research/02 §2 infers from an assumed 1.5 s.
 DEVICE_TIMEOUT_S = 10.0
 
 # Header field offsets.
@@ -100,7 +107,7 @@ class PacketType(enum.IntEnum):
     MIXER_ASSIGN = 0x03  # mixer -> player: "use device number D"
     CLAIM_NUMBER = 0x04  # stage 3: assert the number
     MIXER_ASSIGN_DONE = 0x05  # mixer -> player: assignment finished
-    KEEP_ALIVE = 0x06  # steady state, every ~1.5 s
+    KEEP_ALIVE = 0x06  # steady state, every ~2 s on real hardware
     NUMBER_CONFLICT = 0x08  # "that number is mine" -- unicast by the owner
     HELLO = 0x0A  # initial announcement
 

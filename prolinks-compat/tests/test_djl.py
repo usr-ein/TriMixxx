@@ -222,3 +222,50 @@ def test_is_djl_packet_guard():
     assert djl.is_djl_packet(djl.MAGIC + b"\x06")
     assert not djl.is_djl_packet(b"short")
     assert not djl.is_djl_packet(b"X" * 40)
+
+
+# -- golden vector from our own CDJ-2000NXS ---------------------------------
+#
+# Captured 2026-07-29 from the author's own unit (S01-cold-boot-a). Unlike the
+# dysentery captures this is ours, so it can live in the repository rather than
+# being read out of a git-ignored clone -- which makes it the one golden vector
+# guaranteed to be available wherever these tests run.
+
+NXS_KEEPALIVE = bytes.fromhex(
+    "5173707431576d4a4f4c060043444a2d323030306e657875730000000000"
+    "0000010200360102745e1c5667aca9fe67ac010000000100"
+)
+
+
+def test_real_nxs_keepalive_decodes():
+    packet = djl.decode(NXS_KEEPALIVE)
+    assert isinstance(packet, djl.KeepAlive)
+    assert packet.name == "CDJ-2000nexus"
+    assert packet.device_kind == djl.DeviceKind.CDJ
+    assert packet.device_number == 1
+    assert packet.mac == bytes.fromhex("745e1c5667ac")
+    assert packet.ip == "169.254.103.172"
+    assert packet.peer_count == 1
+    # The three bytes whose meaning the research docs get wrong or leave open.
+    assert packet.const_25 == 0x02   # alone on the network; see FINDINGS O3
+    assert packet.flags == 0x01      # role: CDJ
+    assert packet.trailing == 0x00   # not 0x01 as documented; FINDINGS C3
+
+
+def test_real_nxs_keepalive_round_trips():
+    assert djl.decode(NXS_KEEPALIVE).encode() == NXS_KEEPALIVE
+
+
+def test_our_announcer_matches_the_real_keepalive_except_for_identity():
+    """Everything we synthesise should equal a real CDJ's, bar identity fields.
+
+    The differing bytes must be exactly: device number, MAC, IP, peer count,
+    and byte 0x25 (meaning still unresolved). Anything else drifting means the
+    impersonation has regressed.
+    """
+    ours = djl.KeepAlive(
+        name="CDJ-2000nexus", name_raw=b"", device_kind=djl.DeviceKind.CDJ,
+        device_number=1, mac=bytes.fromhex("745e1c5667ac"),
+        ip="169.254.103.172", peer_count=1, const_25=0x02,
+    ).encode()
+    assert ours == NXS_KEEPALIVE

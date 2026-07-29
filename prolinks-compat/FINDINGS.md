@@ -94,6 +94,24 @@ Details confirmed in passing:
 *Evidence:* `tests/test_dbserver.py::test_every_captured_dbserver_message_round_trips`.
 
 
+### F8 — First capture from the target hardware is clean  *(confirmed)*
+
+`S01-cold-boot-a`, a CDJ-2000NXS cold boot on the author's own rig: 42 DJ-Link
+packets, **42/42 round-trip byte-exact**, and the handshake exactly as
+documented — 3× hello, 3× stage-1, 3× stage-2, 3× stage-3, at 300.1 ms
+intervals (doc says ~300 ms), then keep-alives. `CDJ-2000nexus` and the
+`0x00` trailing byte (C3) are now confirmed on the **actual target hardware**,
+not merely on dysentery's units of unknown provenance.
+
+The unit tried DHCP three times before falling back to link-local, ~9 s before
+its first DJ-Link packet — worth knowing when timing a capture: start it before
+powering on, or the discovery phase is already over.
+
+A real keep-alive from that capture is committed as a golden vector in
+`tests/test_djl.py::NXS_KEEPALIVE`. Unlike the dysentery captures it is ours,
+so it can live in the repository and is available wherever the tests run.
+
+
 ---
 
 ## Corrections to the research docs
@@ -238,6 +256,26 @@ should probably answer rather than erroring. **Worth capturing deliberately
 tonight** — it is the first thing a player sends us.
 
 
+### C12 — Keep-alives are every **2.0 s**, not 1.5 s
+
+`research/02` §0 gives 1.5 s and marks it **confirmed**, citing four sources.
+All four turn out to be either the *send* interval a reference tool chose
+(`vcdj.py packet_interval = 1.5`, prolink-connect `ANNOUNCE_INTERVAL = 1500`)
+or loose prose ("roughly every second and a half"). **Nobody had measured
+hardware.**
+
+A CDJ-2000NXS sends every **2.0026 s** — n=28, min 2.002, max 2.003, i.e. a
+tight hardware timer, not a jittery approximation of 1.5.
+
+*Impact:* modest but real. Sending faster than hardware is safe, so nothing was
+broken; but the goal is to be indistinguishable from a CDJ, so
+`KEEPALIVE_INTERVAL_S` now matches the hardware. It also re-bases the timeout
+arithmetic: the 10 s device timeout is **5** missed keep-alives, not the "6-7"
+§2 infers from 1.5 s.
+
+*Evidence:* `captures/S01-cold-boot-a`.
+
+
 ### C5 — Reference-repo licences (already applied to `research/09` and `10`)
 
 `research/09` described python-prodj-link as "GPL-ish". It is **Apache-2.0**,
@@ -275,6 +313,28 @@ Unchanged, and still the single most important thing to establish. The
 portmap traffic noted in O1 is suggestive but not yet decoded.
 
 ### O3 — Keep-alive byte `25` semantics *(see C4)*
+
+New datum: with a **single** deck alone on the network (`peers=1`), byte `25`
+was `0x02` for all 30 keep-alives — perfectly stable. In the dysentery captures,
+where several devices were present, the same model alternated `01`/`02`. So the
+byte is not random and not a role: it plausibly encodes something about the
+*other* devices present. S2 and S3 should settle it, since they add a second
+deck to an otherwise identical setup.
+
+### O5 — Does byte `31` really mean auto-vs-manual? *(new)*
+
+`research/02` §1.3 reads byte `31` of the stage-2 claim as `01` = auto-assign,
+`02` = claiming a specific number, and §1.0 adds that a manually-numbered device
+sends **one** stage-3 packet rather than three.
+
+The S01 capture shows byte `31` = `02` (i.e. "manual") **together with three
+stage-3 packets** (N=1,2,3) — the two halves of the documented behaviour
+disagree. Either the deck was configured with a manual player number and the
+one-packet claim is wrong, or the deck was on AUTO and the byte does not mean
+what the doc says.
+
+Resolvable by checking the unit's `PLAYER No.` setting against the capture, and
+by re-running S1 with the setting deliberately flipped.
 
 ### O4 — What are `0x3e03` and `0x3100`? *(see C11)*
 

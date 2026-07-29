@@ -51,6 +51,11 @@ log = logging.getLogger("prolinks")
 
 DEFAULT_DISCOVERY_WAIT_S = 4.0
 
+#: Commands that touch no network at all. They still get a Recorder for its
+#: counters, but creating a capture directory for them would litter
+#: captures/ with empty journals every time a file is analysed.
+OFFLINE_COMMANDS = frozenset({"pcap", "pdb-dump", "interfaces"})
+
 
 # -- shared context --------------------------------------------------------
 
@@ -63,7 +68,7 @@ class Context:
         self.loop = EventLoop()
 
         directory = None
-        if args.record:
+        if args.record and args.command not in OFFLINE_COMMANDS:
             directory = Path(args.capture_dir) if args.capture_dir else _default_capture_dir()
         self.recorder = Recorder(directory)
         self.capture_dir = directory
