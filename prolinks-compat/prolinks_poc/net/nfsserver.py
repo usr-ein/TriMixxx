@@ -161,8 +161,15 @@ class NfsServer:
                     mountd.encode_mnt_result(None, nfs2.Stat.NFSERR_NOENT),
                     rpc.AcceptStat.SUCCESS,
                 )
+            # Return the handle for the *mapped* path, not the VFS root. That
+            # is what lets one server export two media: put each under its own
+            # subtree and the filehandles are distinct by construction, because
+            # a handle is a hash of the path. Sharing a root across exports
+            # would mint identical handles for both media -- and since a CDJ
+            # keeps only the leading 12 bytes (F28), there would be no way to
+            # tell afterwards which medium a handle meant.
             return (
-                mountd.encode_mnt_result(self.vfs.root_handle()),
+                mountd.encode_mnt_result(self.vfs.handle_for(self.exports[path])),
                 rpc.AcceptStat.SUCCESS,
             )
         if call.procedure == mountd.Proc.EXPORT:

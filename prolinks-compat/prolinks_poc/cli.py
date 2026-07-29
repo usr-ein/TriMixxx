@@ -32,6 +32,7 @@ from .core.announcer import PLAYER_NUMBERS, SAFE_OBSERVER_NUMBER, AnnouncerState
 from .core.devices import Device, DeviceTable
 from .core.discovery import PassiveDiscovery
 from .core.library import Library
+from .core.medium import Medium
 from .core.slots import PDB_PATH, MediaSlot, export_path_for, slot_from_name
 from .net.iface import (
     find_interface,
@@ -1209,25 +1210,35 @@ def cmd_serve(ctx: Context) -> int:
     """
     args = ctx.args
 
-    volume = Path(args.volume) if args.volume else None
-    if volume is None:
+    # One --volume per slot. Two media on one device is what TriMiXxX needs, and
+    # F37 showed a player treats them as one connection with a slot byte, so this
+    # is a dict of media rather than two of everything.
+    requested = [(slot_from_name(args.slot), args.volume)]
+    if getattr(args, "sd_volume", None):
+        requested.append((MediaSlot.SD, args.sd_volume))
+    if args.volume is None:
         raise SystemExit("--volume is required: point it at a mounted rekordbox stick")
-    if not volume.is_dir():
-        raise SystemExit(f"{volume} is not a directory")
+    if len({slot for slot, _ in requested}) != len(requested):
+        raise SystemExit(
+            f"--slot {args.slot} collides with --sd-volume; use --slot usb for the first"
+        )
 
-    pioneer = next(
-        (volume / name for name in ("PIONEER", ".PIONEER") if (volume / name).is_dir()),
-        None,
-    )
-    if pioneer is None:
-        raise SystemExit(f"{volume} has no PIONEER or .PIONEER directory")
-    pdb_path = pioneer / "rekordbox" / "export.pdb"
-    if not pdb_path.exists():
-        raise SystemExit(f"no rekordbox database at {pdb_path}")
-
-    _warn(f"loading {pdb_path}")
-    library = Library.from_file(pdb_path)
-    _warn("  " + "  ".join(f"{k}={v}" for k, v in library.summary().items()))
+    media: dict[int, Medium] = {}
+    for slot, raw in requested:
+        volume = Path(raw)
+        if not volume.is_dir():
+            raise SystemExit(f"{volume} is not a directory")
+        if not any((volume / name).is_dir() for name in ("PIONEER", ".PIONEER")):
+            raise SystemExit(f"{volume} has no PIONEER or .PIONEER directory")
+        try:
+            medium = Medium.from_volume(volume, slot)
+        except OSError as exc:
+            raise SystemExit(f"no readable rekordbox database on {volume}: {exc}") from None
+        media[int(slot)] = medium
+        _warn(f"{slot.name} {medium.export_path} <- {volume}")
+        _warn("  " + "  ".join(f"{k}={v}" for k, v in medium.library.summary().items()))
+        if medium.settings:
+            _warn(f"  device settings: {len(medium.settings)} bytes")
 
     interface = ctx.interface
     _warn(f"interface {interface}")
@@ -1235,32 +1246,37 @@ def cmd_serve(ctx: Context) -> int:
     # dbserver first: it is the surface a CDJ's LINK button drives, and it
     # needs no privileges.
     db_server = DbServer(
-        library,
+        media,
         device_number=args.number,
-        slot=slot_from_name(args.slot),
         bind_ip="0.0.0.0",
         port=args.db_port,
         query_port=dbproto.QUERY_PORT,
-        media_root=volume,
         recorder=ctx.recorder,
     ).start()
     _warn(f"dbserver on TCP {db_server.port} (port query on {db_server.query_port})")
 
     nfs_server = None
     if args.nfs:
-        _warn(f"indexing {volume} for NFS (contents are read lazily) ...")
-        vfs = Vfs.from_directory(volume)
+        # One VFS holding every medium under its own subtree. Two media sharing a
+        # root would mint identical filehandles for the same relative path, and a
+        # CDJ keeps only the leading 12 bytes (F28), so nothing would survive to
+        # tell them apart.
+        vfs = Vfs()
+        exports = {}
+        for medium in media.values():
+            _warn(f"indexing {medium.root} for NFS (contents are read lazily) ...")
+            vfs.mount_directory(medium.root, under=medium.vfs_prefix)
+            exports[medium.export_path] = "/" + medium.vfs_prefix
         try:
             nfs_server = NfsServer(
-                ctx.loop, vfs,
-                exports={export_path_for(slot_from_name(args.slot)): "/"},
+                ctx.loop, vfs, exports=exports,
                 bind_ip="0.0.0.0", portmap_port=args.portmap_port,
                 recorder=ctx.recorder,
             )
             nfs_server.start()
             _warn(
                 f"NFS: portmap {nfs_server.portmap_port}, mountd {nfs_server.mountd_port}, "
-                f"nfsd {nfs_server.nfsd_port}"
+                f"nfsd {nfs_server.nfsd_port}; exports {', '.join(sorted(exports))}"
             )
             if nfs_server.portmap_port != portmap.PORT:
                 _warn(
@@ -1287,10 +1303,7 @@ def cmd_serve(ctx: Context) -> int:
             # Without status packets a player sees us as a deck with empty
             # slots, however loudly we announce (FINDINGS F20/F21).
             emit_status=True, has_usb=True, recorder=ctx.recorder,
-            media_name=volume.name,
-            device_settings=_read_device_settings(volume),
-            track_count=len(library.tracks),
-            playlist_count=sum(1 for p in library.playlists.values() if not p.is_folder),
+            media=media,
             on_state=lambda state, message: _warn(f"  [{state.value}] {message}"),
         )
         discovery.on_claim = virtual.defend
@@ -1580,7 +1593,11 @@ def build_parser() -> argparse.ArgumentParser:
         "serve", help="serve a mounted rekordbox volume to real CDJs"
     )
     serve.add_argument("--volume", required=True, help="e.g. /Volumes/MYUSB")
-    serve.add_argument("--slot", default="usb", help="which slot to present as")
+    serve.add_argument("--slot", default="usb", help="which slot --volume presents as")
+    serve.add_argument(
+        "--sd-volume",
+        help="a second rekordbox volume to present in the SD slot. TriMiXxX has two\nUSB ports and a CDJ expects a USB and an SD, so the second one is served as SD",
+    )
     serve.add_argument("--number", type=int, default=5, help="our device number")
     serve.add_argument("--name", default="CDJ-2000nexus", help="20-byte device name")
     serve.add_argument("--claim", action="store_true", help="claim a real player slot")

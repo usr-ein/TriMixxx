@@ -30,6 +30,7 @@ import threading
 from pathlib import Path
 
 from ..core.library import Library
+from ..core.medium import Medium
 from ..core.slots import MediaSlot
 from ..proto import anlz
 from ..proto import analysis_wire as wire
@@ -166,6 +167,20 @@ class _Connection(threading.Thread):
 
     # -- dispatch --------------------------------------------------------
 
+    def _medium(self, message: db.Message):
+        """The medium this request is about.
+
+        Every request carries an ``r:m:s:t`` descriptor as argument 0 whose third
+        byte names the slot, and a player browsing two media on one peer sends
+        both down this same connection (F37). So the medium is per *message*,
+        never per connection -- caching it here would serve the wrong library the
+        moment the DJ switched slots.
+        """
+        descriptor = message.args[0] if message.args else 0
+        if not isinstance(descriptor, int):
+            descriptor = 0
+        return self.server.medium_for(descriptor)
+
     def handle(self, message: db.Message) -> list[db.Message]:
         transaction = message.transaction_id
 
@@ -216,7 +231,7 @@ class _Connection(threading.Thread):
             )]
 
         if message.type == db.MessageType.GET_ARTWORK:
-            image = self.server.artwork_for(message.number(1))
+            image = self._medium(message).artwork_for(message.number(1))
             # A zero-length binary argument is omitted from the wire entirely,
             # so "no artwork" and "here is the artwork" share one shape.
             return [self._binary_reply(transaction, db.MessageType.ARTWORK,
@@ -225,7 +240,7 @@ class _Connection(threading.Thread):
         if message.type == db.MessageType.GET_CUE_POINTS:
             # The one reply carrying two blobs: fixed-size cue records, then a
             # (time, loop_time) pair per cue.
-            dat, _ext = self.server.analysis_files(message.number(1))
+            dat, _ext = self._medium(message).analysis_files(message.number(1))
             records, count, times = wire.cue_points(dat)
             return [db.Message(
                 transaction, db.MessageType.CUE_POINTS,
@@ -238,14 +253,14 @@ class _Connection(threading.Thread):
         analysis = _ANALYSIS_REQUESTS.get(message.type)
         if analysis is not None:
             response_type, id_index, trailing, convert = analysis
-            dat, ext = self.server.analysis_files(message.number(id_index))
+            dat, ext = self._medium(message).analysis_files(message.number(id_index))
             return [self._binary_reply(transaction, response_type,
                                        message.type, convert(dat, ext), trailing)]
 
         if message.type == db.MessageType.RENDER_MENU:
             return self._render(message)
 
-        items = self.server.build_menu(message)
+        items = self.server.build_menu(message, self._medium(message))
         if items is None:
             log.info("unsupported request %s from %s", message.type_name, self.peer[0])
             return [db.Message(transaction, db.MessageType.ERROR, [message.type, 0])]
@@ -301,7 +316,7 @@ class DbServer:
 
     def __init__(
         self,
-        library: Library,
+        library: Library | dict,
         device_number: int = 5,
         slot: MediaSlot = MediaSlot.USB,
         bind_ip: str = "0.0.0.0",
@@ -310,17 +325,25 @@ class DbServer:
         media_root=None,
         recorder=None,
     ) -> None:
-        self.library = library
-        #: Root of the served medium, so artwork can be read off it.
-        self.media_root = Path(media_root) if media_root is not None else None
-        #: track id -> (.DAT, .EXT). A load asks for four tags across the
-        #: two files in quick succession, and a deck re-requests them when
-        #: the DJ reloads the same track.
-        self._analysis_cache: dict[int, tuple] = {}
+        #: slot -> :class:`Medium`. A player browsing two media on one peer uses
+        #: a **single** connection and names the slot in every request's
+        #: descriptor (F37), so the slot is resolved per request rather than per
+        #: server. Passing a bare ``Library`` registers one medium, which is the
+        #: single-slot case and most of the tests.
+        if isinstance(library, dict):
+            self.media: dict[int, Medium] = dict(library)
+        else:
+            self.media = {
+                int(slot): Medium(
+                    slot=slot, library=library,
+                    root=Path(media_root) if media_root is not None else None,
+                )
+            }
         self.device_number = device_number
-        self.slot = slot
         self.recorder = recorder
         self.stats: dict[str, int] = {}
+
+        self.default_medium = next(iter(self.media.values()))
 
         self._listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -399,7 +422,16 @@ class DbServer:
 
     # -- menu construction -----------------------------------------------
 
-    def build_menu(self, message: db.Message) -> list[db.Message] | None:
+    def medium_for(self, descriptor: int) -> Medium:
+        """The medium a request refers to, from its descriptor's slot byte.
+
+        Falls back to the only medium we have when the slot is unknown, which
+        keeps a single-slot server answering requests that name any slot --
+        the behaviour before two slots existed.
+        """
+        return self.media.get((descriptor >> 8) & 0xFF, self.default_medium)
+
+    def build_menu(self, message: db.Message, medium: Medium) -> list[db.Message] | None:
         """Turn a menu request into the items it should produce.
 
         Returns ``None`` for a request we do not implement, which becomes a
@@ -411,23 +443,69 @@ class DbServer:
         if request_type == db.MessageType.MENU_ROOT:
             return self._root_menu()
         if request_type == db.MessageType.MENU_TRACK:
-            return self._track_list(message.number(1))
+            return self._track_list(message.number(1), medium)
         if request_type == db.MessageType.MENU_PLAYLIST:
-            return self._playlist_menu(message.number(2), bool(message.number(3)))
+            return self._playlist_menu(
+                message.number(2), bool(message.number(3)), medium
+            )
         if request_type in (db.MessageType.GET_METADATA, db.MessageType.GET_GENERIC_METADATA):
-            return self._metadata(message.number(1))
+            return self._metadata(message.number(1), medium)
         if request_type == db.MessageType.MENU_ARTIST:
-            return self._by_name(self.library.artists, db.ItemType.ARTIST)
+            return self._by_name(medium.library.artists, db.ItemType.ARTIST)
         if request_type == db.MessageType.MENU_ALBUM:
-            return self._by_name(self.library.albums, db.ItemType.ALBUM)
+            return self._by_name(medium.library.albums, db.ItemType.ALBUM)
         if request_type == db.MessageType.MENU_GENRE:
-            return self._by_name(self.library.genres, db.ItemType.GENRE)
+            return self._by_name(medium.library.genres, db.ItemType.GENRE)
         if request_type == db.MessageType.MENU_KEY:
-            return self._by_name(self.library.keys, db.ItemType.KEY)
+            return self._by_name(medium.library.keys, db.ItemType.KEY)
         if request_type == db.MessageType.GET_TRACK_INFO:
-            return self._track_info(message.number(1))
+            return self._track_info(message.number(1), medium)
         if request_type == db.MessageType.MENU_SEARCH:
-            return self._search(message.string(2))
+            return self._search(message.string(2), medium)
+        return None
+
+    # -- menu construction -----------------------------------------------
+
+    def medium_for(self, descriptor: int) -> Medium:
+        """The medium a request refers to, from its descriptor's slot byte.
+
+        Falls back to the only medium we have when the slot is unknown, which
+        keeps a single-slot server answering requests that name any slot --
+        the behaviour before two slots existed.
+        """
+        return self.media.get((descriptor >> 8) & 0xFF, self.default_medium)
+
+    def build_menu(self, message: db.Message, medium: Medium) -> list[db.Message] | None:
+        """Turn a menu request into the items it should produce.
+
+        Returns ``None`` for a request we do not implement, which becomes a
+        ``0x4003`` error rather than a silent empty list — a player showing an
+        empty folder when it should show a failure is worse than an error.
+        """
+        request_type = message.type
+
+        if request_type == db.MessageType.MENU_ROOT:
+            return self._root_menu()
+        if request_type == db.MessageType.MENU_TRACK:
+            return self._track_list(message.number(1), medium)
+        if request_type == db.MessageType.MENU_PLAYLIST:
+            return self._playlist_menu(
+                message.number(2), bool(message.number(3)), medium
+            )
+        if request_type in (db.MessageType.GET_METADATA, db.MessageType.GET_GENERIC_METADATA):
+            return self._metadata(message.number(1), medium)
+        if request_type == db.MessageType.MENU_ARTIST:
+            return self._by_name(medium.library.artists, db.ItemType.ARTIST)
+        if request_type == db.MessageType.MENU_ALBUM:
+            return self._by_name(medium.library.albums, db.ItemType.ALBUM)
+        if request_type == db.MessageType.MENU_GENRE:
+            return self._by_name(medium.library.genres, db.ItemType.GENRE)
+        if request_type == db.MessageType.MENU_KEY:
+            return self._by_name(medium.library.keys, db.ItemType.KEY)
+        if request_type == db.MessageType.GET_TRACK_INFO:
+            return self._track_info(message.number(1), medium)
+        if request_type == db.MessageType.MENU_SEARCH:
+            return self._search(message.string(2), medium)
         return None
 
     def analysis_files(self, track_id: int):
@@ -440,7 +518,7 @@ class DbServer:
         rekordbox legitimately lacks the newer tags, and a missing waveform
         should cost the waveform, not the load.
         """
-        track = self.library.tracks.get(track_id)
+        track = medium.library.tracks.get(track_id)
         if track is None or self.media_root is None or not track.analyze_path:
             return None, None
 
@@ -515,8 +593,9 @@ class DbServer:
             for item_type, label, menu_id in self.ROOT_CATEGORIES
         ]
 
-    def _track_list(self, sort: int) -> list[db.Message]:
-        tracks = self.library.track_list()
+    def _track_list(self, sort: int, medium: Medium | None = None) -> list[db.Message]:
+        medium = medium or self.default_medium
+        tracks = medium.library.track_list()
         if sort == db.SortOrder.BPM:
             tracks = sorted(tracks, key=lambda t: t.bpm_100)
         elif sort == db.SortOrder.TITLE:
@@ -525,18 +604,21 @@ class DbServer:
             db.make_menu_item(
                 0, track.id, track.title, track.artist,
                 item_type=db.ItemType.TITLE_AND_ARTIST,
-                artwork_id=self.library.artwork_ids.get(track.id, 0),
+                artwork_id=medium.library.artwork_ids.get(track.id, 0),
             )
             for track in tracks
         ]
 
-    def _playlist_menu(self, playlist_id: int, folder: bool) -> list[db.Message]:
+    def _playlist_menu(
+        self, playlist_id: int, folder: bool, medium: Medium | None = None
+    ) -> list[db.Message]:
+        medium = medium or self.default_medium
         if folder:
             children = (
-                self.library.root_playlists
+                medium.library.root_playlists
                 if playlist_id == 0
-                else self.library.playlists[playlist_id].children
-                if playlist_id in self.library.playlists
+                else medium.library.playlists[playlist_id].children
+                if playlist_id in medium.library.playlists
                 else []
             )
             return [
@@ -554,11 +636,11 @@ class DbServer:
                 playlist_position=position,
             )
             for position, track in enumerate(
-                self.library.playlist_tracks(playlist_id), start=1
+                medium.library.playlist_tracks(playlist_id), start=1
             )
         ]
 
-    def _metadata(self, track_id: int) -> list[db.Message]:
+    def _metadata(self, track_id: int, medium: Medium | None = None) -> list[db.Message]:
         """One track's metadata: **thirteen** items, in a fixed order.
 
         Modelled field for field on a real deck's reply in
@@ -578,7 +660,8 @@ class DbServer:
         deck sends ``label`` with id 0 and no text rather than omitting it, and
         the count is what the client pages against.
         """
-        track = self.library.tracks.get(track_id)
+        medium = medium or self.default_medium
+        track = medium.library.tracks.get(track_id)
         if track is None:
             return []
 
@@ -610,7 +693,7 @@ class DbServer:
             item(1, track.label_id, db.ItemType.LABEL, track.label),
         ]
 
-    def _track_info(self, track_id: int) -> list[db.Message]:
+    def _track_info(self, track_id: int, medium: Medium | None = None) -> list[db.Message]:
         """``GET_TRACK_INFO`` -- **six** items, of which the path is only one.
 
         Returning the path alone is enough for a player to render the file name
@@ -633,7 +716,8 @@ class DbServer:
         that track equal to 1. Serving the disc number here is what broke MP3
         loading -- a disc-2 MP3 announces itself as ``AAC``.
         """
-        track = self.library.tracks.get(track_id)
+        medium = medium or self.default_medium
+        track = medium.library.tracks.get(track_id)
         if track is None:
             return []
 
@@ -658,13 +742,14 @@ class DbServer:
             item(1, db.ItemType.UNKNOWN_2F),
         ]
 
-    def _search(self, term: str) -> list[db.Message]:
+    def _search(self, term: str, medium: Medium | None = None) -> list[db.Message]:
+        medium = medium or self.default_medium
         return [
             db.make_menu_item(
                 0, track.id, track.title, track.artist,
                 item_type=db.ItemType.TITLE_AND_ARTIST,
             )
-            for track in self.library.search(term)
+            for track in medium.library.search(term)
         ]
 
     def _by_name(self, mapping: dict[int, str], item_type: int) -> list[db.Message]:

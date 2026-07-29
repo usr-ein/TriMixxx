@@ -68,13 +68,19 @@ All four supported containers play, including 75 MB lossless files read across
 their whole length, and LOAD SETTINGS works. Zero dbserver errors in the
 session (F39).
 
-## Next up — two media at once
+## Two media at once — implemented, untested on hardware
 
-TriMiXxX has two USB slots and should present one as USB and one as SD. F37
-settles the shape: a **single** dbserver connection carries both, keyed on the
-descriptor's slot byte (SD=2, USB=3), so `DbServer` needs a `Library` per slot
-rather than one server per slot. `NfsServer` already takes an exports dict and
-can serve `/B/` and `/C/` together.
+```bash
+sudo .venv/bin/prolinks -v serve --volume /Volumes/ONE --sd-volume /Volumes/TWO --iface en9
+```
+
+`core/medium.Medium` holds the per-slot state, `DbServer` takes `{slot: Medium}`
+and resolves the medium **per message** from the descriptor's slot byte (F37 —
+one connection carries both, so caching per connection would serve the wrong
+library the moment the DJ switches slots). One `Vfs` holds both media under
+`/C` and `/B` subtrees, which is what keeps their filehandles distinct: a handle
+is a hash of the path, and a CDJ preserves only the leading 12 bytes (F28), so
+two media sharing a root would be indistinguishable afterwards.
 
 ## Not started
 

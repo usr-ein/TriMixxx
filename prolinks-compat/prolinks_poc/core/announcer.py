@@ -40,6 +40,7 @@ from ..net.iface import Interface
 from ..net.loop import EventLoop
 from ..net.udp import UdpChannel, bind_to_interface, djl_socket, rpc_socket
 from ..proto import djl
+from .slots import MediaSlot
 from ..proto import djl_status as status
 from ..proto.errors import DecodeError
 
@@ -130,6 +131,7 @@ class VirtualCdj:
         track_count: int = 0,
         playlist_count: int = 0,
         device_settings: bytes = b"",
+        media: dict | None = None,
         recorder=None,
         on_state: Callable[[AnnouncerState, str], None] | None = None,
     ) -> None:
@@ -159,6 +161,11 @@ class VirtualCdj:
         #: type-0x35 query. Empty means "no settings on this medium", which
         #: the reply has a representation for.
         self.device_settings = device_settings
+        #: slot -> :class:`~prolinks_poc.core.medium.Medium`. When present this
+        #: drives the media-query reply, the settings reply and the per-slot
+        #: state in the status packet, so two media are advertised
+        #: independently. The scalar fields above remain the single-slot path.
+        self.media = dict(media or {})
         self.settings_queries_answered = 0
         self.media_queries_answered = 0
         self.recorder = recorder
@@ -400,19 +407,28 @@ class VirtualCdj:
         if query.target_device != self.device_number:
             return  # addressed to another player
 
+        medium = self.media.get(int(query.slot))
+        if self.media and medium is None:
+            # A slot we do not serve. Saying nothing is right: an empty reply
+            # would tell the deck the slot exists and holds no tracks, and it
+            # would then offer an empty medium (F24).
+            log.debug("ignoring media query for unserved slot %d", query.slot)
+            return
         reply = status.build_media_response(
             device_number=self.device_number,
             slot=query.slot,
-            media_name=self.media_name or "PROLINKS",
-            track_count=self.track_count,
-            playlist_count=self.playlist_count,
+            media_name=(medium.volume_name if medium else self.media_name) or "PROLINKS",
+            track_count=medium.track_count if medium else self.track_count,
+            playlist_count=medium.playlist_count if medium else self.playlist_count,
             name=self.name,
         )
         self._query_channel.sendto(reply, (query.requester_ip, status.STATUS_PORT))
         self.media_queries_answered += 1
         log.info(
             "answered media query from %s for slot %d (%d tracks, %d playlists)",
-            query.requester_ip, query.slot, self.track_count, self.playlist_count,
+            query.requester_ip, query.slot,
+            medium.track_count if medium else self.track_count,
+            medium.playlist_count if medium else self.playlist_count,
         )
 
     def _answer_settings_query(self, data: bytes, peer) -> None:
@@ -426,30 +442,46 @@ class VirtualCdj:
             query = status.decode_settings_query(data)
         except DecodeError:
             return
+        medium = self.media.get(int(query.slot))
+        settings = medium.settings if medium else self.device_settings
         reply = status.build_settings_response(
             device_number=self.device_number,
             requester=query.requester,
             slot=query.slot,
-            settings=self.device_settings,
+            settings=settings,
             name=self.name,
         )
         self._query_channel.sendto(reply, (peer[0], status.STATUS_PORT))
         self.settings_queries_answered += 1
         log.info(
             "answered settings query from %s for slot %d (%d bytes)",
-            peer[0], query.slot, len(self.device_settings),
+            peer[0], query.slot, len(settings),
         )
+
+    def _slot_state(self, slot: MediaSlot, fallback: bool) -> int:
+        """Whether a slot is advertised as holding media.
+
+        A slot we serve reports LOADED; one we do not reports EMPTY. Media
+        presence is advertised here and nowhere else (F20/F21), so a slot left
+        EMPTY is a slot no player will ever ask about.
+        """
+        if self.media:
+            return (
+                status.MediaState.LOADED if int(slot) in self.media
+                else status.MediaState.EMPTY
+            )
+        return status.MediaState.LOADED if fallback else status.MediaState.EMPTY
 
     def build_status(self) -> bytes:
         """The status packet we emit. Exposed for byte-diffing against real ones."""
         return status.build_status(
             device_number=self.device_number,
             name=self.name,
-            usb_state=(
-                status.MediaState.LOADED if self.has_usb else status.MediaState.EMPTY
+            usb_state=self._slot_state(MediaSlot.USB, self.has_usb),
+            sd_state=self._slot_state(MediaSlot.SD, False),
+            link_available=(
+                1 if (self.has_usb or self.media or self.discovery.table) else 0
             ),
-            sd_state=status.MediaState.EMPTY,
-            link_available=1 if (self.has_usb or self.discovery.table) else 0,
             packet_counter=self._status_counter,
         )
 

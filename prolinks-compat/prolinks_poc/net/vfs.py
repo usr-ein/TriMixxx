@@ -163,17 +163,35 @@ class Vfs:
         are read per-request. That is what makes serving a mounted USB stick
         practical.
         """
-        directory = Path(directory)
         vfs = cls()
+        vfs.mount_directory(directory, follow_symlinks=follow_symlinks)
+        return vfs
+
+    def mount_directory(
+        self, directory: Path, under: str = "", follow_symlinks: bool = False
+    ) -> None:
+        """Graft a real directory into the tree, optionally under a prefix.
+
+        *under* is what makes two media servable from one VFS: give each its own
+        subtree and their filehandles differ, because a handle is a hash of the
+        path. Two media sharing a root would mint the same handle for the same
+        relative path -- most obviously the root itself -- and a CDJ keeps only
+        the leading 12 bytes of a handle (F28), so there would be nothing left
+        to disambiguate them with afterwards.
+        """
+        directory = Path(directory)
+        prefix = under.strip("/")
         for path in sorted(directory.rglob("*")):
             try:
                 if not path.is_file() or (path.is_symlink() and not follow_symlinks):
                     continue
                 size = path.stat().st_size
             except OSError:
+                # Unreadable or vanished between the walk and the stat. Skipping
+                # costs one file; raising would cost the whole medium.
                 continue
-            vfs.add_disk_file(str(path.relative_to(directory)), path, size)
-        return vfs
+            relative = str(path.relative_to(directory))
+            self.add_disk_file(f"{prefix}/{relative}" if prefix else relative, path, size)
 
     def add_disk_file(self, path: str, source: Path, size: int) -> VfsNode:
         """Register a file whose contents stay on disk until requested."""
