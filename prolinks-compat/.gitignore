@@ -1,0 +1,14 @@
+# Network captures, journals and fetched media. Large, machine-specific,
+# and regenerated on demand. Fixtures under fixtures/ ARE committed.
+captures/
+
+# Local cache of files pulled off CDJs
+cache/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.venv/
+venv/

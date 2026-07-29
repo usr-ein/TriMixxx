@@ -20,8 +20,9 @@ implementation-ready spec. Source repos live, git-ignored, in `ref-repos/`.
 | [05-rekordbox-pdb-and-analysis.md](05-rekordbox-pdb-and-analysis.md) | The on-media **`export.pdb` (DeviceSQL)** and **ANLZ** analysis file formats. | see + serve libraries |
 | [06-nfs-file-access.md](06-nfs-file-access.md) | The **NFS/RPC** path: portmap/mount/nfs to pull `export.pdb`, ANLZ, art, audio directly. | see + serve libraries |
 | [07-appearing-as-a-legit-cdj.md](07-appearing-as-a-legit-cdj.md) | **Synthesis & strategy**: the Virtual CDJ approach, the device-number tradeoff, the consume-vs-serve asymmetry, a prioritized capability checklist, and the open questions to resolve with hardware captures. | both |
-| [08-python-poc-plan.md](08-python-poc-plan.md) | Phase-2 build plan: package layout + testable milestones M0–M5. | both |
-| [09-mixxx-integration-notes.md](09-mixxx-integration-notes.md) | Phase-3 notes for porting into Mixxx and upstreaming. | both |
+| [08-python-poc-plan.md](08-python-poc-plan.md) | Phase-2 build plan: package layout + testable milestones M0–M5. *(superseded by doc 10)* | both |
+| [09-mixxx-integration-notes.md](09-mixxx-integration-notes.md) | Phase-3 notes for porting into Mixxx and upstreaming. *(licensing section corrected by doc 10)* | both |
+| **[10-mixxx-prolink-implementation-plan.md](10-mixxx-prolink-implementation-plan.md)** | **The approved build plan.** Decisions taken, licensing rules, the Python PoC milestones M0–M11 and their hardware experiments, and the full Mixxx C++ design (module layout, threading, sidebar tree, track caching, registration touchpoints, risks). | both |
 
 ## TL;DR for the impatient
 
@@ -50,10 +51,23 @@ implementation-ready spec. Source repos live, git-ignored, in `ref-repos/`.
 
 ## Top open questions to resolve with hardware captures
 
-1. **Does an NXS LINK-browse drive the dbserver menu protocol, pull `export.pdb`
-   over NFS, or both?** This gates whether the serving build centers on dbserver
-   or NFS (docs 07, 08).
-2. Byte-faithful NXS keep-alive/status fields — exact name casing (`CDJ-2000nexus`
+1. ~~**Does an NXS LINK-browse drive the dbserver menu protocol, pull `export.pdb`
+   over NFS, or both?**~~ **Answered from the literature.** dysentery
+   `menus.adoc:19`: requesting the root menu "is what a player will do when you use
+   the *Link* button to connect to media mounted on another player." Corroborated by
+   `missing.adoc:14-18` (a booting CDJ opens two TCP connections to its peer: 12523
+   for port discovery, then 1051 for the Link Info track data). **LINK-browse is
+   dbserver.** NFS is a parallel surface that no CDJ *client* is known to use — it is
+   how open-source tools bypass the dbserver's player-number limits.
+   **Reframed, and now the more important question:** *how do the audio bytes travel
+   when a CDJ actually loads and plays a track off another player's USB?* dbserver
+   serves metadata, waveforms and cues, not audio. NFS is the only file-transfer
+   surface the CDJs expose, so it is the strong candidate — but no source here states
+   it. This gates whether TriMiXxX can be *played from*, not merely *browsed*.
+2. **Does a CDJ-2000NXS serve NFS at all?** Doc 06 §1's "confirmed" rests on an
+   **XDJ** capture, not an NXS (a 2012 unit). This is the go/no-go gate for the whole
+   chosen transport — see doc 10, experiment E4.
+3. Byte-faithful NXS keep-alive/status fields — exact name casing (`CDJ-2000nexus`
    is inferred), packet sizes.
-3. What advertisement makes an NXS offer *us* as a LINK source.
-4. Whether an NXS accepts a foreign-generated pdb/ANLZ tree over NFS.
+4. What advertisement makes an NXS offer *us* as a LINK source.
+5. Whether an NXS accepts a foreign-generated pdb/ANLZ tree over NFS.

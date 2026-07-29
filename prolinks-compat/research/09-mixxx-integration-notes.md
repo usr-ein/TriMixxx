@@ -37,9 +37,31 @@ PoC is built with the port in mind.
   it's capture-validated rather than spec-backed and touches more surface
   (standing up NFS/dbserver servers raises security/permission questions on the Pi).
 - Coordinate early with Mixxx maintainers (Zulip/GitHub) — the rekordbox parser
-  authors will have opinions; reuse, don't fork. Note licensing of any code adapted
-  from the reference repos (python-prodj-link is GPL-ish; dysentery is EPL — check
-  before copying code vs reimplementing from the docs).
+  authors will have opinions; reuse, don't fork.
+
+> **Correction (2026-07-29).** An earlier version of this section said
+> "python-prodj-link is GPL-ish; dysentery is EPL". The first half is wrong.
+> Verified by reading the `LICENSE` files in `ref-repos/`:
+>
+> | Repo | License | Usable in a Mixxx (GPLv2+) PR? |
+> |---|---|---|
+> | prolink-connect | **MIT** | **Yes** |
+> | prolink-cpp | **MIT** | **Yes** |
+> | python-prodj-link | **Apache-2.0** | **No** — incompatible with GPLv2 |
+> | dysentery | EPL-1.0 | **No** |
+> | vizlink | EPL-2.0 | **No** |
+> | libcdj | *no LICENSE file* | **No** — all rights reserved by default |
+>
+> Apache-2.0 is *worse* for our purpose than "GPL-ish" would have been: it is the
+> one common OSI license explicitly incompatible with GPLv2. Awkwardly,
+> python-prodj-link is also the most complete reference for objective 1.
+>
+> This does not block anything. Protocol **facts** (offsets, constants, procedure
+> numbers) are not copyrightable, so every repo stays usable as a **reference and
+> inspiration** — only their *code* is off-limits. The `research/` docs are the
+> intended intermediary: implement from them, not from a source file open in the
+> next window. See [10-mixxx-prolink-implementation-plan.md](10-mixxx-prolink-implementation-plan.md#licensing--read-before-writing-any-protocol-code)
+> for the working discipline.
 
 ## Practical constraints on the Pi / TriMiXxX
 

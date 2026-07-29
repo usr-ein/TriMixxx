@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "prolinks-poc"
+version = "0.1.0"
+description = "Proof-of-concept ProLink (Pioneer Pro DJ Link) client, written to be ported to Mixxx C++/Qt"
+requires-python = ">=3.10"
+license = { text = "GPL-2.0-or-later" }
+# Intentionally NO runtime dependencies. Everything below cli.py uses the
+# standard library only -- anything exotic would be a porting hazard for the
+# C++/Qt target. See research/10, "Portability rules".
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+prolinks = "prolinks_poc.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["prolinks_poc*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
