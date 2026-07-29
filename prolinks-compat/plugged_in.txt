@@ -1,0 +1,43 @@
+
+Hardware Port: Ethernet Adapter (en4)
+Device: en4
+Ethernet Address: b6:e2:0c:8f:4b:de
+
+Hardware Port: USB 10/100/1000 LAN
+Device: en9
+Ethernet Address: a0:ce:c8:e2:26:de
+
+Hardware Port: Ethernet Adapter (en5)
+Device: en5
+Ethernet Address: b6:e2:0c:8f:4b:df
+
+Hardware Port: Dell Universal Dock D6000
+Device: en12
+Ethernet Address: 0c:37:96:38:32:09
+
+Hardware Port: Ethernet Adapter (en6)
+Device: en6
+Ethernet Address: b6:e2:0c:8f:4b:e0
+
+Hardware Port: Thunderbolt Bridge
+Device: bridge0
+Ethernet Address: 36:ce:a7:67:cf:80
+
+Hardware Port: Wi-Fi
+Device: en0
+Ethernet Address: 5c:e9:1e:9d:cb:93
+
+Hardware Port: Thunderbolt 1
+Device: en1
+Ethernet Address: 36:ce:a7:67:cf:80
+
+Hardware Port: Thunderbolt 2
+Device: en2
+Ethernet Address: 36:ce:a7:67:cf:84
+
+Hardware Port: Thunderbolt 3
+Device: en3
+Ethernet Address: 36:ce:a7:67:cf:88
+
+VLAN Configurations
+===================

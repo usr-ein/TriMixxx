@@ -20,32 +20,52 @@ This is a passive L2 bridge, not a router and not an ARP spoof: the CDJs are
 unaware of it, nothing is forged, and no packet is delayed by a forwarding
 decision at L3.
 
+On this machine the two NICs are:
+
+| Interface | Hardware | MAC |
+|---|---|---|
+| `en9` | USB 10/100/1000 LAN | `a0:ce:c8:e2:26:de` |
+| `en12` | Dell Universal Dock D6000 | `0c:37:96:38:32:09` |
+
+**Use `bridge1`, not `bridge0`.** `bridge0` already exists on macOS as the
+Thunderbolt bridge (members en1/en2/en3) and must be left alone.
+
+Each NIC also has a network service in System Settings. Leave those enabled and
+`configd` will keep re-applying DHCP to the bridge members, fighting the
+bridge — so turn them off first.
+
 ```bash
-# Identify the two dongles first
-prolinks interfaces
-networksetup -listallhardwareports
+# 1. Stop configd from managing the members
+sudo networksetup -setnetworkserviceenabled "USB 10/100/1000 LAN 2" off
+sudo networksetup -setnetworkserviceenabled "Dell Universal Dock D6000" off
+sudo ipconfig set en9 NONE
+sudo ipconfig set en12 NONE
 
-# Build the bridge (substitute your interface names for en5/en6)
-sudo ifconfig bridge0 create
-sudo ifconfig bridge0 addm en5 addm en6
-sudo ifconfig bridge0 up
+# 2. Build the bridge
+sudo ifconfig bridge1 create
+sudo ifconfig bridge1 addm en9 addm en12
+sudo ifconfig bridge1 up
 
-# The members must NOT carry their own IPs; the address goes on the bridge so
-# the Mac can also participate (run prolinks) on the same segment.
-sudo ipconfig set en5 NONE
-sudo ipconfig set en6 NONE
-sudo ipconfig set bridge0 AUTOMATIC-V4     # self-assigns 169.254/16
+# 3. Give the Mac an address on the segment, so prolinks can participate too
+sudo ipconfig set bridge1 AUTOMATIC-V4     # self-assigns 169.254/16
 ```
 
 Give it ~15 s. Link-local self-assignment is not instant, on the Mac or on the
-players.
+players. Both members will read `status: inactive` until a powered CDJ is
+plugged in — that is expected, not a fault.
+
+Confirm the bridge came up with both members:
+
+```bash
+ifconfig bridge1 | grep -E 'member|status'
+```
 
 **Teardown, at the end of the night:**
 
 ```bash
-sudo ifconfig bridge0 destroy
-sudo ipconfig set en5 AUTOMATIC-V4
-sudo ipconfig set en6 AUTOMATIC-V4
+sudo ifconfig bridge1 destroy
+sudo networksetup -setnetworkserviceenabled "USB 10/100/1000 LAN 2" on
+sudo networksetup -setnetworkserviceenabled "Dell Universal Dock D6000" on
 ```
 
 ### Verify the tap before trusting any capture
@@ -55,12 +75,18 @@ discovering afterwards that only one deck was visible. So check first, with
 both players on:
 
 ```bash
-sudo tcpdump -i en5 -n -c 20 udp port 50000
+sudo tcpdump -i en9 -n -c 20 udp port 50000
 ```
 
 You must see keep-alives sourced from **both** CDJ IPs. If only one appears,
-capture on `bridge0` instead of `en5` and re-check. Do not proceed until two
+capture on `bridge1` instead of `en9` and re-check. Do not proceed until two
 distinct sources show up.
+
+If neither works, the likely culprit is the **D6000 dock**: bridging needs the
+member NIC to support promiscuous mode, and DisplayLink dock NICs are the more
+temperamental of the two here. Diagnose by swapping which deck is on which
+port — if the capture follows the deck on `en9`, the dock is the problem, and
+the fallback is a second plain USB dongle or a switch with port mirroring.
 
 ```bash
 prolinks devices      # should list both players
@@ -97,7 +123,8 @@ not recoverable from the bytes.
   change this deliberately in S2b.
 - Note each unit's **firmware version** from its UTILITY screen — captures are
   only comparable against other captures of the same firmware.
-- Decide which physical deck is on which NIC and **write it down**. Everything
+- Decide which physical deck is on which NIC (`en9` / `en12`) and **write it
+  down**. Everything
   downstream is IP-based, and mapping IP→deck after the fact is guesswork.
 
 ---
@@ -290,7 +317,7 @@ Then append verdicts for E1–E8 to `FINDINGS.md` while the session is fresh.
 
 ```bash
 #!/usr/bin/env bash
-# Usage: tools/capture.sh S05-link-browse en5 "deck A browses deck B's USB"
+# Usage: tools/capture.sh S05-link-browse en9 "deck A browses deck B's USB"
 set -euo pipefail
 name="${1:?scenario name}"; iface="${2:?interface}"; shift 2
 dir="captures/$name"; mkdir -p "$dir"
