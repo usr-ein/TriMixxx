@@ -127,7 +127,7 @@ class UdpChannel:
     """A UDP socket that records, and that a guard can veto sends on."""
 
     __slots__ = (
-        "sock", "local_port", "recorder", "guard", "label", "_decoder", "_send_failed",
+        "sock", "local_port", "recorder", "guard", "label", "_decoder", "_failed_peers",
     )
 
     def __init__(
@@ -147,7 +147,7 @@ class UdpChannel:
         #: journal. Failures are recorded as ``decode_error`` rather than
         #: raised -- a decoder bug must never cost us the capture.
         self._decoder = decoder
-        self._send_failed = False
+        self._failed_peers: set[str] = set()
 
     def fileno(self) -> int:
         return self.sock.fileno()
@@ -186,7 +186,7 @@ class UdpChannel:
             return 0
         if self._send_failed:
             log.info("%s: sending to %s recovered", self.label, peer[0])
-            self._send_failed = False
+            self._failed_peers: set[str] = set()
         self._journal("tx", peer, data)
         return sent
 
