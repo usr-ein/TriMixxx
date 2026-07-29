@@ -25,3 +25,8 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+
+# The generated format matrix: 1 GB of derived audio. tools/make-format-matrix.sh
+# rebuilds it, and the source track beside it is what actually matters.
+test_tracks/format-matrix/*
+!test_tracks/format-matrix/README.md
