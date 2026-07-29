@@ -66,6 +66,14 @@ tidying rather than discovery:
 All four containers should now load: item 1 of `GET_TRACK_INFO` carries the
 container, taken from pdb offset `0x5a` (F34, F35).
 
+## Next up — two media at once
+
+TriMiXxX has two USB slots and should present one as USB and one as SD. F37
+settles the shape: a **single** dbserver connection carries both, keyed on the
+descriptor's slot byte (SD=2, USB=3), so `DbServer` needs a `Library` per slot
+rather than one server per slot. `NfsServer` already takes an exports dict and
+can serve `/B/` and `/C/` together.
+
 ## Not started
 
 - **Phase B — Mixxx C++ integration** (`research/10`, Phase B). Including **B0**,

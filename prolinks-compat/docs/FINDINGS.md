@@ -54,6 +54,7 @@ and analysis files · **METH** capture methodology.
 | [F34](#f34) | PDB | Row offset `0x5a` is the **container**; the disc-number half was **wrong** |
 | [F35](#f35) | DB | `GET_TRACK_INFO` item **1** is the container; item 6 is a constant `1` |
 | [F36](#f36) | DISC | **Auto numbering**: byte `31` = `01`, and a type-`05` "number in use" reply |
+| [F37](#f37) | NFS | SD is `/B/`; **one** dbserver connection multiplexes both slots by descriptor byte |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1331,6 +1332,54 @@ observed. Decoded as `NumberInUse` and round-trips byte-exactly.
 Also reconfirmed, now with the variable moved deliberately: C13's stage-3 repeat
 count. Deck B booted alone sent **three** type-`04` packets, deck A joining an
 occupied network sent **one**.
+
+
+<a id="f37"></a>
+
+### F37 — SD is `/B/`, and **both slots share one dbserver connection**
+
+One deck reading the other's SD, first alone and then alongside a USB. Four
+things our code assumed are now observed, and one is the design constraint for
+serving two media at once.
+
+**SD mounts `/B/`.** F12 confirmed `/C/` for USB and explicitly left `/B/`
+untested; a deck reading a peer's SD calls `MNT('/B/')`. Our slot table was
+right.
+
+**The descriptor's slot byte is the discriminator, and `MediaSlot` matches.**
+
+| Slot | descriptor byte | requests seen |
+|---|---|---|
+| SD | **2** | 185 |
+| USB | **3** | 102 |
+
+**One connection carries both.** With an SD *and* a USB in the same peer, every
+request for both media travelled over a **single** dbserver TCP connection —
+client port 1054 in both sessions — distinguished only by that byte. So serving
+two media is not two servers: it is one server holding a `Library` **per slot**,
+selected from the descriptor. That is the concrete constraint on the TriMiXxX
+two-slot design, and it is the opposite of what a per-slot-server implementation
+would assume.
+
+**The media query is per slot** and reports that slot's own medium:
+
+```
+0x05 slot=2 -> 0x06 slot=2  name='Sam CDJ1000mk3'  113 tracks, 11 playlists
+0x05 slot=3 -> 0x06 slot=3  name='SAM2'            692 tracks, 35 playlists
+```
+
+One query per slot, issued when the deck first browses it — not repeated.
+
+**`UMNT` is per slot and follows the eject.** Ejecting SD then USB produced
+`UMNT('/B/')` then `UMNT('/C/')`, in that order, 12 s apart. Confirms C9 and ties
+it to a physical action.
+
+**A real deck never calls `EXPORT`.** Not once in either session: it goes
+straight to `MNT` with the documented path. C6 made `EXPORT` enumeration our
+preferred path because one capture showed `/C/` and `/C/EXPORT` on different
+peers, and that is still the more robust client behaviour — but it is *not* what
+the hardware does, so a server that only answers `MNT` would satisfy a real
+player. Worth knowing before treating `EXPORT` as load-bearing.
 
 
 
