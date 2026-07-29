@@ -184,12 +184,29 @@ independent observations, three different devices, same numbers. Portmap
 discovery is still required, but 48276 looks like a Pioneer constant rather than
 a per-boot allocation.
 
-*Also answers E1 in passing.* Nothing in this session has ever transmitted on a
-DJ-Link port — `devices`, `sniff` and `pcap` only listen, and `rpcinfo` speaks
-RPC from an ephemeral port. So **NFS access works with no announcement at all**,
-which is what lets the Mixxx feature browse a live rig without claiming a device
-number or risking anything. Worth re-confirming with `--assert-passive`, which
-turns it from "we did not transmit" into "we could not have".
+### F11 — **Passive NFS access works.** Experiment E1 confirmed, guard-enforced
+
+Re-run under `--assert-passive`, which arms a guard that raises *before* the
+`sendto` syscall on any DJ-Link port and then verifies the capture journal:
+
+```
+VERDICT: NFS transport AVAILABLE on 169.254.103.172
+passivity verified: 0 datagrams sent on DJ-Link ports [50000, 50001, 50002, 50004]
+(4 sent in total, all on ephemeral RPC ports)
+```
+
+So a CDJ serves files to a host that has **never announced itself** — no
+keep-alive, no device number, no claim handshake, nothing on 50000/50001/50002
+at all. This is the strongest form of the claim available: not "we did not
+transmit" but "we could not have".
+
+*Why it matters more than it looks.* It means the Mixxx feature can read a live
+rig's libraries without participating in the DJ-Link network at all — no device
+number to contend for, no risk of knocking a deck off mid-set, and no need for
+the virtual-CDJ announcer on the consume path. dysentery's `startup.adoc:468`
+asserts this; it is now demonstrated on the target hardware. It also means the
+announcer is only needed for the *serve* side and for dbserver queries, which
+substantially de-risks the whole consume objective.
 
 *Evidence:* `captures/S04-media-insert`, deck A at 169.254.103.172.
 
