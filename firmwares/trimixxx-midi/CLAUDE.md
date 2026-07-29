@@ -4,33 +4,14 @@ Firmware for the **LOLIN S3 Mini (ESP32-S3)** master board of a custom DJ deck. 
 reads the deck's controls, bridges them to Mixxx on a Raspberry Pi as MIDI, and
 drives the ring's RGB LEDs from Mixxx feedback.
 
-## Commands
+## Setup
 
-```bash
-pio run                      # build
-pio run -t upload            # build + flash (native USB CDC)
-pio device monitor           # serial console @ 115200
-pio run -t clean
-pio check                    # cppcheck static analysis (config in platformio.ini)
-```
+Formatting (`clang-format`) and linting (`pio check`) run on every commit via
+`prek`, configured in the monorepo-root `.pre-commit-config.yaml`. The whole tree
+is kept format-clean.
 
-Board target: `lolin_s3_mini` (single env). Native USB is used for both flashing
-and the serial console — no external programmer.
-
-### Formatting & linting
-- **Format:** `clang-format` (config `.clang-format`). Apply to everything:
-  `clang-format -i src/**/*.cpp lib/**/*.{hpp,cpp}`. The whole tree is kept
-  format-clean. Requires `brew install clang-format`.
-- **Lint:** `pio check` runs cppcheck over `src/` + `lib/` only (framework and
-  lib-deps skipped). Suppressions for third-party headers and the canonical
-  encoder state table live in `platformio.ini`. Requires `brew install cppcheck`.
-- **Git hook (automatic):** both of the above run on every commit via `prek`,
-  configured in the monorepo-root `.pre-commit-config.yaml` (scoped to this
-  firmware). clang-format auto-fixes staged C/C++; `pio check` blocks the commit
-  on any medium/high cppcheck defect. **One-time setup per clone:** `prek install`.
-  Tools needed: `brew install clang-format cppcheck` + `prek`.
-  (Note: `pio check --fail-on-defect` matches an *exact* severity, so the hook
-  lists both `medium` and `high` — see the config comment.)
+**One-time setup per clone:** `prek install`.
+Tools needed: `brew install clang-format cppcheck` + `prek`.
 
 ## Architecture
 
