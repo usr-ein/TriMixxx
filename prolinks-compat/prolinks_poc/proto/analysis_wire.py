@@ -45,13 +45,18 @@ def prefix_opaque() -> int:
     makes it a free-running counter or an allocator address on the serving
     deck. Either way a client cannot validate it.
 
-    So this emits a counter of the same shape rather than a constant. That is a
-    **hypothesis under test**: after everything else in a load was made
-    byte-identical to a real deck's, this word -- sent as zero -- was the only
-    remaining difference, and it appears in exactly the two replies that feed
-    the main waveform, which is the one thing that still does not display. If a
-    non-zero value changes nothing, the cause is outside these replies and this
-    should go back to being a constant.
+    So this emits a counter of the same shape. **Confirmed on hardware**: with
+    zero here the main waveform does not draw, and with a deck-shaped counter
+    it draws cleanly, everything else unchanged.
+
+    That is worth stating plainly because the reasoning that predicted
+    otherwise was wrong. The argument was: a value the client cannot
+    recompute is a value the client cannot check, therefore it is ignored. A
+    receiver does not have to *validate* a field to *reject* it -- zero is a
+    perfectly good sentinel for "absent", and evidently that is how it reads.
+
+    Still unexplained: what the number means. All we know is that it must be
+    non-zero and must not go backwards.
     """
     elapsed = time.monotonic() - _STARTED
     return (_OPAQUE_BASE + int(elapsed * _OPAQUE_RATE)) & 0xFFFFFFFF

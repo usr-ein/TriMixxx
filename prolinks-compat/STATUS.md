@@ -12,7 +12,7 @@ Last updated: 2026-07-29, during a live session with two CDJ-2000NXS.
 | | Objective | State |
 |---|---|---|
 | **1. Consume** | See and play other CDJs' libraries | **Working end to end** in the PoC |
-| **2. Serve** | Other CDJs see and play *our* library | **Playing.** Main waveform still missing |
+| **2. Serve** | Other CDJs see and play *our* library | **Working end to end** |
 
 ### Objective 1 — consume: working
 
@@ -44,20 +44,26 @@ A real CDJ-2000NXS, with nothing but a Mac and a USB stick on the other end:
 | NFS mount, path walk to the audio file | works | F28 |
 | **Load and play a track** | works | F30, F31, F32 |
 | Hot cues, preview waveform, scrubbing | works | F32 |
-| **Main (detail) waveform** | **does not display** | O7 |
+| **Scrolling (main) waveform** | works | F33 |
 
-S10i records 1141 NFS READs; two tracks loaded and scrubbed with no delay.
-The one remaining defect is the main waveform.
+S10j is the first session with **zero errors**: every request a CDJ-2000NXS
+makes is answered. A load is 20 `LOOKUP`s and 201 `READ`s. Tracks play, scrub
+without delay, and show hot cues and both waveforms.
 
 ---
 
-## What is being worked on right now
+## Phase A is done
 
-1. **O7 — the main waveform does not display.** Everything else in a load
-   works. The only remaining difference from a real deck's replies is the
-   fifth prefix word of `BEAT_GRID` and `WAVEFORM_DETAIL`, which we send as
-   zero and cannot derive — it is a free-running counter on the serving deck.
-   Those are exactly the two replies feeding the main waveform. See F32.
+Both objectives work against real hardware. What remains in the PoC is
+tidying rather than discovery:
+
+- the opaque prefix word (F33) must be non-zero but is still unexplained;
+- items 1 and 6 of `GET_TRACK_INFO`, and argument 0 of the metadata items,
+  are reproduced as observed constants rather than derived (F31, F32);
+- `0x3d03` is acknowledged with a guessed reply — no capture shows a real one.
+
+None of these blocks anything. A capture of a non-MP3, or of a track on
+disc 2, would settle most of them.
 
 ## Not started
 

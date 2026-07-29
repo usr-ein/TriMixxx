@@ -50,6 +50,7 @@ and analysis files · **METH** capture methodology.
 | [F30](#f30) | DB | The load sequence decoded: `0x2504` is the **VBR seek index**; analysis is transformed, not forwarded |
 | [F31](#f31) | DB | `GET_TRACK_INFO` is **six** items, and argument 0 of the path item is the **file size** |
 | [F32](#f32) | DB | **Playback works.** `GET_METADATA` is **13** items carrying *referenced* row ids |
+| [F33](#f33) | DB | **Serve side complete.** The opaque prefix word must be non-zero |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -61,8 +62,7 @@ stage-3 repeat count follows peer-presence-at-boot · C14 the status name field
 is 20 bytes.
 
 **Open** — O4 what is `0x3e03`? (`0x3100` answered, F30) · O5 the deck
-issues no READ after a successful `LOOKUP` — *resolved, F31* · O7 the main
-waveform does not display O1–O3 and O6 are resolved (F18/F19, F10, F9, and
+issues no READ after a successful `LOOKUP` — *resolved, F31*. O7 is resolved (F33) O1–O3 and O6 are resolved (F18/F19, F10, F9, and
 three path bugs respectively).
 
 ---
@@ -1173,6 +1173,40 @@ Suggestive, not conclusive. The word increments at roughly 40,000 per second
 between two replies 2.6 s apart, so it is a free-running counter on the serving
 deck rather than anything derived from the track. If it is a generation or
 cache token, zero may read as "no data".
+
+
+<a id="f33"></a>
+
+### F33 — ~~O7~~ resolved: the opaque word must be non-zero. **The serve side is complete**
+
+Sending a deck-shaped counter in the fifth prefix word of `BEAT_GRID` and
+`WAVEFORM_DETAIL`, instead of zero, makes the scrolling waveform draw cleanly.
+Nothing else changed.
+
+S10j is the first session with **zero errors**: every request a CDJ-2000NXS
+makes is answered, and a load is 20 `LOOKUP`s and 201 `READ`s with one of each
+analysis request.
+
+| Feature | State |
+|---|---|
+| Appears on LINK, categories, pagination, artwork | works |
+| Load, play, scrub, hot cues | works |
+| Preview waveform | works |
+| **Scrolling (main) waveform** | **works** |
+
+**The prediction that failed, and why.** F32 reasoned that a value the client
+cannot recompute is a value the client cannot check, so it must be ignored --
+and rated the fix unlikely on that basis. That is wrong, and the error is worth
+keeping: *a receiver does not have to validate a field to reject it.* Zero is a
+perfectly serviceable sentinel for "absent", and here it is treated as one. The
+hypothesis was only tested because it was the last difference left, not because
+the reasoning favoured it.
+
+**Still unexplained.** We know the word must be non-zero and must not go
+backwards. We do not know what it means. The two captured values are per-reply,
+monotonic and about 40,000 apart per second, which fits a free-running counter
+or an allocator address on the serving deck; ours is a counter of the same
+shape. A player evidently checks that it is *there*, not what it is.
 
 
 
