@@ -35,6 +35,11 @@ fi
     echo "- deck B (en9):  ip=?  firmware=?  slot=?  media=?"
     echo "- bridge: bridge1 = en12 + en9"
     echo
+    echo "## Devices"
+    echo '```'
+    echo "(paste 'prolinks devices' here once the decks are up)"
+    echo '```'
+    echo
     echo "## Timeline"
     echo "- 0:00 capture started"
     echo "- "
@@ -46,3 +51,8 @@ echo "capturing $name on $iface -> $dir/run.pcap"
 echo "fill in $dir/NOTES.md as you go. Ctrl-C to stop."
 echo
 sudo tcpdump -i "$iface" -s 0 -n -w "$dir/run.pcap"
+
+# tcpdump ran as root, so the capture lands owned by root. Hand it back,
+# otherwise every later analysis or cleanup needs sudo too.
+sudo chown "$(id -u):$(id -g)" "$dir/run.pcap" 2>/dev/null || true
+echo "wrote $dir/run.pcap"

@@ -47,9 +47,9 @@ class Device:
     first_seen: float
     last_seen: float
     peer_count: int = 0
-    #: Keep-alive byte 0x35: 01 nexus, 64 CDJ-3000, 00 legacy. Effectively a
-    #: model code (research/02 §1.6), so worth surfacing.
-    trailing: int = 0x01
+    #: Keep-alive byte 0x35, a product-generation code. 0x00 on all nexus
+    #: gear we have captured, 0x64 for CDJ-3000. See :attr:`model_hint`.
+    trailing: int = 0x00
     packet_count: int = 0
     stale: bool = False
     #: Which of our interfaces the datagrams arrived on, so RPC sockets can
@@ -73,10 +73,20 @@ class Device:
 
     @property
     def model_hint(self) -> str:
-        """Best guess at the hardware, from the keep-alive trailing byte."""
-        return {0x00: "legacy", 0x01: "nexus", 0x20: "stagehand", 0x64: "CDJ-3000"}.get(
-            self.trailing, f"0x{self.trailing:02x}"
-        )
+        """Product generation, from keep-alive byte ``0x35``.
+
+        ``research/02`` §2 reads this byte as "00 classic, 01 typical CDJ,
+        64 CDJ-3000", which would make every deck we own "classic". It is
+        wrong: both a CDJ-2000nexus and a DJM-2000nexus send **0x00**
+        (FINDINGS C3), and ``0x01`` has never been observed on hardware at
+        all. So 0x00 is the nexus-and-earlier value, and the label says so.
+        """
+        return {
+            0x00: "nexus/earlier",
+            0x01: "0x01 (documented, never observed)",
+            0x20: "Stagehand",
+            0x64: "CDJ-3000",
+        }.get(self.trailing, f"0x{self.trailing:02x}")
 
     def age(self, now: float | None = None) -> float:
         return (now if now is not None else time.monotonic()) - self.last_seen
