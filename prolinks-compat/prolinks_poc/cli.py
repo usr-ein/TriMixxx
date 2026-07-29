@@ -1574,6 +1574,11 @@ def main(argv: list[str] | None = None) -> int:
     except ProlinkError as exc:
         _warn(f"error: {exc}")
         return 1
+    except RuntimeError as exc:
+        # Configuration problems -- no usable interface, an ambiguous choice --
+        # are the operator's to fix, and a traceback buries the instructions.
+        _warn(f"error: {exc}")
+        return 1
     finally:
         ctx.finish()
 

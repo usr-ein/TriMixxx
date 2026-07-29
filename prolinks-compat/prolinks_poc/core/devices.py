@@ -120,9 +120,15 @@ class DeviceTable:
         self,
         stale_after: float = STALE_AFTER_S,
         forget_after: float = FORGET_AFTER_S,
+        ignore_macs: set[bytes] | None = None,
     ) -> None:
         self.stale_after = stale_after
         self.forget_after = forget_after
+        #: Our own MAC(s). We bind 0.0.0.0 and so receive our own broadcasts;
+        #: without this an announcing virtual CDJ lists itself as a peer, which
+        #: is confusing in the output and would corrupt the peer count we put
+        #: in our own keep-alive.
+        self.ignore_macs = ignore_macs or set()
         self._devices: dict[str, Device] = {}
         #: Every device number seen in any keep-alive or claim packet, ever.
         #:
@@ -153,6 +159,9 @@ class DeviceTable:
         proposing.
         """
         now = time.monotonic() if now is None else now
+
+        if getattr(packet, "mac", None) in self.ignore_macs:
+            return None
 
         if isinstance(packet, (djl.ClaimIp, djl.ClaimNumber, djl.NumberConflict)):
             if packet.device_number:

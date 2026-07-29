@@ -181,25 +181,54 @@ def list_interfaces() -> list[Interface]:
 def find_interface(name: str | None) -> Interface:
     """Resolve ``--iface``.
 
-    With no name, prefer a link-local (169.254/16) interface: on a CDJ network
-    with no DHCP that is by definition the one facing the players. Otherwise
-    fall back to the first usable interface.
+    With no name, pick the link-local (169.254/16) interface: on a CDJ network
+    with no DHCP that is by definition the one facing the players.
+
+    **It refuses to guess.** An earlier version fell back to the first usable
+    interface when no link-local one existed, and quietly selected the Mac's
+    home LAN -- so an entire `serve` session broadcast DJ-Link to
+    192.168.1.255 while the players sat on a bridge that had silently lost its
+    address. Nothing errored; the run simply did nothing, and it took reading
+    the log line by line to notice.
+
+    Broadcasting this protocol onto an unrelated network is useless and
+    impolite, so an ambiguous choice is now an error with instructions rather
+    than a silent wrong answer.
     """
     interfaces = list_interfaces()
     if not interfaces:
-        raise RuntimeError("no usable IPv4 interface with a MAC address found")
+        raise RuntimeError(
+            "no usable IPv4 interface with a MAC address found. If you are using "
+            "a bridge, check it has an address: ifconfig bridge1 inet "
+            "169.254.99.100 netmask 255.255.0.0"
+        )
 
     if name:
         for interface in interfaces:
             if interface.name == name:
                 return interface
-        available = ", ".join(i.name for i in interfaces)
+        available = ", ".join(f"{i.name} ({i.ip})" for i in interfaces)
         raise RuntimeError(f"interface {name!r} not found; available: {available}")
 
-    for interface in interfaces:
-        if interface.is_link_local:
-            return interface
-    return interfaces[0]
+    link_local = [i for i in interfaces if i.is_link_local]
+    if len(link_local) == 1:
+        return link_local[0]
+    if len(link_local) > 1:
+        names = ", ".join(f"{i.name} ({i.ip})" for i in link_local)
+        raise RuntimeError(
+            f"several link-local interfaces; choose one with --iface: {names}"
+        )
+
+    available = "\n  ".join(f"{i.name:<10} {i.ip}" for i in interfaces)
+    raise RuntimeError(
+        "no link-local (169.254/16) interface found, so the CDJ network cannot be "
+        "identified automatically.\n"
+        f"Interfaces available:\n  {available}\n"
+        "Pass --iface explicitly, or give the CDJ-facing interface an address:\n"
+        "  sudo ifconfig bridge1 inet 169.254.99.100 netmask 255.255.0.0\n"
+        "Refusing to guess: broadcasting DJ-Link onto an unrelated network does "
+        "nothing useful and is rude to whoever is on it."
+    )
 
 
 def interface_for_peer(peer_ip: str) -> Interface | None:

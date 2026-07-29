@@ -171,6 +171,9 @@ class VirtualCdj:
     def start(self) -> None:
         """Begin announcing. Returns immediately; drive the loop to progress."""
         self.discovery.on_conflict = self._on_conflict
+        # We receive our own broadcasts, so exclude ourselves from the peer
+        # table before latching anything from it.
+        self.discovery.table.ignore_macs.add(self.interface.mac)
         # Latch "was I first here?" now and never revisit it: a real deck
         # decides this at boot, and it drives both the stage-3 repeat count
         # and keep-alive byte 0x25 for the rest of the session.
