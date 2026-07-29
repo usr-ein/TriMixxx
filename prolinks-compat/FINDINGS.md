@@ -276,30 +276,50 @@ arithmetic: the 10 s device timeout is **5** missed keep-alives, not the "6-7"
 *Evidence:* `captures/S01-cold-boot-a`.
 
 
-### C13 — A manually-numbered device still sends **three** stage-3 packets
+### C13 — Stage-3 repeat count is **not** governed by auto-vs-manual  *(revised)*
 
 `research/02` §1.3 reads byte `31` of the stage-2 claim as `01` auto-assign /
 `02` specific number, and §1.0 adds: *"When set to a specific (manual) number,
-the device sends only **one** stage-3 packet (N=01) then proceeds to
-keep-alive."*
+the device sends only **one** stage-3 packet (N=01)."*
 
-Deck A's `PLAYER No.` was set **manually to 1**, and the capture shows byte
-`31` = `02` — so the *mode* reading is correct and confirmed. But it sent
-**three** stage-3 packets, N=1,2,3, exactly like the auto-assign case. The
-packet-count half of the claim is wrong.
+The **mode byte is confirmed**: both decks are set manually and both send
+`31` = `02`.
 
-*Impact:* none on our code, which already sends three of every stage — but it
-would have been a natural "optimisation" to make, and doing so would have made
-our claim sequence detectably unlike a real deck's.
+The **packet count is not explained by the mode**. Two decks, both manual, both
+firmware v1.44, disagree:
 
-**Consequence worth noting:** with the doc corrected, our announcer's claim
-handshake is now **byte-identical to a real CDJ-2000NXS** across all twelve
-packets — hellos, stage-1, stage-2 and stage-3 — given the same identity. Held
-as a golden vector in `tests/test_djl.py::NXS_CLAIM_SEQUENCE`, so any future
-drift in the announcer fails a test rather than a CDJ.
+| Deck | Number | Booted into | Stage-3 packets |
+|---|---|---|---|
+| A | 1 (manual) | an empty network | **3** (N=1,2,3) |
+| B | 2 (manual) | a network with deck A present | **1** (N=1) |
 
-*Evidence:* `captures/S01-cold-boot-a`;
+So the doc's rule holds for deck B and fails for deck A, and the variable that
+actually differs is **whether another device was already on the network**, not
+the assignment mode.
+
+> An earlier version of this entry claimed the doc's packet count was simply
+> wrong. That was drawn from deck A alone and was too strong: with deck B in
+> hand, "manual sends one" is right at least sometimes. The honest statement is
+> that the repeat count depends on something the doc does not model.
+
+*Not yet isolated.* Two candidates fit both observations equally: presence of a
+peer, or the number being claimed (1 vs 2). Separating them needs two more
+captures, **S1b** and **S2c** (see the capture plan) — boot deck B alone, and
+boot deck A into an occupied network. If deck B alone sends three, presence is
+the variable; if it still sends one, the number is.
+
+*Impact on us:* none yet — we send three of every stage, which matches deck A.
+Worth revisiting once the variable is known, since matching the hardware
+case-for-case is the point of impersonation.
+
+**Still true and worth keeping:** our announcer's claim handshake is
+byte-identical to deck A's twelve packets — hellos, stage-1, stage-2, stage-3 —
+given the same identity. That golden vector covers the **boot-into-empty-network**
+case specifically.
+
+*Evidence:* `captures/S01-cold-boot-a`, `captures/S02-deck-b-joins`;
 `test_our_announcer_reproduces_the_claim_handshake_byte_for_byte`.
+
 
 
 ### C5 — Reference-repo licences (already applied to `research/09` and `10`)
@@ -340,12 +360,32 @@ portmap traffic noted in O1 is suggestive but not yet decoded.
 
 ### O3 — Keep-alive byte `25` semantics *(see C4)*
 
-New datum: with a **single** deck alone on the network (`peers=1`), byte `25`
-was `0x02` for all 30 keep-alives — perfectly stable. In the dysentery captures,
-where several devices were present, the same model alternated `01`/`02`. So the
-byte is not random and not a role: it plausibly encodes something about the
-*other* devices present. S2 and S3 should settle it, since they add a second
-deck to an otherwise identical setup.
+**Correction to my own earlier analysis.** I originally aggregated this byte by
+device *name* — but every CDJ-2000nexus reports the same name, and dysentery's
+capture contains two of them. Regrouped by **MAC**, which actually identifies a
+device:
+
+| Capture | D | Device | byte `25` |
+|---|---|---|---|
+| ours | 1 | CDJ-2000nexus | `02` ×108 |
+| ours | 2 | CDJ-2000nexus | `01` ×66 |
+| dysentery | 2 | CDJ-2000nexus | `02` ×31, `01` ×43 |
+| dysentery | 3 | CDJ-2000nexus | `01` ×74 |
+| dysentery | 33 | DJM-2000nexus | `01` ×32, `02` ×59 |
+
+What this rules out:
+
+- **Not a CDJ/mixer role byte** (the doc's reading): a DJM sends both values and
+  so does a CDJ.
+- **Not the peer count**: deck A held `02` across a peer-count change from 1 to
+  2 at t=24.031 s in S02.
+- **Not "the other player's number"**: deck A sent `02` while provably alone on
+  the network in S01.
+
+What is left: it is stable per device over a hundred-odd packets on a quiet rig,
+yet varies within a single device over dysentery's longer, busier sessions. So
+it tracks *something that changes during use* — S5/S6/S7, where tracks are
+loaded and played, are where to look.
 
 ### ~~O5~~ — resolved, see C13.
 

@@ -213,6 +213,19 @@ Deck A is already set manually to player **1**, so this is a one-setting change.
 4. Watch deck B's display — it should complain or renumber. Stop capture.
 5. **Put deck B back to its own number afterwards.**
 
+### S1b / S2c — isolate the stage-3 repeat count  *(new, cheap, do while booting anyway)*
+**Answers:** FINDINGS C13. Deck A (manual, booting alone) sent **three** stage-3
+packets; deck B (manual, joining an occupied network) sent **one**. Two
+variables are confounded: peer presence, and the number being claimed (1 vs 2).
+
+- **S1b** — power everything off, then boot **deck B alone**. Three packets ⇒
+  peer presence is the variable. One ⇒ the number is.
+- **S2c** — with deck B up and settled, boot **deck A** into it. The mirror
+  image, and it settles the remaining ambiguity either way.
+
+Two extra power cycles, no reconfiguration, and it converts a "depends on
+something" into a rule we can implement.
+
 ### S3 — Idle steady state, 3 minutes
 **Answers:** keep-alive cadence over time, and the still-unexplained variation
 in keep-alive byte `0x25` (FINDINGS C4 / O3) — we have seen a single deck send

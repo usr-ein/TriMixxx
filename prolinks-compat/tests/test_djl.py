@@ -271,8 +271,11 @@ def test_our_announcer_matches_the_real_keepalive_except_for_identity():
     assert ours == NXS_KEEPALIVE
 
 
-# The complete claim handshake deck A sent on cold boot, in order: 3x hello,
-# 3x stage-1, 3x stage-2, 3x stage-3. Player number was set **manually** to 1.
+# The complete claim handshake deck A sent on cold boot **into an empty
+# network**, in order: 3x hello, 3x stage-1, 3x stage-2, 3x stage-3. Player
+# number was set manually to 1. Deck B, joining an occupied network, sent only
+# one stage-3 packet -- see FINDINGS C13, which is why the network state is
+# part of this vector's definition rather than an incidental detail.
 NXS_CLAIM_SEQUENCE = [
     "5173707431576d4a4f4c0a0043444a2d323030306e65787573000000000000000102002501",
     "5173707431576d4a4f4c0a0043444a2d323030306e65787573000000000000000102002501",
@@ -294,11 +297,15 @@ def test_real_nxs_claim_sequence_decodes_in_the_documented_order():
     assert kinds == ["Hello"] * 3 + ["ClaimMac"] * 3 + ["ClaimIp"] * 3 + ["ClaimNumber"] * 3
 
 
-def test_manual_mode_still_sends_three_stage_three_packets():
+def test_manual_mode_can_still_send_three_stage_three_packets():
     """FINDINGS C13. research/02 §1.0 says a manually-numbered device sends
-    *one* stage-3 packet and only auto-assign sends three. This deck was set
-    manually to player 1 -- byte 0x31 is 02, confirming the mode reading -- and
-    it sent three anyway. The packet-count half of the claim is wrong."""
+    *one* stage-3 packet. This deck was set manually to player 1 -- byte 0x31
+    is 02, confirming the mode reading -- and sent three.
+
+    Deck B, also manual, sent one when joining an occupied network. So the
+    repeat count is governed by something the doc does not model, not by the
+    assignment mode. This vector pins the boot-into-empty-network case.
+    """
     claims = [djl.decode(bytes.fromhex(h)) for h in NXS_CLAIM_SEQUENCE]
     stage_two = [c for c in claims if isinstance(c, djl.ClaimIp)]
     stage_three = [c for c in claims if isinstance(c, djl.ClaimNumber)]
