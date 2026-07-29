@@ -22,10 +22,17 @@ decision at L3.
 
 On this machine the two NICs are:
 
-| Interface | Hardware | MAC |
-|---|---|---|
-| `en9` | USB 10/100/1000 LAN | `a0:ce:c8:e2:26:de` |
-| `en12` | Dell Universal Dock D6000 | `0c:37:96:38:32:09` |
+| Interface | Hardware | MAC | Deck |
+|---|---|---|---|
+| `en12` | Dell Universal Dock D6000 | `0c:37:96:38:32:09` | **deck A** |
+| `en9` | USB 10/100/1000 LAN | `a0:ce:c8:e2:26:de` | **deck B** |
+
+**Capture on `bridge1`, not on either member.** On a two-member bridge each
+member does see the whole conversation, but naming a member in the command
+invites exactly one mistake — writing `en9` in a capture called "deck A" —
+and a mislabelled capture is worse than no capture. The bridge is the neutral
+vantage point, and the deck↔NIC mapping then only ever appears in `NOTES.md`,
+where it belongs.
 
 **Use `bridge1`, not `bridge0`.** `bridge0` already exists on macOS as the
 Thunderbolt bridge (members en1/en2/en3) and must be left alone.
@@ -106,18 +113,27 @@ discovering afterwards that only one deck was visible. So check first, with
 both players on:
 
 ```bash
-sudo tcpdump -i en9 -n -c 20 udp port 50000
+sudo tcpdump -i bridge1 -n -c 20 udp port 50000
 ```
 
-You must see keep-alives sourced from **both** CDJ IPs. If only one appears,
-capture on `bridge1` instead of `en9` and re-check. Do not proceed until two
-distinct sources show up.
+You must see keep-alives sourced from **both** CDJ IPs. Do not proceed until
+two distinct sources show up.
 
-If neither works, the likely culprit is the **D6000 dock**: bridging needs the
-member NIC to support promiscuous mode, and DisplayLink dock NICs are the more
-temperamental of the two here. Diagnose by swapping which deck is on which
-port — if the capture follows the deck on `en9`, the dock is the problem, and
-the fallback is a second plain USB dongle or a switch with port mirroring.
+If `bridge1` yields nothing at all, some BSD bridge implementations do not feed
+BPF on the bridge interface itself. Fall back to a member — either one sees the
+whole conversation, since every frame between the decks is forwarded across the
+bridge:
+
+```bash
+sudo tcpdump -i en12 -n -c 20 udp port 50000
+```
+
+If a member shows only *one* deck, the likely culprit is the **D6000 dock**:
+bridging needs the member NIC to support promiscuous mode, and DisplayLink dock
+NICs are the more temperamental of the two here. Diagnose by swapping which
+deck is on which port — if the visible deck follows `en9`, the dock is the
+problem, and the fallback is a second plain USB dongle or a switch with port
+mirroring.
 
 ```bash
 prolinks devices      # should list both players
@@ -154,8 +170,8 @@ not recoverable from the bytes.
   change this deliberately in S2b.
 - Note each unit's **firmware version** from its UTILITY screen — captures are
   only comparable against other captures of the same firmware.
-- Decide which physical deck is on which NIC (`en9` / `en12`) and **write it
-  down**. Everything
+- The deck↔NIC mapping is fixed above (**deck A on `en12`, deck B on `en9`**).
+  Record each deck's **IP** in `NOTES.md` as soon as it boots: everything
   downstream is IP-based, and mapping IP→deck after the fact is guesswork.
 
 ---
@@ -348,7 +364,7 @@ Then append verdicts for E1–E8 to `FINDINGS.md` while the session is fresh.
 
 ```bash
 #!/usr/bin/env bash
-# Usage: tools/capture.sh S05-link-browse en9 "deck A browses deck B's USB"
+# Usage: tools/capture.sh S05-link-browse bridge1 "deck A browses deck B's USB"
 set -euo pipefail
 name="${1:?scenario name}"; iface="${2:?interface}"; shift 2
 dir="captures/$name"; mkdir -p "$dir"
@@ -357,7 +373,7 @@ dir="captures/$name"; mkdir -p "$dir"
   echo "# $name"
   echo
   echo "- started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  echo "- interface: $iface"
+  echo "- capture interface: $iface"
   echo "- description: $*"
   echo
   echo "## Hardware state"

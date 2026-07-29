@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Capture one scenario to captures/<name>/, with a notes skeleton.
 #
-# Usage: tools/capture.sh S05-link-browse en9 "deck A browses deck B's USB"
+# Usage: tools/capture.sh S05-link-browse bridge1 "deck A browses deck B's USB"
 #
 # The flags that matter: -s 0 keeps whole packets (a snaplen silently clips the
 # dbserver and NFS payloads we are here for), -n avoids DNS lookups that would
@@ -11,7 +11,7 @@
 set -euo pipefail
 
 name="${1:?scenario name, e.g. S05-link-browse}"
-iface="${2:?capture interface, e.g. en9}"
+iface="${2:?capture interface -- use bridge1}"
 shift 2
 description="${*:-}"
 
@@ -31,9 +31,9 @@ fi
     echo "- description: $description"
     echo
     echo "## Hardware state"
-    echo "- deck A: ip=?  firmware=?  slot=?  media=?"
-    echo "- deck B: ip=?  firmware=?  slot=?  media=?"
-    echo "- bridge: ?"
+    echo "- deck A (en12): ip=?  firmware=?  slot=?  media=?"
+    echo "- deck B (en9):  ip=?  firmware=?  slot=?  media=?"
+    echo "- bridge: bridge1 = en12 + en9"
     echo
     echo "## Timeline"
     echo "- 0:00 capture started"

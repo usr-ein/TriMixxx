@@ -39,12 +39,6 @@ with it without rejecting it.
 - A Mac + Python program + USB Ethernet dongle is the development/sniffing setup.
 - New network captures (pcap) can be gathered on demand to fill research gaps.
 
-## Repository layout
-
-- `research/` — markdown documentation of the protocol (the deliverable of phase 1).
-- `research/ref-repos/` — cloned upstream reference projects (git-ignored, not
-  committed). Source material for the research, see `research/00-references.md`.
-
 ## Reference projects (cloned into `research/ref-repos/`, git-ignored)
 
 - evanpurkhiser/prolink-tools — TypeScript ProLink toolkit (overlays, metadata).
