@@ -429,6 +429,62 @@ tap with unicast, not broadcast**: a LINK browse must produce TCP on 12523 and
 1051.
 
 
+### F18 — **Audio travels over NFS.** O1 answered  *(confirmed)*
+
+The question that gated whether TriMiXxX can ever be *played from*, not merely
+browsed. Deck A loading and playing a track off deck B's USB:
+
+```
+LOOKUP  Contents / Tomcraft / Loneliness / Tomcraft - Loneliness - Klub Cut.mp3
+        7,633,531 bytes
+READ    378 requests, 2,875,850 bytes delivered (38% of the file)
+        highest byte touched: 7,633,531  -- i.e. the very end
+```
+
+So a CDJ reads another player's **audio file itself** over NFS. dbserver serves
+metadata, waveforms and cues; the samples come over NFSv2 READ. Nothing in the
+published sources states this — `research/06` §1 marks audio-over-NFS as
+*inferred* and notes "no reference client streams audio this way".
+
+**It streams rather than downloads.** 38% of the file was read during load plus
+~30 s of playback plus cue juggling, and one read touched the final byte (the
+usual MP3 tail-metadata probe). A deck does not pull the whole track up front;
+it reads progressively and seeks on demand as you jump between hot cues.
+
+*Consequences, both directions:*
+
+- **Serving (objective 2) is viable.** A real CDJ will play from us if we serve
+  NFS. But our server must answer **random-access reads with low latency during
+  playback** — a slow or stalling response is an audio dropout on someone's
+  deck, not merely a slow transfer. That is a much stronger requirement than
+  the bulk `export.pdb` fetch, and worth load-testing before trusting it live.
+- **Consuming is unaffected.** `research/10` has Mixxx fetch the whole file to
+  cache before handing it to `getOrAddTrack()`, which is strictly more
+  conservative than what a CDJ itself does. No change needed.
+
+*Evidence:* `captures/S06-load-and-play`.
+
+### F19 — Real CDJs use **8192-byte** NFS reads, and rely on IP fragmentation
+
+Request sizes in that transfer: **8192 × 333**, 2048 × 30, and a handful of odd
+sizes at the tail. 8192 is the NFSv2 maximum, and at that size a reply is five
+or six IP fragments on a 1500-byte MTU — the hardware simply relies on kernel
+reassembly.
+
+Our client defaults to **1280**, chosen from `research/06` §4 to stay under the
+MTU and avoid fragmentation entirely. That is safe and measured 1459 KiB/s on
+the `export.pdb` pull, but it is 6.4× more round trips than the hardware uses.
+Experiment E7's throughput matrix is now worth running with 8192 in it, since
+we know a real deck sustains playback that way.
+
+**This also exposed a bug in our own tooling.** The pcap reader ignored IP
+fragments, so it saw only the first fragment of every 8192-byte reply and
+reported 1,578 bytes transferred where the truth was 2,875,850 — a 1800×
+under-count that would have made the audio look like it never crossed the wire.
+Fragment reassembly is now implemented and tested; without it the headline
+finding above would have been read exactly backwards.
+
+
 ---
 
 ## Corrections to the research docs
@@ -635,7 +691,11 @@ every repo remains usable as a **reference**. Only their code is off limits.
 
 ## Still open
 
-### O1 — How does audio actually travel between players? *(reframed)*
+### ~~O1~~ — resolved: over NFS, streamed in 8192-byte reads. See F18/F19.
+
+Original framing kept below for context.
+
+### O1 (original) — How does audio actually travel between players?
 
 README open question 1 asked whether LINK browsing uses dbserver or NFS.
 dysentery `menus.adoc:19` answers the *browse* half directly: requesting the

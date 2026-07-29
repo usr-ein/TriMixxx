@@ -342,3 +342,33 @@ def test_match_export_handles_the_observed_variation():
     assert match_export(["/C/EXPORT"], MediaSlot.USB) == "/C/EXPORT"
     assert match_export(["/B/", "/C/EXPORT"], MediaSlot.USB) == "/C/EXPORT"
     assert match_export(["/B/"], MediaSlot.USB) is None
+
+
+def test_ip_fragment_reassembly():
+    """A CDJ's 8192-byte NFS READ replies arrive as five or six IP fragments.
+
+    Only the first carries a UDP header, so a reader that ignores fragments
+    silently under-reports every transfer -- which is exactly what happened
+    when first measuring how much audio crossed the wire (FINDINGS F18).
+    """
+    import struct
+
+    from prolinks_poc.capture.pcap import _Defragmenter
+
+    defrag = _Defragmenter()
+    key = ("1.1.1.1", "2.2.2.2", 0x1234, 17)
+    assert defrag.add(key, 0, b"A" * 1480, more=True) is None
+    assert defrag.add(key, 1480, b"B" * 1480, more=True) is None
+    assembled = defrag.add(key, 2960, b"C" * 100, more=False)
+    assert assembled == b"A" * 1480 + b"B" * 1480 + b"C" * 100
+
+
+def test_ip_fragment_reassembly_waits_for_a_hole():
+    """An out-of-order arrival must not be mistaken for a complete datagram."""
+    from prolinks_poc.capture.pcap import _Defragmenter
+
+    defrag = _Defragmenter()
+    key = ("1.1.1.1", "2.2.2.2", 1, 17)
+    # Final fragment first: total is known, but the front is missing.
+    assert defrag.add(key, 1480, b"B" * 100, more=False) is None
+    assert defrag.add(key, 0, b"A" * 1480, more=True) == b"A" * 1480 + b"B" * 100

@@ -119,6 +119,7 @@ def read_pcapng(path: Path | str) -> Iterator[Packet]:
     #: appearance -- which is how enhanced packet blocks refer to them.
     interfaces: list[tuple[int, int]] = []
     index = 0
+    defrag = _Defragmenter()
 
     while offset + 12 <= len(data):
         block_type = struct.unpack_from(f"{endian}I", data, offset)[0]
@@ -151,14 +152,14 @@ def read_pcapng(path: Path | str) -> Iterator[Packet]:
             timestamp = ((ts_high << 32) | ts_low) / divisor
             frame = body[20 : 20 + captured]
             index += 1
-            packet = _parse_frame(frame, link_type, index, timestamp)
+            packet = _parse_frame(frame, link_type, index, timestamp, defrag)
             if packet is not None:
                 yield packet
 
         elif block_type == _SPB:
             link_type = interfaces[0][0] if interfaces else LINKTYPE_ETHERNET
             index += 1
-            packet = _parse_frame(body[4:], link_type, index, 0.0)
+            packet = _parse_frame(body[4:], link_type, index, 0.0, defrag)
             if packet is not None:
                 yield packet
 
@@ -195,6 +196,7 @@ def read_pcap(path: Path | str) -> Iterator[Packet]:
     link_type = struct.unpack_from(f"{endian}I", data, 20)[0]
     offset = 24
     index = 0
+    defrag = _Defragmenter()
     while offset + 16 <= len(data):
         seconds, fraction, captured, _original = struct.unpack_from(
             f"{endian}IIII", data, offset
@@ -203,7 +205,7 @@ def read_pcap(path: Path | str) -> Iterator[Packet]:
         frame = data[offset : offset + captured]
         offset += captured
         index += 1
-        packet = _parse_frame(frame, link_type, index, seconds + fraction / divisor)
+        packet = _parse_frame(frame, link_type, index, seconds + fraction / divisor, defrag)
         if packet is not None:
             yield packet
 
@@ -211,8 +213,54 @@ def read_pcap(path: Path | str) -> Iterator[Packet]:
 # -- frame dissection ------------------------------------------------------
 
 
+class _Defragmenter:
+    """Reassembles fragmented IPv4 datagrams.
+
+    Not an optional nicety here: a CDJ issues NFS READs of 8192 bytes, the
+    NFSv2 maximum, and the replies are five or six IP fragments each. Only the
+    first carries a UDP header, so a reader that ignores fragments sees a
+    fraction of the payload and silently under-reports every transfer -- which
+    is exactly what happened when first measuring how much audio crossed the
+    wire.
+
+    Keyed by the RFC 791 reassembly tuple (src, dst, id, protocol). Incomplete
+    datagrams are simply never emitted; no timeout is modelled, since a capture
+    is finite and a partial datagram at the end of one is not interesting.
+    """
+
+    __slots__ = ("_pending",)
+
+    def __init__(self) -> None:
+        self._pending: dict[tuple, dict] = {}
+
+    def add(self, key: tuple, offset: int, payload: bytes, more: bool):
+        """Add a fragment; return the reassembled payload when complete."""
+        entry = self._pending.setdefault(key, {"parts": {}, "total": None})
+        entry["parts"][offset] = payload
+        if not more:
+            entry["total"] = offset + len(payload)
+
+        total = entry["total"]
+        if total is None:
+            return None
+        # Walk the fragments in offset order and see whether they tile the
+        # whole datagram without a gap.
+        assembled = bytearray()
+        for start in sorted(entry["parts"]):
+            if start > len(assembled):
+                return None  # hole; wait for more
+            chunk = entry["parts"][start]
+            if start + len(chunk) > len(assembled):
+                assembled[start:] = chunk
+        if len(assembled) >= total:
+            del self._pending[key]
+            return bytes(assembled[:total])
+        return None
+
+
 def _parse_frame(
-    frame: bytes, link_type: int, index: int, timestamp: float
+    frame: bytes, link_type: int, index: int, timestamp: float,
+    defrag: "_Defragmenter | None" = None,
 ) -> Packet | None:
     """Ethernet/raw -> IPv4 -> UDP|TCP. Returns ``None`` for anything else."""
     if link_type == LINKTYPE_ETHERNET:
@@ -234,10 +282,13 @@ def _parse_frame(
     else:
         return None
 
-    return _parse_ipv4(frame, offset, index, timestamp)
+    return _parse_ipv4(frame, offset, index, timestamp, defrag)
 
 
-def _parse_ipv4(frame: bytes, offset: int, index: int, timestamp: float) -> Packet | None:
+def _parse_ipv4(
+    frame: bytes, offset: int, index: int, timestamp: float,
+    defrag: "_Defragmenter | None" = None,
+) -> Packet | None:
     if len(frame) < offset + 20:
         return None
     version_ihl = frame[offset]
@@ -248,6 +299,28 @@ def _parse_ipv4(frame: bytes, offset: int, index: int, timestamp: float) -> Pack
     total_length = struct.unpack_from(">H", frame, offset + 2)[0]
     src_ip = ".".join(str(b) for b in frame[offset + 12 : offset + 16])
     dst_ip = ".".join(str(b) for b in frame[offset + 16 : offset + 20])
+
+    identification = struct.unpack_from(">H", frame, offset + 4)[0]
+    flags_fragment = struct.unpack_from(">H", frame, offset + 6)[0]
+    more_fragments = bool(flags_fragment & 0x2000)
+    fragment_offset = (flags_fragment & 0x1FFF) * 8
+
+    if defrag is not None and (more_fragments or fragment_offset):
+        header_length = (version_ihl & 0x0F) * 4
+        end = min(len(frame), offset + total_length) if total_length else len(frame)
+        payload = frame[offset + header_length : end]
+        key = (src_ip, dst_ip, identification, protocol)
+        assembled = defrag.add(key, fragment_offset, payload, more_fragments)
+        if assembled is None:
+            return None
+        # Rebuild a synthetic unfragmented datagram: the original header (with
+        # the fragment fields cleared) followed by the reassembled payload.
+        header = bytearray(frame[offset : offset + header_length])
+        struct.pack_into(">H", header, 6, 0)
+        struct.pack_into(">H", header, 2, header_length + len(assembled))
+        frame = bytes(header) + assembled
+        offset = 0
+        total_length = header_length + len(assembled)
 
     # Trust the IP total-length field over the captured frame length, so
     # Ethernet padding on short frames is not mistaken for payload.
