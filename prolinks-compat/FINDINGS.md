@@ -308,6 +308,49 @@ zero-string-offset path (see the `comment` bug fixed earlier), and the
 multi-page table chain walking all work on real data.
 
 
+### F15 — Media insert/eject is **invisible** to a passive observer  *(negative result, design-relevant)*
+
+Through a whole S4 session — stick inserted into deck A, stick inserted into
+deck B, stick ejected, stick re-inserted, plus browsing the library on the deck
+itself — the DJ-Link ports carried **nothing but keep-alives**:
+
+```
+udp/50000: 844   (keep-alives, both decks)
+udp/50001: ZERO
+udp/50002: ZERO
+udp/50004: ZERO
+tcp:       ZERO
+```
+
+`research/06` §3 says the slot to use "comes from the device's media-slot
+status (media-slot broadcast / status packets)", and dysentery's `media.adoc`
+describes standalone players *broadcasting* a media announcement when their
+media changes. On a CDJ-2000NXS, with a second player present, we observed no
+such packet — and no status traffic at all.
+
+The likely reason is that status on 50002 is **unicast to announced peers**,
+and we never announced. Neither deck had linked to the other either, so neither
+had reason to unicast anything.
+
+**Consequence for the Mixxx design, and it is a real one.** `research/10` gives
+`ProLinkStatusListener` the job of learning media presence by listening on
+50002, with speculative slot probing only as a fallback. That is backwards on
+this hardware: passively, 50002 is silent, so the listener would never fire and
+media would never appear. The fallback has to become the primary mechanism.
+
+The good news is there is a cheap primary mechanism available: **MOUNT
+`EXPORT`**. It is one RPC round trip, needs no announcement, and F12 suggests it
+lists only populated slots. Polling it every few seconds per known device is a
+better media detector than a listener that never fires — and it is the same call
+already used to resolve the export path.
+
+*Caveat:* "lists only populated slots" is still unconfirmed — both decks show
+only `/C/` and neither had an SD card in. Worth 30 seconds with an SD card to
+check `/B/` appears, because the whole polling design rests on it.
+
+*Evidence:* `captures/S04-media-insert`.
+
+
 ---
 
 ## Corrections to the research docs
