@@ -25,6 +25,7 @@ event loop.
 from __future__ import annotations
 
 import logging
+import re
 import socket
 import threading
 from pathlib import Path
@@ -82,6 +83,32 @@ _ANALYSIS_REQUESTS = {
         lambda dat, ext: wire.vbr_index(dat),
     ),
 }
+
+
+#: Camelot / Open Key notation: a wheel position and a letter, e.g. ``12A``.
+_CAMELOT = re.compile(r"^\s*(\d{1,2})\s*([ABab])\s*$")
+
+
+def _key_order(key: str):
+    """Sort key for a musical key, ordering Camelot notation **numerically**.
+
+    A CDJ sorts these as text, so a library using alphanumeric keys comes out
+    ``1A 1B 10A 10B 11A 11B 12A 12B 2A 2B``: the wheel positions interleave and
+    two harmonically adjacent keys can end up eleven screens apart. That is a
+    bug in the hardware, not a convention worth reproducing, and this is a
+    server -- nothing obliges us to hand back the same order a CDJ would compute
+    for itself.
+
+    So Camelot keys sort by ``(position, letter)`` and come out ``1A 1B 2A 2B
+    ... 12A 12B``, which is the order the wheel is actually drawn in. Anything
+    else -- classical names like ``Abm`` or ``F#``, or an empty key -- keeps
+    alphabetical order and sorts after, since mixing two notations in one
+    ordering has no meaningful answer.
+    """
+    matched = _CAMELOT.match(key or "")
+    if matched:
+        return (0, int(matched.group(1)), matched.group(2).upper(), "")
+    return (1, 0, "", (key or "").lower())
 
 
 class _Connection(threading.Thread):
@@ -660,7 +687,7 @@ class DbServer:
         db.SortOrder.RATING: lambda t: (-t.rating, t.title.lower()),
         db.SortOrder.GENRE: lambda t: (t.genre.lower(), t.title.lower()),
         db.SortOrder.LABEL: lambda t: (t.label.lower(), t.title.lower()),
-        db.SortOrder.KEY: lambda t: (t.key.lower(), t.title.lower()),
+        db.SortOrder.KEY: lambda t: (_key_order(t.key), t.title.lower()),
         db.SortOrder.BITRATE: lambda t: (t.bitrate, t.title.lower()),
         db.SortOrder.DATE_ADDED: lambda t: (t.date_added, t.title.lower()),
         db.SortOrder.PLAY_COUNT: lambda t: t.title.lower(),

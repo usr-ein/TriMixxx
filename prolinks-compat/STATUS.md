@@ -109,7 +109,7 @@ prolinks_poc/
   net/             sockets, event loop, RPC/NFS client *and* server
   core/            discovery, announcer, library model, slots
   capture/         journal recorder, pcap reader, passivity guard
-tests/             254 tests, no hardware required
+tests/             257 tests, no hardware required
 tools/capture.sh   start a named scenario capture
 captures/
   S*/              named scenarios; NOTES.md and cmd.txt are tracked, pcaps are not

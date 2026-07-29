@@ -1617,6 +1617,20 @@ reply is the same twelve options regardless:
 ids. Our `SortOrder` enum already had every value right from `research/04`;
 only two of them were ever *applied*. All twelve are now.
 
+**One place we deliberately differ from the hardware.** A CDJ sorts keys as
+text, so a library using Camelot notation comes out
+`1A 1B 10A 10B 11A 11B 12A 12B 2A 2B` — the wheel positions interleave, and two
+harmonically adjacent keys can sit eleven screens apart. We sort by
+`(position, letter)` instead, giving `1A 1B 2A 2B … 12A 12B`, the order the
+wheel is actually drawn in. Classical names keep alphabetical order and sort
+after, since mixing two notations has no meaningful single answer.
+
+This is a considered divergence, not an oversight: the sort happens entirely on
+the server, the deck renders whatever order it is handed, and reproducing a
+hardware bug faithfully would make the feature worse for the person using it.
+Everywhere else in this project the goal is to be indistinguishable from a real
+deck; here being indistinguishable would mean being wrong.
+
 *Still open from this capture:* `0x3b03`, `0x3903`, `0x3001` and `0x3401`
 appeared around a loaded track and are undecoded; `MENU_FOLDER` uses track type
 2 in its descriptor, which is the unanalysed-files browse we do not serve; and

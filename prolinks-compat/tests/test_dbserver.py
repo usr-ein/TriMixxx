@@ -870,3 +870,38 @@ def test_two_menus_of_the_same_size_do_not_collide(library):
         "the listing and the transient menu must not resolve to the same items"
     )
     assert from_transient[0].args[6] == db.ItemType.TRACK_TITLE
+
+
+def test_camelot_keys_sort_by_wheel_position_not_as_text():
+    """A CDJ sorts these as text, giving 1A 1B 10A 10B 11A 11B 12A 12B 2A 2B --
+    the wheel positions interleave and harmonically adjacent keys land screens
+    apart. We are the server; nothing obliges us to reproduce that."""
+    from prolinks_poc.net.dbserverd import _key_order
+
+    keys = ["12A", "1A", "11B", "2A", "1B", "10A", "11A", "2B", "12B", "10B"]
+    assert sorted(keys, key=_key_order) == [
+        "1A", "1B", "2A", "2B", "10A", "10B", "11A", "11B", "12A", "12B"
+    ]
+    # ...which is exactly what plain text ordering gets wrong.
+    assert sorted(keys) != sorted(keys, key=_key_order)
+
+
+def test_classical_key_names_keep_alphabetical_order_and_sort_after():
+    """Mixing two notations in one ordering has no meaningful answer, so
+    anything not Camelot stays alphabetical and goes last."""
+    from prolinks_poc.net.dbserverd import _key_order
+
+    assert sorted(["Abm", "12A", "F#", "1A", "Dbm"], key=_key_order) == [
+        "1A", "12A", "Abm", "Dbm", "F#"
+    ]
+    assert sorted(["", "5A"], key=_key_order) == ["5A", ""]
+
+
+def test_key_sort_orders_the_track_list_by_wheel_position():
+    server = drillable_server()
+    library = server.default_medium.library
+    for track, key in zip(library.tracks.values(), ["12A", "2A", "1A", "10A"]):
+        track.key = key
+    ordered = server._track_list(db.SortOrder.KEY)
+    keys = [library.tracks[i.args[1]].key for i in ordered]
+    assert keys == ["1A", "2A", "10A", "12A"]
