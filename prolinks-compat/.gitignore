@@ -31,5 +31,6 @@ venv/
 test_tracks/format-matrix/*
 !test_tracks/format-matrix/README.md
 
-# Release archives of the captures; rebuilt on demand, never committed.
-*.7z
+# The dated capture archive IS committed -- see prolinks-captures-*.7z. It is
+# the release asset and the only copy of the pcaps in version control, since
+# captures/ itself is ignored.
