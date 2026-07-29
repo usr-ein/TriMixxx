@@ -27,12 +27,47 @@ On this machine the two NICs are:
 | `en12` | Dell Universal Dock D6000 | `0c:37:96:38:32:09` | **deck A** |
 | `en9` | USB 10/100/1000 LAN | `a0:ce:c8:e2:26:de` | **deck B** |
 
-**Capture on `bridge1`, not on either member.** On a two-member bridge each
-member does see the whole conversation, but naming a member in the command
-invites exactly one mistake — writing `en9` in a capture called "deck A" —
-and a mislabelled capture is worse than no capture. The bridge is the neutral
-vantage point, and the deck↔NIC mapping then only ever appears in `NOTES.md`,
-where it belongs.
+### Capture on the **members**, not on `bridge1`
+
+`bridge1` is the wrong tap, and the reason is easy to miss. A BSD bridge
+**floods** broadcast frames — so keep-alives, hellos and claim packets all
+appear on the bridge interface, and a capture there looks perfectly healthy.
+But once the bridge has learned the members' MAC addresses it forwards
+**unicast** frames member-to-member directly, and those never reach the bridge
+interface's BPF tap.
+
+Everything interesting is unicast: TCP 12523 and 1051 (dbserver), and the whole
+NFS conversation. So a `bridge1` capture of a LINK browse records the two decks'
+keep-alives and *nothing of the browse itself*.
+
+This was learned the expensive way: an S5 capture on `bridge1` came back with
+210 keep-alives and no TCP at all, during a browse that demonstrably worked on
+the deck's own display.
+
+> **The trap:** verifying the tap by checking that both decks are visible only
+> proves that **broadcast** reaches you. It says nothing about unicast. In every
+> capture taken on `bridge1`, every unicast frame recorded had the Mac itself as
+> an endpoint — those are delivered locally rather than bridge-forwarded, which
+> is why the NFS transfers were captured fine and gave false confidence.
+
+**Preferred:** capture both members at once, which macOS `tcpdump` supports via
+the `pktap` pseudo-device:
+
+```bash
+./tools/capture.sh S05-link-browse pktap,en12,en9 "..."
+```
+
+**Fallback**, if `pktap` is unavailable: capture on the member belonging to the
+deck that *initiates* the activity — it sees everything to and from that deck,
+in both directions.
+
+```bash
+./tools/capture.sh S05-link-browse en12 "deck A browses deck B"
+```
+
+**Verify with unicast, not broadcast.** The check that matters is that a LINK
+browse produces TCP on 12523 and 1051. If a capture of a browse contains only
+UDP 50000, the tap is wrong no matter how many decks are visible.
 
 **Use `bridge1`, not `bridge0`.** `bridge0` already exists on macOS as the
 Thunderbolt bridge (members en1/en2/en3) and must be left alone.

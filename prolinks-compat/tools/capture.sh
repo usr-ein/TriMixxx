@@ -8,10 +8,16 @@
 # pollute the capture, and there is deliberately no BPF filter -- a filter that
 # looks obviously right is how you find out later that the interesting packet
 # was on a port nobody thought to include.
+#
+# INTERFACE: capture the bridge *members*, not the bridge. A BSD bridge floods
+# broadcast to the bridge interface but forwards learned unicast directly
+# between members, so a bridge1 capture shows keep-alives and misses every
+# dbserver and NFS packet between the decks. Use pktap,en12,en9 to get both
+# members at once, or a single member as a fallback.
 set -euo pipefail
 
 name="${1:?scenario name, e.g. S05-link-browse}"
-iface="${2:?capture interface -- use bridge1}"
+iface="${2:?capture interface -- use pktap,en12,en9 (both bridge members)}"
 shift 2
 description="${*:-}"
 
