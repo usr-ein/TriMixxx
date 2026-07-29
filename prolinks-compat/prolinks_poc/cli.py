@@ -1282,31 +1282,75 @@ def cmd_serve(ctx: Context) -> int:
 # -- argument parsing ------------------------------------------------------
 
 
+
+def _add_global_options(parser: argparse.ArgumentParser, suppress: bool = False) -> None:
+    """Options accepted both before and after the subcommand.
+
+    With *suppress*, an omitted flag leaves the attribute unset rather than
+    writing a default -- which is what stops the subcommand copy from clobbering
+    a value the user gave before the subcommand.
+    """
+    default = {"default": argparse.SUPPRESS} if suppress else {}
+    parser.add_argument(
+        "--iface", help="interface facing the CDJs (default: auto)", **default
+    )
+    parser.add_argument(
+        "--capture-dir", help="where to write the capture journal", **default
+    )
+    parser.add_argument(
+        "--no-record", dest="record", action="store_false",
+        help="do not write a capture journal",
+        **(default or {"default": True}),
+    )
+    parser.add_argument(
+        "--assert-passive", action="store_true",
+        help="fail if anything transmits on a DJ-Link port (experiment E1)",
+        **(default or {"default": False}),
+    )
+    parser.add_argument(
+        "--notes", help="operator note recorded in the journal", **default
+    )
+    parser.add_argument(
+        "--json", action="store_true", help="machine-readable output",
+        **(default or {"default": False}),
+    )
+    parser.add_argument(
+        "-v", "--verbose", action="count", **(default or {"default": 0})
+    )
+    parser.add_argument(
+        "--timeout", type=float, help="RPC reply timeout in seconds",
+        **(default or {"default": 2.0}),
+    )
+    parser.add_argument(
+        "--retries", type=int, help="RPC retry count", **(default or {"default": 5})
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="prolinks",
         description="ProLink proof-of-concept: passive discovery and NFS file access.",
         epilog="Milestones and experiments: research/10-mixxx-prolink-implementation-plan.md",
     )
-    parser.add_argument("--iface", help="interface facing the CDJs (default: auto)")
-    parser.add_argument("--capture-dir", help="where to write the capture journal")
-    parser.add_argument(
-        "--no-record", dest="record", action="store_false",
-        help="do not write a capture journal",
-    )
-    parser.add_argument(
-        "--assert-passive", action="store_true",
-        help="fail if anything transmits on a DJ-Link port (experiment E1)",
-    )
-    parser.add_argument("--notes", help="operator note recorded in the journal")
-    parser.add_argument("--json", action="store_true", help="machine-readable output")
-    parser.add_argument("-v", "--verbose", action="count", default=0)
-    parser.add_argument(
-        "--timeout", type=float, default=2.0, help="RPC reply timeout in seconds"
-    )
-    parser.add_argument("--retries", type=int, default=5, help="RPC retry count")
+    _add_global_options(parser)
+
+    # The same flags again, on every subcommand, so `prolinks rpcinfo <ip>
+    # --notes "..."` works as well as `prolinks --notes "..." rpcinfo <ip>`.
+    # argparse normally requires a parent-parser option to precede the
+    # subcommand, which is a trap when you are typing at 1 a.m. with a deck
+    # booting in front of you. SUPPRESS is what makes it safe: without it the
+    # subparser's default would overwrite a value already given to the parent.
+    trailing = argparse.ArgumentParser(add_help=False)
+    _add_global_options(trailing, suppress=True)
 
     subparsers = parser.add_subparsers(dest="command", required=True)
+    _original_add_parser = subparsers.add_parser
+
+    def add_parser(name, **kwargs):
+        kwargs.setdefault("parents", []).append(trailing)
+        return _original_add_parser(name, **kwargs)
+
+    subparsers.add_parser = add_parser
 
     def add_rpc_options(sub) -> None:
         """Options shared by every command that speaks RPC."""
