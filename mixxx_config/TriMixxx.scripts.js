@@ -8,13 +8,30 @@
 var TriMixxx = {};
 
 // ---- constants (mirror MidiMap.hpp) ----
-TriMixxx.NOTE_ON       = 0x90;  // note-on, MIDI channel 1
-TriMixxx.PAD_BASE      = 0x00;  // ring pad note = PAD_BASE + i, i = 0..49
-TriMixxx.PADS          = 50;    // PAD_COUNT
+TriMixxx.RING_A_N      = 7;     // ring A buttons populated today (for the shutdown LED clear)
+TriMixxx.RING_B_N      = 6;     // ring B buttons populated today
 TriMixxx.DECK          = "[Channel1]";
 TriMixxx.DECK_NUM      = 1;      // [Channel1] = deck 1 (single fixed deck)
 TriMixxx.JOG_TICKS_REV = 12960; // JogWheel::TICKS_PER_REV (full-quad ticks / rev)
-TriMixxx.RATE_RANGE    = 0.16;  // tempo fader span = +/-16% (raise for wider pitch)
+TriMixxx.RATE_RANGE    = 0.16;  // tempo fader span at boot = +/-16%
+TriMixxx.RATE_RANGES   = [0.06, 0.10, 0.16, 1.0]; // A1 cycles these: +/-6, 10, 16, Wide (100%)
+
+// ---- Ring button LED palette. Entries only need correct hue RATIOS -- dim()
+//      normalizes each to full intensity, then scales by BRIGHTNESS. ----
+TriMixxx.BRIGHTNESS = 0.8;          // 0..1 default for indicator LEDs (per-call override below)
+TriMixxx.C_OFF    = [0, 0, 0];
+TriMixxx.C_DIM_W  = [24, 24, 24];   // A7 back: dim white
+TriMixxx.C_RED    = [160, 0, 0];
+TriMixxx.C_RED_HI = [255, 0, 0];
+TriMixxx.C_ORANGE = [180, 45, 0];
+TriMixxx.C_GREEN  = [0, 170, 0];
+TriMixxx.C_YELLOW = [170, 130, 0];
+// A1 tempo-range colour keyed by the current rateRange value.
+TriMixxx.RANGE_LED = [[0.06, TriMixxx.C_GREEN], [0.10, TriMixxx.C_YELLOW],
+                      [0.16, TriMixxx.C_ORANGE], [1.0, TriMixxx.C_RED]];
+TriMixxx.conns     = [];    // LED engine connections (disconnected on shutdown)
+TriMixxx.slipTimer = 0;     // slip-on flash timer id (0 = not flashing)
+TriMixxx.slipPhase = false;
 // ---- Jog feel ----------------------------------------------------------
 // Pitch-bend sensitivity, as a fraction of raw hardware movement: 0.3 = 70%
 // less sensitive. Bend only -- scratch is deliberately left at 1:1 below.
@@ -49,7 +66,6 @@ TriMixxx.JOG_ALPHA = 1.0 / 3;
 TriMixxx.JOG_BETA  = 1.0 / 16;
 
 TriMixxx.scratching = false;
-TriMixxx.ringLast    = -1;      // last pad lit by the position indicator
 
 // ---- startup rainbow-wave animation (Mixxx-driven; no firmware support) ----
 // Sweeps a rainbow "comet" through both rings in the deck's layout order, using
@@ -82,7 +98,7 @@ TriMixxx.ringLed = function(cmd, node, r, g, b) {
 
 // Sweep the comet once (~1s) with a repeating timer, then stop and leave the
 // sequence blank so Mixxx repaints the real LED state.
-TriMixxx.playIntro = function() {
+TriMixxx.playIntro = function(onDone) {
     var seq = TriMixxx.INTRO_SEQ, n = seq.length, trail = 4, head = 0;
     for (var i = 0; i < n; i++) { TriMixxx.ringLed(seq[i][0], seq[i][1], 0, 0, 0); } // clean slate
     var timerId = engine.beginTimer(55, function() {
@@ -91,7 +107,7 @@ TriMixxx.playIntro = function() {
             if (d < 0 || d > trail) { continue; } // outside the moving window
             var r = 0, g = 0, b = 0;
             if (d < trail) {                      // d == trail -> 0,0,0 clears the tail
-                var bri = 255 - Math.floor(d * 255 / trail);
+                var bri = 255 - Math.floor(d * 255 / trail); // intro keeps its own full-range fade
                 var c = TriMixxx.hueWheel(Math.floor(p * 255 / n));
                 r = Math.floor(c[0] * bri / 255);
                 g = Math.floor(c[1] * bri / 255);
@@ -100,7 +116,10 @@ TriMixxx.playIntro = function() {
             TriMixxx.ringLed(seq[p][0], seq[p][1], r, g, b);
         }
         head += 1;
-        if (head >= n + trail) { engine.stopTimer(timerId); }
+        if (head >= n + trail) {
+            engine.stopTimer(timerId);
+            if (onDone) { onDone(); } // paint the real button states over the blanked ring
+        }
     }, false);
 };
 
@@ -123,9 +142,6 @@ TriMixxx.init = function(id, debugging) {
     // single control is global, which is also why one widget shows both and a
     // second one could only ever repeat it.
     engine.setValue("[Controls]", "ShowDurationRemaining", 2);
-    // Ring = play-position indicator: one lit pad follows playback.
-    TriMixxx.ringConn = engine.makeConnection(TriMixxx.DECK, "playposition", TriMixxx.ringUpdate);
-    TriMixxx.ringConn.trigger();
 
     // Return to the waveform whenever a track is loaded (from the hardware
     // encoder push or an on-screen library tap), so the library never stays up
@@ -136,40 +152,173 @@ TriMixxx.init = function(id, debugging) {
         }
     });
 
-    // One-shot startup rainbow-wave across both rings, driven entirely from here
-    // by streaming ring-LED SysEx frames (no firmware trigger involved).
-    TriMixxx.playIntro();
+    // Button LED indicators: connect each deck control to its colour updater.
+    TriMixxx.ledConnect("rateRange", TriMixxx.ledTempoRange);
+    TriMixxx.ledConnect("keylock", TriMixxx.ledKeylock);
+    TriMixxx.ledConnect("loop_enabled", TriMixxx.ledLoopMods);
+    TriMixxx.ledConnect("beatloop_8_enabled", function() { TriMixxx.ledBeatloop(8, 2); });
+    TriMixxx.ledConnect("beatloop_4_enabled", function() { TriMixxx.ledBeatloop(4, 3); });
+    TriMixxx.ledConnect("slip_enabled", TriMixxx.ledSlip);
+    for (var h = 1; h <= 4; h++) {
+        (function(idx) {
+            TriMixxx.ledConnect("hotcue_" + idx + "_enabled", function() { TriMixxx.ledHotcue(idx); });
+            TriMixxx.ledConnect("hotcue_" + idx + "_color", function() { TriMixxx.ledHotcue(idx); });
+        }(h));
+    }
+
+    // One-shot startup rainbow-wave, then paint the real button states over it.
+    TriMixxx.playIntro(TriMixxx.paintAll);
 };
 
 TriMixxx.shutdown = function() {
-    if (TriMixxx.ringConn)        { TriMixxx.ringConn.disconnect(); }
+    if (TriMixxx.slipTimer) { engine.stopTimer(TriMixxx.slipTimer); TriMixxx.slipTimer = 0; }
+    for (var i = 0; i < TriMixxx.conns.length; i++) { TriMixxx.conns[i].disconnect(); }
     if (TriMixxx.trackLoadedConn) { TriMixxx.trackLoadedConn.disconnect(); }
-    for (var i = 0; i < TriMixxx.PADS; i++) {
-        midi.sendShortMsg(TriMixxx.NOTE_ON, TriMixxx.PAD_BASE + i, 0x00); // clear the ring
+    // Clear every ring button LED (SysEx off).
+    for (var a = 0; a < TriMixxx.RING_A_N; a++) { TriMixxx.ringLed(0x01, a, 0, 0, 0); }
+    for (var b = 0; b < TriMixxx.RING_B_N; b++) { TriMixxx.ringLed(0x03, b, 0, 0, 0); }
+};
+
+// ---- Ring button handlers (the loops + hotcues are direct controls in the XML;
+//      these are the ones that need logic). ----
+
+// A1 Tempo range: step the pitch-fader range through RATE_RANGES (wraps).
+TriMixxx.tempoRange = function(channel, control, value, status, group) {
+    if (!value) { return; } // press only
+    var cur = engine.getValue(TriMixxx.DECK, "rateRange"), idx = 0;
+    for (var i = 0; i < TriMixxx.RATE_RANGES.length; i++) {
+        if (Math.abs(TriMixxx.RATE_RANGES[i] - cur) < 0.001) { idx = i; break; }
+    }
+    idx = (idx + 1) % TriMixxx.RATE_RANGES.length;
+    engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGES[idx]);
+};
+
+// A2 Master tempo (= Mixxx keylock): toggle on press.
+TriMixxx.keylock = function(channel, control, value, status, group) {
+    if (!value) { return; }
+    engine.setValue(TriMixxx.DECK, "keylock", !engine.getValue(TriMixxx.DECK, "keylock"));
+};
+
+// B5 Slip mode: toggle on press.
+TriMixxx.slip = function(channel, control, value, status, group) {
+    if (!value) { return; }
+    engine.setValue(TriMixxx.DECK, "slip_enabled", !engine.getValue(TriMixxx.DECK, "slip_enabled"));
+};
+
+// A7 Back: reverse of the browse-encoder push. Library hidden -> open it on the
+// sidebar; on the track list -> step back to the left sidebar columns; already on
+// the sidebar -> close the library back to the deck.
+TriMixxx.back = function(channel, control, value, status, group) {
+    if (!value) { return; } // press only
+    if (!engine.getValue("[Master]", "show_library")) {
+        engine.setValue("[Master]", "show_library", 1);
+        engine.setValue("[Library]", "focused_widget", TriMixxx.FOCUS_SIDEBAR);
+    } else if (engine.getValue("[Library]", "focused_widget") === TriMixxx.FOCUS_TRACKS) {
+        engine.setValue("[Library]", "focused_widget", TriMixxx.FOCUS_SIDEBAR);
+    } else {
+        engine.setValue("[Master]", "show_library", 0);
     }
 };
 
-// ---- Ring: light the pad at the current play position (velocity = brightness).
-//      Only emits MIDI when the lit pad changes, so <= PADS messages per pass. ----
-TriMixxx.ringUpdate = function(value, group, control) {
-    var pad = Math.floor(value * TriMixxx.PADS);
-    if (pad < 0) { pad = 0; }
-    if (pad >= TriMixxx.PADS) { pad = TriMixxx.PADS - 1; }
-    if (pad === TriMixxx.ringLast) { return; }
-    if (TriMixxx.ringLast >= 0) {
-        midi.sendShortMsg(TriMixxx.NOTE_ON, TriMixxx.PAD_BASE + TriMixxx.ringLast, 0x00);
-    }
-    midi.sendShortMsg(TriMixxx.NOTE_ON, TriMixxx.PAD_BASE + pad, 0x7F);
-    TriMixxx.ringLast = pad;
+// ==== Ring button LED indicators (coloured, via SysEx cmd 0x01=A / 0x03=B) ====
+
+// Push an already-computed [r,g,b] to a node (both LEDs).
+TriMixxx.send = function(ring, node, rgb) { TriMixxx.ringLed(ring, node, rgb[0], rgb[1], rgb[2]); };
+
+// Brightness helpers. Both take an optional bri (0..1) that overrides the global
+// BRIGHTNESS for that one call, so brightness is settable case by case.
+//   dim(c)   -- NORMALIZE to full intensity (max channel -> 255) then scale by
+//               bri. For palette hues (only the ratio matters), so every
+//               indicator lands at the same brightness. [0,0,0] stays off.
+//   bound(c) -- CAP so the brightest channel is <= bri*255, else untouched. For
+//               real colours (Mixxx hotcues): keep the colour's own intensity,
+//               just don't let it exceed the ceiling.
+TriMixxx.dim = function(c, bri) {
+    if (bri === undefined) { bri = TriMixxx.BRIGHTNESS; }
+    var m = Math.max(c[0], c[1], c[2]);
+    var k = (m > 0 ? 255 / m : 0) * bri;
+    return [Math.round(c[0] * k), Math.round(c[1] * k), Math.round(c[2] * k)];
+};
+TriMixxx.bound = function(c, bri) {
+    if (bri === undefined) { bri = TriMixxx.BRIGHTNESS; }
+    var ceil = 255 * bri, m = Math.max(c[0], c[1], c[2]);
+    if (m <= ceil) { return [c[0], c[1], c[2]]; }
+    var k = ceil / m;
+    return [Math.round(c[0] * k), Math.round(c[1] * k), Math.round(c[2] * k)];
 };
 
-// ---- Ring pad press -> needle-drop seek. Not wired by default (the ring is a
-//      position indicator); enable by adding the 50 note-on entries in the .xml
-//      that point here. Pad i seeks to i/(PADS-1) of the track. ----
-TriMixxx.padPress = function(channel, control, value, status, group) {
-    if (value === 0) { return; } // press only
-    var pad = control - TriMixxx.PAD_BASE;
-    engine.setValue(TriMixxx.DECK, "playposition", pad / (TriMixxx.PADS - 1));
+// Palette indicator -> node (both LEDs), normalized via dim(); optional per-call bri.
+TriMixxx.led = function(ring, node, c, bri) { TriMixxx.send(ring, node, TriMixxx.dim(c, bri)); };
+
+// A1 tempo range: colour by the current pitch range (green/yellow/orange/red).
+TriMixxx.ledTempoRange = function() {
+    var cur = engine.getValue(TriMixxx.DECK, "rateRange"), c = TriMixxx.C_RED;
+    for (var i = 0; i < TriMixxx.RANGE_LED.length; i++) {
+        if (Math.abs(TriMixxx.RANGE_LED[i][0] - cur) < 0.001) { c = TriMixxx.RANGE_LED[i][1]; break; }
+    }
+    TriMixxx.led(0x01, 0, c);
+};
+
+// A2 master tempo: off when keylock off, red when on.
+TriMixxx.ledKeylock = function() {
+    TriMixxx.led(0x01, 1, engine.getValue(TriMixxx.DECK, "keylock") ? TriMixxx.C_RED : TriMixxx.C_OFF);
+};
+
+// A5/A6 double/halve: orange when there is a loop to act on, else off.
+TriMixxx.ledLoopMods = function() {
+    var c = engine.getValue(TriMixxx.DECK, "loop_enabled") ? TriMixxx.C_ORANGE : TriMixxx.C_OFF;
+    TriMixxx.led(0x01, 4, c);
+    TriMixxx.led(0x01, 5, c);
+};
+
+// A3/A4 8/4-beat loop: orange while that loop size is running.
+TriMixxx.ledBeatloop = function(beats, node) {
+    var on = engine.getValue(TriMixxx.DECK, "beatloop_" + beats + "_enabled");
+    TriMixxx.led(0x01, node, on ? TriMixxx.C_ORANGE : TriMixxx.C_OFF);
+};
+
+// B5 slip: solid red when off, flashing bright red while slip is on.
+TriMixxx.slipFlash = function() {
+    TriMixxx.slipPhase = !TriMixxx.slipPhase;
+    TriMixxx.led(0x03, 4, TriMixxx.slipPhase ? TriMixxx.C_RED_HI : TriMixxx.C_OFF);
+};
+TriMixxx.ledSlip = function() {
+    if (engine.getValue(TriMixxx.DECK, "slip_enabled")) {
+        if (!TriMixxx.slipTimer) {
+            TriMixxx.slipTimer = engine.beginTimer(350, TriMixxx.slipFlash, false);
+            TriMixxx.slipFlash(); // light immediately, don't wait for the first tick
+        }
+    } else if (TriMixxx.slipTimer) {
+        engine.stopTimer(TriMixxx.slipTimer);
+        TriMixxx.slipTimer = 0;
+        TriMixxx.led(0x03, 4, TriMixxx.C_RED);
+    } else {
+        TriMixxx.led(0x03, 4, TriMixxx.C_RED); // initial paint (off + not yet flashing)
+    }
+};
+
+// B1..B4 hotcues: the hotcue's own Mixxx colour when set (bounded to BRIGHTNESS,
+// NOT normalized -- a dim hotcue colour stays dim), off when empty.
+TriMixxx.ledHotcue = function(idx) {
+    var rgb = [0, 0, 0];
+    if (engine.getValue(TriMixxx.DECK, "hotcue_" + idx + "_enabled")) {
+        var col = engine.getValue(TriMixxx.DECK, "hotcue_" + idx + "_color"); // packed 0xRRGGBB
+        rgb = [(col >> 16) & 0xFF, (col >> 8) & 0xFF, col & 0xFF];
+    }
+    TriMixxx.send(0x03, idx - 1, TriMixxx.bound(rgb));
+};
+
+// Register a deck-control -> LED updater (tracked so shutdown can disconnect).
+TriMixxx.ledConnect = function(control, cb) {
+    TriMixxx.conns.push(engine.makeConnection(TriMixxx.DECK, control, cb));
+};
+
+// Paint every button to its current state: trigger all connections, then the two
+// static buttons. Called once after the intro, and re-usable any time.
+TriMixxx.paintAll = function() {
+    for (var i = 0; i < TriMixxx.conns.length; i++) { TriMixxx.conns[i].trigger(); }
+    TriMixxx.led(0x01, 6, TriMixxx.C_DIM_W); // A7 back: dim white (static)
+    TriMixxx.led(0x03, 5, TriMixxx.C_OFF);   // B6 key sync: off until the LAN link drives it
 };
 
 // ---- Play/pause: toggle on press ----
