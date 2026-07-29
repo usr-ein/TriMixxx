@@ -30,3 +30,6 @@ venv/
 # rebuilds it, and the source track beside it is what actually matters.
 test_tracks/format-matrix/*
 !test_tracks/format-matrix/README.md
+
+# Release archives of the captures; rebuilt on demand, never committed.
+*.7z
