@@ -580,6 +580,55 @@ constant. Caught because our synthesised packet differed from a real one in
 exactly that byte.
 
 
+### F24 — Why a CDJ would not list us: the **media query** goes unanswered
+
+The serve-side test, and the answer is specific. Deck B had accepted us
+completely:
+
+- 433 status packets **unicast to us** — so we were in its device table (F21);
+- a portmap `GETPORT` for mountd and for nfsd, both answered;
+- `MNT('/C/')` against our NFS server, answered with a valid 32-byte filehandle.
+
+It mounted our export. And it still would not offer us as a LINK source.
+
+The capture shows why: **22 media queries (type `0x05`) from the deck, and zero
+responses from us.**
+
+```
+Qspt1WmJOL 05 CDJ-2000nexus ... 02 000c  a9feca54  00000003  00000003
+                                 ^D=2     ^its IP   ^target=3 ^slot=3 (USB)
+```
+
+It was asking "device 3, what is in your USB slot?" — repeatedly — and we never
+answered, so it concluded the slot was empty. Announcing and emitting status
+say *that we exist* and *that a slot is occupied*; the media query is how a
+player learns *what the medium actually contains*, and it will not browse
+something it believes is empty.
+
+The reply (type `0x06`, 192 bytes) is the Link-Info panel's contents:
+
+| Offset | Field |
+|---|---|
+| `0x24` | our device number |
+| `0x28` | slot |
+| `0x2c`–`0x6b` | media name, UTF-16 **big**-endian |
+| `0x6c`… | creation date, e.g. `2025-06-24` |
+| `0xa4` | **track count** |
+| `0xac` | **playlist count** |
+| `0xb4` / `0xbc` | total / free bytes |
+
+Implemented and byte-identical to a real response given the same inputs. The
+counts are taken from the parsed `export.pdb`, so they are the true ones — a
+deck told there are no tracks has no reason to offer the medium.
+
+*This also completes the picture of what a device must do to be browsable:*
+announce on 50000, emit status on 50002, **answer media queries on 50002**,
+answer the port query on 12523, serve dbserver, and serve NFS. The media query
+is the step no reference implementation performs, because none of them serve.
+
+*Evidence:* `captures/S10-serve-to-cdj`.
+
+
 ---
 
 ## Corrections to the research docs

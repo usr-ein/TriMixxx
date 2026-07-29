@@ -38,9 +38,10 @@ from typing import Callable
 
 from ..net.iface import Interface
 from ..net.loop import EventLoop
-from ..net.udp import UdpChannel, bind_to_interface, rpc_socket
+from ..net.udp import UdpChannel, bind_to_interface, djl_socket, rpc_socket
 from ..proto import djl
 from ..proto import djl_status as status
+from ..proto.errors import DecodeError
 
 log = logging.getLogger(__name__)
 
@@ -125,6 +126,9 @@ class VirtualCdj:
         trailing: int = 0x00,
         emit_status: bool = False,
         has_usb: bool = False,
+        media_name: str = "",
+        track_count: int = 0,
+        playlist_count: int = 0,
         recorder=None,
         on_state: Callable[[AnnouncerState, str], None] | None = None,
     ) -> None:
@@ -144,8 +148,16 @@ class VirtualCdj:
         #: there and nowhere else (FINDINGS F20/F21).
         self.emit_status = emit_status
         self.has_usb = has_usb
+        #: What to say when a player asks what is in our slot. A deck that is
+        #: told there are no tracks has no reason to offer the medium for
+        #: browsing, so these should be the real counts.
+        self.media_name = media_name
+        self.track_count = track_count
+        self.playlist_count = playlist_count
+        self.media_queries_answered = 0
         self.recorder = recorder
         self._status_channel: UdpChannel | None = None
+        self._query_channel: UdpChannel | None = None
         self._status_timer = None
         self._status_counter = 0
 
@@ -204,9 +216,12 @@ class VirtualCdj:
             if timer is not None:
                 timer.cancel()
         self._timer = self._keepalive_timer = self._status_timer = None
-        if self._status_channel is not None:
-            self._status_channel.close()
-            self._status_channel = None
+        for attr in ("_status_channel", "_query_channel"):
+            channel = getattr(self, attr)
+            if channel is not None:
+                self.loop.remove_reader(channel.sock)
+                channel.close()
+                setattr(self, attr, None)
         self.discovery.on_conflict = None
         self._enter(AnnouncerState.IDLE, "stopped")
 
@@ -355,6 +370,41 @@ class VirtualCdj:
             label="status:50002",
         )
         self._status_timer = self.loop.call_every(STATUS_INTERVAL_S, self._send_status)
+
+        # Media queries arrive *on* 50002, so answering them needs a socket
+        # bound there -- the status sender's ephemeral port never sees them.
+        self._query_channel = UdpChannel(
+            djl_socket(status.STATUS_PORT, "0.0.0.0", interface=self.interface.name),
+            recorder=self.recorder, guard=None, label="query:50002",
+        )
+        self.loop.add_reader(
+            self._query_channel.sock,
+            lambda: self._query_channel.drain(self._on_status_datagram),
+        )
+
+    def _on_status_datagram(self, data: bytes, peer) -> None:
+        """Answer media queries; ignore everything else on this port."""
+        try:
+            query = status.decode_media_query(data)
+        except DecodeError:
+            return  # somebody else's status packet, or a type we do not model
+        if query.target_device != self.device_number:
+            return  # addressed to another player
+
+        reply = status.build_media_response(
+            device_number=self.device_number,
+            slot=query.slot,
+            media_name=self.media_name or "PROLINKS",
+            track_count=self.track_count,
+            playlist_count=self.playlist_count,
+            name=self.name,
+        )
+        self._query_channel.sendto(reply, (query.requester_ip, status.STATUS_PORT))
+        self.media_queries_answered += 1
+        log.info(
+            "answered media query from %s for slot %d (%d tracks, %d playlists)",
+            query.requester_ip, query.slot, self.track_count, self.playlist_count,
+        )
 
     def build_status(self) -> bytes:
         """The status packet we emit. Exposed for byte-diffing against real ones."""

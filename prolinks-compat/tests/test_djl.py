@@ -489,3 +489,41 @@ def test_status_media_state_round_trips():
         decoded = st.decode_status(st.build_status(3, usb_state=usb, sd_state=sd))
         assert decoded.usb_state == usb
         assert decoded.sd_state == sd
+
+
+def test_media_query_decodes_the_targeted_device_and_slot():
+    """FINDINGS F24. The query a deck sent us, verbatim off the wire."""
+    from prolinks_poc.proto import djl_status as st
+
+    query = st.decode_media_query(bytes.fromhex(
+        "5173707431576d4a4f4c0543444a2d323030306e657875730000000000000001"
+        "0002000ca9feca540000000300000003"
+    ))
+    assert query.requester == 2
+    assert query.requester_ip == "169.254.202.84"
+    assert query.target_device == 3      # us
+    assert query.slot == 3               # USB
+
+
+def test_media_response_carries_the_library_counts():
+    from prolinks_poc.proto import djl_status as st
+
+    packet = st.build_media_response(
+        device_number=3, slot=3, media_name="SAM2",
+        track_count=692, playlist_count=35,
+    )
+    assert len(packet) == 192
+    assert packet[0x0A] == st.StatusType.MEDIA_RESPONSE
+    assert packet[0x21] == 3
+    assert int.from_bytes(packet[0x28:0x2C], "big") == 3
+    assert packet[0x2C:0x34] == "SAM2".encode("utf-16-be")
+    assert int.from_bytes(packet[0xA4:0xA8], "big") == 692
+    assert int.from_bytes(packet[0xAC:0xB0], "big") == 35
+
+
+def test_media_response_name_is_utf16_big_endian():
+    """Unlike the NFS layer's UTF-16LE. Same family, opposite convention."""
+    from prolinks_poc.proto import djl_status as st
+
+    packet = st.build_media_response(3, 3, "AB", 1, 1)
+    assert packet[0x2C:0x30] == b"\x00A\x00B"

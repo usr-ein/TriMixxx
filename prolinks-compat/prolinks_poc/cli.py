@@ -1262,6 +1262,9 @@ def cmd_serve(ctx: Context) -> int:
             # Without status packets a player sees us as a deck with empty
             # slots, however loudly we announce (FINDINGS F20/F21).
             emit_status=True, has_usb=True, recorder=ctx.recorder,
+            media_name=volume.name,
+            track_count=len(library.tracks),
+            playlist_count=sum(1 for p in library.playlists.values() if not p.is_folder),
             on_state=lambda state, message: _warn(f"  [{state.value}] {message}"),
         )
         discovery.on_claim = virtual.defend

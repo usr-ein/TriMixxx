@@ -28,6 +28,9 @@ from .errors import DecodeError
 __all__ = [
     "STATUS_PORT",
     "build_status",
+    "MediaQuery",
+    "decode_media_query",
+    "build_media_response",
     "StatusType",
     "MediaState",
     "PlayState",
@@ -267,5 +270,93 @@ def build_status(
     packet[OFF_FIRMWARE : OFF_FIRMWARE + 4] = firmware.encode("ascii")[:4].ljust(4, b"\x00")
     packet[OFF_PACKET_COUNTER : OFF_PACKET_COUNTER + 4] = (
         packet_counter & 0xFFFFFFFF
+    ).to_bytes(4, "big")
+    return bytes(packet)
+
+
+# -- media query / response (types 0x05 / 0x06) ----------------------------
+#
+# A player asks its peers "device N, what is in slot S?" with a type-0x05
+# packet on 50002, and expects a type-0x06 reply describing the medium. Until
+# we answered these, a deck that had otherwise fully accepted us -- it was
+# unicasting status to us, and had completed a portmap + MNT against our NFS
+# server -- still refused to list us as a LINK source, because as far as it
+# knew our slots held nothing.
+#
+# Template taken from a real reply; the identifying and per-medium fields are
+# zeroed and substituted.
+
+_MEDIA_RESPONSE_TEMPLATE = bytes.fromhex(
+    "5173707431576d4a4f4c060000000000000000000000000000000000000000010000009c"
+    "000000000000000000000000000000000000000000000000000000000000000000000000"
+    "000000000000000000000000000000000000000000000000000000000000000000000000"
+    "0032003000320035002d00300036002d0032003400000000003100300030003000000000"
+    "000000000000000000000000000000000000000000000000000001010000000000000007"
+    "28ca8000000000057d06c000"
+)
+
+OFF_MR_DEVICE = 0x24
+OFF_MR_SLOT = 0x28
+OFF_MR_NAME = 0x2C
+LEN_MR_NAME = 0x40
+OFF_MR_TRACK_COUNT = 0xA4
+OFF_MR_PLAYLIST_COUNT = 0xAC
+
+
+@dataclass(frozen=True)
+class MediaQuery:
+    """A type-``0x05`` request: "device *target*, describe slot *slot*"."""
+
+    requester: int
+    requester_ip: str
+    target_device: int
+    slot: int
+
+
+def decode_media_query(data: bytes) -> MediaQuery:
+    """Decode a media query. Raises :class:`DecodeError` if it is not one."""
+    if len(data) < 0x30 or data[:MAGIC_LEN] != MAGIC or data[MAGIC_LEN] != StatusType.MEDIA_QUERY:
+        raise DecodeError("not a media query (type 0x05 on port 50002)")
+    reader = ByteReader(data)
+    return MediaQuery(
+        requester=reader.u8_at(0x21),
+        requester_ip=".".join(str(b) for b in reader.raw_at(0x24, 4)),
+        target_device=int.from_bytes(reader.raw_at(0x28, 4), "big"),
+        slot=int.from_bytes(reader.raw_at(0x2C, 4), "big"),
+    )
+
+
+def build_media_response(
+    device_number: int,
+    slot: int,
+    media_name: str,
+    track_count: int,
+    playlist_count: int,
+    name: str = "CDJ-2000nexus",
+) -> bytes:
+    """Describe one of our media slots, in reply to a query.
+
+    The counts are what the player shows in its Link Info panel, so they should
+    be the real ones -- a deck that is told there are no tracks has no reason
+    to offer the medium for browsing.
+
+    The media name is UTF-16 **big**-endian here, like the dbserver strings and
+    unlike the UTF-16LE of the NFS layer.
+    """
+    packet = bytearray(_MEDIA_RESPONSE_TEMPLATE)
+    encoded = name.encode("ascii", errors="replace")[:20]
+    packet[0x0B:0x1F] = encoded.ljust(20, b"\x00")
+    packet[0x21] = device_number & 0xFF
+    packet[OFF_MR_DEVICE : OFF_MR_DEVICE + 4] = (device_number & 0xFFFFFFFF).to_bytes(4, "big")
+    packet[OFF_MR_SLOT : OFF_MR_SLOT + 4] = (slot & 0xFFFFFFFF).to_bytes(4, "big")
+
+    volume = media_name.encode("utf-16-be")[:LEN_MR_NAME]
+    packet[OFF_MR_NAME : OFF_MR_NAME + LEN_MR_NAME] = volume.ljust(LEN_MR_NAME, b"\x00")
+
+    packet[OFF_MR_TRACK_COUNT : OFF_MR_TRACK_COUNT + 4] = (
+        track_count & 0xFFFFFFFF
+    ).to_bytes(4, "big")
+    packet[OFF_MR_PLAYLIST_COUNT : OFF_MR_PLAYLIST_COUNT + 4] = (
+        playlist_count & 0xFFFFFFFF
     ).to_bytes(4, "big")
     return bytes(packet)
