@@ -51,6 +51,59 @@ TriMixxx.JOG_BETA  = 1.0 / 16;
 TriMixxx.scratching = false;
 TriMixxx.ringLast    = -1;      // last pad lit by the position indicator
 
+// ---- startup rainbow-wave animation (Mixxx-driven; no firmware support) ----
+// Sweeps a rainbow "comet" through both rings in the deck's layout order, using
+// ONLY the existing per-node ring-LED SysEx: F0 7D <cmd> <node> <R,G,B as two
+// nibbles hi-first each> F7, where cmd 0x01 = ring A, 0x03 = ring B.
+
+// [SysEx cmd, node] in play order: B1 B2 B3 B4 B5 A6 A5 A4 A3 A1 A2 A7 B6.
+TriMixxx.INTRO_SEQ = [
+    [0x03, 0], [0x03, 1], [0x03, 2], [0x03, 3], [0x03, 4],
+    [0x01, 5], [0x01, 4], [0x01, 3], [0x01, 2],
+    [0x01, 0], [0x01, 1], [0x01, 6],
+    [0x03, 5]
+];
+
+// hue 0..255 -> [r, g, b] on the colour wheel (full saturation/value).
+TriMixxx.hueWheel = function(pos) {
+    pos = 255 - (pos & 0xFF);
+    if (pos < 85)  { return [255 - pos * 3, 0, pos * 3]; }
+    if (pos < 170) { pos -= 85; return [0, pos * 3, 255 - pos * 3]; }
+    pos -= 170;
+    return [pos * 3, 255 - pos * 3, 0];
+};
+
+// One node -> both its LEDs, via the 6-nibble short-form ring-LED SysEx.
+TriMixxx.ringLed = function(cmd, node, r, g, b) {
+    midi.sendSysexMsg(
+        [0xF0, 0x7D, cmd, node,
+            (r >> 4) & 0xF, r & 0xF, (g >> 4) & 0xF, g & 0xF, (b >> 4) & 0xF, b & 0xF, 0xF7], 11);
+};
+
+// Sweep the comet once (~1s) with a repeating timer, then stop and leave the
+// sequence blank so Mixxx repaints the real LED state.
+TriMixxx.playIntro = function() {
+    var seq = TriMixxx.INTRO_SEQ, n = seq.length, trail = 4, head = 0;
+    for (var i = 0; i < n; i++) { TriMixxx.ringLed(seq[i][0], seq[i][1], 0, 0, 0); } // clean slate
+    var timerId = engine.beginTimer(55, function() {
+        for (var p = 0; p < n; p++) {
+            var d = head - p;                     // frames since the head passed pad p
+            if (d < 0 || d > trail) { continue; } // outside the moving window
+            var r = 0, g = 0, b = 0;
+            if (d < trail) {                      // d == trail -> 0,0,0 clears the tail
+                var bri = 255 - Math.floor(d * 255 / trail);
+                var c = TriMixxx.hueWheel(Math.floor(p * 255 / n));
+                r = Math.floor(c[0] * bri / 255);
+                g = Math.floor(c[1] * bri / 255);
+                b = Math.floor(c[2] * bri / 255);
+            }
+            TriMixxx.ringLed(seq[p][0], seq[p][1], r, g, b);
+        }
+        head += 1;
+        if (head >= n + trail) { engine.stopTimer(timerId); }
+    }, false);
+};
+
 TriMixxx.init = function(id, debugging) {
     // Tempo fader span: the 14-bit `rate` CC is scaled by the deck's rate range,
     // which defaults to +/-8%. Widen it here so the fader covers +/-RATE_RANGE.
@@ -82,6 +135,10 @@ TriMixxx.init = function(id, debugging) {
             engine.setValue("[Master]", "show_library", 0);
         }
     });
+
+    // One-shot startup rainbow-wave across both rings, driven entirely from here
+    // by streaming ring-LED SysEx frames (no firmware trigger involved).
+    TriMixxx.playIntro();
 };
 
 TriMixxx.shutdown = function() {
