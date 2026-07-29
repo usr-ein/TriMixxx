@@ -481,12 +481,16 @@ class DbServer:
             return self._by_name(medium.library.keys, db.ItemType.KEY)
         if request_type == db.MessageType.GET_TRACK_INFO:
             return self._track_info(message.number(1), medium)
-        if request_type == db.MessageType.MENU_ARTISTS_FOR_GENRE:
-            return self._artists_for_genre(message.number(2), medium)
-        if request_type == db.MessageType.MENU_ALBUMS_FOR_ARTIST:
-            return self._albums_for_artist(message.number(2), medium)
-        if request_type == db.MessageType.MENU_TRACKS_FOR_ALBUM:
-            return self._tracks_for_album(message.number(2), medium)
+        if request_type == db.MessageType.MENU_SORT:
+            return self._sort_menu()
+        if (int(request_type) & 0xF000) == 0x1000 and (int(request_type) >> 8) & 0x0F:
+            depth = (int(request_type) >> 8) & 0x0F
+            drilled = self._drill(
+                depth, int(request_type) & 0xFF,
+                [message.number(i) for i in range(2, 2 + depth)], medium,
+            )
+            if drilled is not None:
+                return drilled
         if request_type == db.MessageType.MENU_BITRATE:
             return self._bitrate_menu(medium)
         if request_type == db.MessageType.MENU_SEARCH:
@@ -533,12 +537,16 @@ class DbServer:
             return self._by_name(medium.library.keys, db.ItemType.KEY)
         if request_type == db.MessageType.GET_TRACK_INFO:
             return self._track_info(message.number(1), medium)
-        if request_type == db.MessageType.MENU_ARTISTS_FOR_GENRE:
-            return self._artists_for_genre(message.number(2), medium)
-        if request_type == db.MessageType.MENU_ALBUMS_FOR_ARTIST:
-            return self._albums_for_artist(message.number(2), medium)
-        if request_type == db.MessageType.MENU_TRACKS_FOR_ALBUM:
-            return self._tracks_for_album(message.number(2), medium)
+        if request_type == db.MessageType.MENU_SORT:
+            return self._sort_menu()
+        if (int(request_type) & 0xF000) == 0x1000 and (int(request_type) >> 8) & 0x0F:
+            depth = (int(request_type) >> 8) & 0x0F
+            drilled = self._drill(
+                depth, int(request_type) & 0xFF,
+                [message.number(i) for i in range(2, 2 + depth)], medium,
+            )
+            if drilled is not None:
+                return drilled
         if request_type == db.MessageType.MENU_BITRATE:
             return self._bitrate_menu(medium)
         if request_type == db.MessageType.MENU_SEARCH:
@@ -638,19 +646,36 @@ class DbServer:
 
     def _track_list(self, sort: int, medium: Medium | None = None) -> list[db.Message]:
         medium = medium or self.default_medium
-        tracks = medium.library.track_list()
-        if sort == db.SortOrder.BPM:
-            tracks = sorted(tracks, key=lambda t: t.bpm_100)
-        elif sort == db.SortOrder.TITLE:
-            tracks = sorted(tracks, key=lambda t: t.title.lower())
-        return [
-            db.make_menu_item(
-                0, track.id, track.title, track.artist,
-                item_type=db.ItemType.TITLE_AND_ARTIST,
-                artwork_id=medium.library.artwork_ids.get(track.id, 0),
-            )
-            for track in tracks
-        ]
+        return self._track_items(
+            self._sorted(medium.library.track_list(), sort), medium
+        )
+
+    #: How each sort order orders tracks. ``DEFAULT`` keeps the library's own
+    #: order, which is artist-then-title, and is why it is not simply "unsorted".
+    _SORT_KEYS = {
+        db.SortOrder.TITLE: lambda t: t.title.lower(),
+        db.SortOrder.ARTIST: lambda t: (t.artist.lower(), t.title.lower()),
+        db.SortOrder.ALBUM: lambda t: (t.album.lower(), t.track_number, t.title.lower()),
+        db.SortOrder.BPM: lambda t: (t.bpm_100, t.title.lower()),
+        db.SortOrder.RATING: lambda t: (-t.rating, t.title.lower()),
+        db.SortOrder.GENRE: lambda t: (t.genre.lower(), t.title.lower()),
+        db.SortOrder.LABEL: lambda t: (t.label.lower(), t.title.lower()),
+        db.SortOrder.KEY: lambda t: (t.key.lower(), t.title.lower()),
+        db.SortOrder.BITRATE: lambda t: (t.bitrate, t.title.lower()),
+        db.SortOrder.DATE_ADDED: lambda t: (t.date_added, t.title.lower()),
+        db.SortOrder.PLAY_COUNT: lambda t: t.title.lower(),
+    }
+
+    @classmethod
+    def _sorted(cls, tracks, sort: int):
+        """Order *tracks* by *sort*, leaving an unknown order untouched.
+
+        Every id here comes from a real SORT menu. Reordering by something we
+        do not understand would be worse than the library's own order, which is
+        at least predictable.
+        """
+        key = cls._SORT_KEYS.get(sort)
+        return sorted(tracks, key=key) if key else list(tracks)
 
     def _playlist_menu(
         self, playlist_id: int, folder: bool, medium: Medium | None = None
@@ -797,43 +822,78 @@ class DbServer:
 
     # -- drilling into a category ----------------------------------------
     #
-    # GENRE -> an artist -> an album -> its tracks. Every one of these came back
-    # 0x4003 before, which a deck renders as an EMPTY folder rather than an
-    # error, so browsing looked like it worked until you tried to go two levels
-    # deep. No capture we have shows a real player *answering* them, so the item
-    # shapes below are by analogy with the flat menus -- the requests and their
-    # argument positions are observed, the replies are inferred.
+    # A real player addresses every drill-down with one systematic request type,
+    # 0x1000 | depth << 8 | category (see db.drill_type), and each level adds one
+    # filter id to the arguments. So this is a grid, not a handful of special
+    # cases, and implementing it as a grid is what makes LABEL, BITRATE and KEY
+    # work for free alongside GENRE, ARTIST and ALBUM.
+    #
+    # Chains are read off a real session: GENRE narrows to an artist, then an
+    # album, then tracks; ARTIST skips straight to albums. The last entry in each
+    # chain is the level that yields tracks.
 
-    def _artists_for_genre(self, genre_id: int, medium: Medium | None = None):
-        medium = medium or self.default_medium
-        artist_ids = {
-            track.artist_id for track in medium.library.tracks.values()
-            if track.genre_id == genre_id
-        }
-        return self._by_name(
-            {i: medium.library.artists.get(i, "") for i in artist_ids},
-            db.ItemType.ARTIST,
+    DRILL_CHAINS = {
+        db.MessageType.MENU_GENRE & 0xFF: ("genre_id", "artist_id", "album_id"),
+        db.MessageType.MENU_ARTIST & 0xFF: ("artist_id", "album_id"),
+        db.MessageType.MENU_ALBUM & 0xFF: ("album_id",),
+        db.MessageType.MENU_LABEL & 0xFF: ("label_id", "artist_id", "album_id"),
+        db.MessageType.MENU_BITRATE & 0xFF: ("bitrate",),
+        db.MessageType.MENU_KEY & 0xFF: ("key_id",),
+    }
+
+    #: Which library table names each filter field, and how its items are typed.
+    _FILTER_ITEMS = {
+        "genre_id": ("genres", db.ItemType.GENRE),
+        "artist_id": ("artists", db.ItemType.ARTIST),
+        "album_id": ("albums", db.ItemType.ALBUM),
+        "label_id": ("labels", db.ItemType.LABEL),
+        "key_id": ("keys", db.ItemType.KEY),
+        "bitrate": (None, db.ItemType.BITRATE),
+    }
+
+    #: A filter of ``0xffffffff`` is the ALL entry: do not narrow at this level.
+    FILTER_ALL = 0xFFFFFFFF
+
+    def _drill(self, depth: int, category: int, filters, medium: Medium):
+        """Items *depth* levels into *category*, narrowed by *filters*."""
+        chain = self.DRILL_CHAINS.get(category)
+        if chain is None:
+            return None
+
+        tracks = list(medium.library.tracks.values())
+        for field, value in zip(chain, filters):
+            if value == self.FILTER_ALL:
+                continue
+            tracks = [t for t in tracks if getattr(t, field, None) == value]
+
+        if depth >= len(chain):
+            return self._track_items(tracks, medium)
+
+        field = chain[depth]
+        table, item_type = self._FILTER_ITEMS[field]
+        values = {getattr(t, field, 0) for t in tracks}
+        names = getattr(medium.library, table) if table else {}
+        entries = {v: (names.get(v, "") if table else "") for v in values if v}
+        items = (
+            self._by_name(entries, item_type) if table
+            else [db.make_menu_item(0, v, "", "", item_type=item_type)
+                  for v in sorted(entries)]
+        )
+        # A real reply heads the list with ALL, but only when there is a choice
+        # to make: a single-entry level goes out bare.
+        if len(items) > 1:
+            items.insert(0, self._all_item())
+        return items
+
+    @staticmethod
+    def _all_item() -> db.Message:
+        """The ``ALL`` entry, byte-for-byte as a real player sends it."""
+        return db.make_menu_item(
+            0, DbServer.FILTER_ALL, db.menu_label("ALL"), "",
+            item_type=db.ItemType.ALL, flags=0,
         )
 
-    def _albums_for_artist(self, artist_id: int, medium: Medium | None = None):
-        medium = medium or self.default_medium
-        album_ids = {
-            track.album_id for track in medium.library.tracks.values()
-            if track.artist_id == artist_id
-        }
-        return self._by_name(
-            {i: medium.library.albums.get(i, "") for i in album_ids},
-            db.ItemType.ALBUM,
-        )
-
-    def _tracks_for_album(self, album_id: int, medium: Medium | None = None):
-        medium = medium or self.default_medium
-        tracks = [
-            track for track in medium.library.tracks.values()
-            if track.album_id == album_id
-        ]
-        # Album order, not alphabetical: a track number is what it is for.
-        tracks.sort(key=lambda t: (t.disc_number, t.track_number, t.title.lower()))
+    def _track_items(self, tracks, medium: Medium) -> list[db.Message]:
         return [
             db.make_menu_item(
                 0, track.id, track.title, track.artist,
@@ -841,6 +901,32 @@ class DbServer:
                 artwork_id=medium.library.artwork_ids.get(track.id, 0),
             )
             for track in tracks
+        ]
+
+    #: Sort orders a real player offers, in the order it lists them, with the
+    #: item type each carries. Read off a real SORT menu.
+    SORT_OPTIONS = (
+        (db.SortOrder.DEFAULT, db.ItemType.SORT_DEFAULT, "DEFAULT"),
+        (db.SortOrder.TITLE, db.ItemType.SORT_ALPHABET, "ALPHABET"),
+        (db.SortOrder.ARTIST, db.ItemType.MENU_ARTIST, "ARTIST"),
+        (db.SortOrder.ALBUM, db.ItemType.MENU_ALBUM, "ALBUM"),
+        (db.SortOrder.BPM, 0x85, "BPM"),
+        (db.SortOrder.RATING, 0x86, "RATING"),
+        (db.SortOrder.KEY, db.ItemType.MENU_KEY, "KEY"),
+        (db.SortOrder.BITRATE, 0x93, "BITRATE"),
+        (db.SortOrder.PLAY_COUNT, 0x97, "DJ PLAY COUNT"),
+        (db.SortOrder.GENRE, db.ItemType.MENU_GENRE, "GENRE"),
+        (db.SortOrder.DATE_ADDED, 0x8C, "DATE ADDED"),
+        (db.SortOrder.LABEL, 0x89, "LABEL"),
+    )
+
+    def _sort_menu(self) -> list[db.Message]:
+        """The SORT list. Independent of which menu is being sorted: a real
+        player sends the same twelve whatever argument 2 names."""
+        return [
+            db.make_menu_item(0, value, db.menu_label(label), "",
+                              item_type=item_type, flags=0)
+            for value, item_type, label in self.SORT_OPTIONS
         ]
 
     def _bitrate_menu(self, medium: Medium | None = None):

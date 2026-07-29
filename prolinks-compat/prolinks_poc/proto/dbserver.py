@@ -155,6 +155,9 @@ class MessageType(enum.IntEnum):
     MENU_TRACKS_FOR_ALBUM = 0x1103
     MENU_PLAYLIST = 0x1105
     MENU_SEARCH = 0x1300
+    #: "Which sort orders does this menu offer?" Argument 2 is the menu type
+    #: being sorted. The reply is the list a deck shows under SORT.
+    MENU_SORT = 0x1400
     MENU_FOLDER = 0x2006
 
     GET_METADATA = 0x2002
@@ -251,7 +254,12 @@ class ItemType(enum.IntEnum):
     #: *not* the container -- that is item 1. Meaning still unknown.
     #: docs/FINDINGS.md F35.
     UNKNOWN_2F = 0x002F
+    #: Heads a filtered list when there is more than one entry: id
+    #: ``0xffffffff``, label ``ALL`` wrapped like a category. Choosing it sends
+    #: ``0xffffffff`` as that level's filter, meaning "do not narrow here".
     ALL = 0x00A0
+    SORT_DEFAULT = 0x00A1
+    SORT_ALPHABET = 0x00A2
     MENU_GENRE = 0x0080
     MENU_ARTIST = 0x0081
     MENU_ALBUM = 0x0082
@@ -271,6 +279,24 @@ class ItemType(enum.IntEnum):
 #: to agree for those but gives KEY ``0x14`` -- and ``0x14`` is BITRATE, so a
 #: deck opening our KEY category asked for bitrates. docs/FINDINGS.md F40.
 ROOT_CATEGORY_ID_BIAS = 0x7F
+
+
+def drill_type(depth: int, category: int) -> int:
+    """The request type for drilling *depth* levels into *category*.
+
+    Real players address every drill-down with one systematic type,
+    ``0x1000 | depth << 8 | category``, where *category* is the **menu request**
+    type's low byte -- ``MENU_GENRE`` 0x1001 gives 1, ``MENU_KEY`` 0x1014 gives
+    0x14. So ``0x1101`` is "one level into GENRE" (its artists), ``0x1301`` is
+    "three levels in" (the tracks), and the three names ``research/04`` gives
+    -- ARTISTS_FOR_GENRE, ALBUMS_FOR_ARTIST, TRACKS_FOR_ALBUM -- are three
+    points in a grid, not three separate messages.
+
+    Note this is the *request* numbering, not the root-item id numbering that
+    F40 is about: KEY is ``0x14`` here and ``0x0c`` there. The two coexist and
+    disagree, which is exactly how F40's bug happened.
+    """
+    return 0x1000 | ((depth & 0xFF) << 8) | (category & 0xFF)
 
 
 def root_category_id(item_type: int) -> int:

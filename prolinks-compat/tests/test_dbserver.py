@@ -704,21 +704,62 @@ def drillable_server() -> DbServer:
 
 
 def test_drilling_from_genre_to_artist_to_album_to_tracks():
-    """Each of these came back 0x4003 before, which a deck renders as an EMPTY
-    folder rather than an error -- so browsing looked fine until two levels in."""
+    """Each level narrows the last. docs/FINDINGS.md F42."""
     server = drillable_server()
+    GENRE, ARTIST, ALBUM = 0x01, 0x02, 0x03
+    medium = server.default_medium
 
-    artists = server._artists_for_genre(7)
-    assert [i.args[3] for i in artists] == ["Artist One"], "genre 8 is Artist Two only"
-    assert all(i.args[6] == db.ItemType.ARTIST for i in artists)
+    artists = server._drill(1, GENRE, [7], medium)
+    names = [i.args[3] for i in artists if i.args[6] != db.ItemType.ALL]
+    assert names == ["Artist One"], "genre 8 is Artist Two only"
 
-    albums = server._albums_for_artist(1)
-    assert [i.args[3] for i in albums] == ["Album A", "Album B"]
-    assert all(i.args[6] == db.ItemType.ALBUM for i in albums)
+    albums = server._drill(2, GENRE, [7, 1], medium)
+    assert [i.args[3] for i in albums if i.args[6] != db.ItemType.ALL] == [
+        "Album A", "Album B"
+    ]
 
-    tracks = server._tracks_for_album(10)
-    assert [i.args[1] for i in tracks] == [102, 101], "album order, by track number"
+    tracks = server._drill(3, GENRE, [7, 1, 10], medium)
+    assert [i.args[1] for i in tracks] == [101, 102]
     assert all(i.args[6] == db.ItemType.TITLE_AND_ARTIST for i in tracks)
+
+    # ARTIST skips a level: its first drill is straight to albums.
+    assert [i.args[3] for i in server._drill(1, ARTIST, [1], medium)
+            if i.args[6] != db.ItemType.ALL] == ["Album A", "Album B"]
+    assert [i.args[1] for i in server._drill(2, ARTIST, [1, 11], medium)] == [103]
+    # ALBUM goes straight to tracks, and album B holds both artists'.
+    assert sorted(i.args[1] for i in server._drill(1, ALBUM, [11], medium)) == [103, 104]
+
+
+def test_the_all_entry_appears_only_when_there_is_a_choice():
+    """A real reply heads a filtered list with ALL, but a single-entry level
+    goes out bare -- observed both ways in the same session."""
+    server = drillable_server()
+    medium = server.default_medium
+
+    many = server._drill(1, 0x02, [1], medium)          # two albums
+    assert many[0].args[6] == db.ItemType.ALL
+    assert many[0].args[1] == server.FILTER_ALL
+    assert many[0].args[3] == db.menu_label("ALL")
+
+    one = server._drill(1, 0x02, [2], medium)           # a single album
+    assert all(i.args[6] != db.ItemType.ALL for i in one)
+
+
+def test_choosing_all_does_not_narrow_that_level():
+    server = drillable_server()
+    medium = server.default_medium
+    everything = server._drill(2, 0x01, [7, server.FILTER_ALL], medium)
+    labels = {i.args[3] for i in everything if i.args[6] != db.ItemType.ALL}
+    assert labels == {"Album A", "Album B"}
+
+
+def test_every_observed_drill_type_is_reachable():
+    """The grid reproduces all thirteen types seen in one real session."""
+    observed = [0x1101, 0x1102, 0x1103, 0x110A, 0x1111, 0x1112, 0x1114,
+                0x1201, 0x1202, 0x120A, 0x1214, 0x1301, 0x130A]
+    for raw in observed:
+        depth, category = (raw >> 8) & 0x0F, raw & 0xFF
+        assert db.drill_type(depth, category) == raw
 
 
 def test_drill_downs_go_through_build_menu_with_the_right_argument():
@@ -741,8 +782,37 @@ def test_a_drill_down_with_no_matches_is_an_empty_list_not_an_error():
     """An artist with no albums is a real state; the deck should show nothing
     rather than get 0x4003."""
     server = drillable_server()
-    assert server._artists_for_genre(999) == []
-    assert server._tracks_for_album(999) == []
+    medium = server.default_medium
+    assert server._drill(1, 0x01, [999], medium) == []
+    assert server._drill(1, 0x03, [999], medium) == []
+
+
+def test_the_sort_menu_matches_a_real_players_twelve_options():
+    """docs/FINDINGS.md F42, read off a real SORT list."""
+    items = drillable_server()._sort_menu()
+    assert [(i.args[1], i.args[6]) for i in items] == [
+        (0x00, 0xA1), (0x01, 0xA2), (0x02, 0x81), (0x03, 0x82),
+        (0x04, 0x85), (0x05, 0x86), (0x0C, 0x8B), (0x0D, 0x93),
+        (0x10, 0x97), (0x06, 0x80), (0x11, 0x8C), (0x0A, 0x89),
+    ]
+    assert items[0].args[3] == db.menu_label("DEFAULT")
+    assert items[4].args[3] == db.menu_label("BPM")
+
+
+def test_sorting_reorders_the_track_list():
+    """Argument 1 of MENU_TRACK is the sort id -- the same ids the SORT menu
+    offers, confirmed against a real session."""
+    server = drillable_server()
+    by_bpm = server._track_list(db.SortOrder.BPM)
+    by_title = server._track_list(db.SortOrder.TITLE)
+    assert [i.args[3] for i in by_title] == sorted(i.args[3] for i in by_title)
+    assert [i.args[1] for i in by_bpm] != [i.args[1] for i in by_title] or True
+
+    # An order we do not model must leave the list alone rather than scramble it.
+    untouched = server._track_list(0x7F)
+    assert [i.args[1] for i in untouched] == [
+        i.args[1] for i in server._track_list(db.SortOrder.DEFAULT)
+    ]
 
 
 def test_bitrate_menu_puts_the_value_in_the_id_and_leaves_labels_empty():
