@@ -47,6 +47,7 @@ __all__ = [
     "ClaimMac",
     "ClaimIp",
     "ClaimNumber",
+    "NumberInUse",
     "KeepAlive",
     "NumberConflict",
     "UnknownPacket",
@@ -106,7 +107,14 @@ class PacketType(enum.IntEnum):
     CLAIM_IP = 0x02  # stage 2: publish IP, propose a number ("IdUseRequest")
     MIXER_ASSIGN = 0x03  # mixer -> player: "use device number D"
     CLAIM_NUMBER = 0x04  # stage 3: assert the number
-    MIXER_ASSIGN_DONE = 0x05  # mixer -> player: assignment finished
+    #: ``research/02`` §1.7 files this under mixer channel assignment
+    #: ("mixer -> player: assignment finished"). Observed doing something else
+    #: entirely: a CDJ that holds an **auto-assigned** number unicasts one of
+    #: these to any device that claims a number, carrying its own number. Same
+    #: 38-byte layout as CLAIM_NUMBER; only the type byte differs. Never seen in
+    #: any capture where both decks had manual numbers.
+    #: docs/FINDINGS.md F36.
+    NUMBER_IN_USE = 0x05
     KEEP_ALIVE = 0x06  # steady state, every ~2 s on real hardware
     NUMBER_CONFLICT = 0x08  # "that number is mine" -- unicast by the owner
     HELLO = 0x0A  # initial announcement
@@ -142,6 +150,7 @@ _STYPE = {
     PacketType.CLAIM_MAC: 0x2C,
     PacketType.CLAIM_IP: 0x32,
     PacketType.CLAIM_NUMBER: 0x26,
+    PacketType.NUMBER_IN_USE: 0x26,
     PacketType.KEEP_ALIVE: 0x36,
     PacketType.NUMBER_CONFLICT: 0x29,
 }
@@ -334,6 +343,34 @@ class ClaimNumber(DjlPacket):
 
 
 @dataclass(frozen=True, kw_only=True)
+class NumberInUse(DjlPacket):
+    """Type ``05`` — "the number I hold is N", unicast to a device claiming one.
+
+    Byte-for-byte a :class:`ClaimNumber` but for the type byte, and sent in the
+    same instant a peer transmits its stage-3 claim. Observed once: deck B,
+    holding an **auto-assigned** 2, answered deck A's claim of 1 by unicasting
+    this back with ``device_number=2``. Deck A, manually numbered, sent none.
+
+    Reading it as "here is a number already taken, do not pick it" fits what an
+    auto-assigning device needs to publish and explains why no capture with two
+    manually-numbered decks contains one. n=1, so the *rule* is inferred; the
+    packet and its layout are observed.
+    """
+
+    PACKET_TYPE = PacketType.NUMBER_IN_USE
+
+    device_number: int
+    iteration: int
+
+    def encode(self) -> bytes:
+        length = _LENGTH[PacketType.NUMBER_IN_USE]
+        writer = _write_header(PacketType.NUMBER_IN_USE, self.name, self.device_kind, length)
+        writer.u8_at(0x24, self.device_number)
+        writer.u8_at(0x25, self.iteration)
+        return writer.data()
+
+
+@dataclass(frozen=True, kw_only=True)
 class KeepAlive(DjlPacket):
     """Type ``06`` — the steady-state keep-alive (``research/02`` §2).
 
@@ -510,9 +547,11 @@ def decode(data: bytes) -> DjlPacket:
             assignment_mode=reader.u8_at(0x31),
         )
 
-    if packet_type == PacketType.CLAIM_NUMBER:
-        need(0x26)  # only the two named fields are required
-        return ClaimNumber(
+    if packet_type in (PacketType.CLAIM_NUMBER, PacketType.NUMBER_IN_USE):
+        need(0x26)
+        cls = (ClaimNumber if packet_type == PacketType.CLAIM_NUMBER
+               else NumberInUse)
+        return cls(
             **common,
             device_number=reader.u8_at(0x24),
             iteration=reader.u8_at(0x25),

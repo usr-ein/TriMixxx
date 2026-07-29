@@ -620,24 +620,18 @@ class DbServer:
         could not decode the format -- having never read a byte of the file, so
         the verdict came from this reply and nowhere else.
 
-        Items 1 and 6 are **still unattributed**, and both are sent as the
-        constant ``1`` observed in the only capture that contains this exchange.
+**Item 1 is the container, and item 6 is a constant.** Settled by
+        capturing one deck loading the format variants from another's USB:
+        item 1 held 1 for MP3, 4 for AAC, 11 for WAV and 12 for AIFF -- the pdb
+        ``0x5a`` values (F34) -- while item 6 held 1 throughout.
 
-        F34 claimed to have resolved them and was wrong about item 1. Serving
-        ``disc_number`` there broke MP3 loading outright -- the two MP3s tested
-        are disc 2 and disc 1, and the disc-2 one stopped working -- so
-        whatever ``0x04`` means, it is not the disc number, and a value of 2 is
-        not acceptable. The reasoning had been: the one real observation was
-        ``1`` and ``disc_number`` was the only field of that track equal to 1.
-        That is a coincidence, not a derivation, and it should not have been
-        shipped to hardware as a conclusion.
-
-        Item 6 is a **separate question that this revert does not settle.**
-        ``0x5a`` is definitely the container (F34, 651 rows, no exceptions), and
-        for an MP3 it is ``1`` -- identical to the constant -- so serving it
-        cannot be what broke MP3. But it is unverified as *this* argument's
-        meaning, so it goes back to the constant too until a deck-to-deck
-        capture of a non-MP3 load shows what a real player sends.
+        Two earlier readings were wrong, in opposite directions, and the pair of
+        errors cancelled for the only format that had ever been captured. Item 6
+        was guessed to be the codec because a format complaint had to come from
+        somewhere; item 1 was guessed to be the disc number because the one
+        observation was 1 and ``disc_number`` happened to be the only field of
+        that track equal to 1. Serving the disc number here is what broke MP3
+        loading -- a disc-2 MP3 announces itself as ``AAC``.
         """
         track = self.library.tracks.get(track_id)
         if track is None:
@@ -648,7 +642,10 @@ class DbServer:
                                      item_type=item_type, flags=0)
 
         return [
-            item(1, db.ItemType.TRACK_TITLE),
+            # Not the title: in *this* reply the 0x04 slot carries the container,
+            # with an empty label. A player takes it at face value, so a wrong
+            # value here makes it fetch the file and then fail to decode it.
+            item(track.file_type, db.ItemType.TRACK_TITLE),
             item(track.duration, db.ItemType.DURATION),
             item(track.bpm_100, db.ItemType.TEMPO),
             item(track.id, db.ItemType.COMMENT, track.comment),
@@ -658,7 +655,7 @@ class DbServer:
             # that browsing does not, which fits a deck that renders the track
             # perfectly and then cannot open it.
             item(track.id, db.ItemType.PATH, track.path, parent=track.file_size),
-            item(1, db.ItemType.FILE_TYPE),
+            item(1, db.ItemType.UNKNOWN_2F),
         ]
 
     def _search(self, term: str) -> list[db.Message]:

@@ -58,14 +58,13 @@ Both objectives work against real hardware. What remains in the PoC is
 tidying rather than discovery:
 
 - the opaque prefix word (F33) must be non-zero but is still unexplained;
-- argument 0 of the metadata items, and items 1 and 6 of `GET_TRACK_INFO`,
-  are observed constants rather than derived (F32, F34). Item 6 being the
-  container is plausible but unconfirmed; item 1 is **not** the disc number;
+- argument 0 of the metadata items is an observed constant, not derived (F32);
+- `GET_TRACK_INFO` item 6 is a constant `1` on all four containers; meaning
+  unknown (F35);
 - `0x3d03` is acknowledged with a guessed reply — no capture shows a real one.
 
-Only MP3 loads from us. Non-MP3 formats are announced as MP3 and rejected.
-The next capture — deck B loading the format variants from deck A's USB — is
-the ground truth for what a real player sends there.
+All four containers should now load: item 1 of `GET_TRACK_INFO` carries the
+container, taken from pdb offset `0x5a` (F34, F35).
 
 ## Not started
 
@@ -82,7 +81,7 @@ the ground truth for what a real player sends there.
 STATUS.md          this file — current state
 README.md          what the repo is, how to run it
 docs/
-  FINDINGS.md      F1-F34, C1-C14, O1-O7 with evidence. Has an index.
+  FINDINGS.md      F1-F36, C1-C14, O1-O7 with evidence. Has an index.
   HARDWARE.md      runbook for a session with real CDJs
   CAPTURE-PLAN.md  the S1..S10 capture scenarios
 research/
@@ -94,7 +93,7 @@ prolinks_poc/
   net/             sockets, event loop, RPC/NFS client *and* server
   core/            discovery, announcer, library model, slots
   capture/         journal recorder, pcap reader, passivity guard
-tests/             220 tests, no hardware required
+tests/             224 tests, no hardware required
 tools/capture.sh   start a named scenario capture
 captures/
   S*/              named scenarios; NOTES.md and cmd.txt are tracked, pcaps are not

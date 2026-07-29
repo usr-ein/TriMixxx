@@ -149,6 +149,8 @@ def test_packet_lengths():
         djl.PacketType.CLAIM_MAC: 0x2C,
         djl.PacketType.CLAIM_IP: 0x32,
         djl.PacketType.CLAIM_NUMBER: 0x26,
+        # Type 05 shares the stage-3 layout exactly; see FINDINGS F36.
+        djl.PacketType.NUMBER_IN_USE: 0x26,
         djl.PacketType.KEEP_ALIVE: 0x36,
         djl.PacketType.NUMBER_CONFLICT: 0x29,
     }
@@ -527,3 +529,56 @@ def test_media_response_name_is_utf16_big_endian():
 
     packet = st.build_media_response(3, 3, "AB", 1, 1)
     assert packet[0x2C:0x30] == b"\x00A\x00B"
+
+
+#: Deck B, holding an auto-assigned number 2, answering deck A's claim of 1.
+#: Off the wire, ``captures/S13-format-ground-truth``.
+NXS_NUMBER_IN_USE = bytes.fromhex(
+    "5173707431576d4a4f4c050043444a2d323030306e6578757300000000000000010200260201"
+)
+#: Deck A's own stage-3 claim from the same instant, for comparison.
+NXS_CLAIM_NUMBER_MANUAL = bytes.fromhex(
+    "5173707431576d4a4f4c040043444a2d323030306e6578757300000000000000010200260101"
+)
+
+
+def test_number_in_use_decodes_and_round_trips():
+    """FINDINGS F36. research/02 §1.7 files type 05 under mixer channel
+    assignment; a CDJ holding an auto-assigned number sends it to any device
+    that claims one."""
+    packet = djl.decode(NXS_NUMBER_IN_USE)
+    assert isinstance(packet, djl.NumberInUse)
+    assert packet.device_number == 2
+    assert packet.iteration == 1
+    assert packet.name == "CDJ-2000nexus"
+    assert packet.encode() == NXS_NUMBER_IN_USE
+
+
+def test_number_in_use_differs_from_a_stage_three_claim_only_in_the_type_byte():
+    assert len(NXS_NUMBER_IN_USE) == len(NXS_CLAIM_NUMBER_MANUAL) == 0x26
+    differing = [i for i in range(0x26)
+                 if NXS_NUMBER_IN_USE[i] != NXS_CLAIM_NUMBER_MANUAL[i]]
+    # Offset 0x0a is the type; 0x24 is the device number (2 vs 1).
+    assert differing == [0x0A, 0x24]
+
+
+@pytest.mark.parametrize(
+    "mode,expected", [(djl.AssignmentMode.AUTO, 0x01), (djl.AssignmentMode.MANUAL, 0x02)]
+)
+def test_stage_two_claim_assignment_mode_byte(mode, expected):
+    """FINDINGS F36 confirms both values on hardware. Every earlier capture had
+    both decks manually numbered, so only 0x02 had ever been observed."""
+    packet = djl.ClaimIp(
+        name="CDJ-2000nexus", name_raw=b"CDJ-2000nexus".ljust(20, b"\0"),
+        device_kind=djl.DeviceKind.CDJ, ip="169.254.202.84",
+        mac=bytes.fromhex("745e1c56ca54"), device_number=2, iteration=1,
+        assignment_mode=mode,
+    )
+    assert packet.encode()[0x31] == expected
+
+    # ...and the real auto claim off the wire carries 0x01 there.
+    real_auto = bytes.fromhex(
+        "5173707431576d4a4f4c020043444a2d323030306e657875730000000000"
+        "000001020032a9feca54745e1c56ca5402010101"
+    )
+    assert djl.decode(real_auto).assignment_mode == djl.AssignmentMode.AUTO

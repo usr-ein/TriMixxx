@@ -51,7 +51,9 @@ and analysis files · **METH** capture methodology.
 | [F31](#f31) | DB | `GET_TRACK_INFO` is **six** items, and argument 0 of the path item is the **file size** |
 | [F32](#f32) | DB | **Playback works.** `GET_METADATA` is **13** items carrying *referenced* row ids |
 | [F33](#f33) | DB | **Serve side complete.** The opaque prefix word must be non-zero |
-| [F34](#f34) | PDB | Row offset `0x5a` is the **container**; the disc-number half was **wrong** and is reverted |
+| [F34](#f34) | PDB | Row offset `0x5a` is the **container**; the disc-number half was **wrong** |
+| [F35](#f35) | DB | `GET_TRACK_INFO` item **1** is the container; item 6 is a constant `1` |
+| [F36](#f36) | DISC | **Auto numbering**: byte `31` = `01`, and a type-`05` "number in use" reply |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1263,6 +1265,72 @@ travel in the same commit.
 *Next:* a deck-to-deck capture of **deck B loading these format variants from
 deck A's USB** — the only source of truth for what a real player sends in items
 1 and 6 for a non-MP3.
+
+
+<a id="f35"></a>
+
+### F35 — `GET_TRACK_INFO` item **1** is the container, item 6 is a constant
+
+Ground truth, from one deck loading the format variants off another's USB:
+
+| Track | item 1 (`0x04`) | item 6 (`0x2f`) |
+|---|---|---|
+| `MP3 MPEG1 128k 44k1` | **1** | 1 |
+| `AAC 128k 44k1 st` | **4** | 1 |
+| `WAV 16b 44k1` | **11** | 1 |
+| `AIFF 16b 44k1` | **12** | 1 |
+
+Item 1 carries the container -- exactly the pdb `0x5a` values from F34 -- and
+item 6 is `1` for every format. **Both earlier readings were wrong, in opposite
+directions, and the two errors cancelled for the only format that had ever been
+captured.** F31 guessed item 6 was the codec because the format complaint had to
+come from somewhere; F34 guessed item 1 was the disc number because the one
+observation was `1` and `disc_number` was the only field of that track equal to
+1. Serving the disc number there is what broke MP3: a disc-2 MP3 announces
+itself as **AAC**, so the deck fetches it and cannot decode it.
+
+Note the same type byte means different things in the two replies: `0x04` is the
+title in `GET_METADATA` (id = track id, label = the title) and the container in
+`GET_TRACK_INFO` (id = container, label empty). Reading `research/04`'s item-type
+table as global is what made "item 1 is the title" look already-answered and
+sent the search to item 6 instead.
+
+<a id="f36"></a>
+
+### F36 — Automatic device numbering: byte `31`, and a type-`05` reply
+
+First capture with a deck in **AUTO** rather than a fixed number. Deck B booted
+alone in auto; deck A joined at a manual 1.
+
+**Byte `31` of the stage-2 claim is confirmed on hardware.** `research/02` §1.3
+reads it as `01` auto / `02` specific and C13 marked it confirmed -- but every
+prior capture had *both* decks manually numbered, so only `02` had ever been
+seen. The auto deck sends `01`. Our `AssignmentMode` already had both values and
+now has evidence for each.
+
+**An auto-numbered deck picked 2, not 1**, while alone on an empty network, and
+1 was free. So auto assignment is not "lowest free number"; the deck's previous
+manual setting was 2, which suggests it is remembered.
+
+**Type `05` is not only a mixer packet.** `research/02` §1.7 files it under mixer
+channel assignment. In the same instant deck A transmitted its stage-3 claim,
+deck B **unicast** a type-`05` back to it carrying its own number:
+
+```
+0x04 (deck A)  5173707431576d4a4f4c 04 ... 01 01     claims 1
+0x05 (deck B)  5173707431576d4a4f4c 05 ... 02 01     "I hold 2"
+                                    ^^ only the type byte and the number differ
+```
+
+38 bytes, identical layout to `CLAIM_NUMBER`, unicast rather than broadcast, and
+**absent from every earlier capture** -- all of which had two manually-numbered
+decks. Reading it as "this number is taken" fits what an auto-assigning device
+needs to publish. n=1, so the rule is inferred; the packet and its layout are
+observed. Decoded as `NumberInUse` and round-trips byte-exactly.
+
+Also reconfirmed, now with the variable moved deliberately: C13's stage-3 repeat
+count. Deck B booted alone sent **three** type-`04` packets, deck A joining an
+occupied network sent **one**.
 
 
 

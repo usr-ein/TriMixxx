@@ -605,24 +605,35 @@ def test_the_last_unknown_request_is_acknowledged_not_errored(library):
         assert replies[0].args == [message_type, 0]
 
 
-@pytest.mark.parametrize("file_type,disc", [(1, 1), (4, 2), (11, 0), (12, 3)])
-def test_track_info_items_one_and_six_stay_at_the_observed_constant(
-    library, file_type, disc
-):
-    """docs/FINDINGS.md F34, corrected.
+#: One deck loading format variants from another's USB, read off
+#: ``captures/S13-format-ground-truth``: the container is item 1 and item 6 is a
+#: constant. Both of the earlier guesses were wrong, in opposite directions, and
+#: cancelled for the only format that had ever been captured.
+REAL_TRACK_INFO = [
+    pytest.param(1, 1, id="mp3"),    # 02 MP3 MPEG1 64k 44k1.mp3, track 613
+    pytest.param(4, 1, id="aac"),    # 29 AAC 128k 44k1 st.m4a,   track 640
+    pytest.param(11, 1, id="wav"),   # 33 WAV 16b 44k1.wav,       track 644
+    pytest.param(12, 1, id="aiff"),  # 37 AIFF 16b 44k1.aiff,     track 648
+]
 
-    Both are `1` in the only capture of this exchange, and neither is
-    attributed. Serving ``disc_number`` in item 1 broke MP3 loading on hardware
-    -- a disc-2 track stopped loading -- so the field is pinned to the constant
-    until a capture shows what a real player sends. Regression guard: these must
-    not track any per-track value again without evidence.
+
+@pytest.mark.parametrize("file_type,item_six", REAL_TRACK_INFO)
+def test_track_info_item_one_is_the_container(library, file_type, item_six):
+    """docs/FINDINGS.md F35.
+
+    Item 1 carries the container, not the title and not the disc number.
+    Serving ``disc_number`` here is what broke MP3 loading: a disc-2 MP3
+    announces itself as AAC, so the deck fetches it and cannot decode it.
+
+    ``disc_number`` is varied here precisely to prove item 1 does not follow it.
     """
     track = next(iter(library.tracks.values()))
     track.file_type = file_type
-    track.disc_number = disc
+    track.disc_number = 2
 
     server = DbServer(library, device_number=5, bind_ip="127.0.0.1",
                       port=0, query_port=0)
     by_type = {i.args[6]: i for i in server._track_info(track.id)}
-    assert by_type[db.ItemType.FILE_TYPE].args[1] == 1
-    assert by_type[db.ItemType.TRACK_TITLE].args[1] == 1
+    assert by_type[db.ItemType.TRACK_TITLE].args[1] == file_type
+    assert by_type[db.ItemType.TRACK_TITLE].args[3] == "", "label is empty here"
+    assert by_type[db.ItemType.UNKNOWN_2F].args[1] == item_six

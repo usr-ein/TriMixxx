@@ -224,6 +224,10 @@ class ItemType(enum.IntEnum):
     FOLDER = 0x0001
     ALBUM = 0x0002
     DISC = 0x0003
+    #: The title in a ``GET_METADATA`` reply -- but the **container** in a
+    #: ``GET_TRACK_INFO`` reply, where the label is empty and the id holds
+    #: a :class:`~prolinks_poc.proto.pdb.FileType`. The same type byte means
+    #: different things in the two replies. docs/FINDINGS.md F35.
     TRACK_TITLE = 0x0004
     GENRE = 0x0006
     ARTIST = 0x0007
@@ -242,11 +246,11 @@ class ItemType(enum.IntEnum):
     ORIGINAL_ARTIST = 0x0028
     REMIXER = 0x0029
     DATE_ADDED = 0x002E
-    #: The container a track is stored in -- pdb row offset ``0x5a``, and the
-    #: sixth item of a ``GET_TRACK_INFO`` reply. A player takes this at face
-    #: value: told ``MP3`` for a WAV it fetches the file, fails to decode it,
-    #: and says so. docs/FINDINGS.md F34.
-    FILE_TYPE = 0x002F
+    #: The sixth item of a ``GET_TRACK_INFO`` reply. Observed as a constant
+    #: ``1`` across MP3, AAC, WAV and AIFF in a real deck-to-deck load, so it is
+    #: *not* the container -- that is item 1. Meaning still unknown.
+    #: docs/FINDINGS.md F35.
+    UNKNOWN_2F = 0x002F
     ALL = 0x00A0
     MENU_GENRE = 0x0080
     MENU_ARTIST = 0x0081
