@@ -203,8 +203,15 @@ def _build_credential(args: argparse.Namespace):
 
 
 def _default_capture_dir() -> Path:
+    """Where an unnamed run's journal lands.
+
+    Under ``captures/journals/`` rather than ``captures/`` directly, so that the
+    hand-named scenario directories -- the ones with a ``NOTES.md`` recording
+    what the hardware was doing -- stay legible instead of being buried among
+    dozens of timestamps.
+    """
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    return Path("captures") / stamp
+    return Path("captures") / "journals" / stamp
 
 
 def _warn(message: str) -> None:
@@ -483,7 +490,7 @@ def cmd_exports(ctx: Context) -> int:
         _warn(f"MOUNT EXPORT failed: {exc}")
         _warn(
             "If EXPORT is unimplemented, fall back to the documented slot table "
-            "(SD=/B/, USB=/C/, rekordbox=/) and record that in FINDINGS.md."
+            "(SD=/B/, USB=/C/, rekordbox=/) and record that in docs/FINDINGS.md."
         )
         client.close()
         return 1

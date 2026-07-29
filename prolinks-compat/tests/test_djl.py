@@ -50,7 +50,7 @@ def test_keepalive_matches_the_documented_layout():
     assert raw[0x31:0x34] == b"\x00\x00\x00"
     assert raw[0x34] == 0x01  # role: CDJ
     # research/02 §2 calls 0x01 "typical", but every nexus keep-alive in the
-    # dysentery captures carries 0x00. FINDINGS.md C3; see test_captures.py.
+    # dysentery captures carries 0x00. docs/FINDINGS.md C3; see test_captures.py.
     assert raw[0x35] == 0x00
 
 

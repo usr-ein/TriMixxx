@@ -137,7 +137,7 @@ def decode_export_result(data: bytes, max_entries: int = 64) -> list[Export]:
     This was originally implemented as UTF-16LE for both, on the assumption
     that the convention applied uniformly -- a real capture showed otherwise,
     decoding ``169.254.244.181/255.255.255.255`` as CJK mojibake. See
-    FINDINGS.md, correction C7.
+    docs/FINDINGS.md, correction C7.
 
     Each group is a ``host/netmask`` pair naming a client permitted to mount,
     so a player exports its media specifically to the peers it has discovered

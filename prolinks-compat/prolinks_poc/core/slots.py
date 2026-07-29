@@ -8,7 +8,7 @@ by device or firmware.
 
 So the table below is a *fallback*, and :func:`match_export` is the preferred
 path: enumerate with MOUNT ``EXPORT`` -- which real players do, and which real
-players answer -- then match by prefix. See FINDINGS.md, correction C6.
+players answer -- then match by prefix. See docs/FINDINGS.md, correction C6.
 
 ``/A/`` is used by no observed client and is presumed internal.
 """

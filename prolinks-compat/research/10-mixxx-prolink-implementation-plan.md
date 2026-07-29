@@ -315,7 +315,7 @@ The PoC's real output is not the Python — it is the evidence and the goldens.
 6. **`MODEL.md`** — the three state machines (discovery TTL, the device-number claim
    FSM, the NFS download window) as state/event/action tables; **`PORTING.md`** —
    per-module target Mixxx path, class name, thread, and Qt signals, plus measured
-   timing constants; **`PROVENANCE.md`**; **`FINDINGS.md`** — the E1–E8 verdicts and
+   timing constants; **`PROVENANCE.md`**; **`docs/FINDINGS.md`** — the E1–E8 verdicts and
    the resulting corrections to docs 06, 07 and 09.
 
 ---

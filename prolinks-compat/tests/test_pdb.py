@@ -71,12 +71,61 @@ def test_long_ascii_uses_the_0x40_selector_with_a_plus_four_length():
     assert read_piostring(encoded, 0) == "y" * 200
 
 
-def test_utf16_uses_the_0x90_selector_and_big_endian_text():
-    """Big-endian here, unlike the little-endian strings in the NFS layer."""
+def test_utf16_uses_the_0x90_selector_with_padding_and_little_endian_text():
     encoded = encode_piostring("夜")
     assert encoded[0] == 0x90
     assert struct.unpack_from("<H", encoded, 1)[0] == 2 + 4
-    assert encoded[3:] == "夜".encode("utf-16-be")
+    assert encoded[3] == 0  # padding byte, exactly as in the long-ASCII form
+    assert encoded[4:] == "夜".encode("utf-16-le")
+
+
+# Lifted verbatim from a real ``export.pdb`` (a CDJ-2000NXS's USB stick), with
+# the expected text taken from that same medium's *filesystem* -- an
+# independent source, which is the point. Encoder/decoder round-trips cannot
+# catch this class of bug: the original implementation read UTF-16BE from
+# ``offset + 3`` and agreed with its own encoder perfectly, because that is
+# byte-identical to UTF-16LE from ``offset + 4`` for any all-ASCII string.
+REAL_UTF16_PIOSTRINGS = [
+    pytest.param(
+        bytes.fromhex(
+            "90200000272742005200410049004e00"
+            "4400410041004d004100470045002727"
+        ),
+        "✧BRAINDAAMAGE✧",
+        id="sparkles",  # 0x2f6d4 -- the name that failed the load
+    ),
+    pytest.param(
+        bytes.fromhex(
+            "903e0000300031002e00200041006b00690062006100200"
+            "02d0020005d30573066300130164e4c754b308930e3893e"
+            "6555308c305f302e006d0070003300"
+        ),
+        "01. Akiba - そして、世界から解放された.mp3",
+        id="japanese",  # 0x75d24
+    ),
+    pytest.param(
+        bytes.fromhex(
+            "9044000030003900 2e0020004100 6b006900720061002000"
+            "540061006b0065006d006f0074006f002000142020004b002e00"
+            "49002e0044002e0073002e006d0070003300".replace(" ", "")
+        ),
+        "09. Akira Takemoto — K.I.D.s.mp3",
+        id="em-dash",  # 0xac7a0 -- decoded as "\x14†" before the fix
+    ),
+]
+
+
+@pytest.mark.parametrize("raw,expected", REAL_UTF16_PIOSTRINGS)
+def test_utf16_piostrings_from_a_real_pdb_decode_to_the_names_on_disk(raw, expected):
+    """docs/FINDINGS.md O6. Mojibake here served a CDJ a path that does not
+    exist, and the resulting ``NFSERR_NOENT`` failed the track load."""
+    assert read_piostring(raw, 0) == expected
+
+
+@pytest.mark.parametrize("raw,expected", REAL_UTF16_PIOSTRINGS)
+def test_our_encoder_reproduces_a_real_pdbs_bytes(raw, expected):
+    """The other half: what we write must match what rekordbox writes."""
+    assert encode_piostring(expected) == raw
 
 
 def test_piostring_rejects_a_length_running_past_the_buffer():

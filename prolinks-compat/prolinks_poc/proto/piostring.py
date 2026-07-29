@@ -6,19 +6,27 @@ Three forms, discriminated by the first byte (``research/05`` §4):
     Long ASCII. A 2-byte little-endian length follows, holding ``actual + 4``,
     then one padding byte, then the text.
 ``0x90``
-    UTF-16. Same ``actual + 4`` length field, then the text as **UTF-16
-    big-endian** -- note big-endian here, where the NFS layer's Pioneer strings
-    are little-endian. The two are unrelated conventions in unrelated formats,
-    and mixing them up produces plausible-looking mojibake rather than an
-    error.
+    UTF-16. Same ``actual + 4`` length field, then a padding byte, then the
+    text as **UTF-16 little-endian** -- the same byte order the NFS layer's
+    Pioneer strings use.
 default
     Short ASCII. The byte itself packs the length: ``(byte - 1) // 2 - 1``
     characters follow inline. The low bit is a flag, so the value runs
     ``2 * length + 3``.
 
+Both framed forms therefore have a **4-byte header**, and the stored length is
+the size of the whole string including that header.
+
 Encoding is implemented as well as decoding, because generating a ``.pdb`` is
-what objective 2 eventually needs, and a round-trip test is the cheapest way to
-be sure the length arithmetic is right in both directions.
+what objective 2 eventually needs. Note that a round-trip test is *not*
+sufficient to validate this: the UTF-16 form was originally implemented as
+big-endian starting at ``offset + 3``, and encoder and decoder agreed with each
+other perfectly while both were wrong. Reading big-endian from one byte early
+is byte-for-byte identical to reading little-endian from the correct offset for
+any character whose high byte is zero -- that is, for all ASCII -- so a
+692-track library parsed cleanly and only non-ASCII names came out as mojibake.
+The tests below therefore pin **literal bytes lifted from a real ``export.pdb``**
+against the names as they appear on the medium's own filesystem.
 """
 
 from __future__ import annotations
@@ -58,9 +66,9 @@ def read_piostring(data: bytes, offset: int) -> str:
 
     if selector == SELECTOR_UTF16:
         length = _framed_length(data, offset, "UTF-16")
-        start = offset + 3  # selector(1) + length(2)
+        start = offset + 4  # selector(1) + length(2) + padding(1)
         _require(data, start, length, "UTF-16")
-        return data[start : start + length].decode("utf-16-be", errors="replace")
+        return data[start : start + length].decode("utf-16-le", errors="replace")
 
     length = (selector - 1) // 2 - 1
     if length < 0:
@@ -101,8 +109,13 @@ def encode_piostring(text: str) -> bytes:
     try:
         ascii_bytes = text.encode("ascii")
     except UnicodeEncodeError:
-        encoded = text.encode("utf-16-be")
-        return bytes([SELECTOR_UTF16]) + struct.pack("<H", len(encoded) + 4) + encoded
+        encoded = text.encode("utf-16-le")
+        return (
+            bytes([SELECTOR_UTF16])
+            + struct.pack("<H", len(encoded) + 4)
+            + b"\x00"
+            + encoded
+        )
 
     if len(ascii_bytes) <= MAX_SHORT_LENGTH:
         return bytes([2 * (len(ascii_bytes) + 1) + 1]) + ascii_bytes

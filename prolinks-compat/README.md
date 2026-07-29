@@ -4,15 +4,20 @@ Making a Mixxx-based unit interoperate with Pioneer CDJs over the Pro DJ Link
 (ProLink) Ethernet protocol. See `CLAUDE.md` for the mission and
 `research/10-mixxx-prolink-implementation-plan.md` for the approved build plan.
 
+**→ `STATUS.md` says where the work currently stands.** Start there.
+
 ## Layout
 
 | Path | What |
 |---|---|
+| `STATUS.md` | Current state of both objectives, and what is being worked on |
 | `research/` | Protocol documentation, doc 10 is the build plan |
 | `prolinks_poc/` | The Python proof-of-concept (phase 2) |
-| `tests/` | 150 tests, including replay against real Pioneer captures |
-| `FINDINGS.md` | Corrections and confirmations the PoC produced, with evidence |
-| `HARDWARE.md` | Runbook for a session with real CDJs |
+| `tests/` | 183 tests, including replay against real Pioneer captures |
+| `docs/FINDINGS.md` | Corrections and confirmations the PoC produced, with evidence |
+| `docs/HARDWARE.md` | Runbook for a session with real CDJs |
+| `docs/CAPTURE-PLAN.md` | The capture scenarios and how to run them |
+| `captures/` | `S*/` named scenarios (notes tracked, pcaps not); `journals/` is disposable |
 
 ## Quick start
 
@@ -44,7 +49,7 @@ prolinks pcap research/ref-repos/dysentery/doc/assets/LinkInfo.pcapng
 
 272 DJ-Link packets and 208 dbserver messages from a CDJ-2000nexus and a
 DJM-2000nexus decode and re-encode byte-for-byte, in both directions. That is
-what produced the corrections in `FINDINGS.md`.
+what produced the corrections in `docs/FINDINGS.md`.
 
 ## Licensing
 

@@ -11,6 +11,9 @@ captures/*
 captures/*/*
 !captures/*/NOTES.md
 !captures/*/cmd.txt
+# captures/journals/ holds the recorder's own timestamped JSONL journals from
+# unnamed runs. Never tracked; safe to delete wholesale.
+captures/journals/
 
 # Local cache of files pulled off CDJs
 cache/

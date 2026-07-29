@@ -10,7 +10,62 @@ wire, **inferred** = deduced, **open** = needs hardware.
 
 ---
 
+## Index
+
+Areas: **DISC** discovery/keep-alive (UDP 50000) · **STAT** status + media query
+(UDP 50002) · **DB** dbserver (TCP 1051) · **NFS** RPC/NFSv2 · **PDB** database
+and analysis files · **METH** capture methodology.
+
+| | Area | Finding |
+|---|---|---|
+| [F1](#f1) | DISC | `CDJ-2000nexus` is the exact name string — casing confirmed |
+| [F2](#f2) | DISC | The whole UDP-50000 packet family round-trips byte-exactly |
+| [F3](#f3) | DISC | Device numbers match the documented ranges |
+| [F4](#f4) | DISC | Mixer-assignment types are real and the documented sizes |
+| [F5](#f5) | NFS | CDJ-class hardware really does use NFS |
+| [F6](#f6) | NFS | Ports: mountd **48276**, nfsd **2049** — three devices, same numbers |
+| [F7](#f7) | DB | The dbserver wire format round-trips byte-exactly |
+| [F8](#f8) | DISC | First capture from the target hardware is clean |
+| [F9](#f9) | DISC | Keep-alive byte `0x25` = "was I first on this network?", latched at boot |
+| [F10](#f10) | NFS | **A CDJ-2000NXS serves NFS.** E4 passed — the go/no-go gate |
+| [F11](#f11) | NFS | **Passive NFS works**: no announcement needed. E1 confirmed |
+| [F12](#f12) | NFS | Exports `/C/` to the whole link-local **subnet** — the mechanism behind F11 |
+| [F13](#f13) | PDB | Anchor test passes. Cache key must use `stable_digest`, not raw sha1 |
+| [F14](#f14) | PDB | The pdb parser works on a real 692-track library |
+| [~~F15~~](#f15) | METH | **RETRACTED** — the evidence was a tap artefact |
+| [F16](#f16) | DB | A real LINK browse decoded end to end; `0x0001` is fire-and-forget |
+| [F17](#f17) | METH | `bridge1` is the wrong tap: it never sees deck-to-deck unicast |
+| [F18](#f18) | NFS | **Audio travels over NFS**, streamed not downloaded |
+| [F19](#f19) | NFS | Real CDJs use **8192-byte** reads and rely on IP fragmentation |
+| [F20](#f20) | STAT | Media state **is** advertised, at offsets `0x6f`/`0x73` of 50002 status |
+| [F21](#f21) | STAT | **Status is unicast to announced peers only** — decides the Mixxx design |
+| [F22](#f22) | STAT | A nexus on fw 1.44 sends **284-byte** status; length ≠ generation |
+| [F23](#f23) | STAT | We can emit a status packet **indistinguishable** from a real deck's |
+| [F24](#f24) | STAT | Why a CDJ won't list us: the **media query** (`0x05`) goes unanswered |
+| [F25](#f25) | DB | **A real CDJ browsed our Mac.** `0x3e03` must be answered, not errored |
+| [F26](#f26) | DB | Root-menu items need a category id, `U+FFFA` label wrapper, and zero flags |
+| [F27](#f27) | DB | **A CDJ browsed our categories.** Menus are concurrent; `MENU_CLOSE` is not a release |
+| [F28](#f28) | NFS | **A CDJ does not treat the filehandle as opaque** — only 12 bytes survive |
+| [F29](#f29) | NFS | The filehandle fix let the deck walk the whole path; no READ follows |
+
+**Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
+38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
+(→F9) · C5 reference-repo licences · C6 USB export is not always `/C/` · C7
+`EXPORT` paths are UTF-16LE but groups ASCII · C8 the `AUTH_UNIX` stamp is a
+nonce · C9 players do call `UMNT` · C10 transaction ids start ~`0x03800001` ·
+C11 three undocumented message types · C12 keep-alives are **2.0 s** · C13
+stage-3 repeat count follows peer-presence-at-boot · C14 the status name field
+is 20 bytes.
+
+**Open** — O4 what are `0x3e03`/`0x3100`? · O5 why does the deck issue no READ
+after a successful `LOOKUP`? O1–O3 and O6 are resolved (F18/F19, F10, F9, and
+three path bugs respectively).
+
+---
+
 ## Confirmations
+
+<a id="f1"></a>
 
 ### F1 — `CDJ-2000nexus` is the exact device-name string  *(confirmed)*
 
@@ -30,6 +85,8 @@ reports `DJM-2000nexus`. The 20-byte field is NUL-padded as documented.
 *Action:* `research/02` §4.1's "inferred for exact casing" caveat can be dropped,
 and README open question 3 is closed for the name half.
 
+<a id="f2"></a>
+
 ### F2 — The whole UDP-50000 packet family round-trips byte-exactly  *(confirmed)*
 
 272 packets from a real CDJ-2000nexus, DJM-2000nexus and a virtual CDJ decode
@@ -38,9 +95,13 @@ field is preserved, including the ones whose meaning is still unknown.
 
 *Evidence:* `tests/test_captures.py::test_every_captured_packet_round_trips_byte_exactly`.
 
+<a id="f3"></a>
+
 ### F3 — Device numbers match the documented ranges  *(confirmed)*
 
 Players at 2 and 3; the DJM at `0x21` (33). Matches `research/02` §3.1.
+
+<a id="f4"></a>
 
 ### F4 — The mixer-assignment types are real and have the documented sizes  *(confirmed)*
 
@@ -48,6 +109,8 @@ Types `01`/`03`/`05` appear at 47/39/38 bytes (`0x2f`/`0x27`/`0x26`), matching
 the sizes `research/02` §1.7 marks as *inferred* from `startup.adoc`'s prose.
 They are still not field-decoded here (they arrive as `UnknownPacket`), which
 is fine for the passive path but will need doing for mixer-attached operation.
+
+<a id="f5"></a>
 
 ### F5 — CDJ-class hardware really does use NFS  *(confirmed)*
 
@@ -63,6 +126,8 @@ NFS to each other" from inference to observation.
 
 *Evidence:* `test_real_players_use_the_nfs_stack`.
 
+<a id="f6"></a>
+
 ### F6 — Observed RPC ports: mountd 48276, nfsd 2049  *(confirmed)*
 
 Matching libcdj's `rpcinfo` numbers exactly. nfsd sits on the standard NFS
@@ -70,6 +135,8 @@ port; mountd does not, so portmap discovery remains mandatory.
 
 *Evidence:* `test_observed_mountd_and_nfsd_ports`.
 
+
+<a id="f7"></a>
 
 ### F7 — The dbserver wire format round-trips byte-exactly  *(confirmed)*
 
@@ -94,6 +161,8 @@ Details confirmed in passing:
 *Evidence:* `tests/test_dbserver.py::test_every_captured_dbserver_message_round_trips`.
 
 
+<a id="f8"></a>
+
 ### F8 — First capture from the target hardware is clean  *(confirmed)*
 
 `S01-cold-boot-a`, a CDJ-2000NXS cold boot on the author's own rig: 42 DJ-Link
@@ -111,6 +180,8 @@ A real keep-alive from that capture is committed as a golden vector in
 `tests/test_djl.py::NXS_KEEPALIVE`. Unlike the dysentery captures it is ours,
 so it can live in the repository and is available wherever the tests run.
 
+
+<a id="f9"></a>
 
 ### F9 — Keep-alive byte `25` means "was I first on this network?"  *(confirmed)*
 
@@ -159,6 +230,8 @@ byte-for-byte.
 `test_our_announcer_reproduces_the_joining_handshake_byte_for_byte`.
 
 
+<a id="f10"></a>
+
 ### F10 — **A CDJ-2000NXS serves NFS.** Experiment E4 passed  *(confirmed)*
 
 The go/no-go gate for the entire chosen transport, and it passes. With a USB
@@ -183,6 +256,8 @@ nfsd on the standard 2049, mountd on the distinctly non-standard 48276. Three
 independent observations, three different devices, same numbers. Portmap
 discovery is still required, but 48276 looks like a Pioneer constant rather than
 a per-boot allocation.
+
+<a id="f11"></a>
 
 ### F11 — **Passive NFS access works.** Experiment E1 confirmed, guard-enforced
 
@@ -210,6 +285,8 @@ substantially de-risks the whole consume objective.
 
 *Evidence:* `captures/S04-media-insert`, deck A at 169.254.103.172.
 
+
+<a id="f12"></a>
 
 ### F12 — Export names confirmed on an NXS, and the access list is a **subnet**
 
@@ -256,6 +333,8 @@ would settle the E4 decision-tree branch about gating on media state.
 *Evidence:* `captures/S04-media-insert`, deck A.
 
 
+<a id="f13"></a>
+
 ### F13 — Anchor test passes: NFS transfer is byte-exact. Plus a real cache bug caught
 
 Pulled the 1,077,248-byte `export.pdb` off deck A over NFS — 842 READs, **zero
@@ -293,6 +372,8 @@ the same rule.
 *Evidence:* `/tmp/deckA.pdb` versus `/Volumes/SAM2/PIONEER/rekordbox/export.pdb`;
 `test_stable_digest_ignores_the_players_write_counter`.
 
+<a id="f14"></a>
+
 ### F14 — The pdb parser works on a real 692-track library, first contact
 
 Until now it had only ever seen a synthetic database built by our own test
@@ -307,6 +388,8 @@ under different track ids — i.e. the UTF-16BE PioString path, the
 zero-string-offset path (see the `comment` bug fixed earlier), and the
 multi-page table chain walking all work on real data.
 
+
+<a id="f15"></a>
 
 ### ~~F15~~ — **RETRACTED.** The evidence was a tap artefact
 
@@ -341,6 +424,8 @@ demonstrated rather than assumed. Caught by the author asking whether F15's
 evidence predated the pktap fix. It did.
 
 
+
+<a id="f16"></a>
 
 ### F16 — A real LINK browse decoded end to end. `0x0001` identified; `0x3e03` absent
 
@@ -398,6 +483,8 @@ crosses the wire, which S6 measures.
 
 *Evidence:* `captures/S05-link-browse`.
 
+<a id="f17"></a>
+
 ### F17 — `bridge1` is the wrong tap: it never sees deck-to-deck unicast
 
 The first S5 attempt, captured on `bridge1`, recorded 210 keep-alives and **no
@@ -419,6 +506,8 @@ yielded 3400 packets including 1441 dbserver and 1440 status packets. **Verify a
 tap with unicast, not broadcast**: a LINK browse must produce TCP on 12523 and
 1051.
 
+
+<a id="f18"></a>
 
 ### F18 — **Audio travels over NFS.** O1 answered  *(confirmed)*
 
@@ -455,6 +544,8 @@ it reads progressively and seeks on demand as you jump between hot cues.
 
 *Evidence:* `captures/S06-load-and-play`.
 
+<a id="f19"></a>
+
 ### F19 — Real CDJs use **8192-byte** NFS reads, and rely on IP fragmentation
 
 Request sizes in that transfer: **8192 × 333**, 2048 × 30, and a handful of odd
@@ -475,6 +566,8 @@ under-count that would have made the audio look like it never crossed the wire.
 Fragment reassembly is now implemented and tested; without it the headline
 finding above would have been read exactly backwards.
 
+
+<a id="f20"></a>
 
 ### F20 — Media state **is** advertised, in 50002 status packets
 
@@ -497,6 +590,8 @@ cadence, with no polling — *if* you can receive the packets. Which is F21.
 Also present: two type-`0x05` media queries and two type-`0x06` responses, the
 Link-Info exchange. The `0x06` payload carries the volume name as UTF-16BE
 (`00 53 00 41 …` = "SA…", i.e. the stick labelled SAM2).
+
+<a id="f21"></a>
 
 ### F21 — **Status is unicast to announced peers only.** This decides the Mixxx design
 
@@ -533,6 +628,8 @@ poll as its own mechanism rather than as a fallback.
 *Evidence:* `captures/S4b-media-insert`;
 `test_status_packets_are_unicast_to_peers_only`.
 
+<a id="f22"></a>
+
 ### F22 — A CDJ-2000nexus on firmware 1.44 sends **284-byte** status packets
 
 Every one of the 1503 was `0x11c` (284) bytes. `research/03` §1.1 maps `0xd4`
@@ -541,6 +638,8 @@ length does not identify the generation on its own — a plain CDJ-2000nexus on
 current firmware sits in the "Nexus 2" row. A parser keying behaviour off the
 packet length would mis-classify these decks.
 
+
+<a id="f23"></a>
 
 ### F23 — We can emit a status packet indistinguishable from a real deck's
 
@@ -567,18 +666,7 @@ Sent **unicast per peer** at 200 ms, matching the hardware (F21).
 socket. Nothing suggests a receiver cares, and if something does, this is where
 to look.
 
-### C14 — The status packet's name field is 20 bytes, not 21
-
-`research/03` §0 gives the device name as `0x0b`–`0x1f`, 21 bytes. Byte `0x1f`
-is a **constant `0x01`** in all 1503 captured packets, so the name is 20 bytes
-(`0x0b`–`0x1e`) and `0x1f` is a structural constant — exactly mirroring the
-keep-alive on port 50000, where the name occupies `0x0c`–`0x1f` and the same
-constant sits at `0x20`.
-
-*Impact:* an emitter following the doc writes a 21st name byte over that
-constant. Caught because our synthesised packet differed from a real one in
-exactly that byte.
-
+<a id="f24"></a>
 
 ### F24 — Why a CDJ would not list us: the **media query** goes unanswered
 
@@ -629,6 +717,8 @@ is the step no reference implementation performs, because none of them serve.
 *Evidence:* `captures/S10-serve-to-cdj`.
 
 
+<a id="f25"></a>
+
 ### F25 — **A real CDJ browsed our Mac.** And why every category was empty
 
 With media queries answered (F24), deck B listed the Mac as a LINK source and
@@ -668,6 +758,8 @@ without understanding it, which is honest but worth revisiting -- the empty
 string argument in particular looks like somewhere a name belongs.
 
 
+<a id="f26"></a>
+
 ### F26 — Root-menu items need three details a bare implementation gets wrong
 
 With `0x3e03` answered, the deck still rendered our six categories and then
@@ -697,6 +789,8 @@ everywhere was my error.
 
 Our root item is now byte-identical to a real player's given the same category.
 
+
+<a id="f27"></a>
 
 ### F27 — **A CDJ browsed our library's categories.** Two bugs it exposed
 
@@ -740,6 +834,8 @@ without it a player never asks for the image at all, which is why INFO showed
 no cover.
 
 
+<a id="f28"></a>
+
 ### F28 — **A CDJ does not treat the NFS filehandle as opaque**
 
 Browsing, pagination and artwork all worked; loading a track failed with "media
@@ -774,6 +870,8 @@ exactly the moment a DJ tries to load a track — the worst possible time to
 discover it. No reference implementation could have caught this, because none
 of them serve.
 
+
+<a id="f29"></a>
 
 ### F29 — The filehandle fix let the deck walk the whole path; analysis data is the next gate
 
@@ -812,26 +910,83 @@ interpretation; serving does not.
 replies are modelled on `research/04` §5 and the artwork response, not on a
 capture -- no capture we have contains a player fetching analysis from a peer.
 
-### O6 — Our pdb decodes some UTF-16 track paths incorrectly *(new)*
+<a id="o6"></a>
 
-One `LOOKUP` in the same capture failed legitimately:
+### ~~O6~~ — resolved: **three** independent bugs made us serve paths that do not exist
+
+One `LOOKUP` in the S10f capture failed legitimately: the deck asked for
+`'❂RAINDAAMAGE'✯how do you like your tea_` where the disk has
+`✧BRAINDAAMAGE✧`. Since the deck can only ask for the path *we* gave it, this
+was ours. Chasing it turned up three separate defects, each of which alone is
+enough to fail a track load.
+
+**1. The UTF-16 PioString was decoded wrongly** (`proto/piostring`). The raw
+bytes settle it:
 
 ```
-deck asked for : "'❂RAINDAAMAGE'✯how do you like your tea_"
-on disk        : "✧BRAINDAAMAGE✧"
+0x2f6d4  90        selector, UTF-16
+0x2f6d5  20 00     stored length 32  ->  28 bytes of text
+0x2f6d7  00        padding byte      <-  we were not skipping this
+0x2f6d8  27 27 42 00 52 00 ...       <-  UTF-16 LITTLE-endian, not big
+         ✧     B     R
 ```
 
-The deck asks for the path *we gave it*, so this is our bug: the pdb PioString
-decode mangles some non-ASCII names (`✧B` → `❂`, trailing `✧` → `'`). It also
-appears to have merged two path components.
+So the payload starts at `offset + 4`, not `offset + 3`, and the encoding is
+**UTF-16LE**, not BE. Both framed forms therefore have a 4-byte header and a
+stored length covering the whole string — the same shape as the long-ASCII
+form, which we already had right.
 
-Not chased yet. It affects only tracks with unusual characters in their paths,
-and the same decode feeds the Mixxx consume path, so it needs fixing there too.
+*Why it survived a round-trip test suite and a 692-track parse.* The two errors
+**cancel exactly for ASCII**: reading big-endian from one byte early is
+byte-for-byte identical to reading little-endian from the correct offset
+whenever every character has a zero high byte. Encoder and decoder agreed with
+each other perfectly while both were wrong. F14 explicitly worried about the
+parser being "self-consistently wrong" — this is what that looks like.
+The tests now pin **literal bytes lifted from a real `export.pdb`** against the
+names as they appear on the medium's own filesystem, which is an independent
+source and cannot round-trip into agreement.
 
+**2. The medium is FAT32, and `export.pdb` does not record the directory's
+case.** The database says `Gesaffelstein`, `Hard Work Always Pays Off`,
+`WASEI _JJ_ CHIKADA`; the directory entries are `GESAFFELSTEIN`,
+`Hard work always pays off`, `Wasei _JJ_ Chikada`. A real player resolves these
+through its FAT driver without noticing. A server comparing bytes answers
+`NFSERR_NOENT`.
+
+**3. The pdb stores NFC, the filesystem reports NFD.** `02. Akiba - カガミ.mp3`
+is composed (`U+30AC`) in the database and decomposed (`U+30AB U+3099`) on
+disk — rekordbox wrote the two through different APIs. Again identical to a
+human, again not equal as bytes.
+
+*Fixed:* the decoder reads UTF-16LE from `offset + 4`; `Vfs.lookup` tries an
+exact match first and falls back to comparing `NFC(name).casefold()`, and
+always returns the handle for the name **as stored** — hashing the requested
+spelling would mint a handle absent from the table, so every later use of it
+would come back `NFSERR_STALE`.
+
+Measured against the author's stick, walking every path a player can ask for
+through the VFS one `LOOKUP` per component, exactly as a CDJ does:
+
+| | paths | failed before | failed after |
+|---|---|---|---|
+| audio | 692 | 33 | **0** |
+| ANLZ | 692 | 0 | **0** |
+| artwork | 653 | 0 | **0** |
+
+(24 of the 33 from the decode bug, 9 from case.)
+
+*Consequence beyond the serve side.* The decode bug is in `proto/piostring`,
+which feeds the **consume** path too, so before this fix Mixxx would have
+imported 24 of these 692 tracks with unopenable paths. Any implementation
+reading `export.pdb` needs all three fixes; only the first is a protocol
+matter, and the other two are the kind that a reference client never hits
+because it reads the medium through a real FAT driver.
 
 ---
 
 ## Corrections to the research docs
+
+<a id="c1"></a>
 
 ### C1 — Stage-2 claim byte `30` is a role byte, not a constant
 
@@ -850,6 +1005,8 @@ send a malformed claim if ever impersonating a mixer.
 *Evidence:* `test_claim_ip_byte_30_is_a_role_not_a_constant`.
 *Implemented as:* `djl.ClaimIp.role`, defaulting via `djl.default_role()`.
 
+<a id="c2"></a>
+
 ### C2 — The stage-3 claim is 38 bytes, not 42
 
 `research/02` §0.1's table gives type `04` a subtype of `0x26` but a packet
@@ -861,6 +1018,8 @@ packet type; the length column is simply wrong for this row.
 *Impact:* an announcer following the doc would have sent four spurious trailing
 bytes during device-number claiming.
 *Evidence:* `test_claim_number_is_38_bytes_not_42`.
+
+<a id="c3"></a>
 
 ### C3 — Nexus keep-alives carry `00` in byte `35`, not `01`
 
@@ -879,10 +1038,14 @@ like a CDJ-2000nexus, the default is now `00`. `64` remains required for
 CDJ-3000 coexistence (`research/02` §1.6), which is untouched by this.
 *Evidence:* `test_nexus_keepalive_trailing_byte_is_zero`.
 
+<a id="c4"></a>
+
 ### C4 — Keep-alive byte `25` is not a fixed role byte  *(superseded by F9)*
 
 Documented as "`01` CDJ / `02` mixer". Both devices were observed sending both
 values, so the role reading is wrong. **F9 now explains what it actually is.**
+
+<a id="c6"></a>
 
 ### C6 — The USB export is not always `/C/`
 
@@ -895,6 +1058,8 @@ capture. Fixed by enumerating with `EXPORT` and matching on the prefix —
 `core.slots.match_export`, wired into `NfsClient.resolve_export`, with the
 documented table as fallback for players that do not implement `EXPORT`.
 *Evidence:* `test_export_paths_vary_between_devices`.
+
+<a id="c7"></a>
 
 ### C7 — In an `EXPORT` reply, the path is UTF-16LE but the groups are ASCII
 
@@ -912,6 +1077,8 @@ capture was run, and the capture falsified it. Exactly the intended use of
 these tests.
 *Evidence:* `test_export_listing_decodes_with_ascii_groups`.
 
+<a id="c8"></a>
+
 ### C8 — The `AUTH_UNIX` stamp is a per-call nonce, not a magic constant
 
 `research/06` §2 describes the stamp as "a magic constant the clients copy to
@@ -928,6 +1095,8 @@ the stamp *value* cannot be why libcdj's mount failed, which leaves the
 credential *flavour* (`AUTH_NULL` vs `AUTH_UNIX`) as the leading hypothesis.
 *Evidence:* `test_auth_unix_stamp_is_random_per_call`.
 
+<a id="c9"></a>
+
 ### C9 — Real players do call `UMNT`
 
 `research/06` §2 lists UMNT (proc 3) as "not used (TODO in nfsclient.py)".
@@ -937,6 +1106,8 @@ therefore answer it, which it does.
 *Evidence:* `test_real_players_call_umnt`.
 
 
+<a id="c10"></a>
+
 ### C10 — Transaction ids do not start at 1
 
 `research/04` §3.2 says the transaction id "starts at 1, incremented per
@@ -945,6 +1116,8 @@ begins around **`0x03800001`** and counts up from there. The value is opaque
 and only has to be unique per connection, so nothing breaks either way — but a
 client starting at 1 is one more way to look unlike a CDJ, so ours starts in
 the same region.
+
+<a id="c11"></a>
 
 ### C11 — Three undocumented message types appear in normal browsing
 
@@ -963,6 +1136,8 @@ they mean, but a *server* that a real CDJ talks to will be asked `0x3e03` and
 should probably answer rather than erroring. **Worth capturing deliberately
 tonight** — it is the first thing a player sends us.
 
+
+<a id="c12"></a>
 
 ### C12 — Keep-alives are every **2.0 s**, not 1.5 s
 
@@ -983,6 +1158,8 @@ arithmetic: the 10 s device timeout is **5** missed keep-alives, not the "6-7"
 
 *Evidence:* `captures/S01-cold-boot-a`.
 
+
+<a id="c13"></a>
 
 ### C13 — Stage-3 repeat count depends on **peer presence at boot**, not on the assignment mode  *(resolved)*
 
@@ -1020,6 +1197,22 @@ indistinguishable.
 
 
 
+<a id="c14"></a>
+
+### C14 — The status packet's name field is 20 bytes, not 21
+
+`research/03` §0 gives the device name as `0x0b`–`0x1f`, 21 bytes. Byte `0x1f`
+is a **constant `0x01`** in all 1503 captured packets, so the name is 20 bytes
+(`0x0b`–`0x1e`) and `0x1f` is a structural constant — exactly mirroring the
+keep-alive on port 50000, where the name occupies `0x0c`–`0x1f` and the same
+constant sits at `0x20`.
+
+*Impact:* an emitter following the doc writes a 21st name byte over that
+constant. Caught because our synthesised packet differed from a real one in
+exactly that byte.
+
+<a id="c5"></a>
+
 ### C5 — Reference-repo licences (already applied to `research/09` and `10`)
 
 `research/09` described python-prodj-link as "GPL-ish". It is **Apache-2.0**,
@@ -1039,6 +1232,8 @@ every repo remains usable as a **reference**. Only their code is off limits.
 
 Original framing kept below for context.
 
+<a id="o1"></a>
+
 ### O1 (original) — How does audio actually travel between players?
 
 README open question 1 asked whether LINK browsing uses dbserver or NFS.
@@ -1057,6 +1252,8 @@ before tonight's hardware run.
 ### ~~O2~~ — resolved: **yes**, see F10.
 
 ### ~~O3~~ — resolved, see F9.
+
+<a id="o4"></a>
 
 ### O4 — What are `0x3e03` and `0x3100`? *(narrowed by F16)*
 

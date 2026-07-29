@@ -28,11 +28,23 @@ bytes is still ample to be collision-free and deterministic -- the same tree
 yields the same handles, and a client's cached root handle survives a restart.
 Anything not in the table is ``NFSERR_STALE``, which is the behaviour
 experiment E8 expects after a media swap.
+
+**Unicode normalisation.** A name can reach us spelled differently from how the
+filesystem spells it, and the two must still match. On the author's own stick
+``export.pdb`` stores ``02. Akiba - カガミ.mp3`` composed (NFC, ``U+30AC``) while
+the filesystem reports it decomposed (NFD, ``U+30AB U+3099``) -- rekordbox wrote
+the database and the file through different APIs. A player looking up the path
+the database gave it therefore asks for a name that, byte for byte, is not the
+one in our directory listing, and an exact match answers ``NFSERR_NOENT`` for a
+file that is plainly there. :meth:`Vfs.lookup` falls back to comparing NFC
+forms, and always returns the handle for the name **as stored**, so that every
+handle we hand out is one we can resolve again later.
 """
 
 from __future__ import annotations
 
 import hashlib
+import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -43,6 +55,21 @@ __all__ = ["VfsNode", "Vfs"]
 #: Fixed timestamp for synthesised attributes. Deterministic on purpose:
 #: byte-identical replies across runs make capture diffs meaningful.
 _EPOCH = 1_600_000_000
+
+
+def _fold(name: str) -> str:
+    """The key two spellings of the same filename must agree on.
+
+    A rekordbox medium is FAT32 -- case-insensitive and case-preserving -- and
+    ``export.pdb`` does not necessarily record a name with the same case as the
+    directory entry it refers to. On the author's stick the database says
+    ``Gesaffelstein`` where the directory is ``GESAFFELSTEIN``, and
+    ``Hard Work Always Pays Off`` where the directory is
+    ``Hard work always pays off``. A real player resolves those through its FAT
+    driver without noticing; a server doing exact byte comparison answers
+    ``NFSERR_NOENT`` and the track will not load.
+    """
+    return unicodedata.normalize("NFC", name).casefold()
 
 
 @dataclass
@@ -63,6 +90,26 @@ class VfsNode:
     file_size: int = 0
     children: dict[str, "VfsNode"] = field(default_factory=dict)
     fileid: int = 0
+
+    def add_child(self, child: "VfsNode") -> None:
+        self.children[child.name] = child
+
+    def child_named(self, name: str) -> "VfsNode | None":
+        """Find a child by *name*, the way the medium's own filesystem would.
+
+        The exact hit is tried first and is what almost every lookup takes, so
+        a server backed by a genuinely case-sensitive tree still resolves two
+        names differing only in case correctly. Only on a miss do we fall back
+        to the fold, which is what makes a rekordbox medium work at all.
+        """
+        child = self.children.get(name)
+        if child is not None:
+            return child
+        wanted = _fold(name)
+        for candidate in self.children.values():
+            if _fold(candidate.name) == wanted:
+                return candidate
+        return None
 
     @property
     def size(self) -> int:
@@ -193,11 +240,15 @@ class Vfs:
         parent = self.resolve(dir_handle)
         if parent is None or not parent.is_dir:
             return None
-        child = parent.children.get(name)
+        child = parent.child_named(name)
         if child is None:
             return None
+        # Build the path from ``child.name``, never from the requested *name*:
+        # when the two differ only by normalisation, hashing the request would
+        # mint a handle that is not in the table and every later use of it
+        # would come back NFSERR_STALE.
         parent_path = self._paths.get(dir_handle[: self.HANDLE_PREFIX], "/")
-        child_path = ("" if parent_path == "/" else parent_path) + "/" + name
+        child_path = ("" if parent_path == "/" else parent_path) + "/" + child.name
         return self.handle_for(child_path), child
 
     def read(self, handle: bytes, offset: int, count: int) -> bytes | None:

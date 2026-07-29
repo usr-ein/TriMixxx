@@ -136,7 +136,7 @@ class AssignmentMode(enum.IntEnum):
 # §0.1 lists CLAIM_NUMBER as stype 0x26 but length 0x2a, which would leave four
 # undescribed trailing bytes -- but six real type-0x04 packets in the dysentery
 # captures are all 0x26 bytes long, so the table's length column is simply
-# wrong there. See FINDINGS.md, correction C2.
+# wrong there. See docs/FINDINGS.md, correction C2.
 _STYPE = {
     PacketType.HELLO: 0x25,
     PacketType.CLAIM_MAC: 0x2C,
@@ -293,7 +293,7 @@ class ClaimIp(DjlPacket):
     #: Byte ``30``. research/02 §1.3 calls this "const 01", but a real
     #: DJM-2000nexus sends ``02`` here while a CDJ-2000nexus sends ``01`` --
     #: so it is the same CDJ/mixer role byte that appears elsewhere, not a
-    #: constant. See FINDINGS.md, correction C1. ``None`` derives it.
+    #: constant. See docs/FINDINGS.md, correction C1. ``None`` derives it.
     role: int | None = None
 
     def encode(self) -> bytes:
@@ -364,7 +364,7 @@ class KeepAlive(DjlPacket):
     #: Byte ``25``. Documented as "01 CDJ / 02 mixer", but real captures show
     #: *both* a CDJ-2000nexus and a DJM-2000nexus alternating between 01 and 02
     #: over the life of one session, so it is not a fixed role byte. Meaning
-    #: unresolved; preserved verbatim rather than assumed. FINDINGS.md, C4.
+    #: unresolved; preserved verbatim rather than assumed. docs/FINDINGS.md, C4.
     const_25: int = 0x01
     #: Byte ``34``. This one *is* the role byte: 01 CDJ, 02 mixer, consistent
     #: across every packet observed. ``None`` derives it from the device kind.
@@ -373,7 +373,7 @@ class KeepAlive(DjlPacket):
     #: value, but every real nexus packet captured -- 148 from a CDJ-2000nexus
     #: and 91 from a DJM-2000nexus -- carries ``00``. Since impersonating a
     #: CDJ-2000nexus is the goal, ``00`` is the default. ``64`` remains
-    #: required for CDJ-3000 coexistence. FINDINGS.md, C3.
+    #: required for CDJ-3000 coexistence. docs/FINDINGS.md, C3.
     trailing: int = 0x00
 
     @property

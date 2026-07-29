@@ -246,3 +246,61 @@ def test_leading_bytes_still_distinguish_files(stack):
                ("/", "/PIONEER", "/PIONEER/rekordbox",
                 "/PIONEER/rekordbox/export.pdb", "/Contents")}
     assert len(handles) == 5
+
+
+def test_lookup_tolerates_a_different_unicode_normalisation():
+    """docs/FINDINGS.md O6, second half.
+
+    ``export.pdb`` stores ``カガミ`` composed while the filesystem reports it
+    decomposed, so a player looking up the path the database gave it asks for
+    a name that is not byte-for-byte the one in our listing. Answering
+    NFSERR_NOENT there fails the track load for a file that is plainly present.
+    """
+    import unicodedata
+
+    composed = unicodedata.normalize("NFC", "02. Akiba - カガミ.mp3")
+    decomposed = unicodedata.normalize("NFD", composed)
+    assert composed != decomposed, "test needs a name whose two forms differ"
+
+    vfs = Vfs.from_mapping({f"Contents/{decomposed}": b"audio"})
+    contents = vfs.lookup(vfs.root_handle(), "Contents")
+    assert contents is not None
+
+    found = vfs.lookup(contents[0], composed)
+    assert found is not None, "a composed request must find the decomposed entry"
+    handle, node = found
+    assert node.data == b"audio"
+    # The handle must be the one for the name as stored, or resolving it later
+    # -- which is what every READ does -- comes back stale.
+    assert vfs.resolve(handle) is node
+
+
+def test_lookup_still_rejects_a_genuinely_absent_name():
+    vfs = Vfs.from_mapping({"Contents/real.mp3": b"x"})
+    assert vfs.lookup(vfs.root_handle(), "imaginary.mp3") is None
+
+
+def test_lookup_tolerates_a_different_case():
+    """docs/FINDINGS.md O6. A rekordbox medium is FAT32, and ``export.pdb`` does
+    not always record a name with the directory entry's case: the author's
+    stick has ``GESAFFELSTEIN`` on disk and ``Gesaffelstein`` in the database.
+    """
+    vfs = Vfs.from_mapping({"Contents/GESAFFELSTEIN/Aufstand.mp3": b"audio"})
+    contents = vfs.lookup(vfs.root_handle(), "Contents")
+    assert contents is not None
+
+    found = vfs.lookup(contents[0], "Gesaffelstein")
+    assert found is not None
+    handle, node = found
+    assert node.name == "GESAFFELSTEIN", "the stored spelling must be preserved"
+    assert vfs.resolve(handle) is node
+
+
+def test_an_exact_match_wins_over_a_folded_one():
+    """Folding is a fallback, not a replacement: a case-sensitive backing tree
+    must still distinguish two names that differ only in case."""
+    vfs = Vfs.from_mapping({"a/Track.mp3": b"upper", "a/track.mp3": b"lower"})
+    parent = vfs.lookup(vfs.root_handle(), "a")
+    assert parent is not None
+    assert vfs.lookup(parent[0], "Track.mp3")[1].data == b"upper"
+    assert vfs.lookup(parent[0], "track.mp3")[1].data == b"lower"

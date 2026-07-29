@@ -1,7 +1,7 @@
 """Validate the codecs against **real Pioneer traffic**.
 
 Round-trip tests against our own encoder cannot catch a shared misreading of
-the specification; these can, and did -- see ``FINDINGS.md`` corrections C1-C4,
+the specification; these can, and did -- see ``docs/FINDINGS.md`` corrections C1-C4,
 all of which came from running exactly these assertions.
 
 The captures live in ``research/ref-repos/`` (git-ignored) and are read in
