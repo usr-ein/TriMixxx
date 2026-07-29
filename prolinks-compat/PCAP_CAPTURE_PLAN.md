@@ -1,0 +1,316 @@
+# PCAP capture plan
+
+A session plan for the two CDJ-2000NXS, each on its own NIC of the Mac.
+
+The point of this session is not "get some traffic" — it is to answer specific
+open questions that currently block the implementation. Each scenario below
+names the question it settles. If time runs short, **S5 and S6 are the two that
+matter most**; everything else can be re-run another evening.
+
+---
+
+## 0. Prerequisite: bridge the two NICs
+
+With one CDJ per NIC and no bridge, the two players are on separate L2
+segments and **cannot see each other at all** — there is no CDJ↔CDJ traffic to
+capture, and the LINK button will find nothing. Bridging the interfaces puts
+them on one segment and makes every frame between them transit the Mac.
+
+This is a passive L2 bridge, not a router and not an ARP spoof: the CDJs are
+unaware of it, nothing is forged, and no packet is delayed by a forwarding
+decision at L3.
+
+```bash
+# Identify the two dongles first
+prolinks interfaces
+networksetup -listallhardwareports
+
+# Build the bridge (substitute your interface names for en5/en6)
+sudo ifconfig bridge0 create
+sudo ifconfig bridge0 addm en5 addm en6
+sudo ifconfig bridge0 up
+
+# The members must NOT carry their own IPs; the address goes on the bridge so
+# the Mac can also participate (run prolinks) on the same segment.
+sudo ipconfig set en5 NONE
+sudo ipconfig set en6 NONE
+sudo ipconfig set bridge0 AUTOMATIC-V4     # self-assigns 169.254/16
+```
+
+Give it ~15 s. Link-local self-assignment is not instant, on the Mac or on the
+players.
+
+**Teardown, at the end of the night:**
+
+```bash
+sudo ifconfig bridge0 destroy
+sudo ipconfig set en5 AUTOMATIC-V4
+sudo ipconfig set en6 AUTOMATIC-V4
+```
+
+### Verify the tap before trusting any capture
+
+The single most expensive failure mode tonight is capturing for two hours and
+discovering afterwards that only one deck was visible. So check first, with
+both players on:
+
+```bash
+sudo tcpdump -i en5 -n -c 20 udp port 50000
+```
+
+You must see keep-alives sourced from **both** CDJ IPs. If only one appears,
+capture on `bridge0` instead of `en5` and re-check. Do not proceed until two
+distinct sources show up.
+
+```bash
+prolinks devices      # should list both players
+```
+
+---
+
+## 1. Capture mechanics
+
+Use `tools/capture.sh` (below) — it sets the flags that matter and creates the
+notes skeleton, so nothing is forgotten at 1 a.m.
+
+The flags that actually matter:
+
+- `-s 0` — **full packets, no truncation.** A snaplen that clips payloads
+  silently destroys exactly the dbserver and NFS content we are after.
+- `-n` — no DNS lookups, which would otherwise inject traffic of their own.
+- **No BPF filter.** Capture everything. A filter that looks obviously correct
+  is how you discover afterwards that the interesting packet was on a port
+  nobody thought to include. These captures are a few MB; disk is not the
+  constraint.
+
+One directory per scenario. A capture without its notes is close to worthless
+in a month — which IP was which physical unit, and what was pressed when, are
+not recoverable from the bytes.
+
+---
+
+## 2. Physical setup before powering anything on
+
+- Two USB sticks, both prepared by rekordbox, **with different content** so it
+  is unambiguous which library came from which deck. Label them A and B.
+- Both decks' player numbers set to **AUTO** to begin with (UTILITY menu). We
+  change this deliberately in S2b.
+- Note each unit's **firmware version** from its UTILITY screen — captures are
+  only comparable against other captures of the same firmware.
+- Decide which physical deck is on which NIC and **write it down**. Everything
+  downstream is IP-based, and mapping IP→deck after the fact is guesswork.
+
+---
+
+## 3. Scenarios
+
+Ordered so that each builds on the last, and so the highest-value captures
+happen while you and the gear are still fresh.
+
+### S1 — Cold boot, one deck alone
+**Answers:** the full announcement and device-number claim chain with no
+contention. We have only 4 `ClaimIp` packets in total from the reference
+captures, and the claim sequence is what our announcer has to imitate.
+
+Start the capture **before** applying power, so the very first packet is caught.
+
+1. Both decks off. Start capture.
+2. Power on **deck A only**. Wait until it has fully booted and settled (~60 s).
+3. Stop capture.
+
+### S2 — Second deck joins
+**Answers:** does the incumbent defend its number? What does a real contended
+claim look like?
+
+1. Deck A already up and settled. Start capture.
+2. Power on **deck B**. Wait ~60 s.
+3. Stop capture.
+
+### S2b — Deliberate device-number collision  *(high value)*
+**Answers:** the type-`0x08` conflict packet, which **has never appeared in any
+capture we have** — our only reference for it is a hand-written libcdj fixture,
+so our encoder for it is effectively unverified.
+
+1. Power both decks off.
+2. In UTILITY on **both** decks, set the player number **manually to the same
+   value** (e.g. force both to `3`).
+3. Start capture. Power on deck A, let it settle, then power on deck B.
+4. Watch deck B's display — it should complain or renumber. Stop capture.
+5. **Set both back to AUTO afterwards.**
+
+### S3 — Idle steady state, 3 minutes
+**Answers:** keep-alive cadence over time, and the still-unexplained variation
+in keep-alive byte `0x25` (FINDINGS C4 / O3) — we have seen a single deck send
+both `01` and `02` and have no idea what selects it. Three minutes of undisturbed
+keep-alives is enough to correlate it against anything else in the session.
+
+Both decks up, no media, nobody touching anything. Capture 180 s.
+
+### S4 — Media insert and eject
+**Answers:** whether the NFS programs register with the portmapper only when
+media is mounted. This is a branch in experiment E4's decision tree: if NFS
+only appears with a stick inserted, the Mixxx feature must gate its probing on
+media state rather than probing on discovery.
+
+1. Both decks up, no media. Start capture.
+2. Insert stick A into deck A. Wait 20 s.
+3. Insert stick B into deck B. Wait 20 s.
+4. Eject stick A. Wait 20 s. Re-insert.
+5. Stop capture.
+
+Immediately after, with media still in, run the probe from the Mac:
+
+```bash
+prolinks rpcinfo <IP-A> --notes "S4: USB inserted, idle"
+```
+
+### S5 — LINK browse, deck A → deck B  *(the most important capture)*
+**Answers:** FINDINGS C11 / O4 — the three undocumented message types
+(`0x3e03`, `0x4b02`, `0x3100`) that appear in an ordinary browse. **`0x3e03` is
+the first thing a player sends after `Introduce`**, and our server currently
+answers it with an error, which is the most likely reason a real CDJ would
+refuse to browse us. Nothing else on the list unblocks as much.
+
+Also answers: does a browsing player touch NFS, or dbserver only?
+
+Go slowly and deliberately, pausing between actions so they are separable in
+the timeline. Note the wall-clock time of each step.
+
+1. Both decks up, both sticks inserted, both libraries loaded. Start capture.
+2. On deck A press **LINK**. Wait 10 s.
+3. Select deck B's USB. Wait 10 s.
+4. Browse into a **playlist**. Wait 10 s.
+5. Scroll through the track list, far enough to force a second page (>64
+   entries if the library allows). Wait 10 s.
+6. Select a track so its **artwork and waveform** load. Wait 10 s.
+7. Back out to the root menu. Wait 10 s.
+8. Stop capture.
+
+### S6 — Load and play a track off the other deck  *(the other important one)*
+**Answers:** open question **O1** — how the audio itself travels when a player
+loads a track from another player's USB. dbserver serves metadata, not audio;
+NFS is the only plausible carrier but no published source states it. This gates
+whether TriMiXxX can be *played from* at all, not merely browsed.
+
+1. Continuing from S5. Start a fresh capture.
+2. On deck A, **load** a track from deck B's USB. Wait for it to finish loading.
+3. **Play** it for ~30 s.
+4. Cue, scratch, jump to a hot cue.
+5. Stop capture.
+
+Expect this to be a large file if audio really does cross the wire — which is
+itself the answer.
+
+### S7 — Playback state and beat traffic
+**Answers:** the UDP 50002 status packet layout and 50001 beat packets, for the
+decode-only parts of the PoC.
+
+1. Both decks playing their own local media. Start capture.
+2. Play / pause / cue on deck A. Adjust the tempo fader through its range.
+3. Set deck A as sync master; sync deck B to it.
+4. Stop capture after ~60 s.
+
+### S8 — Yank the media mid-browse
+**Answers:** experiment E8 — what a stale NFS filehandle looks like from the
+wire, and how a player reports a medium disappearing underneath it. Our client
+assumes `NFSERR_STALE`; this checks that.
+
+1. Deck A browsing deck B's USB (as in S5). Start capture.
+2. **Eject the stick from deck B** while deck A is mid-browse.
+3. Watch what deck A displays. Wait 20 s.
+4. Re-insert. Wait 20 s. Stop capture.
+
+### S9 — Our tools, passive then announcing
+**Answers:** experiment **E1** — does a CDJ serve us files over NFS when we
+have never announced ourselves? And E4/E2/E3 in passing.
+
+Run each with `--notes`, and keep the JSONL journals alongside the pcap.
+
+```bash
+# Passive: --assert-passive fails the run if a single DJ-Link datagram escapes
+prolinks rpcinfo  <IP-A> --assert-passive --notes "S9 passive"
+prolinks exports  <IP-A> --assert-passive --notes "S9 passive"
+prolinks pull-db  <IP-A> --slot usb --assert-passive -o /tmp/A-passive.pdb
+
+# The anchor test: same file, read off the stick directly
+shasum -a 256 /tmp/A-passive.pdb /Volumes/<STICK-A>/PIONEER/rekordbox/export.pdb
+
+# Now announce, and repeat. If the passive attempt failed and this one works,
+# that is a first-class finding: the announcer becomes a hard dependency.
+prolinks announce --number 7 --duration 120 &
+sleep 10
+prolinks rpcinfo <IP-A> --notes "S9 after announcing"
+```
+
+### S10 — A real CDJ trying to browse *us*
+**Answers:** whether the dbserver we wrote is remotely acceptable to real
+hardware. It has only ever been driven by our own client, so this is its first
+genuine test, and a capture of it *failing* is worth as much as one of it
+working — the useful datum is which request it stalls on.
+
+1. Plug stick A into the **Mac**. Start capture.
+2. `sudo .venv/bin/prolinks serve --volume /Volumes/<STICK-A> --number 5`
+   (root is needed only for the NFS portmapper on UDP/111; `--no-nfs` drops
+   that requirement if the bind fails.)
+3. On deck A, press **LINK** and look for us in the device list.
+4. Try to select us. Try to browse. Note exactly what the display says.
+5. Stop capture. Keep `serve`'s own request log — it prints what it received.
+
+---
+
+## 4. Analysis pass, same evening if possible
+
+```bash
+for d in captures/S*/; do
+  echo "=== $d"
+  prolinks pcap "$d"/run.pcap
+done
+```
+
+A capture that shows `round-trip: N/N byte-exact` is one the codecs already
+understand. Any mismatch is a finding — that is precisely how the corrections
+in `FINDINGS.md` were produced.
+
+Then append verdicts for E1–E8 to `FINDINGS.md` while the session is fresh.
+
+---
+
+## 5. What to bring back
+
+- `captures/` in full, with every `NOTES.md` filled in
+- the `export.pdb` from each stick, plus 3–5 ANLZ `.DAT`/`.EXT` pairs, for
+  `fixtures/`
+- firmware versions from both units
+- the IP↔deck mapping
+- for S10: what the CDJ's screen actually said
+
+---
+
+## Appendix: `tools/capture.sh`
+
+```bash
+#!/usr/bin/env bash
+# Usage: tools/capture.sh S05-link-browse en5 "deck A browses deck B's USB"
+set -euo pipefail
+name="${1:?scenario name}"; iface="${2:?interface}"; shift 2
+dir="captures/$name"; mkdir -p "$dir"
+
+{
+  echo "# $name"
+  echo
+  echo "- started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "- interface: $iface"
+  echo "- description: $*"
+  echo
+  echo "## Hardware state"
+  echo "- deck A: ip=?  firmware=?  slot=?  media=?"
+  echo "- deck B: ip=?  firmware=?  slot=?  media=?"
+  echo
+  echo "## Timeline"
+  echo "- 0:00 capture started"
+} > "$dir/NOTES.md"
+
+echo "tcpdump -i $iface -s 0 -n -w $dir/run.pcap" > "$dir/cmd.txt"
+echo "capturing to $dir/run.pcap -- Ctrl-C to stop"
+sudo tcpdump -i "$iface" -s 0 -n -w "$dir/run.pcap"
+```
