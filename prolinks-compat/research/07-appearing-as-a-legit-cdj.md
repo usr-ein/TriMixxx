@@ -1,5 +1,12 @@
 # 07 — Appearing as a Legitimate CDJ (the "Virtual CDJ" approach)
 
+> **⚠ Pre-hardware document.** Written from published reverse-engineering
+> literature before any capture from real CDJs existed. Much of it has since
+> been confirmed, and a good deal corrected, by testing against two
+> CDJ-2000NXS. **`docs/PROTOCOL.md` is the current specification; where this
+> document disagrees with it, this document is wrong.** `docs/FINDINGS.md`
+> records each correction with its evidence.
+
 This is the **synthesis** document for prolinks-compat. It pulls together what
 it actually takes to make TriMiXxX (a Raspberry Pi running Mixxx) appear on a
 Pioneer Pro DJ Link / "ProLink" network as a legitimate CDJ, the constraints

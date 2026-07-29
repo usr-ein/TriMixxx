@@ -1,5 +1,12 @@
 # ProLink / DJ Link — Status, Beat, Sync, On-Air, Tempo (realtime player state)
 
+> **⚠ Pre-hardware document.** Written from published reverse-engineering
+> literature before any capture from real CDJs existed. Much of it has since
+> been confirmed, and a good deal corrected, by testing against two
+> CDJ-2000NXS. **`docs/PROTOCOL.md` is the current specification; where this
+> document disagrees with it, this document is wrong.** `docs/FINDINGS.md`
+> records each correction with its evidence.
+
 Realtime player-state side of the Pioneer Pro DJ Link protocol: the **beat packet**
 (UDP **50001**) and the **detailed status packet** (UDP **50002**). Covers structure,
 byte offsets, sync/master handoff, mixer integration, and what a virtual CDJ must send.
@@ -29,6 +36,7 @@ All packets on 50000/50001/50002 begin with the same 11-byte preamble
 | `0x00`–`0x09` | 10 | magic | `51 73 70 74 31 57 6d 4a 4f 4c` = ASCII `Qspt1WmJOL` | **(confirmed)** every packet |
 | `0x0a` | 1 | packet **type** | e.g. `0a` CDJ status, `29` mixer status, `28` beat, `03` on-air | **(confirmed)** |
 | `0x0b`–`0x1f` | 21 | **Device Name** | ASCII, null-padded | **(confirmed)** name byte0 at `0x0b` (was `00` in keep-alive) |
+> **Corrected on hardware — C14.** The name is **20** bytes, `0x0b`-`0x1e`. Byte `0x1f` is a structural constant `0x01` in all 1503 captured packets, mirroring the keep-alive on 50000. An emitter following this row writes a 21st name byte over it.
 | `0x20` | 1 | **subtype** | `00` (mixer/beat/control), `03` (CDJ status), `01`/`02` (rekordbox/keepalive) | **(confirmed)** |
 | `0x21` | 1 | **D** = device/player number | 1–6 players, `0x21` mixer, `0x11` rekordbox | **(confirmed)** |
 | `0x22`–`0x23` | 2 | **len** | for subtype `00`/`03`: `len_r` = bytes *after* this field. For rekordbox subtype `01`: `len_p` = whole-packet length | **(confirmed)** vcdj.adoc:56 |

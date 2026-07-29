@@ -1,5 +1,13 @@
 # Findings
 
+**This is the evidence log, not the specification.** It records each finding in
+the order it was learned, including the ones later corrected or retracted,
+because how a thing was established is often as useful as the thing itself.
+
+**For the protocol as it currently stands, read `PROTOCOL.md`.** Where the two
+appear to disagree, `PROTOCOL.md` is the settled view and an entry here is a
+snapshot of what was believed at the time.
+
 Corrections and confirmations produced by the PoC, with the evidence for each.
 Every entry is reproducible by running the test suite against the reference
 captures in `research/ref-repos/` (git-ignored; see `research/00-references.md`

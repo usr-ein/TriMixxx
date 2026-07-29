@@ -1,5 +1,12 @@
 # 06 — ProLink NFS / RPC File-Access Path
 
+> **⚠ Pre-hardware document.** Written from published reverse-engineering
+> literature before any capture from real CDJs existed. Much of it has since
+> been confirmed, and a good deal corrected, by testing against two
+> CDJ-2000NXS. **`docs/PROTOCOL.md` is the current specification; where this
+> document disagrees with it, this document is wrong.** `docs/FINDINGS.md`
+> records each correction with its evidence.
+
 How a Pioneer player reads raw files directly off another device over NFS
 (rekordbox `export.pdb`, `ANLZ` analysis files, album art, and audio), and
 what it takes to serve files the same way for **prolinks-compat**.
@@ -116,6 +123,7 @@ calls `PortmapGetPort(..., "udp")`).
 | **1** | **MNT** (mount, returns root fhandle) | yes | confirmed (`nfsclient.py:107`; `programs.ts:104`) |
 | 2 | DUMP | no | `packets_nfs.py` |
 | 3 | UMNT (unmount) | not used (TODO in `nfsclient.py:200`) | enumerated |
+> **Corrected on hardware — C9.** Real players **do** call `UMNT`, once per slot, following the physical eject. A server should answer it.
 | 4 | UMNTALL | no | enumerated |
 | **5** | **EXPORT** (list exports) | yes by prolink-connect | confirmed (`xdr.ts:203`; `programs.ts:75`) |
 

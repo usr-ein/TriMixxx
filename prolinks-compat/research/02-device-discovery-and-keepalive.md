@@ -1,5 +1,12 @@
 # 02 — Device Discovery, Announcement, Keep-Alive & Device-Number Claiming (UDP 50000)
 
+> **⚠ Pre-hardware document.** Written from published reverse-engineering
+> literature before any capture from real CDJs existed. Much of it has since
+> been confirmed, and a good deal corrected, by testing against two
+> CDJ-2000NXS. **`docs/PROTOCOL.md` is the current specification; where this
+> document disagrees with it, this document is wrong.** `docs/FINDINGS.md`
+> records each correction with its evidence.
+
 Scope: how a Pioneer Pro DJ Link / "ProLink" / "DJ Link" device joins the network, announces
 itself, claims a player/device number (defending it against collisions), and then maintains
 presence with a periodic keep-alive. All of this happens on **UDP port 50000**, broadcast to the
@@ -34,6 +41,7 @@ Legend: **(confirmed)** = stated in docs or implemented identically across ≥2 
 | Some handshake replies are **unicast** to port 50000 of the target | see §1.3, §1.4 | `startup.adoc`, `id-use-reply.md` (confirmed) |
 | Source port | sender's own 50000 (you bind 50000 and send from it; needed to *receive* conflict/assignment unicasts) | `id-use-reply.md` ("software players should bind and listen to their local IP port 50000") (confirmed) |
 | Keep-alive cadence | ~ every **1.5 s** (1500 ms) | `startup.adoc`, `vcdj.py` `packet_interval=1.5`, `prolink-connect` `ANNOUNCE_INTERVAL=1500` (confirmed) |
+> **Corrected on hardware — C12.** A CDJ-2000NXS sends every **2.0026 s**, a tight hardware timer. All four cited sources are either the interval a reference *tool* chose or loose prose; nobody had measured hardware. The 10 s timeout is therefore 5 missed keep-alives, not 6-7.
 | Discovery-phase cadence | ~ every **300 ms** | `startup.adoc` (confirmed) |
 | IP autoconfig when no DHCP | RFC 3927 link-local `169.254/16` (CDJs also accept DHCP) | `autoip.md` (confirmed) |
 
@@ -403,6 +411,7 @@ the directed-traffic return path.
 0x02  stage-2 claim / IdUseRequest (IP + propose D, a=auto/manual)
 0x04  stage-3/final claim (assert D, N)
 0x06  KEEP-ALIVE (steady state, every 1.5s)
+> **Corrected on hardware — C12.** 2.0 s, not 1.5.
 0x08  channel conflict / defense (give up D)
 0x01  mixer→player: assignment intention   (channel-specific port only)
 0x03  mixer→player: assignment (use D) / IdUseReply

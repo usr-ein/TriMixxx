@@ -110,11 +110,12 @@ two media sharing a root would be indistinguishable afterwards.
 STATUS.md          this file — current state
 README.md          what the repo is, how to run it
 docs/
+  PROTOCOL.md      the protocol as observed -- the spec to implement from
   FINDINGS.md      F1-F44, C1-C14, O1-O7 with evidence. Has an index.
   HARDWARE.md      runbook for a session with real CDJs
   CAPTURE-PLAN.md  the S1..S10 capture scenarios
 research/
-  00..09           protocol specification (phase-1 deliverable)
+  00..09           pre-hardware literature review; PROTOCOL.md supersedes it
   10               the approved build plan for Mixxx
   ref-repos/       cloned upstream projects (git-ignored, reference only)
 prolinks_poc/

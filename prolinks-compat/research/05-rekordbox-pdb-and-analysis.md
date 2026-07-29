@@ -1,5 +1,12 @@
 # 05 — Rekordbox Export Database (export.pdb / DeviceSQL) and Track Analysis Files (ANLZ)
 
+> **⚠ Pre-hardware document.** Written from published reverse-engineering
+> literature before any capture from real CDJs existed. Much of it has since
+> been confirmed, and a good deal corrected, by testing against two
+> CDJ-2000NXS. **`docs/PROTOCOL.md` is the current specification; where this
+> document disagrees with it, this document is wrong.** `docs/FINDINGS.md`
+> records each correction with its evidence.
+
 Research for **prolinks-compat** (CDJ ProLink compatibility). This document covers the
 on-media data structures that hold a CDJ's library when read from USB/SD: the paged
 DeviceSQL database `export.pdb`, and the tagged analysis files `ANLZxxxx.DAT` / `.EXT`.
@@ -305,6 +312,7 @@ Three cases keyed on the first byte:
 
 3. **UTF-16 — selector `0x90`:** followed by a 2-byte little-endian length (`actual_length =
    stored - 4`), then the text as **UTF-16 big-endian** (`utf-16-be`). (confirmed `piostring.py:11-14`).
+> **Corrected on hardware — O6.** **UTF-16 little-endian, starting at `offset + 4`** -- there is a padding byte, as in the long-ASCII form. The two errors cancel exactly for ASCII, so an encoder and decoder that share them agree perfectly and a 692-track library parses cleanly; only non-ASCII names come out as mojibake.
    Used for non-ASCII content (e.g. CJK, accented titles).
 
 Helpers: `OffsetPioString(idx)` reads at `entry_start + idx`; `IndexedPioString(i)` reads at

@@ -1,5 +1,12 @@
 # ProLink / DJ Link — Protocol Overview and Network Architecture
 
+> **⚠ Pre-hardware document.** Written from published reverse-engineering
+> literature before any capture from real CDJs existed. Much of it has since
+> been confirmed, and a good deal corrected, by testing against two
+> CDJ-2000NXS. **`docs/PROTOCOL.md` is the current specification; where this
+> document disagrees with it, this document is wrong.** `docs/FINDINGS.md`
+> records each correction with its evidence.
+
 Research notes for **prolinks-compat**. This document covers the high-level
 protocol structure, network topology, port map, packet families, the magic
 header, and device-number conventions. It is intended as the foundation for a

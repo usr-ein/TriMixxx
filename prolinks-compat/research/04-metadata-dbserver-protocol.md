@@ -1,5 +1,12 @@
 # 04 — Metadata / dbserver (remotedb) TCP Protocol
 
+> **⚠ Pre-hardware document.** Written from published reverse-engineering
+> literature before any capture from real CDJs existed. Much of it has since
+> been confirmed, and a good deal corrected, by testing against two
+> CDJ-2000NXS. **`docs/PROTOCOL.md` is the current specification; where this
+> document disagrees with it, this document is wrong.** `docs/FINDINGS.md`
+> records each correction with its evidence.
+
 How one player queries another player's library over TCP: track metadata, browse menus,
 album art, waveforms, beat grids, cue points, playlists. This is the "remotedb" /
 "dbserver" protocol. It underpins project objective #1 (read other CDJs' libraries) and #2
@@ -156,6 +163,7 @@ A message = header + argument fields. Header layout (each piece is itself a fiel
 ```
 
 - **TxID**: starts at 1, incremented per query; all responses echo the request's TxID. `[TM:123]` Setup & Disconnect use the magic `0xfffffffe`. `[TM:178,1609]`
+> **Corrected on hardware — C10.** Real players start around `0x03800001`. Nothing breaks either way, but starting at 1 is one more way to look unlike a CDJ.
 - **Argument-type blob** is always 12 bytes (max 12 args), zero-padded past the real count. `[TM:125-126]`
 - prolink-connect serializes exactly this order `[PC:message/index L164-173]`; python `DBMessage` struct matches `[PY:packets:591-598]`.
 

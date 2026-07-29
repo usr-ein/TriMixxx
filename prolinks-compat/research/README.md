@@ -1,5 +1,18 @@
 # ProLink protocol research
 
+> **These are pre-hardware documents.** They are the literature review that
+> started the project, written from published reverse-engineering work before a
+> single packet had been captured from the author's own CDJs. They remain useful
+> for context and for the many claims we have never tested — but a great deal
+> has since been confirmed, and a good deal corrected, on real hardware.
+>
+> | | |
+> |---|---|
+> | **`docs/PROTOCOL.md`** | The current specification. **Implement from this.** |
+> | `docs/FINDINGS.md` | How we know: every finding with its evidence, in the order learned, including the ones that turned out wrong. |
+> | `research/00`–`09` (here) | The literature review. Where it disagrees with `PROTOCOL.md`, it is wrong. |
+> | `research/10` | The approved Mixxx build plan (Phase B), still current. |
+
 Research documentation for **prolinks-compat** — making the TriMiXxX unit (Mixxx
 on a Raspberry Pi) interoperate with Pioneer CDJs over the Pro DJ Link / ProLink
 Ethernet protocol. See `../CLAUDE.md` for the mission.
