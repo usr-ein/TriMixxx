@@ -27,7 +27,14 @@ from typing import Iterator
 
 from ..proto.errors import DecodeError
 
-__all__ = ["Packet", "read_capture", "read_pcapng", "read_pcap", "read_dump_file"]
+__all__ = [
+    "Packet",
+    "read_capture",
+    "read_pcapng",
+    "read_pcap",
+    "read_dump_file",
+    "tcp_streams",
+]
 
 # pcapng block types
 _SHB = 0x0A0D0D0A  # section header
@@ -298,3 +305,30 @@ def read_dump_file(path: Path | str) -> bytes:
         for token in line.split():
             out.append(int(token, 16))
     return bytes(out)
+
+
+def tcp_streams(packets, ports: set[int] | None = None) -> dict:
+    """Reassemble TCP payloads into per-direction byte streams.
+
+    Keyed by ``(src_ip, src_port, dst_ip, dst_port)`` so each direction of a
+    connection is separate -- which is what a dbserver conversation needs,
+    since requests and responses are different message types and interleaving
+    them would be meaningless.
+
+    Ordering is by sequence number with duplicates dropped, which is enough for
+    a clean local capture. It is *not* a general TCP reassembler: no handling
+    of overlapping retransmissions or of a sequence-number wrap.
+    """
+    segments: dict = {}
+    for packet in packets:
+        if packet.protocol != "tcp" or not packet.payload:
+            continue
+        if ports and packet.dst_port not in ports and packet.src_port not in ports:
+            continue
+        key = (packet.src_ip, packet.src_port, packet.dst_ip, packet.dst_port)
+        segments.setdefault(key, {}).setdefault(packet.tcp_seq, packet.payload)
+
+    return {
+        key: b"".join(payload for _seq, payload in sorted(by_seq.items()))
+        for key, by_seq in segments.items()
+    }

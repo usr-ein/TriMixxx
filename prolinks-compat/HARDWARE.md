@@ -177,6 +177,27 @@ Watch the `tcpdump` for IP fragmentation above 1280, and watch whether the
 player's own UI stutters — being a rude NFS client to a deck mid-set is not
 acceptable behaviour for the eventual Mixxx feature.
 
+## 8b. Browsing over dbserver — what the LINK button actually drives
+
+NFS gets us the files; dbserver is what a CDJ uses to *browse*. Needs a device
+number in 1-4 that is present on the network and is not the player being
+queried, so pick one belonging to the other CDJ:
+
+```bash
+prolinks db-browse <IP-A> --as 2 --what root
+prolinks db-browse <IP-A> --as 2 --what tracks
+prolinks db-browse <IP-A> --as 2 --what playlists
+prolinks db-browse <IP-A> --as 2 --what metadata --id <track-id>
+```
+
+Cross-check the track list against `prolinks tracks` from the same slot — the
+two paths should agree, and any disagreement is interesting.
+
+**Also capture the undocumented messages.** A real player sends `0x3e03`
+immediately after `Introduce` (see FINDINGS C11). Sniff a genuine CDJ-to-CDJ
+LINK browse with `tcpdump -w`, then run `prolinks pcap` over it — knowing what
+`0x3e03` expects may be what makes step 10 work at all.
+
 ## 9. Announcing  *(milestone M9 — the first time we transmit)*
 
 Check what we would send before sending it:
@@ -202,9 +223,36 @@ works, the finding is "NFS requires prior announcement" — which would make the
 announcer a hard dependency of the Mixxx feature rather than an optional extra,
 and is worth knowing before any C++ is written.
 
+## 10. Sharing the Mac's stick with the CDJs
+
+The reverse direction. Plug a rekordbox USB into the Mac and serve it:
+
+```bash
+# dbserver only, no privileges needed -- start here
+prolinks serve --volume /Volumes/<STICK> --no-nfs --number 5
+
+# the full thing; NFS's portmapper must bind UDP/111, so this needs root
+sudo .venv/bin/prolinks serve --volume /Volumes/<STICK> --number 5
+```
+
+Then on a CDJ: press **LINK** and look for us in the device list. Expect this
+to be the least-finished part of the evening — the server is validated only
+against our own client, so a real player is its first genuine test. Useful
+things to note when it does not work:
+
+- does the CDJ list us at all? (announcing works, or does not)
+- does it connect to the dbserver? (`serve` logs every request it receives)
+- what does it ask for first, and do we answer it? (see FINDINGS C11)
+
+Run it alongside `tcpdump` — a capture of a real player rejecting us is worth
+more than any amount of guessing.
+
 ## What to bring back
 
 - `captures/` from the whole session, with `--notes` filled in
 - the `export.pdb` and a couple of ANLZ `.DAT`/`.EXT` pairs, for `fixtures/`
 - verdicts for E1–E8 appended to `FINDINGS.md`
+- a capture of a real CDJ browsing another CDJ over dbserver, so `0x3e03`
+  and `0x3100` can be worked out (FINDINGS C11 / O4)
+- a capture of a real CDJ trying to browse *us*, whether or not it succeeds
 - firmware versions from each unit's `UTILITY` screen

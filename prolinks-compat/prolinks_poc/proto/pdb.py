@@ -324,6 +324,13 @@ def _decode_track(data: bytes, offset: int) -> dict | None:
     for index, name in TRACK_STRINGS.items():
         position = offset + 0x5E + index * 2
         (relative,) = struct.unpack_from("<H", data, position)
+        # A relative offset of 0 points at the row's own magic bytes, which can
+        # never be a string. Treat it as an absent field rather than decoding
+        # the header as text -- otherwise an unused slot yields plausible-
+        # looking garbage instead of an empty string.
+        if relative == 0:
+            fields[name] = ""
+            continue
         try:
             fields[name] = read_piostring(data, offset + relative)
         except DecodeError:

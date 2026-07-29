@@ -34,15 +34,45 @@ _EPOCH = 1_600_000_000
 
 @dataclass
 class VfsNode:
+    """A file or directory.
+
+    A node is backed either by ``data`` held in memory or by ``source_path`` on
+    disk. The second form matters as soon as we serve a real USB stick: reading
+    a 60 GB library into memory to answer a 1280-byte READ is not an option, so
+    file-backed nodes record their size up front and read the requested range
+    on demand.
+    """
+
     name: str
     is_dir: bool
-    data: bytes = b""
+    data: bytes | None = None
+    source_path: Path | None = None
+    file_size: int = 0
     children: dict[str, "VfsNode"] = field(default_factory=dict)
     fileid: int = 0
 
     @property
     def size(self) -> int:
-        return 0 if self.is_dir else len(self.data)
+        if self.is_dir:
+            return 0
+        return len(self.data) if self.data is not None else self.file_size
+
+    def read(self, offset: int, count: int) -> bytes:
+        """Read a byte range, from memory or from disk."""
+        if self.is_dir:
+            return b""
+        if self.data is not None:
+            return self.data[offset : offset + count]
+        if self.source_path is None:
+            return b""
+        try:
+            with self.source_path.open("rb") as handle:
+                handle.seek(offset)
+                return handle.read(count)
+        except OSError:
+            # A file that vanished mid-session (media ejected) reads as empty
+            # rather than taking the server down.
+            return b""
 
 
 class Vfs:
@@ -66,18 +96,32 @@ class Vfs:
         return vfs
 
     @classmethod
-    def from_directory(cls, directory: Path) -> "Vfs":
-        """Mirror a real directory. Files are read eagerly into memory.
+    def from_directory(cls, directory: Path, follow_symlinks: bool = False) -> "Vfs":
+        """Mirror a real directory, reading file contents lazily.
 
-        Fine for the fixtures this serves in milestone M8; a production server
-        would stream from disk instead.
+        Only the tree structure and file sizes are walked up front; contents
+        are read per-request. That is what makes serving a mounted USB stick
+        practical.
         """
         directory = Path(directory)
         vfs = cls()
         for path in sorted(directory.rglob("*")):
-            if path.is_file():
-                vfs.add_file(str(path.relative_to(directory)), path.read_bytes())
+            try:
+                if not path.is_file() or (path.is_symlink() and not follow_symlinks):
+                    continue
+                size = path.stat().st_size
+            except OSError:
+                continue
+            vfs.add_disk_file(str(path.relative_to(directory)), path, size)
         return vfs
+
+    def add_disk_file(self, path: str, source: Path, size: int) -> VfsNode:
+        """Register a file whose contents stay on disk until requested."""
+        node = self.add_file(path, b"")
+        node.data = None
+        node.source_path = Path(source)
+        node.file_size = size
+        return node
 
     def add_file(self, path: str, data: bytes) -> VfsNode:
         components = [part for part in path.replace("\\", "/").split("/") if part]
@@ -141,7 +185,7 @@ class Vfs:
         node = self.resolve(handle)
         if node is None or node.is_dir:
             return None
-        return node.data[offset : offset + count]
+        return node.read(offset, count)
 
     def attrs_for(self, node: VfsNode) -> Fattr:
         return Fattr(

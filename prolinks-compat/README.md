@@ -10,7 +10,7 @@ Making a Mixxx-based unit interoperate with Pioneer CDJs over the Pro DJ Link
 |---|---|
 | `research/` | Protocol documentation, doc 10 is the build plan |
 | `prolinks_poc/` | The Python proof-of-concept (phase 2) |
-| `tests/` | 116 tests, including replay against real Pioneer captures |
+| `tests/` | 150 tests, including replay against real Pioneer captures |
 | `FINDINGS.md` | Corrections and confirmations the PoC produced, with evidence |
 | `HARDWARE.md` | Runbook for a session with real CDJs |
 
@@ -26,6 +26,8 @@ prolinks rpcinfo <ip>                # does this player serve NFS?
 prolinks pull-db <ip> --slot usb     # fetch its rekordbox database
 prolinks tracks --file export.pdb    # list what is on it
 prolinks announce --dry-run          # what we would broadcast as a virtual CDJ
+prolinks db-browse <ip> --as 2       # browse a player the way its LINK button does
+prolinks serve --volume /Volumes/X   # share a rekordbox stick with real CDJs
 ```
 
 Nothing transmits on a DJ-Link port except `announce`. `--assert-passive` will
@@ -40,8 +42,9 @@ The codecs are exercised against real captures from `research/ref-repos/`
 prolinks pcap research/ref-repos/dysentery/doc/assets/LinkInfo.pcapng
 ```
 
-272 real packets from a CDJ-2000nexus and a DJM-2000nexus decode and re-encode
-byte-for-byte. That is what produced the corrections in `FINDINGS.md`.
+272 DJ-Link packets and 208 dbserver messages from a CDJ-2000nexus and a
+DJM-2000nexus decode and re-encode byte-for-byte, in both directions. That is
+what produced the corrections in `FINDINGS.md`.
 
 ## Licensing
 

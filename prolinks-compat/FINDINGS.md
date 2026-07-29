@@ -71,6 +71,29 @@ port; mountd does not, so portmap discovery remains mandatory.
 *Evidence:* `test_observed_mountd_and_nfsd_ports`.
 
 
+### F7 — The dbserver wire format round-trips byte-exactly  *(confirmed)*
+
+208 messages from the `LinkInfo` captures — both directions, including the
+port-discovery handshake, `Introduce`, menu requests, `0x3000` renders, menu
+headers/items/footers and artwork blobs — decode and re-encode to identical
+bytes. Every stream is consumed end to end with nothing left over, which also
+validates the omitted-empty-blob rule, since a single mis-step there would
+desynchronise the remainder of the stream.
+
+Details confirmed in passing:
+
+- the 19-byte port query and its 2-byte reply are exactly as documented, and
+  both captures answer **1051**;
+- the 5-byte preamble (`11 00 00 00 01`) heads the byte stream in *both*
+  directions before any message;
+- `Introduce`'s reply carries the **server's own player number** in argument 2,
+  the one `0x4000` whose second argument is not an item count;
+- menu-item label lengths are `(characters + 1) * 2` bytes — `Above & Beyond`
+  is 14 characters and announces `0x1e`.
+
+*Evidence:* `tests/test_dbserver.py::test_every_captured_dbserver_message_round_trips`.
+
+
 ---
 
 ## Corrections to the research docs
@@ -188,6 +211,33 @@ therefore answer it, which it does.
 *Evidence:* `test_real_players_call_umnt`.
 
 
+### C10 — Transaction ids do not start at 1
+
+`research/04` §3.2 says the transaction id "starts at 1, incremented per
+query". Real players start much higher: every conversation in the captures
+begins around **`0x03800001`** and counts up from there. The value is opaque
+and only has to be unique per connection, so nothing breaks either way — but a
+client starting at 1 is one more way to look unlike a CDJ, so ours starts in
+the same region.
+
+### C11 — Three undocumented message types appear in normal browsing
+
+Not in `research/04`'s tables, and seen in an ordinary LINK session:
+
+| Type | Direction | Shape |
+|---|---|---|
+| `0x3e03` | request | 1 argument: the `r:m:s:t` descriptor |
+| `0x4b02` | response | 4 arguments: `[0x3e03, 0, 2, ""]` — echoes the request type |
+| `0x3100` | request | 4 arguments: descriptor, 4, 0, 0 |
+
+`0x3e03`/`0x4b02` are a request/response pair issued immediately after
+`Introduce`, before any menu — plausibly a capability or media query. They
+decode cleanly as ordinary messages, so nothing is blocked by not knowing what
+they mean, but a *server* that a real CDJ talks to will be asked `0x3e03` and
+should probably answer rather than erroring. **Worth capturing deliberately
+tonight** — it is the first thing a player sends us.
+
+
 ### C5 — Reference-repo licences (already applied to `research/09` and `10`)
 
 `research/09` described python-prodj-link as "GPL-ish". It is **Apache-2.0**,
@@ -225,3 +275,10 @@ Unchanged, and still the single most important thing to establish. The
 portmap traffic noted in O1 is suggestive but not yet decoded.
 
 ### O3 — Keep-alive byte `25` semantics *(see C4)*
+
+### O4 — What are `0x3e03` and `0x3100`? *(see C11)*
+
+Both are sent by a real player during an ordinary browse and neither is
+documented. Our server currently answers them with `0x4003` (error). Since
+`0x3e03` arrives before any menu request, a player may well refuse to browse us
+until it is answered properly.

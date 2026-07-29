@@ -35,9 +35,14 @@ from .core.library import Library
 from .core.slots import PDB_PATH, MediaSlot, export_path_for, slot_from_name
 from .net.iface import find_interface, interface_for_peer, list_interfaces
 from .net.loop import EventLoop
+from .net.dbclient import DbClient, DbServerUnavailable, discover_port
+from .net.dbserverd import DbServer
 from .net.nfsclient import DEFAULT_CHUNK, DEFAULT_WINDOW, DownloadStats, NfsClient
+from .net.nfsserver import NfsServer
+from .net.vfs import Vfs
 from .net.rpcclient import RpcTimeout
 from .net.udp import UdpChannel, djl_socket
+from .proto import dbserver as dbproto
 from .proto import djl, mountd, nfs2, portmap, rpc
 from .proto.bytes import hexdump
 from .proto.errors import ProlinkError
@@ -1060,6 +1065,215 @@ def cmd_pdb_dump(ctx: Context) -> int:
     return 0
 
 
+
+# -- dbserver: browsing another player --------------------------------------
+
+
+def cmd_db_browse(ctx: Context) -> int:
+    """Browse a player's library over dbserver, the way a CDJ's LINK button does.
+
+    Needs a device number in 1-4 that belongs to a device actually on the
+    network and is not the player being queried (``research/04`` §2.3) -- which
+    is why ``--as`` exists and why the NFS path, which needs no number at all,
+    is the safer default.
+    """
+    args = ctx.args
+    peer = ctx.resolve(args.device)
+    slot = slot_from_name(args.slot)
+
+    try:
+        port = args.port or discover_port(peer, args.timeout)
+    except DbServerUnavailable as exc:
+        _warn(f"{exc}")
+        _warn("The player may not be running a dbserver, or may not be reachable.")
+        return 1
+    _warn(f"{peer} dbserver is on port {port}")
+
+    try:
+        client = DbClient(peer, args.device_number, port=port,
+                          timeout=args.timeout, recorder=ctx.recorder)
+        client.connect()
+    except (ProlinkError, OSError) as exc:
+        _warn(f"could not connect: {exc}")
+        _warn(
+            f"If this was rejected, --as {args.device_number} may be invalid: it must be "
+            "1-4, must belong to a device present on the network, and must not be "
+            "the player you are querying."
+        )
+        return 1
+
+    try:
+        if args.what == "root":
+            items = client.root_menu(slot)
+        elif args.what == "tracks":
+            items = client.track_list(slot)
+        elif args.what == "playlists":
+            items = client.playlists(slot, args.id, folder=not args.tracks)
+        elif args.what == "search":
+            items = client.menu(dbproto.MessageType.MENU_SEARCH, slot, 0, args.term or "")
+        elif args.what == "metadata":
+            metadata = client.track_metadata(slot, args.id)
+            _emit(args, {"peer": peer, "metadata": metadata},
+                  lambda: [print(f"  {k:<12} {v}") for k, v in sorted(metadata.items())])
+            return 0
+        else:
+            items = client.track_list(slot)
+    except (ProlinkError, OSError) as exc:
+        _warn(f"query failed: {exc}")
+        return 1
+    finally:
+        if args.what != "metadata":
+            pass
+
+    payload = {
+        "peer": peer, "port": port, "slot": slot.name,
+        "server_device_number": client.server_device_number,
+        "items": [
+            {"id": i.id, "parent_id": i.parent_id, "label1": i.label1,
+             "label2": i.label2, "item_type": i.type_name,
+             "artwork_id": i.artwork_id, "position": i.playlist_position}
+            for i in items
+        ],
+    }
+
+    def render() -> None:
+        print(f"{peer}:{port} {slot.name}  (peer is device {client.server_device_number})")
+        print(f"{len(items)} items")
+        for item in items:
+            print(f"  {item}")
+
+    _emit(args, payload, render)
+    client.close()
+    return 0
+
+
+# -- serve: expose a local rekordbox volume to real CDJs ---------------------
+
+
+def cmd_serve(ctx: Context) -> int:
+    """Serve a rekordbox volume to real players: NFS + dbserver + announcing.
+
+    Three surfaces have to be up at once for a CDJ to see and browse us:
+
+    * **announcing** on UDP 50000, or nothing knows we exist;
+    * **dbserver** on TCP, which is what the LINK button actually drives;
+    * **NFS**, which is how the files themselves are read.
+
+    The NFS portmapper must bind UDP/111, which needs root. Everything else
+    works unprivileged, so ``--no-nfs`` gives a useful dbserver-only mode for
+    testing without sudo.
+    """
+    args = ctx.args
+
+    volume = Path(args.volume) if args.volume else None
+    if volume is None:
+        raise SystemExit("--volume is required: point it at a mounted rekordbox stick")
+    if not volume.is_dir():
+        raise SystemExit(f"{volume} is not a directory")
+
+    pioneer = next(
+        (volume / name for name in ("PIONEER", ".PIONEER") if (volume / name).is_dir()),
+        None,
+    )
+    if pioneer is None:
+        raise SystemExit(f"{volume} has no PIONEER or .PIONEER directory")
+    pdb_path = pioneer / "rekordbox" / "export.pdb"
+    if not pdb_path.exists():
+        raise SystemExit(f"no rekordbox database at {pdb_path}")
+
+    _warn(f"loading {pdb_path}")
+    library = Library.from_file(pdb_path)
+    _warn("  " + "  ".join(f"{k}={v}" for k, v in library.summary().items()))
+
+    interface = ctx.interface
+    _warn(f"interface {interface}")
+
+    # dbserver first: it is the surface a CDJ's LINK button drives, and it
+    # needs no privileges.
+    db_server = DbServer(
+        library,
+        device_number=args.number,
+        slot=slot_from_name(args.slot),
+        bind_ip="0.0.0.0",
+        port=args.db_port,
+        query_port=dbproto.QUERY_PORT,
+        recorder=ctx.recorder,
+    ).start()
+    _warn(f"dbserver on TCP {db_server.port} (port query on {db_server.query_port})")
+
+    nfs_server = None
+    if args.nfs:
+        _warn(f"indexing {volume} for NFS (contents are read lazily) ...")
+        vfs = Vfs.from_directory(volume)
+        try:
+            nfs_server = NfsServer(
+                ctx.loop, vfs,
+                exports={export_path_for(slot_from_name(args.slot)): "/"},
+                bind_ip="0.0.0.0", portmap_port=args.portmap_port,
+                recorder=ctx.recorder,
+            )
+            nfs_server.start()
+            _warn(
+                f"NFS: portmap {nfs_server.portmap_port}, mountd {nfs_server.mountd_port}, "
+                f"nfsd {nfs_server.nfsd_port}"
+            )
+            if nfs_server.portmap_port != portmap.PORT:
+                _warn(
+                    f"  WARNING: portmap is on {nfs_server.portmap_port}, not {portmap.PORT}. "
+                    "Real players only look on 111 -- re-run with sudo."
+                )
+        except PermissionError:
+            _warn(
+                f"could not bind UDP {portmap.PORT} (needs root). Continuing without NFS; "
+                "re-run with sudo to serve files."
+            )
+
+    discovery = PassiveDiscovery(
+        ctx.loop, recorder=ctx.recorder, guard=ctx.guard, via_interface=args.iface
+    )
+    discovery.start()
+
+    virtual = None
+    if args.announce:
+        virtual = VirtualCdj(
+            ctx.loop, discovery, interface,
+            device_number=args.number, name=args.name, claim=args.claim,
+            on_state=lambda state, message: _warn(f"  [{state.value}] {message}"),
+        )
+        discovery.on_claim = virtual.defend
+        virtual.start()
+        _warn(f"announcing as {args.name!r} device {args.number}")
+    else:
+        _warn("not announcing (--no-announce); players will not discover us")
+
+    _warn("")
+    _warn("serving -- Ctrl-C to stop")
+    try:
+        if args.duration:
+            ctx.loop.run_for(args.duration)
+        else:
+            ctx.loop.run_until(predicate=lambda: False)
+    except KeyboardInterrupt:
+        _warn("interrupted")
+    finally:
+        if virtual is not None:
+            virtual.stop()
+        if nfs_server is not None:
+            nfs_server.close()
+        db_server.stop()
+        discovery.close()
+
+    def render() -> None:
+        print("dbserver requests served:")
+        for name, count in sorted(db_server.stats.items()):
+            print(f"  {name:<16} {count}")
+        print(f"peers seen: {[d.label() for d in discovery.table.all()] or 'none'}")
+
+    _emit(args, {"dbserver_requests": db_server.stats,
+                 "peers": [d.label() for d in discovery.table.all()]}, render)
+    return 0
+
+
 # -- argument parsing ------------------------------------------------------
 
 
@@ -1235,6 +1449,45 @@ def build_parser() -> argparse.ArgumentParser:
     pdb_dump = subparsers.add_parser("pdb-dump", help="M5: structural dump of a pdb")
     add_library_source(pdb_dump)
     pdb_dump.set_defaults(func=cmd_pdb_dump)
+
+    browse = subparsers.add_parser(
+        "db-browse", help="browse a player's library over dbserver (like the LINK button)"
+    )
+    browse.add_argument("device", help="player number or IP")
+    browse.add_argument(
+        "--as", dest="device_number", type=int, default=1,
+        help="the device number to identify as; must be 1-4 (research/04 §2.3)",
+    )
+    browse.add_argument("--slot", default="usb", help="usb | sd | rb")
+    browse.add_argument("--port", type=int, default=0, help="skip the 12523 port query")
+    browse.add_argument(
+        "--what", default="tracks",
+        choices=["root", "tracks", "playlists", "metadata", "search"],
+    )
+    browse.add_argument("--id", type=int, default=0, help="playlist or track id")
+    browse.add_argument("--tracks", action="store_true",
+                        help="with --what playlists: list a playlist's tracks")
+    browse.add_argument("--term", help="with --what search")
+    browse.set_defaults(func=cmd_db_browse)
+
+    serve = subparsers.add_parser(
+        "serve", help="serve a mounted rekordbox volume to real CDJs"
+    )
+    serve.add_argument("--volume", required=True, help="e.g. /Volumes/MYUSB")
+    serve.add_argument("--slot", default="usb", help="which slot to present as")
+    serve.add_argument("--number", type=int, default=5, help="our device number")
+    serve.add_argument("--name", default="CDJ-2000nexus", help="20-byte device name")
+    serve.add_argument("--claim", action="store_true", help="claim a real player slot")
+    serve.add_argument("--db-port", type=int, default=0, help="0 = pick a free port")
+    serve.add_argument(
+        "--portmap-port", type=int, default=portmap.PORT,
+        help="only change for testing; real players look on 111 only",
+    )
+    serve.add_argument("--no-nfs", dest="nfs", action="store_false",
+                       help="dbserver only; skips the port-111 bind that needs root")
+    serve.add_argument("--no-announce", dest="announce", action="store_false")
+    serve.add_argument("--duration", type=float, default=0.0, help="0 = until Ctrl-C")
+    serve.set_defaults(func=cmd_serve)
 
     return parser
 
