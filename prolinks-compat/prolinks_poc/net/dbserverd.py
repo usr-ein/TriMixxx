@@ -131,6 +131,18 @@ class _Connection(threading.Thread):
             self.pending = []
             return []
 
+        if message.type == db.MessageType.UNKNOWN_3E03:
+            # Modelled on a real reply captured between two players:
+            # 0x4b02 with [request type, 0, responder device number, ""].
+            # Its meaning is unknown; erroring on it is what stopped a deck
+            # from browsing past our root menu (FINDINGS F25).
+            return [db.Message(
+                transaction, db.MessageType.UNKNOWN_4B02,
+                [message.type, 0, self.server.device_number, ""],
+                arg_types=[db.FieldType.UINT32, db.FieldType.UINT32,
+                           db.FieldType.UINT32, db.FieldType.STRING],
+            )]
+
         if message.type == db.MessageType.RENDER_MENU:
             return self._render(message)
 

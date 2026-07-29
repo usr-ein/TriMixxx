@@ -410,3 +410,31 @@ def test_menu_close_clears_pending_state(library):
         assert connection.pending == []
     finally:
         server.stop()
+
+
+def test_unknown_3e03_is_answered_not_errored(client, server):
+    """FINDINGS F25.
+
+    A deck browsing a foreign device sends 0x3e03 immediately after Introduce.
+    Answering it with 0x4003 made a real CDJ fetch our root menu and then
+    disconnect without drilling into any category -- which presented as every
+    section listing but showing empty.
+    """
+    reply = client.request(
+        db.Message(transaction_id=0x1234, type=db.MessageType.UNKNOWN_3E03,
+                   args=[0x02010301])
+    )
+    assert reply.type == db.MessageType.UNKNOWN_4B02
+    assert reply.number(0) == db.MessageType.UNKNOWN_3E03
+    assert reply.number(2) == server.device_number
+    assert reply.string(3) == ""
+
+
+def test_unknown_4b02_matches_the_captured_reply_byte_for_byte():
+    real = db.Message(
+        transaction_id=0x03800001, type=db.MessageType.UNKNOWN_4B02,
+        args=[0x3E03, 0, 2, ""],
+        arg_types=[db.FieldType.UINT32, db.FieldType.UINT32,
+                   db.FieldType.UINT32, db.FieldType.STRING],
+    )
+    assert db.decode_message(ByteReader(real.encode())).encode() == real.encode()

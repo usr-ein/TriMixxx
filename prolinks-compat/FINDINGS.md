@@ -629,6 +629,45 @@ is the step no reference implementation performs, because none of them serve.
 *Evidence:* `captures/S10-serve-to-cdj`.
 
 
+### F25 — **A real CDJ browsed our Mac.** And why every category was empty
+
+With media queries answered (F24), deck B listed the Mac as a LINK source and
+opened a dbserver session. The categories appeared — ARTIST, ALBUM, TRACK,
+GENRE, KEY, PLAYLIST — and every one of them was **empty**.
+
+The capture shows exactly why, and C11 had predicted it:
+
+```
+DECK -> US   INTRODUCE      [2]
+US -> DECK   SUCCESS        [0, 3]
+DECK -> US   0x3e03         [0x2010301]
+US -> DECK   ERROR          [0x3e03, 0]        <- we reject it
+DECK -> US   MENU_ROOT      -> SUCCESS [0x1000, 6]
+DECK -> US   RENDER_MENU    -> 6 items, correctly labelled
+DECK -> US   MENU_ROOT      (again)
+DECK -> US   DISCONNECT
+```
+
+The deck received our six root-menu items and rendered their labels — that part
+works — then re-fetched the root and gave up without ever requesting a
+category's contents.
+
+**This refines F16.** I concluded `0x3e03` was device- or context-specific
+because it never appears in a CDJ-to-CDJ browse. That was right but the wrong
+inference: a deck browsing a **foreign** device does send it, immediately after
+`Introduce`. It is plausibly a capability or identity probe that a player skips
+with peers it already trusts. So C11's original instinct — that this is the
+first thing a player sends and the likely blocker for the serve side — was
+correct after all, and F16's "not the obstacle it looked like" was too hasty.
+
+*Implemented:* reply `0x4b02` with `[0x3e03, 0, <our device number>, ""]`,
+modelled on a real reply between two players and byte-identical to it.
+
+*Still unknown:* what either message means. We reproduce the observed exchange
+without understanding it, which is honest but worth revisiting -- the empty
+string argument in particular looks like somewhere a name belongs.
+
+
 ---
 
 ## Corrections to the research docs

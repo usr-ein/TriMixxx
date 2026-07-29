@@ -166,6 +166,13 @@ class MessageType(enum.IntEnum):
     GET_WAVEFORM_DETAIL = 0x2904
     GET_CUE_POINTS_EXT = 0x2B04
     GET_ANALYSIS_TAG = 0x2C04
+    #: Undocumented. Sent immediately after ``Introduce`` by a player browsing
+    #: a *foreign* device -- it does not appear between two CDJs. One argument,
+    #: the r:m:s:t descriptor. Answering it with an error makes the player
+    #: fetch the root menu and then disconnect without drilling in, which is
+    #: how it presented: the categories listed, every one of them empty.
+    #: FINDINGS F25.
+    UNKNOWN_3E03 = 0x3E03
 
     SUCCESS = 0x4000
     MENU_HEADER = 0x4001
@@ -179,6 +186,9 @@ class MessageType(enum.IntEnum):
     WAVEFORM_DETAIL = 0x4A02
     CUE_POINTS_EXT = 0x4E02
     ANALYSIS_TAG = 0x4F02
+    #: The reply to :attr:`UNKNOWN_3E03`. Four arguments, observed as
+    #: ``[0x3e03, 0, <our device number>, ""]``.
+    UNKNOWN_4B02 = 0x4B02
 
 
 class ItemType(enum.IntEnum):
