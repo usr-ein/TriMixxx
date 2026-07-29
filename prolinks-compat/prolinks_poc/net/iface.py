@@ -25,7 +25,14 @@ import socket
 import sys
 from dataclasses import dataclass
 
-__all__ = ["Interface", "list_interfaces", "find_interface", "interface_for_peer"]
+__all__ = [
+    "Interface",
+    "list_interfaces",
+    "find_interface",
+    "interface_for_peer",
+    "link_local_route_interface",
+    "warn_if_route_mismatched",
+]
 
 _IS_MACOS = sys.platform == "darwin"
 _IS_LINUX = sys.platform.startswith("linux")
@@ -228,6 +235,52 @@ def find_interface(name: str | None) -> Interface:
         "  sudo ifconfig bridge1 inet 169.254.99.100 netmask 255.255.0.0\n"
         "Refusing to guess: broadcasting DJ-Link onto an unrelated network does "
         "nothing useful and is rude to whoever is on it."
+    )
+
+
+def link_local_route_interface() -> str | None:
+    """Which interface the kernel routes 169.254/16 out of, if any.
+
+    Worth checking before announcing. On a multi-homed macOS host the primary
+    interface claims the link-local route, and it wins even over ``IP_BOUND_IF``
+    -- so every broadcast fails with ``No route to host`` while the interface
+    itself looks perfectly healthy. It bit this project when the Mac changed
+    networks mid-session and the new primary reinstalled the route over the
+    bridge's.
+
+    The Pi will have the same exposure with eth0 and wlan0.
+
+    Returns the interface name, or ``None`` if it cannot be determined --
+    parsing ``netstat`` is best-effort and must never be load-bearing.
+    """
+    import subprocess
+
+    try:
+        output = subprocess.run(
+            ["netstat", "-rn", "-f", "inet"],
+            capture_output=True, text=True, timeout=5, check=False,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) >= 4 and fields[0] in ("169.254", "169.254.0.0/16"):
+            return fields[-1] if not fields[-1].endswith("!") else fields[-2]
+    return None
+
+
+def warn_if_route_mismatched(interface: Interface) -> str | None:
+    """Return a warning if link-local is not routed via *interface*."""
+    routed = link_local_route_interface()
+    if routed is None or routed == interface.name:
+        return None
+    return (
+        f"link-local (169.254/16) is routed via {routed}, not {interface.name}. "
+        f"Broadcasts will fail with 'No route to host'. Fix with:\n"
+        f"  sudo route -n delete -net 169.254.0.0 -netmask 255.255.0.0\n"
+        f"  sudo route -n add -net 169.254.0.0 -netmask 255.255.0.0 "
+        f"-interface {interface.name}"
     )
 
 

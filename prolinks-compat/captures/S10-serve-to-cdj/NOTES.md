@@ -1,8 +1,8 @@
 # S10-serve-to-cdj
 
-- started: 2026-07-29T18:38:25Z
+- started: 2026-07-29T18:44:04Z
 - interface: pktap,en12,en9
-- description: Mac serves stick A with status deck B tries to LINK
+- description: Mac serves stick A with status; deck B tries to LINK
 
 ## Hardware state
 - deck A (en12): ip=?  firmware=?  slot=?  media=?

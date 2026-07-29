@@ -38,7 +38,7 @@ from typing import Callable
 
 from ..net.iface import Interface
 from ..net.loop import EventLoop
-from ..net.udp import UdpChannel, rpc_socket
+from ..net.udp import UdpChannel, bind_to_interface, rpc_socket
 from ..proto import djl
 from ..proto import djl_status as status
 
@@ -346,8 +346,10 @@ class VirtualCdj:
         if self.dry_run:
             log.info("DRY RUN: would emit status every %.0f ms", STATUS_INTERVAL_S * 1000)
             return
+        status_socket = rpc_socket(self.interface.ip, 0)
+        bind_to_interface(status_socket, self.interface.name)
         self._status_channel = UdpChannel(
-            rpc_socket(self.interface.ip, 0),
+            status_socket,
             recorder=self.recorder,
             guard=None,  # announced mode: transmitting is the whole point
             label="status:50002",

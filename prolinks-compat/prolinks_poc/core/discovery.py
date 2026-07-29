@@ -95,7 +95,7 @@ class PassiveDiscovery:
         self.non_djl = 0
 
         self.channel = UdpChannel(
-            djl_socket(djl.DISCOVERY_PORT, bind_ip),
+            djl_socket(djl.DISCOVERY_PORT, bind_ip, interface=via_interface),
             recorder=recorder,
             guard=guard,
             label="djl:50000",

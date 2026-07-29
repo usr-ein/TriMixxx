@@ -33,7 +33,12 @@ from .core.devices import Device, DeviceTable
 from .core.discovery import PassiveDiscovery
 from .core.library import Library
 from .core.slots import PDB_PATH, MediaSlot, export_path_for, slot_from_name
-from .net.iface import find_interface, interface_for_peer, list_interfaces
+from .net.iface import (
+    find_interface,
+    interface_for_peer,
+    list_interfaces,
+    warn_if_route_mismatched,
+)
 from .net.loop import EventLoop
 from .net.dbclient import DbClient, DbServerUnavailable, discover_port
 from .net.dbserverd import DbServer
@@ -88,6 +93,12 @@ class Context:
     def interface(self):
         if self._interface is None:
             self._interface = find_interface(self.args.iface)
+            # A mismatched link-local route makes every broadcast fail while
+            # the interface itself looks fine, so say so up front rather than
+            # letting it surface as a wall of 'No route to host'.
+            warning = warn_if_route_mismatched(self._interface)
+            if warning is not None:
+                _warn(f"WARNING: {warning}")
         return self._interface
 
     def discover(self, seconds: float = DEFAULT_DISCOVERY_WAIT_S) -> DeviceTable:
@@ -288,7 +299,7 @@ def cmd_devices(ctx: Context) -> int:
 
     discovery = PassiveDiscovery(
         ctx.loop, recorder=ctx.recorder, guard=ctx.guard,
-        via_interface=args.iface, on_event=on_event,
+        via_interface=ctx.interface.name, on_event=on_event,
     )
     discovery.start()
 
@@ -783,7 +794,8 @@ def cmd_announce(ctx: Context) -> int:
 
     interface = ctx.interface
     discovery = PassiveDiscovery(
-        ctx.loop, recorder=ctx.recorder, guard=ctx.guard, via_interface=args.iface
+        ctx.loop, recorder=ctx.recorder, guard=ctx.guard,
+        via_interface=interface.name,
     )
     discovery.start()
 
@@ -1237,7 +1249,8 @@ def cmd_serve(ctx: Context) -> int:
             )
 
     discovery = PassiveDiscovery(
-        ctx.loop, recorder=ctx.recorder, guard=ctx.guard, via_interface=args.iface
+        ctx.loop, recorder=ctx.recorder, guard=ctx.guard,
+        via_interface=interface.name,
     )
     discovery.start()
 

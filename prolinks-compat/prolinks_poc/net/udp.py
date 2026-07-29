@@ -17,18 +17,59 @@ from __future__ import annotations
 
 import logging
 import socket
+import sys
 from typing import Callable
 
 log = logging.getLogger(__name__)
 
-__all__ = ["UdpChannel", "djl_socket", "rpc_socket", "MAX_DATAGRAM"]
+__all__ = [
+    "UdpChannel",
+    "djl_socket",
+    "rpc_socket",
+    "bind_to_interface",
+    "MAX_DATAGRAM",
+]
 
 #: Comfortably above the largest reply we expect. An NFSv2 READ maxes out at
 #: 8192 bytes of payload, and a portmap DUMP of a busy host can be a few KB.
 MAX_DATAGRAM = 65535
 
 
-def djl_socket(port: int, bind_ip: str = "0.0.0.0") -> socket.socket:
+#: macOS ``IP_BOUND_IF``. Not exposed by the ``socket`` module, so the value is
+#: taken from ``<netinet/in.h>``.
+_IP_BOUND_IF = 25
+
+
+def bind_to_interface(sock: socket.socket, interface: str | None) -> None:
+    """Pin a socket's outgoing interface by name.
+
+    Needed because the socket must stay bound to ``0.0.0.0`` to *receive*
+    subnet broadcasts on macOS, but a socket bound that way has no route for
+    ``169.254.255.255`` and every send fails with ``No route to host``. Link-
+    local has no default route, so the kernel cannot choose for us.
+
+    Pinning the interface resolves both halves at once: broadcast reception
+    keeps working, and transmission goes out the interface we mean. It also
+    makes multi-homed behaviour explicit rather than leaving it to the routing
+    table -- the same problem the Pi will have with eth0 and wlan0.
+    """
+    if not interface:
+        return
+    try:
+        index = socket.if_nametoindex(interface)
+    except OSError:
+        log.warning("interface %s not found; leaving the route to the kernel", interface)
+        return
+
+    if sys.platform == "darwin":
+        sock.setsockopt(socket.IPPROTO_IP, _IP_BOUND_IF, index)
+    elif sys.platform.startswith("linux"):
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, interface.encode())
+
+
+def djl_socket(
+    port: int, bind_ip: str = "0.0.0.0", interface: str | None = None
+) -> socket.socket:
     """A socket for one of the DJ-Link ports (50000/50001/50002).
 
     Three flags matter:
@@ -58,6 +99,7 @@ def djl_socket(port: int, bind_ip: str = "0.0.0.0") -> socket.socket:
         except OSError:  # pragma: no cover - platform dependent
             log.debug("SO_REUSEPORT unavailable; continuing")
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    bind_to_interface(sock, interface)
     sock.setblocking(False)
     sock.bind((bind_ip, port))
     return sock
@@ -84,7 +126,9 @@ def rpc_socket(bind_ip: str = "0.0.0.0", port: int = 0) -> socket.socket:
 class UdpChannel:
     """A UDP socket that records, and that a guard can veto sends on."""
 
-    __slots__ = ("sock", "local_port", "recorder", "guard", "label", "_decoder")
+    __slots__ = (
+        "sock", "local_port", "recorder", "guard", "label", "_decoder", "_send_failed",
+    )
 
     def __init__(
         self,
@@ -103,6 +147,7 @@ class UdpChannel:
         #: journal. Failures are recorded as ``decode_error`` rather than
         #: raised -- a decoder bug must never cost us the capture.
         self._decoder = decoder
+        self._send_failed = False
 
     def fileno(self) -> int:
         return self.sock.fileno()
@@ -120,9 +165,28 @@ class UdpChannel:
         self.recorder.record(direction, self.local_port, peer, data, decoded, error)
 
     def sendto(self, data: bytes, peer: tuple[str, int]) -> int:
+        """Send, treating a transient network error as a dropped packet.
+
+        A keep-alive is emitted on a timer several times a second; letting
+        ``ENETDOWN`` or ``EHOSTDOWN`` propagate turns a cable being unplugged
+        into a screenful of identical tracebacks that buries whatever else the
+        run was telling you. The first failure is logged at warning level and
+        the rest at debug, since the interesting event is the transition.
+        """
         if self.guard is not None:
             self.guard.check(self.local_port, peer)
-        sent = self.sock.sendto(data, peer)
+        try:
+            sent = self.sock.sendto(data, peer)
+        except OSError as exc:
+            if not self._send_failed:
+                self._send_failed = True
+                log.warning("%s: send to %s failed: %s", self.label, peer[0], exc)
+            else:
+                log.debug("%s: send to %s failed: %s", self.label, peer[0], exc)
+            return 0
+        if self._send_failed:
+            log.info("%s: sending to %s recovered", self.label, peer[0])
+            self._send_failed = False
         self._journal("tx", peer, data)
         return sent
 
