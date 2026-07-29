@@ -56,13 +56,34 @@ sudo ipconfig set bridge1 MANUAL 169.254.99.100 255.255.0.0
 > `ipconfig set` takes only `BOOTP, MANUAL, DHCP, INFORM, NONE` for IPv4 —
 > `AUTOMATIC-V4` is a `networksetup` method name and is rejected here.
 
+**With both decks off, the address will not appear yet, and that is correct.**
+`ifconfig bridge1` will show the members but no `inet` line, because
+IPConfiguration stores the configuration and refuses to apply it while the
+interface has no carrier — both members are down until a powered CDJ is
+plugged in. `ipconfig getsummary bridge1` shows exactly that:
+
+```
+Active : FALSE
+LastFailureStatus : media inactive
+ManualAddress : 169.254.99.100
+```
+
+It goes active on its own once a deck powers on. **This does not block S1**:
+`tcpdump` captures at layer 2 and needs no address, so the cold-boot capture
+can start with everything still off. The address only matters for running
+`prolinks`, which happens after the decks are up regardless.
+
+If it is still missing once a deck is on and `status: active`, set it directly
+in the kernel, bypassing IPConfiguration:
+
+```bash
+sudo ifconfig bridge1 inet 169.254.99.100 netmask 255.255.0.0
+```
+
 Once the decks are up, confirm neither of them picked `169.254.99.100` — the
 address is chosen statically here rather than ARP-probed, so a collision is
 possible if unlikely. `prolinks devices` shows their addresses; pick another
 host part if it clashes.
-
-Both members will read `status: inactive` until a powered CDJ is plugged in —
-that is expected, not a fault.
 
 Confirm the bridge came up with both members:
 
