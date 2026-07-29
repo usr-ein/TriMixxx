@@ -3,7 +3,7 @@
 Where the work actually is. Read this first; `docs/FINDINGS.md` has the evidence
 behind every claim here.
 
-Last updated: 2026-07-29, during a live session with two CDJ-2000NXS.
+Last updated: 2026-07-30, after a long session with two CDJ-2000NXS.
 
 ---
 
@@ -40,7 +40,12 @@ A real CDJ-2000NXS, with nothing but a Mac and a USB stick on the other end:
 | Appears on the deck's LINK screen | works | F24 |
 | Categories open (ARTIST/ALBUM/TRACK/GENRE/KEY/PLAYLIST) | works | F25, F26 |
 | Category contents list, with pagination | works | F27 |
-| Metadata + artwork on the INFO screen | works | F27 |
+| Metadata + artwork on the INFO screen | works | F27, F32 |
+| Browse: 11 categories, drill-downs, ALL entries | works | F40, F42, F43 |
+| Search (filters as you type) | works | F44 |
+| All twelve sorts, with the sorted field as column 2 | works | F43 |
+| Harmonic key matching (3 tolerances) | works | F44 |
+| Two media at once, as USB + SD | works | F37 |
 | NFS mount, path walk to the audio file | works | F28 |
 | **Load and play a track** | works — MP3, AAC, WAV, AIFF | F30-F32, F35, F39 |
 | Hot cues, preview waveform, scrubbing | works | F32 |
@@ -55,14 +60,22 @@ without delay, and show hot cues and both waveforms.
 
 ## Phase A is done
 
-Both objectives work against real hardware. What remains in the PoC is
-tidying rather than discovery:
+Both objectives work against real hardware, and the last browse session was
+**568 requests with zero errors**. What remains in the PoC is tidying rather
+than discovery:
 
 - the opaque prefix word (F33) must be non-zero but is still unexplained;
 - argument 0 of the metadata items is an observed constant, not derived (F32);
 - `GET_TRACK_INFO` item 6 is a constant `1` on all four containers; meaning
   unknown (F35);
-- `0x3d03` is acknowledged with a guessed reply — no capture shows a real one.
+- `0x3d03` is acknowledged with a guessed reply — no capture shows a real one;
+- `0x3b03`, `0x3903`, `0x3001`, `0x3401` appear around a loaded track and are
+  undecoded (F42);
+- the deck's **green key indicator** does not light for compatible keys, and no
+  capture shows a real deck displaying it over LINK, so there is nothing to
+  diff against (F44);
+- `FOLDER` (browsing unanalysed files by directory, track type 2) is the one
+  root category we deliberately do not offer.
 
 All four supported containers play, including 75 MB lossless files read across
 their whole length, and LOAD SETTINGS works. Zero dbserver errors in the
