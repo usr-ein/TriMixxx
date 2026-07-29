@@ -775,6 +775,60 @@ discover it. No reference implementation could have caught this, because none
 of them serve.
 
 
+### F29 — The filehandle fix let the deck walk the whole path; analysis data is the next gate
+
+After F28, the deck resolves a full track path over our NFS server:
+
+```
+MNT '/C/'                              -> OK
+LOOKUP 'Contents'                      -> NFS_OK
+LOOKUP '6 SENSE'                       -> NFS_OK
+LOOKUP 'ASW Various Artists 3'         -> NFS_OK
+LOOKUP '6 SENSE - Mechanical Mania.mp3' -> NFS_OK   size 6,942,380 (correct)
+```
+
+...and then issues **no READ at all**, still reporting "media collapsed or
+unavailable". The attributes we return are right — the size matches the file on
+disk exactly — so the path walk is not the problem.
+
+What is left is what the server was rejecting: the `serve` log shows
+`GET_WAVEFORM_PREVIEW` and `GET_CUE_POINTS` answered with `0x4003`. The working
+hypothesis is that a player fetches analysis data as part of loading and
+abandons the load when it is unavailable — consistent with browsing, artwork
+and metadata all working while loading alone fails.
+
+*Implemented:* an ANLZ container reader (`proto/anlz`) and dbserver handlers
+for the waveform, beat-grid and cue requests, serving the tag bytes straight
+out of the ``.DAT``/``.EXT`` files on the medium. Verified against real files
+from the stick -- the ``.DAT`` carries `PPTH PVBR PQTZ PWAV PWV2 PCOB PCOB` and
+the ``.EXT`` carries `PPTH PWV3 PCOB PCOB PCO2 PCO2 PWV5 PWV4 PSSI`.
+
+Deliberately no interpretation: to *serve* analysis we need only hand a player
+the bytes rekordbox wrote, and parsing a beat grid we would immediately
+re-serialise would add a step and a chance to get it wrong. Consuming needs the
+interpretation; serving does not.
+
+**Untested against hardware.** The response argument layouts for these binary
+replies are modelled on `research/04` §5 and the artwork response, not on a
+capture -- no capture we have contains a player fetching analysis from a peer.
+
+### O6 — Our pdb decodes some UTF-16 track paths incorrectly *(new)*
+
+One `LOOKUP` in the same capture failed legitimately:
+
+```
+deck asked for : "'❂RAINDAAMAGE'✯how do you like your tea_"
+on disk        : "✧BRAINDAAMAGE✧"
+```
+
+The deck asks for the path *we gave it*, so this is our bug: the pdb PioString
+decode mangles some non-ASCII names (`✧B` → `❂`, trailing `✧` → `'`). It also
+appears to have merged two path components.
+
+Not chased yet. It affects only tracks with unusual characters in their paths,
+and the same decode feeds the Mixxx consume path, so it needs fixing there too.
+
+
 ---
 
 ## Corrections to the research docs

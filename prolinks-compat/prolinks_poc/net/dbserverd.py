@@ -31,6 +31,7 @@ from pathlib import Path
 
 from ..core.library import Library
 from ..core.slots import MediaSlot
+from ..proto import anlz
 from ..proto import dbserver as db
 from ..proto.bytes import ByteReader
 from ..proto.errors import DecodeError
@@ -38,6 +39,23 @@ from ..proto.errors import DecodeError
 log = logging.getLogger(__name__)
 
 __all__ = ["DbServer"]
+
+
+#: dbserver analysis requests -> (response type, ANLZ tag, read the .EXT?).
+#: A player asks for these when loading a track and appears to abort the load
+#: if they are unavailable -- browsing works without them, loading does not.
+_ANALYSIS_REQUESTS = {
+    db.MessageType.GET_WAVEFORM_PREVIEW:
+        (db.MessageType.WAVEFORM_PREVIEW, anlz.TAG_WAVEFORM_PREVIEW, False),
+    db.MessageType.GET_BEAT_GRID:
+        (db.MessageType.BEAT_GRID, anlz.TAG_BEAT_GRID, False),
+    db.MessageType.GET_CUE_POINTS:
+        (db.MessageType.CUE_POINTS, anlz.TAG_CUES, False),
+    db.MessageType.GET_WAVEFORM_DETAIL:
+        (db.MessageType.WAVEFORM_DETAIL, anlz.TAG_WAVEFORM_DETAIL, True),
+    db.MessageType.GET_CUE_POINTS_EXT:
+        (db.MessageType.CUE_POINTS_EXT, anlz.TAG_CUES_EXT, True),
+}
 
 
 class _Connection(threading.Thread):
@@ -170,6 +188,17 @@ class _Connection(threading.Thread):
                 [message.number(1), 0, len(image), image],
                 arg_types=[db.FieldType.UINT32, db.FieldType.UINT32,
                            db.FieldType.UINT32, db.FieldType.BINARY],
+            )]
+
+        analysis = _ANALYSIS_REQUESTS.get(message.type)
+        if analysis is not None:
+            response_type, fourcc, use_ext = analysis
+            payload = self.server.analysis_for(message.number(1), fourcc, use_ext)
+            return [db.Message(
+                transaction, response_type,
+                [message.number(1), len(payload), payload],
+                arg_types=[db.FieldType.UINT32, db.FieldType.UINT32,
+                           db.FieldType.BINARY],
             )]
 
         if message.type == db.MessageType.RENDER_MENU:
@@ -336,6 +365,30 @@ class DbServer:
         if request_type == db.MessageType.MENU_SEARCH:
             return self._search(message.string(2))
         return None
+
+    def analysis_for(self, track_id: int, fourcc: bytes, use_ext: bool) -> bytes:
+        """One ANLZ tag for a track, read off the served medium.
+
+        Returns empty for anything we cannot supply -- a track analysed by an
+        older rekordbox genuinely lacks the newer tags, and the protocol has a
+        representation for an empty blob.
+        """
+        track = self.library.tracks.get(track_id)
+        if track is None or self.media_root is None:
+            return b""
+        relative = track.analyze_ext_path if use_ext else track.analyze_path
+        if not relative:
+            return b""
+        try:
+            data = (self.media_root / relative.lstrip("/")).read_bytes()
+        except OSError:
+            log.debug("no analysis file at %s for track %s", relative, track_id)
+            return b""
+        try:
+            return anlz.AnlzFile(data).tag_payload(fourcc)
+        except Exception:
+            log.debug("could not parse %s", relative)
+            return b""
 
     def artwork_for(self, artwork_id: int) -> bytes:
         """The album-art image for *artwork_id*, or empty if we have none.

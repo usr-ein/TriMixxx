@@ -493,3 +493,21 @@ def test_unknown_4b02_matches_the_captured_reply_byte_for_byte():
                    db.FieldType.UINT32, db.FieldType.STRING],
     )
     assert db.decode_message(ByteReader(real.encode())).encode() == real.encode()
+
+
+def test_analysis_requests_are_answered_rather_than_errored(client):
+    """FINDINGS F29. A deck asks for these when loading and appears to abort
+    the load if they come back as errors, even though browsing works fine."""
+    for request, response in [
+        (db.MessageType.GET_WAVEFORM_PREVIEW, db.MessageType.WAVEFORM_PREVIEW),
+        (db.MessageType.GET_BEAT_GRID, db.MessageType.BEAT_GRID),
+        (db.MessageType.GET_CUE_POINTS, db.MessageType.CUE_POINTS),
+    ]:
+        reply = client.request(db.Message(
+            transaction_id=0x99, type=request,
+            args=[client.descriptor(MediaSlot.USB, db.MenuTarget.BINARY), 101],
+        ))
+        assert reply.type == response, f"{request!r} should not error"
+        # No analysis files in the synthetic fixture, so an empty blob -- which
+        # is a valid answer, unlike 0x4003.
+        assert reply.number(1) == 0
