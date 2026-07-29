@@ -12,7 +12,7 @@ Last updated: 2026-07-29, during a live session with two CDJ-2000NXS.
 | | Objective | State |
 |---|---|---|
 | **1. Consume** | See and play other CDJs' libraries | **Working end to end** in the PoC |
-| **2. Serve** | Other CDJs see and play *our* library | **Browsable, not yet loadable** |
+| **2. Serve** | Other CDJs see and play *our* library | **Playing.** Main waveform still missing |
 
 ### Objective 1 — consume: working
 
@@ -42,25 +42,22 @@ A real CDJ-2000NXS, with nothing but a Mac and a USB stick on the other end:
 | Category contents list, with pagination | works | F27 |
 | Metadata + artwork on the INFO screen | works | F27 |
 | NFS mount, path walk to the audio file | works | F28 |
-| **Load a track** | **fails** | F29 |
+| **Load and play a track** | works | F30, F31, F32 |
+| Hot cues, preview waveform, scrubbing | works | F32 |
+| **Main (detail) waveform** | **does not display** | O7 |
 
-Failure mode: the deck resolves the full path, gets correct attributes
-(`size=6942380`, matching disk), issues **no READ at all**, sits on
-"LOADING FILE..." for ~15 s, then errors with "media collapsed or unavailable".
+S10i records 1141 NFS READs; two tracks loaded and scrubbed with no delay.
+The one remaining defect is the main waveform.
 
 ---
 
 ## What is being worked on right now
 
-1. **O6 — the UTF-16 path bug.** We serve a path that does not exist:
-   we say `'❂RAINDAAMAGE'✯how do you like your tea_`, the disk says
-   `✧BRAINDAAMAGE✧`. The deck faithfully asks for what we gave it and gets
-   `NFSERR_NOENT`. Our pdb PioString decode is wrong. This also feeds the Mixxx
-   consume path, so it is not serve-only.
-2. **O5 — why no READ.** The `LOOKUP` succeeds and nothing follows. Analysis
-   data (waveform/beat grid/cues) is now served (F29) but is untested against
-   hardware, and the response layouts are modelled on `research/04` §5 rather
-   than on a capture — the least-evidenced code in the server.
+1. **O7 — the main waveform does not display.** Everything else in a load
+   works. The only remaining difference from a real deck's replies is the
+   fifth prefix word of `BEAT_GRID` and `WAVEFORM_DETAIL`, which we send as
+   zero and cannot derive — it is a free-running counter on the serving deck.
+   Those are exactly the two replies feeding the main waveform. See F32.
 
 ## Not started
 

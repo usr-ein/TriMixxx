@@ -52,6 +52,19 @@ class Track:
     rating: int = 0
     date_added: str = ""
 
+    #: The raw foreign keys, kept alongside the resolved names. A dbserver
+    #: metadata item carries the *referenced row's* id -- artist 122, album 86 --
+    #: not the track's own, and a player uses it to open "more from this
+    #: artist". Sending the track id there is wrong in a way that still renders
+    #: correctly, so it survives casual inspection.
+    artist_id: int = 0
+    album_id: int = 0
+    genre_id: int = 0
+    key_id: int = 0
+    label_id: int = 0
+    color_id: int = 0
+    artwork_id: int = 0
+
     @property
     def bpm(self) -> float:
         """Stored as an integer ×100 so the wire format has no floats."""
@@ -139,6 +152,13 @@ class Library:
                 year=row.get("year", 0),
                 rating=row.get("rating", 0),
                 date_added=row.get("date_added", ""),
+                artist_id=row.get("artist_id", 0),
+                album_id=row.get("album_id", 0),
+                genre_id=row.get("genre_id", 0),
+                key_id=row.get("key_id", 0),
+                label_id=row.get("label_id", 0),
+                color_id=row.get("color_id", 0),
+                artwork_id=row.get("artwork_id", 0),
             )
             self.tracks[track.id] = track
             self.artwork_ids[track.id] = row.get("artwork_id", 0)

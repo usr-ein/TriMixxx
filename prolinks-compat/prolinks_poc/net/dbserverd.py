@@ -204,10 +204,12 @@ class _Connection(threading.Thread):
                            db.FieldType.UINT32, db.FieldType.STRING],
             )]
 
-        if message.type == db.MessageType.UNKNOWN_3100:
-            # A real player answers with a bare SUCCESS echoing the request
-            # type. It appears in the middle of a load, between GET_TRACK_INFO
-            # and the analysis fetches, and we were erroring on it.
+        if message.type in (db.MessageType.UNKNOWN_3100,
+                            db.MessageType.UNKNOWN_3D03):
+            # For 0x3100 this is what a real deck sends, verbatim. For
+            # 0x3d03 it is a guess: no capture contains a reply to it, but it
+            # was the only request we still answered with an error, and F25 is
+            # the precedent for what erroring on an unknown request costs.
             return [db.Message(
                 transaction, db.MessageType.SUCCESS, [message.type, 0],
                 arg_types=[db.FieldType.UINT32, db.FieldType.UINT32],
@@ -557,32 +559,56 @@ class DbServer:
         ]
 
     def _metadata(self, track_id: int) -> list[db.Message]:
-        """One track's metadata, as the per-field menu the protocol expects."""
+        """One track's metadata: **thirteen** items, in a fixed order.
+
+        Modelled field for field on a real deck's reply in
+        ``captures/S06-load-and-play``, every value of which was then checked
+        against that track's own row in ``export.pdb``.
+
+        Three things ours got wrong, none of which showed up on screen:
+
+        * **four items were missing** -- colour, date added, bitrate and label.
+          A player renders the nine it gets and looks perfectly correct;
+        * **the referenced ids were the track's own.** An artist item carries
+          the *artist's* row id, so the player can offer "more by this artist".
+          Ours put the track id in all of them;
+        * **the title item carries the artwork id**, and ours left it zero.
+
+        Items are emitted unconditionally, including the empty ones: a real
+        deck sends ``label`` with id 0 and no text rather than omitting it, and
+        the count is what the client pages against.
+        """
         track = self.library.tracks.get(track_id)
         if track is None:
             return []
-        items = [
-            db.make_menu_item(0, track.id, track.title, "",
-                              item_type=db.ItemType.TRACK_TITLE),
-            db.make_menu_item(0, track.id, track.artist, "",
-                              item_type=db.ItemType.ARTIST),
-            db.make_menu_item(0, track.id, track.album, "",
-                              item_type=db.ItemType.ALBUM),
+
+        def item(first, main_id, item_type, label="", artwork_id=0, flags=0):
+            return db.make_menu_item(first, main_id, label, "",
+                                     item_type=item_type, artwork_id=artwork_id,
+                                     flags=flags)
+
+        # Argument 0 is 1 on eight of the thirteen and 0 on the rest. The split
+        # does not line up with anything we can name -- it is not "has a label"
+        # (comment has one and gets 0) nor "has a browse menu" (tempo has one
+        # and gets 0) -- so it is reproduced as observed rather than derived
+        # from a rule we would be inventing.
+        return [
+            item(1, track.id, db.ItemType.TRACK_TITLE, track.title,
+                 artwork_id=track.artwork_id, flags=0x01000000),
+            item(1, track.artist_id, db.ItemType.ARTIST, track.artist),
+            item(1, track.album_id, db.ItemType.ALBUM, track.album),
             # Numeric fields carry their value in the id, not the label.
-            db.make_menu_item(0, track.duration, "", "", item_type=db.ItemType.DURATION),
-            db.make_menu_item(0, track.bpm_100, "", "", item_type=db.ItemType.TEMPO),
-            db.make_menu_item(0, track.rating, "", "", item_type=db.ItemType.RATING),
+            item(0, track.duration, db.ItemType.DURATION),
+            item(0, track.bpm_100, db.ItemType.TEMPO),
+            item(0, track.id, db.ItemType.COMMENT, track.comment),
+            item(1, track.key_id, db.ItemType.KEY, track.key),
+            item(0, track.rating, db.ItemType.RATING),
+            item(0, track.color_id, db.ItemType.COLOR, track.color),
+            item(1, track.genre_id, db.ItemType.GENRE, track.genre),
+            item(1, track.id, db.ItemType.DATE_ADDED, track.date_added),
+            item(1, track.bitrate, db.ItemType.BITRATE),
+            item(1, track.label_id, db.ItemType.LABEL, track.label),
         ]
-        if track.genre:
-            items.append(db.make_menu_item(0, track.id, track.genre, "",
-                                           item_type=db.ItemType.GENRE))
-        if track.key:
-            items.append(db.make_menu_item(0, track.id, track.key, "",
-                                           item_type=db.ItemType.KEY))
-        if track.comment:
-            items.append(db.make_menu_item(0, track.id, track.comment, "",
-                                           item_type=db.ItemType.COMMENT))
-        return items
 
     def _track_info(self, track_id: int) -> list[db.Message]:
         """``GET_TRACK_INFO`` -- **six** items, of which the path is only one.

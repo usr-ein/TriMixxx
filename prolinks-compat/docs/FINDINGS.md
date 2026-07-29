@@ -49,6 +49,7 @@ and analysis files · **METH** capture methodology.
 | [F29](#f29) | NFS | The filehandle fix let the deck walk the whole path; no READ follows |
 | [F30](#f30) | DB | The load sequence decoded: `0x2504` is the **VBR seek index**; analysis is transformed, not forwarded |
 | [F31](#f31) | DB | `GET_TRACK_INFO` is **six** items, and argument 0 of the path item is the **file size** |
+| [F32](#f32) | DB | **Playback works.** `GET_METADATA` is **13** items carrying *referenced* row ids |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -60,7 +61,8 @@ stage-3 repeat count follows peer-presence-at-boot · C14 the status name field
 is 20 bytes.
 
 **Open** — O4 what is `0x3e03`? (`0x3100` answered, F30) · O5 the deck
-issues no READ after a successful `LOOKUP` — *cause identified, fix untested* O1–O3 and O6 are resolved (F18/F19, F10, F9, and
+issues no READ after a successful `LOOKUP` — *resolved, F31* · O7 the main
+waveform does not display O1–O3 and O6 are resolved (F18/F19, F10, F9, and
 three path bugs respectively).
 
 ---
@@ -1106,6 +1108,71 @@ unexamined assumption — `research/04` §5 says track info "is the Path", and i
 is, and that was enough for everything except the one operation that matters.
 The reply had been byte-comparable against a real one since the S06 capture was
 taken; nobody compared it until the symptom forced it.
+
+
+<a id="f32"></a>
+
+### F32 — **Playback works.** And metadata was wrong in three ways that never showed
+
+A real CDJ-2000NXS now loads and plays a track from the Mac. S10i records
+**1141 NFS READs**, and the author reports loading two tracks and scrubbing
+through both with no delay — so random-access reads during playback, the
+requirement F18 flagged as much harder than a bulk transfer, hold up.
+
+What F31 fixed was the file size. What remained broken was the **main
+waveform**, and chasing it exposed three defects in `GET_METADATA`, none of
+which is visible on a screen.
+
+A real reply is **thirteen** items; ours was nine.
+
+| | real | ours |
+|---|---|---|
+| count | 13 | 9 |
+| artist item's id | `122` — the **artist's** row id | `200` — the track's |
+| album / genre / key | the referenced row's id | the track's |
+| title item's artwork id | `0xba` | `0` |
+| missing entirely | colour, date added, **bitrate**, label | — |
+
+The id error is the interesting one. A metadata item carries the id of the row
+it *references*, which is how a player offers "more by this artist" from a
+loaded track. Putting the track's own id there renders identically and means
+something entirely different.
+
+**A fourth thing, in every menu item we have ever sent.** Argument 10 tracks
+argument 7: across all 1,700 menu items in the reference captures, an item with
+`flags = 0x01000000` also carries `0x100` there, and an item with zero flags
+carries zero. Both are non-zero only on items naming a track. We sent argument
+10 as zero unconditionally, so every track row we served was subtly unlike a
+real one. It is now derived from the flags, so the two cannot drift apart.
+
+*Verified:* all thirteen metadata items and all six track-info items are now
+**byte-identical** to a real deck's, for the same track off the same medium.
+
+*Also:* `0x3d03` — two arguments, `(descriptor, track id)`, sent once during
+playback and absent from every CDJ-to-CDJ capture — was the last request we
+still answered with `0x4003`. It is now acknowledged like `0x3100`. **That reply
+is a guess**: no capture shows a real one. The justification is F25, where
+erroring on an unknown request stopped browsing dead.
+
+**Still open (O7): the main waveform does not display.** After these fixes the
+only remaining difference between our replies and a real deck's, across every
+message type involved in a load, is the fifth prefix word of `BEAT_GRID` and
+`WAVEFORM_DETAIL` (F30) — which we send as zero. Those are precisely the two
+replies that feed the main waveform, and every reply that is byte-identical
+corresponds to a feature that works:
+
+| Reply | matches a real deck? | feature | works? |
+|---|---|---|---|
+| `VBR_INDEX` | byte-identical | playback | yes |
+| `WAVEFORM_PREVIEW` | byte-identical | preview waveform | yes |
+| `CUE_POINTS` | byte-identical | hot cues | yes |
+| `BEAT_GRID` | **one word differs** | beat grid | ? |
+| `WAVEFORM_DETAIL` | **one word differs** | main waveform | **no** |
+
+Suggestive, not conclusive. The word increments at roughly 40,000 per second
+between two replies 2.6 s apart, so it is a free-running counter on the serving
+deck rather than anything derived from the track. If it is a generation or
+cache token, zero may read as "no data".
 
 
 

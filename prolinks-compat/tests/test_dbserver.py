@@ -23,7 +23,7 @@ from prolinks_poc.capture.pcap import read_capture, tcp_streams
 from prolinks_poc.core.library import Library
 from prolinks_poc.core.slots import MediaSlot
 from prolinks_poc.net.dbclient import DbClient, discover_port
-from prolinks_poc.net.dbserverd import DbServer
+from prolinks_poc.net.dbserverd import DbServer, _Connection
 from prolinks_poc.proto import dbserver as db
 from prolinks_poc.proto.bytes import ByteReader
 from prolinks_poc.proto.errors import DecodeError
@@ -549,3 +549,57 @@ def test_track_info_for_an_unknown_track_is_empty(library):
     server = DbServer(library, device_number=5, bind_ip="127.0.0.1",
                       port=0, query_port=0)
     assert server._track_info(999999) == []
+
+
+def test_metadata_is_thirteen_items_with_referenced_ids(library):
+    """docs/FINDINGS.md F32.
+
+    A real reply is thirteen items. Ours was nine, and the four missing --
+    colour, date added, bitrate, label -- are invisible on screen, so the reply
+    looked right. Worse, every item carried the *track's* id where a real one
+    carries the id of the row it references, which is what lets a player jump
+    from a track to "more by this artist".
+    """
+    server = DbServer(library, device_number=5, bind_ip="127.0.0.1",
+                      port=0, query_port=0)
+    track = next(iter(library.tracks.values()))
+    items = server._metadata(track.id)
+
+    assert [i.args[6] for i in items] == [
+        0x04, 0x07, 0x02, 0x0B, 0x0D, 0x23, 0x0F, 0x0A, 0x13, 0x06, 0x2E, 0x10, 0x0E
+    ]
+    by_type = {i.args[6]: i for i in items}
+    assert by_type[0x07].args[1] == track.artist_id
+    assert by_type[0x02].args[1] == track.album_id
+    assert by_type[0x06].args[1] == track.genre_id
+    assert by_type[0x0F].args[1] == track.key_id
+    assert by_type[0x10].args[1] == track.bitrate
+    # The title item is the one that carries the artwork id.
+    assert by_type[0x04].args[8] == track.artwork_id
+    assert all(i.args[8] == 0 for i in items if i.args[6] != 0x04)
+
+
+def test_menu_item_argument_ten_tracks_the_flags(library):
+    """They are never independent in any captured item: 0x01000000 flags come
+    with 0x100 here, zero flags with zero."""
+    titled = db.make_menu_item(0, 1, "Track", "", item_type=db.ItemType.TITLE_AND_ARTIST)
+    assert (titled.args[7], titled.args[10]) == (0x01000000, 0x100)
+    plain = db.make_menu_item(0, 1, "Genre", "", item_type=db.ItemType.GENRE, flags=0)
+    assert (plain.args[7], plain.args[10]) == (0, 0)
+
+
+def test_the_last_unknown_request_is_acknowledged_not_errored(library):
+    """0x3d03 was the only request we still answered with 0x4003."""
+    server = DbServer(library, device_number=5, bind_ip="127.0.0.1",
+                      port=0, query_port=0)
+    connection = _Connection.__new__(_Connection)
+    connection.server = server
+    connection.peer = ("127.0.0.1", 1)
+    connection.menus = {}
+    connection.last_menu = []
+    connection.client_device_number = 2
+
+    for message_type in (db.MessageType.UNKNOWN_3D03, db.MessageType.UNKNOWN_3100):
+        replies = connection.handle(db.Message(1, message_type, [0x2010301, 101]))
+        assert [r.type for r in replies] == [db.MessageType.SUCCESS]
+        assert replies[0].args == [message_type, 0]

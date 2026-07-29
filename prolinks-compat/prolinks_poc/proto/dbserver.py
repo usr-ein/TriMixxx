@@ -185,6 +185,14 @@ class MessageType(enum.IntEnum):
     #: how it presented: the categories listed, every one of them empty.
     #: FINDINGS F25.
     UNKNOWN_3E03 = 0x3E03
+    #: Undocumented, two arguments (descriptor, track id), sent once
+    #: during playback. Never appears between two real CDJs, so like
+    #: :attr:`UNKNOWN_3E03` it is something a player asks only of a
+    #: foreign device -- and no capture shows what a real answer looks
+    #: like. We acknowledge it the way a deck acknowledges ``0x3100``,
+    #: because erroring on an unknown request is what stopped browsing
+    #: dead in F25 and it is the last ERROR we still emit. **Guessed.**
+    UNKNOWN_3D03 = 0x3D03
 
     SUCCESS = 0x4000
     MENU_HEADER = 0x4001
@@ -226,6 +234,8 @@ class ItemType(enum.IntEnum):
     LABEL = 0x000E
     KEY = 0x000F
     BITRATE = 0x0010
+    #: Observed in a real metadata reply carrying the track's ``color_id``.
+    COLOR = 0x0013
     YEAR = 0x0011
     COMMENT = 0x0023
     HISTORY_PLAYLIST = 0x0024
@@ -596,6 +606,15 @@ def make_menu_item(
     and 5 are the *byte* lengths of the two labels, which is twice the
     character count plus the NUL, and getting them wrong is one of the ways a
     real player will refuse to render the list.
+
+    **Argument 10 tracks argument 7.** Across all 1,700 menu items in the
+    reference captures the two are never independent: an item carrying
+    ``flags = 0x01000000`` also carries ``0x100`` here, and an item with zero
+    flags has zero here. Both are non-zero only on the two kinds of item that
+    name a track -- ``TITLE_AND_ARTIST`` list rows and ``TRACK_TITLE``. We had
+    been sending argument 10 as zero unconditionally, so every track row we
+    served was subtly unlike a real one. Deriving it removes the chance of
+    setting one and forgetting the other.
     """
     return Message(
         transaction_id=0,  # overwritten by the caller with the request's id
@@ -611,7 +630,7 @@ def make_menu_item(
             flags,
             artwork_id,
             playlist_position,
-            0,
+            0x100 if flags else 0,
             0,
         ],
         arg_types=[
