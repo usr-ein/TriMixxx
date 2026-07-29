@@ -266,6 +266,8 @@ class ItemType(enum.IntEnum):
     MENU_TRACK = 0x0083
     MENU_PLAYLIST = 0x0084
     MENU_KEY = 0x008B
+    MENU_BITRATE = 0x0093
+    MENU_LABEL = 0x0089
     TITLE_AND_ARTIST = 0x0704
 
 

@@ -36,6 +36,7 @@ from ..core.slots import MediaSlot
 from ..proto import anlz
 from ..proto import analysis_wire as wire
 from ..proto import dbserver as db
+from ..proto.pdb import PageType
 from ..proto.bytes import ByteReader
 from ..proto.errors import DecodeError
 
@@ -494,7 +495,8 @@ class DbServer:
             return self._track_list(message.number(1), medium)
         if request_type == db.MessageType.MENU_PLAYLIST:
             return self._playlist_menu(
-                message.number(2), bool(message.number(3)), medium
+                message.number(2), bool(message.number(3)), medium,
+                sort=message.number(1),
             )
         if request_type in (db.MessageType.GET_METADATA, db.MessageType.GET_GENERIC_METADATA):
             return self._metadata(message.number(1), medium)
@@ -506,6 +508,12 @@ class DbServer:
             return self._by_name(medium.library.genres, db.ItemType.GENRE)
         if request_type == db.MessageType.MENU_KEY:
             return self._by_name(medium.library.keys, db.ItemType.KEY)
+        if request_type == db.MessageType.MENU_LABEL:
+            return self._by_name(medium.library.labels, db.ItemType.LABEL)
+        if request_type == db.MessageType.MENU_HISTORY:
+            return self._history_menu(medium)
+        if request_type == db.MessageType.MENU_TIME:
+            return self._dates_menu(medium)
         if request_type == db.MessageType.GET_TRACK_INFO:
             return self._track_info(message.number(1), medium)
         if request_type == db.MessageType.MENU_SORT:
@@ -550,7 +558,8 @@ class DbServer:
             return self._track_list(message.number(1), medium)
         if request_type == db.MessageType.MENU_PLAYLIST:
             return self._playlist_menu(
-                message.number(2), bool(message.number(3)), medium
+                message.number(2), bool(message.number(3)), medium,
+                sort=message.number(1),
             )
         if request_type in (db.MessageType.GET_METADATA, db.MessageType.GET_GENERIC_METADATA):
             return self._metadata(message.number(1), medium)
@@ -562,6 +571,12 @@ class DbServer:
             return self._by_name(medium.library.genres, db.ItemType.GENRE)
         if request_type == db.MessageType.MENU_KEY:
             return self._by_name(medium.library.keys, db.ItemType.KEY)
+        if request_type == db.MessageType.MENU_LABEL:
+            return self._by_name(medium.library.labels, db.ItemType.LABEL)
+        if request_type == db.MessageType.MENU_HISTORY:
+            return self._history_menu(medium)
+        if request_type == db.MessageType.MENU_TIME:
+            return self._dates_menu(medium)
         if request_type == db.MessageType.GET_TRACK_INFO:
             return self._track_info(message.number(1), medium)
         if request_type == db.MessageType.MENU_SORT:
@@ -637,18 +652,32 @@ class DbServer:
     #: Root-menu categories: item type, label, and the id a real player puts in
     #: argument 2 -- the low byte of the corresponding menu request type
     #: (GENRE 0x1001 -> 1, ARTIST 0x1002 -> 2, PLAYLIST 0x1105 -> 5).
-    #: Root categories we offer, as ``(item type, label)``. The per-category id
-    #: is **derived** from the item type by :data:`db.ROOT_CATEGORY_ID_BIAS`
-    #: rather than listed, because deriving it from the *request* type -- F26's
-    #: rule -- silently produced the wrong id for KEY and made a deck open
-    #: BITRATE instead. See docs/FINDINGS.md F40.
+    #: Root categories, as ``(id, item type, label)`` **read off a real player**
+    #: rather than derived.
+    #:
+    #: F26 computed the id from the menu *request* type's low byte, which gave
+    #: KEY the id BITRATE uses. F40 replaced that with ``item type - 0x7f``,
+    #: which is right for eleven of the twelve categories a real root declares
+    #: -- and wrong for ``DATE ADDED``, which is ``0x1b``/``0x8c``, a difference
+    #: of ``0x71``. Two derivations, two exceptions. Now that all twelve have
+    #: been observed there is nothing left to derive, so they are listed.
+    #:
+    #: We serve the subset we can actually answer. ``FOLDER`` is omitted: it
+    #: browses unanalysed files by directory, using a descriptor with track type
+    #: 2, and we have no such browse -- and an unimplemented category is
+    #: indistinguishable from an empty one on the deck's screen (F40).
     ROOT_CATEGORIES = (
-        (db.ItemType.MENU_GENRE, "GENRE"),
-        (db.ItemType.MENU_ARTIST, "ARTIST"),
-        (db.ItemType.MENU_ALBUM, "ALBUM"),
-        (db.ItemType.MENU_TRACK, "TRACK"),
-        (db.ItemType.MENU_PLAYLIST, "PLAYLIST"),
-        (db.ItemType.MENU_KEY, "KEY"),
+        (0x01, 0x80, "GENRE"),
+        (0x02, 0x81, "ARTIST"),
+        (0x03, 0x82, "ALBUM"),
+        (0x04, 0x83, "TRACK"),
+        (0x05, 0x84, "PLAYLIST"),
+        (0x0A, 0x89, "LABEL"),
+        (0x0C, 0x8B, "KEY"),
+        (0x12, 0x91, "SEARCH"),
+        (0x14, 0x93, "BITRATE"),
+        (0x16, 0x95, "HISTORY"),
+        (0x1B, 0x8C, "DATE ADDED"),
     )
 
     def _root_menu(self) -> list[db.Message]:
@@ -667,14 +696,13 @@ class DbServer:
                 0, menu_id, db.menu_label(label), "",
                 item_type=item_type, flags=0,
             )
-            for item_type, label in self.ROOT_CATEGORIES
-            for menu_id in (db.root_category_id(item_type),)
+            for menu_id, item_type, label in self.ROOT_CATEGORIES
         ]
 
     def _track_list(self, sort: int, medium: Medium | None = None) -> list[db.Message]:
         medium = medium or self.default_medium
         return self._track_items(
-            self._sorted(medium.library.track_list(), sort), medium
+            self._sorted(medium.library.track_list(), sort), medium, sort
         )
 
     #: How each sort order orders tracks. ``DEFAULT`` keeps the library's own
@@ -705,7 +733,8 @@ class DbServer:
         return sorted(tracks, key=key) if key else list(tracks)
 
     def _playlist_menu(
-        self, playlist_id: int, folder: bool, medium: Medium | None = None
+        self, playlist_id: int, folder: bool, medium: Medium | None = None,
+        sort: int = 0,
     ) -> list[db.Message]:
         medium = medium or self.default_medium
         if folder:
@@ -724,16 +753,17 @@ class DbServer:
                 )
                 for position, playlist in enumerate(children, start=1)
             ]
-        return [
-            db.make_menu_item(
-                0, track.id, track.title, track.artist,
-                item_type=db.ItemType.TITLE_AND_ARTIST,
-                playlist_position=position,
-            )
-            for position, track in enumerate(
-                medium.library.playlist_tracks(playlist_id), start=1
-            )
-        ]
+        # A playlist honours the sort too -- most of a DJ's browsing happens
+        # inside one, so ignoring it here is ignoring it almost everywhere.
+        # DEFAULT keeps the playlist's own curated order, which is the whole
+        # point of a playlist and must not be replaced by an alphabetical one.
+        tracks = medium.library.playlist_tracks(playlist_id)
+        if sort != db.SortOrder.DEFAULT:
+            tracks = self._sorted(tracks, sort)
+        items = self._track_items(tracks, medium, sort)
+        for position, item in enumerate(items, start=1):
+            item.args[9] = position
+        return items
 
     def _metadata(self, track_id: int, medium: Medium | None = None) -> list[db.Message]:
         """One track's metadata: **thirteen** items, in a fixed order.
@@ -894,7 +924,7 @@ class DbServer:
             tracks = [t for t in tracks if getattr(t, field, None) == value]
 
         if depth >= len(chain):
-            return self._track_items(tracks, medium)
+            return self._track_items(tracks, medium)  # drill-downs are unsorted
 
         field = chain[depth]
         table, item_type = self._FILTER_ITEMS[field]
@@ -920,11 +950,50 @@ class DbServer:
             item_type=db.ItemType.ALL, flags=0,
         )
 
-    def _track_items(self, tracks, medium: Medium) -> list[db.Message]:
+    #: What each sort order puts in a track item's **second column**, as
+    #: ``(column field type, text, raw value)``. Read off a real server:
+    #:
+    #: * the item type is ``(column type << 8) | 0x04`` -- so the familiar
+    #:   ``0x0704`` is not "title and artist", it is "a track whose second
+    #:   column is the ARTIST field". ``0x0d04`` is the same item with a BPM
+    #:   column;
+    #: * numeric columns send an **empty** label and put the number in
+    #:   **argument 0** -- BPM ``0x3390`` is 132.00, bitrate ``0x140`` is 320.
+    #:   The deck formats it. Text columns send both;
+    #: * argument 0 for a text column is the *referenced row's* id.
+    #:
+    #: This is the feature that makes sorting useful rather than cosmetic: sort
+    #: by BPM and the BPM appears beside every title. docs/FINDINGS.md F43.
+    _SORT_COLUMNS = {
+        db.SortOrder.DEFAULT: (db.ItemType.ARTIST, "artist", "artist_id"),
+        db.SortOrder.TITLE: (db.ItemType.ARTIST, "artist", "artist_id"),
+        db.SortOrder.ARTIST: (db.ItemType.ARTIST, "artist", "artist_id"),
+        db.SortOrder.ALBUM: (db.ItemType.ALBUM, "album", "album_id"),
+        db.SortOrder.BPM: (db.ItemType.TEMPO, None, "bpm_100"),
+        db.SortOrder.RATING: (db.ItemType.RATING, None, "rating"),
+        db.SortOrder.GENRE: (db.ItemType.GENRE, "genre", "genre_id"),
+        db.SortOrder.LABEL: (db.ItemType.LABEL, "label", "label_id"),
+        db.SortOrder.KEY: (db.ItemType.KEY, "key", "key_id"),
+        db.SortOrder.BITRATE: (db.ItemType.BITRATE, None, "bitrate"),
+        db.SortOrder.PLAY_COUNT: (0x2A, None, "play_count"),
+        db.SortOrder.DATE_ADDED: (db.ItemType.DATE_ADDED, "date_added", "id"),
+    }
+
+    #: A track item's type is the column's type in the high bytes over this.
+    TRACK_ITEM_SUFFIX = 0x04
+
+    def _track_items(self, tracks, medium: Medium, sort: int = 0) -> list[db.Message]:
+        column, text_field, value_field = self._SORT_COLUMNS.get(
+            sort, self._SORT_COLUMNS[db.SortOrder.DEFAULT]
+        )
+        item_type = (column << 8) | self.TRACK_ITEM_SUFFIX
         return [
             db.make_menu_item(
-                0, track.id, track.title, track.artist,
-                item_type=db.ItemType.TITLE_AND_ARTIST,
+                getattr(track, value_field, 0) or 0,
+                track.id,
+                track.title,
+                getattr(track, text_field, "") if text_field else "",
+                item_type=item_type,
                 artwork_id=medium.library.artwork_ids.get(track.id, 0),
             )
             for track in tracks
@@ -954,6 +1023,30 @@ class DbServer:
             db.make_menu_item(0, value, db.menu_label(label), "",
                               item_type=item_type, flags=0)
             for value, item_type, label in self.SORT_OPTIONS
+        ]
+
+    def _history_menu(self, medium: Medium | None = None):
+        """History playlists. Empty on a medium that has never played anywhere,
+        which is the normal state for a stick written straight from rekordbox."""
+        medium = medium or self.default_medium
+        rows = {}
+        try:
+            for row in medium.library.pdb.rows(PageType.HISTORY):
+                rows[row["id"]] = row.get("name", "")
+        except Exception:
+            return []
+        return self._by_name(rows, db.ItemType.HISTORY_PLAYLIST)
+
+    def _dates_menu(self, medium: Medium | None = None):
+        """Distinct date-added values, newest first."""
+        medium = medium or self.default_medium
+        dates = sorted(
+            {t.date_added for t in medium.library.tracks.values() if t.date_added},
+            reverse=True,
+        )
+        return [
+            db.make_menu_item(0, index, date, "", item_type=db.ItemType.DATE_ADDED)
+            for index, date in enumerate(dates, start=1)
         ]
 
     def _bitrate_menu(self, medium: Medium | None = None):

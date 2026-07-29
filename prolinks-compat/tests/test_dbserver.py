@@ -350,7 +350,7 @@ def test_unknown_request_gets_an_error_not_an_empty_list(client):
     from prolinks_poc.proto.errors import ProtocolError
 
     with pytest.raises(ProtocolError):
-        client.menu(db.MessageType.MENU_HISTORY, MediaSlot.USB, 0)
+        client.menu(db.MessageType.MENU_YEAR, MediaSlot.USB, 0)
 
 
 def test_missing_track_metadata_is_empty_rather_than_an_error(client):
@@ -646,30 +646,31 @@ def test_track_info_item_one_is_the_container(library, file_type, item_six):
     assert by_type[db.ItemType.UNKNOWN_2F].args[1] == item_six
 
 
-def test_root_category_ids_are_derived_from_the_item_type(library):
-    """docs/FINDINGS.md F40.
+#: Every root category a real player declares, id and item type, collected
+#: across the deck-to-deck captures. docs/FINDINGS.md F43.
+REAL_ROOT_CATEGORIES = {
+    "GENRE": (0x01, 0x80), "ARTIST": (0x02, 0x81), "ALBUM": (0x03, 0x82),
+    "TRACK": (0x04, 0x83), "PLAYLIST": (0x05, 0x84), "LABEL": (0x0A, 0x89),
+    "KEY": (0x0C, 0x8B), "FOLDER": (0x11, 0x90), "SEARCH": (0x12, 0x91),
+    "BITRATE": (0x14, 0x93), "HISTORY": (0x16, 0x95), "DATE ADDED": (0x1B, 0x8C),
+}
 
-    F26 derived the id from the *request* type's low byte, which agrees for five
-    of six categories and gives KEY 0x14 -- the id a real player uses for
-    BITRATE. A deck opening our KEY category duly asked for bitrates and got an
-    error, so KEY appeared to contain nothing.
+
+def test_root_categories_match_a_real_player(library):
+    """docs/FINDINGS.md F43.
+
+    F26 computed the id from the request type's low byte and gave KEY the id
+    BITRATE uses. F40 replaced that with ``item type - 0x7f``, right for eleven
+    of twelve -- and wrong for DATE ADDED, which is 0x1b/0x8c, a difference of
+    0x71. Two derivations, two exceptions; all twelve are now simply listed.
     """
     server = DbServer(library, device_number=5, bind_ip="127.0.0.1",
                       port=0, query_port=0)
-    by_label = {
-        item.args[3].strip("￺￻"): (item.args[1], item.args[6])
-        for item in server._root_menu()
-    }
-    # Every pair a real player's root menu shows, plus KEY derived the same way.
-    assert by_label["GENRE"] == (0x01, 0x80)
-    assert by_label["ARTIST"] == (0x02, 0x81)
-    assert by_label["ALBUM"] == (0x03, 0x82)
-    assert by_label["TRACK"] == (0x04, 0x83)
-    assert by_label["PLAYLIST"] == (0x05, 0x84)
-    assert by_label["KEY"] == (0x0C, 0x8B), "0x14 is BITRATE, not KEY"
+    for menu_id, item_type, label in server.ROOT_CATEGORIES:
+        assert REAL_ROOT_CATEGORIES[label] == (menu_id, item_type), label
 
-    for _label, (menu_id, item_type) in by_label.items():
-        assert item_type - menu_id == db.ROOT_CATEGORY_ID_BIAS
+    # The derivation that used to produce these does not hold for all of them.
+    assert 0x8C - 0x1B != db.ROOT_CATEGORY_ID_BIAS, "DATE ADDED breaks the rule"
 
 
 def drillable_library() -> Library:
@@ -905,3 +906,92 @@ def test_key_sort_orders_the_track_list_by_wheel_position():
     ordered = server._track_list(db.SortOrder.KEY)
     keys = [library.tracks[i.args[1]].key for i in ordered]
     assert keys == ["1A", "2A", "10A", "12A"]
+
+
+#: One track's item as a real server renders it under each sort, read off
+#: ``captures/S20-browse-ground-truth``: (sort, item type, label2, argument 0).
+REAL_SORTED_ITEMS = [
+    (db.SortOrder.DEFAULT, 0x0704, "PLANETARY ASSAULT SYSTEM", 0xC3),
+    (db.SortOrder.BPM, 0x0D04, "", 0x3390),
+    (db.SortOrder.RATING, 0x0A04, "", 0x0),
+    (db.SortOrder.KEY, 0x0F04, "6A", 0x9),
+    (db.SortOrder.BITRATE, 0x1004, "", 0x140),
+    (db.SortOrder.PLAY_COUNT, 0x2A04, "", 0x0),
+    (db.SortOrder.DATE_ADDED, 0x2E04, "2025-11-13", 0x413),
+]
+
+
+def sortable_server() -> DbServer:
+    from prolinks_poc.core.library import Track
+    from prolinks_poc.core.medium import Medium
+    from prolinks_poc.core.slots import MediaSlot
+
+    library = Library.__new__(Library)
+    library.tracks = {}
+    library.artwork_ids = {}
+    track = Track(
+        id=0x413, title="Booster", artist="PLANETARY ASSAULT SYSTEM",
+        album="Archives", genre="IDM", key="6A", label="AKRONYM",
+        bpm_100=13200, rating=0, bitrate=320, date_added="2025-11-13",
+        artist_id=0xC3, album_id=1, genre_id=2, key_id=9, label_id=3,
+    )
+    library.tracks[track.id] = track
+    library.artwork_ids[track.id] = 0x3D3
+
+    server = DbServer.__new__(DbServer)
+    server.media = {int(MediaSlot.USB): Medium(slot=MediaSlot.USB, library=library)}
+    server.default_medium = server.media[int(MediaSlot.USB)]
+    return server
+
+
+@pytest.mark.parametrize("sort,item_type,label2,arg0", REAL_SORTED_ITEMS)
+def test_a_sorted_track_item_matches_a_real_server(sort, item_type, label2, arg0):
+    """docs/FINDINGS.md F43.
+
+    The sort picks the item's **second column**, which is what makes sorting
+    useful rather than cosmetic: sort by BPM and the BPM appears beside every
+    title. The item type is ``(column type << 8) | 0x04``, so the familiar
+    0x0704 is not "title and artist" but "a track whose second column is the
+    ARTIST field". Numeric columns send an empty label and put the number in
+    argument 0.
+    """
+    server = sortable_server()
+    item = server._track_items(
+        list(server.default_medium.library.tracks.values()),
+        server.default_medium, sort,
+    )[0]
+    assert item.args[6] == item_type
+    assert item.args[5] == label2
+    assert item.args[0] == arg0
+
+
+def test_a_playlist_honours_the_sort_but_defaults_to_its_own_order():
+    """Most browsing happens inside a playlist, so ignoring the sort there is
+    ignoring it almost everywhere -- but DEFAULT must keep the curated order,
+    which is the entire point of a playlist."""
+    server = drillable_server()
+    library = server.default_medium.library
+    playlist_id = next(iter(library.playlists), None)
+    if playlist_id is None:
+        pytest.skip("fixture has no playlist")
+
+    curated = [i.args[1] for i in server._playlist_menu(playlist_id, False)]
+    assert curated == [t.id for t in library.playlist_tracks(playlist_id)]
+
+    by_title = server._playlist_menu(playlist_id, False, sort=db.SortOrder.TITLE)
+    assert [i.args[3] for i in by_title] == sorted(i.args[3] for i in by_title)
+    # Playlist position is still numbered from one after reordering.
+    assert [i.args[9] for i in by_title] == list(range(1, len(by_title) + 1))
+
+
+def test_the_root_menu_offers_every_category_we_can_answer():
+    server = drillable_server()
+    labels = {i.args[3].strip("￺￻") for i in server._root_menu()}
+    assert labels == {
+        "GENRE", "ARTIST", "ALBUM", "TRACK", "PLAYLIST", "LABEL", "KEY",
+        "SEARCH", "BITRATE", "HISTORY", "DATE ADDED",
+    }
+    # FOLDER is deliberately absent: it browses unanalysed files by directory
+    # with a track-type-2 descriptor, which we do not serve, and an
+    # unimplemented category looks identical to an empty one on the deck.
+    assert "FOLDER" not in labels

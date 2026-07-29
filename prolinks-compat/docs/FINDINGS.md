@@ -60,6 +60,7 @@ and analysis files · **METH** capture methodology.
 | [F40](#f40) | DB | Root ids derive from the **item type**; `0x14` is BITRATE, not KEY. Drill-downs added |
 | [F41](#f41) | DB | Result sets key on `(descriptor, count)` — count alone collided at 13 items |
 | [F42](#f42) | DB | Drill-downs are a **grid** `0x1000\|depth<<8\|category`; ALL entries; the SORT menu |
+| [F43](#f43) | DB | Sorting picks the item's **second column**; all 12 root categories listed |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1635,6 +1636,61 @@ deck; here being indistinguishable would mean being wrong.
 appeared around a loaded track and are undecoded; `MENU_FOLDER` uses track type
 2 in its descriptor, which is the unanalysed-files browse we do not serve; and
 a real root menu offers **12** categories where we offer 6.
+
+
+<a id="f43"></a>
+
+### F43 — Sorting picks the **second column**, and all twelve root categories
+
+Sorting "did nothing" because two thirds of it was missing.
+
+**1. A playlist ignored the sort entirely.** `MENU_PLAYLIST` carries it in
+argument 1 exactly as `MENU_TRACK` does, and we read arguments 2 and 3 and
+dropped 1. Most browsing happens inside a playlist, so that was the sort being
+ignored almost everywhere. `DEFAULT` must still keep the curated order — that
+is what a playlist is for.
+
+**2. The sort selects the item's second column** — the feature that makes it
+useful rather than cosmetic. Sort by BPM and the BPM appears beside each title.
+Read off a real server:
+
+| sort | item type | label 2 | argument 0 |
+|---|---|---|---|
+| DEFAULT / ALPHABET / ARTIST | `0x0704` | artist | artist id |
+| ALBUM | `0x0204` | album | album id |
+| BPM | `0x0d04` | *(empty)* | `0x3390` = 132.00 |
+| RATING | `0x0a04` | *(empty)* | rating |
+| GENRE | `0x0604` | genre | genre id |
+| LABEL | `0x0e04` | label | label id |
+| KEY | `0x0f04` | `6A` | key id |
+| BITRATE | `0x1004` | *(empty)* | `0x140` = 320 |
+| DJ PLAY COUNT | `0x2a04` | *(empty)* | play count |
+| DATE ADDED | `0x2e04` | `2025-11-13` | track id |
+
+The item type is **`(column field type << 8) | 0x04`**. So `0x0704` is not
+"title and artist" as `research/04` names it — it is *a track whose second
+column is the ARTIST field*, and `0x0d04` is the same item with a BPM column.
+Numeric columns send an **empty** label and put the raw number in **argument
+0**, the same slot that carries the file size in a track-info path item (F31);
+the deck formats it. All ten shapes now match a real server exactly.
+
+**3. All twelve root categories, and the derivation was still wrong.**
+
+| | | | | | |
+|---|---|---|---|---|---|
+| GENRE `01`/`80` | ARTIST `02`/`81` | ALBUM `03`/`82` | TRACK `04`/`83` | PLAYLIST `05`/`84` | LABEL `0a`/`89` |
+| KEY `0c`/`8b` | FOLDER `11`/`90` | SEARCH `12`/`91` | BITRATE `14`/`93` | HISTORY `16`/`95` | **DATE ADDED `1b`/`8c`** |
+
+F26 computed the id from the *request* type's low byte and gave KEY the id
+BITRATE uses. F40 replaced that with `item type - 0x7f` — right for eleven of
+the twelve, and wrong for **DATE ADDED**, where the difference is `0x71`. Two
+derivations, two exceptions. All twelve have now been observed, so there is
+nothing left to derive and they are simply listed.
+
+We offer eleven of them. `FOLDER` is left out deliberately: it browses
+unanalysed files by directory using a track-type-2 descriptor we do not serve,
+and an unimplemented category is indistinguishable from an empty one on the
+deck's screen (F40) — so advertising it would be worse than omitting it.
 
 
 
