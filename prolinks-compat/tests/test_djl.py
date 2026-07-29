@@ -342,3 +342,91 @@ def test_our_announcer_reproduces_the_claim_handshake_byte_for_byte():
     )
 
     assert [p.encode().hex() for p in ours] == NXS_CLAIM_SEQUENCE
+
+
+# The same deck A, same manual player number 1 -- but booting into a network
+# where deck B was already present. Ten packets instead of twelve: the stage-3
+# claim is sent once rather than three times. FINDINGS C13/F9.
+NXS_CLAIM_SEQUENCE_JOINING = [
+    "5173707431576d4a4f4c0a0043444a2d323030306e65787573000000000000000102002501",
+    "5173707431576d4a4f4c0a0043444a2d323030306e65787573000000000000000102002501",
+    "5173707431576d4a4f4c0a0043444a2d323030306e65787573000000000000000102002501",
+    "5173707431576d4a4f4c000043444a2d323030306e65787573000000000000000102002c0101745e1c5667ac",
+    "5173707431576d4a4f4c000043444a2d323030306e65787573000000000000000102002c0201745e1c5667ac",
+    "5173707431576d4a4f4c000043444a2d323030306e65787573000000000000000102002c0301745e1c5667ac",
+    "5173707431576d4a4f4c020043444a2d323030306e657875730000000000000001020032a9fe67ac745e1c5667ac01010102",
+    "5173707431576d4a4f4c020043444a2d323030306e657875730000000000000001020032a9fe67ac745e1c5667ac01020102",
+    "5173707431576d4a4f4c020043444a2d323030306e657875730000000000000001020032a9fe67ac745e1c5667ac01030102",
+    "5173707431576d4a4f4c040043444a2d323030306e6578757300000000000000010200260101",
+]
+
+
+def test_joining_an_occupied_network_sends_one_stage_three_packet():
+    """FINDINGS C13, the mirror of the boot-alone case.
+
+    Deck A sent three stage-3 packets booting alone (S01) and one joining an
+    occupied network (S2c) -- same deck, same number, same manual setting. The
+    variable is peer presence at boot, not the assignment mode.
+    """
+    claims = [djl.decode(bytes.fromhex(h)) for h in NXS_CLAIM_SEQUENCE_JOINING]
+    kinds = [type(c).__name__ for c in claims]
+    assert kinds == ["Hello"] * 3 + ["ClaimMac"] * 3 + ["ClaimIp"] * 3 + ["ClaimNumber"]
+    assert all(
+        c.assignment_mode == djl.AssignmentMode.MANUAL
+        for c in claims if isinstance(c, djl.ClaimIp)
+    )
+
+
+def test_announcer_handshake_length_follows_peer_presence():
+    """The announcer must pick the right variant, or it is detectably not a CDJ."""
+    from prolinks_poc.core.announcer import _handshake_stages
+
+    first = dict((s.value, n) for s, n in _handshake_stages(True))
+    joining = dict((s.value, n) for s, n in _handshake_stages(False))
+    assert first["claim_number"] == 3
+    assert joining["claim_number"] == 1
+    # Only the stage-3 count differs; everything before it is identical.
+    assert sum(first.values()) == 12 == len(NXS_CLAIM_SEQUENCE)
+    assert sum(joining.values()) == 10 == len(NXS_CLAIM_SEQUENCE_JOINING)
+
+
+def test_our_announcer_reproduces_the_joining_handshake_byte_for_byte():
+    """As with the boot-alone vector, but for the joining case."""
+    mac = bytes.fromhex("745e1c5667ac")
+    ip = "169.254.103.172"
+    common = dict(name="CDJ-2000nexus", name_raw=b"", device_kind=djl.DeviceKind.CDJ)
+    role = djl.default_role(djl.DeviceKind.CDJ)
+
+    ours = (
+        [djl.Hello(**common, payload=0x01) for _ in range(3)]
+        + [djl.ClaimMac(**common, iteration=n, flags=role, mac=mac) for n in (1, 2, 3)]
+        + [
+            djl.ClaimIp(
+                **common, ip=ip, mac=mac, device_number=1, iteration=n,
+                assignment_mode=djl.AssignmentMode.MANUAL,
+            )
+            for n in (1, 2, 3)
+        ]
+        + [djl.ClaimNumber(**common, device_number=1, iteration=1)]
+    )
+    assert [p.encode().hex() for p in ours] == NXS_CLAIM_SEQUENCE_JOINING
+
+
+def test_keepalive_byte_25_follows_first_on_network():
+    """FINDINGS F9: 0x02 when first on the network, 0x01 when joining.
+
+    Deck A sent 0x02 in S01 and S02 (booted alone both times) and 0x01 in S2c
+    (booted into an occupied network) -- the first time it had ever come up
+    0x01, and the prediction that closed the question.
+    """
+    from prolinks_poc.core.announcer import BYTE25_FIRST_ON_NETWORK, BYTE25_JOINED_PEERS
+
+    assert BYTE25_FIRST_ON_NETWORK == 0x02
+    assert BYTE25_JOINED_PEERS == 0x01
+
+    joining_keepalive = djl.KeepAlive(
+        name="CDJ-2000nexus", name_raw=b"", device_kind=djl.DeviceKind.CDJ,
+        device_number=1, mac=bytes.fromhex("745e1c5667ac"),
+        ip="169.254.103.172", peer_count=2, const_25=BYTE25_JOINED_PEERS,
+    )
+    assert joining_keepalive.encode()[0x25] == 0x01

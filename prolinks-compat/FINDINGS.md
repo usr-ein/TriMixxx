@@ -112,6 +112,53 @@ A real keep-alive from that capture is committed as a golden vector in
 so it can live in the repository and is available wherever the tests run.
 
 
+### F9 — Keep-alive byte `25` means "was I first on this network?"  *(confirmed)*
+
+A previously unexplained field, now pinned down. `research/02` §2 reads byte
+`25` as "`01` CDJ / `02` mixer"; python-prodj-link guesses "sometimes other
+player's id". Both are wrong.
+
+**It is latched at boot and held for the session: `02` if the device was the
+first on the network, `01` if peers were already present.**
+
+Six device-boots whose starting conditions we control, no exceptions:
+
+| Capture | Deck | Peer present at boot? | byte `25` | stage-3 packets |
+|---|---|---|---|---|
+| S01 | A (D=1) | no | `02` | 3 |
+| S1b | B (D=2) | no | `02` | 3 |
+| S02 | B (D=2) | **yes** | `01` | 1 |
+| S2c | A (D=1) | **yes** | `01` | 1 |
+| S2c | B (D=2) | no | `02` | — |
+| S02 | A (D=1) | no | `02` | — |
+
+The S2c capture was made as an explicit prediction: deck A had come up `02` in
+every prior capture, and booting it into a network where deck B was already
+running was predicted to flip it to `01`. It did, and deck A simultaneously
+dropped from three stage-3 packets to one.
+
+**The same latch drives both behaviours** (see C13). A device evidently records
+"am I the first here?" once at boot, then expresses it in two places: how many
+times it asserts its device number, and byte `25` of every subsequent
+keep-alive. It never re-evaluates — deck A held `02` across its peer count
+going 1→2 mid-session.
+
+Three earlier readings are ruled out by this data: not a CDJ/mixer role byte (a
+DJM sends both values), not the peer count (held constant across a change), and
+not "the other player's number" (dysentery's D=33 sends `01` with only D=2
+alive).
+
+*Implemented:* `VirtualCdj` latches `first_on_network` at `start()` and never
+recomputes it, selecting both the stage-3 repeat count and byte `25` from it.
+Both variants are held as golden vectors and our announcer reproduces each
+byte-for-byte.
+
+*Evidence:* `captures/S01-cold-boot-a`, `S1b-cold-boot-b-alone`,
+`S02-deck-b-joins`, `S2c-deck-a-joins`;
+`test_keepalive_byte_25_follows_first_on_network`,
+`test_our_announcer_reproduces_the_joining_handshake_byte_for_byte`.
+
+
 ---
 
 ## Corrections to the research docs
@@ -162,19 +209,10 @@ like a CDJ-2000nexus, the default is now `00`. `64` remains required for
 CDJ-3000 coexistence (`research/02` §1.6), which is untouched by this.
 *Evidence:* `test_nexus_keepalive_trailing_byte_is_zero`.
 
-### C4 — Keep-alive byte `25` is not a fixed role byte
+### C4 — Keep-alive byte `25` is not a fixed role byte  *(superseded by F9)*
 
-Documented as "`01` CDJ / `02` mixer". In fact **both** devices alternate:
-
-| Device | byte `25` values |
-|---|---|
-| CDJ-2000nexus | `01` ×117, `02` ×31 |
-| DJM-2000nexus | `02` ×59, `01` ×32 |
-
-python-prodj-link's comment on this field — "sometimes other player's id" —
-is closer to the truth than the role reading. Meaning still **open**. The
-codec preserves it verbatim rather than assuming a value; correlating it
-against the rest of the session is a good use of the hardware time tonight.
+Documented as "`01` CDJ / `02` mixer". Both devices were observed sending both
+values, so the role reading is wrong. **F9 now explains what it actually is.**
 
 ### C6 — The USB export is not always `/C/`
 
@@ -348,50 +386,7 @@ Unchanged, and still the single most important thing to establish. The
 "confirmed" NFS evidence in `research/06` §1 rests on an **XDJ** capture. The
 portmap traffic noted in O1 is suggestive but not yet decoded.
 
-### O3 — Keep-alive byte `25` is fixed at boot *(much narrowed)*
-
-Two corrections to my own earlier analysis of this byte:
-
-1. I first aggregated it by device **name** — but every CDJ-2000nexus reports
-   the identical name and dysentery's capture contains two of them, so I was
-   mixing devices together.
-2. Having regrouped by MAC, I then said it "varies within a single device over
-   dysentery's busier sessions". Also wrong: that was an artefact of pooling two
-   *separate captures*. Per capture, it is **constant for every device in every
-   capture we have** — five captures, ten device-sessions, zero variation:
-
-| Capture | Devices and their byte `25` |
-|---|---|
-| S01 (deck A alone) | D=1: `02` |
-| S1b (deck B alone) | D=2: `02` |
-| S02 (A up, B joins) | D=1: `02`, D=2: `01` |
-| dysentery LinkInfo | D=2: `02`, D=3: `01`, D=33: `01` |
-| dysentery LinkInfo2 | D=2: `01`, D=3: `01`, D=33: `02` |
-
-So it is **set once at boot and held for the session**, and the same physical
-deck can come up with either value on different boots. That kills the readings
-the sources offer — it is not a CDJ/mixer role byte, not the peer count (deck A
-held `02` across peers 1→2), and not "the other player's number" (dysentery's
-D=33 sends `01` with only D=2 alive).
-
-**Leading hypothesis, and it is the same variable as C13:** every boot whose
-starting conditions we actually know fits *alone at boot → `02`, peer present at
-boot → `01`*:
-
-| Boot | Peer present? | byte `25` |
-|---|---|---|
-| deck A (S01) | no | `02` |
-| deck B (S1b) | no | `02` |
-| deck B (S02) | yes | `01` |
-
-That is n=3, and dysentery cannot corroborate it because those captures start
-mid-session so the boot conditions are unknown. But it is striking that the
-stage-3 repeat count (C13) turns on exactly the same thing — suggesting both
-are expressions of one internal "am I the first device here?" state.
-
-**The decisive test is S2c**: boot deck A into a network where deck B is already
-up. Deck A has come up `02` in every capture so far; if it comes up `01` this
-time, the hypothesis holds and both C13 and O3 are closed by one power cycle.
+### ~~O3~~ — resolved, see F9.
 
 ### O4 — What are `0x3e03` and `0x3100`? *(see C11)*
 

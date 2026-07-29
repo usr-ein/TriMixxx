@@ -69,13 +69,26 @@ class AnnouncerState(enum.Enum):
     FAILED = "failed"
 
 
-#: The handshake stages in order, with how many packets each sends.
-_HANDSHAKE = (
-    (AnnouncerState.HELLO, 3),
-    (AnnouncerState.CLAIM_MAC, 3),
-    (AnnouncerState.CLAIM_IP, 3),
-    (AnnouncerState.CLAIM_NUMBER, 3),
-)
+#: Keep-alive byte ``25``, latched at boot: ``02`` if we were the first device
+#: on the network, ``01`` if peers were already present. See FINDINGS F9 --
+#: six observed boots, no exceptions.
+BYTE25_FIRST_ON_NETWORK = 0x02
+BYTE25_JOINED_PEERS = 0x01
+
+
+def _handshake_stages(first_on_network: bool):
+    """The handshake stages in order, with how many packets each sends.
+
+    The stage-3 repeat count is **not** governed by the auto/manual assignment
+    mode, as ``research/02`` §1.0 has it, but by whether anyone else was on the
+    network at boot: three when first, one when joining (FINDINGS C13).
+    """
+    return (
+        (AnnouncerState.HELLO, 3),
+        (AnnouncerState.CLAIM_MAC, 3),
+        (AnnouncerState.CLAIM_IP, 3),
+        (AnnouncerState.CLAIM_NUMBER, 3 if first_on_network else 1),
+    )
 
 
 class VirtualCdj:
@@ -116,6 +129,12 @@ class VirtualCdj:
         self.device_number = device_number
         self.sent: list[bytes] = []  # dry-run output
         self.conflicts: list[int] = []
+        #: Latched in :meth:`start`. Real decks decide this once at boot and
+        #: hold it for the whole session -- byte 0x25 never changed in any of
+        #: the ten device-sessions captured -- so it must not be recomputed as
+        #: peers come and go.
+        self.first_on_network: bool | None = None
+        self._handshake = _handshake_stages(True)
 
         self._stage = 0
         self._iteration = 0
@@ -128,6 +147,16 @@ class VirtualCdj:
     def start(self) -> None:
         """Begin announcing. Returns immediately; drive the loop to progress."""
         self.discovery.on_conflict = self._on_conflict
+        # Latch "was I first here?" now and never revisit it: a real deck
+        # decides this at boot, and it drives both the stage-3 repeat count
+        # and keep-alive byte 0x25 for the rest of the session.
+        self.first_on_network = len(self.discovery.table) == 0
+        self._handshake = _handshake_stages(self.first_on_network)
+        log.info(
+            "%s on the network (%d peer(s) already present)",
+            "first" if self.first_on_network else "joining",
+            len(self.discovery.table),
+        )
         if not self.claim:
             # No contention: just start emitting keep-alives at our number.
             self._enter(AnnouncerState.ACTIVE, f"announcing as device {self.device_number}")
@@ -174,14 +203,14 @@ class VirtualCdj:
 
     def _advance(self) -> None:
         """Send the next handshake packet, or transition to keep-alive."""
-        if self._stage >= len(_HANDSHAKE):
+        if self._stage >= len(self._handshake):
             self._enter(
                 AnnouncerState.ACTIVE, f"claimed device number {self.device_number}"
             )
             self._start_keepalive()
             return
 
-        state, count = _HANDSHAKE[self._stage]
+        state, count = self._handshake[self._stage]
         if state is not self.state:
             self._enter(state, f"{state.value} 1/{count}")
         self._iteration += 1
@@ -290,6 +319,12 @@ class VirtualCdj:
             ip=self.interface.ip,
             # Peer count includes ourselves (research/02 §2).
             peer_count=len(self.discovery.table) + 1,
+            # Latched at boot; see FINDINGS F9.
+            const_25=(
+                BYTE25_FIRST_ON_NETWORK
+                if self.first_on_network is not False
+                else BYTE25_JOINED_PEERS
+            ),
             trailing=self.trailing,
         )
 
