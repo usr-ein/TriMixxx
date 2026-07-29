@@ -103,11 +103,22 @@ class _Connection(threading.Thread):
         #: every later page came back empty -- which presented as the list
         #: going blank part-way down.
         #:
-        #: The render request's ``total`` argument is what distinguishes them
-        #: (692 for the track list, 8 for a metadata lookup), so that is the
-        #: key. Two concurrent menus of identical length would still collide;
-        #: nothing observed does that, and the fallback below covers it.
-        self.menus: dict[int, list[db.Message]] = {}
+        #: Keyed on ``(descriptor, item count)``. The count alone is not enough:
+        #: F27 used it because the two menus in that capture had different
+        #: sizes, and F32 then made a metadata reply exactly 13 items -- so
+        #: browsing a 13-track album destroyed the track list, because the
+        #: metadata menu overwrote it and every later page served metadata.
+        #:
+        #: The descriptor supplies the missing bit. Its menu-target byte
+        #: separates the list a deck is scrolling from the transient menu it
+        #: dips into, and it is present in both the menu request and the render
+        #: that pages through it::
+        #:
+        #:     MENU_TRACKS_FOR_ALBUM  desc=0x2010301  count=13   the list
+        #:     GET_METADATA           desc=0x2020301  count=13   the transient
+        #:
+        #: docs/FINDINGS.md F41.
+        self.menus: dict[tuple[int, int], list[db.Message]] = {}
         self.last_menu: list[db.Message] = []
         self.client_device_number = 0
 
@@ -166,6 +177,12 @@ class _Connection(threading.Thread):
                 self._send(reply.encode())
 
     # -- dispatch --------------------------------------------------------
+
+    @staticmethod
+    def _descriptor(message: db.Message) -> int:
+        """Argument 0 of any menu or render request, or 0 if absent."""
+        descriptor = message.args[0] if message.args else 0
+        return descriptor if isinstance(descriptor, int) else 0
 
     def _medium(self, message: db.Message):
         """The medium this request is about.
@@ -268,7 +285,7 @@ class _Connection(threading.Thread):
         # Establish the result set, then answer with its size. The client
         # follows up with 0x3000 to page through it -- possibly interleaved
         # with other menus, hence keying by size rather than replacing.
-        self.menus[len(items)] = items
+        self.menus[(self._descriptor(message), len(items))] = items
         self.last_menu = items
         return [db.Message(transaction, db.MessageType.SUCCESS,
                            [message.type, len(items)])]
@@ -296,9 +313,13 @@ class _Connection(threading.Thread):
         offset = message.number(1)
         limit = message.number(2)
         total = message.number(4)
-        # Pick the result set the client is actually paging through. It tells
-        # us which by echoing that menu's size in the total argument.
-        items = self.menus.get(total, self.last_menu)
+        # Pick the result set the client is paging through: it names the menu by
+        # echoing its descriptor and its size. Falling back to the most recent
+        # menu keeps a client that pages something we never established from
+        # getting an empty page.
+        items = self.menus.get((self._descriptor(message), total))
+        if items is None:
+            items = self.last_menu
         window = items[offset : offset + limit]
 
         out = [db.Message(message.transaction_id, db.MessageType.MENU_HEADER, [1, 0])]

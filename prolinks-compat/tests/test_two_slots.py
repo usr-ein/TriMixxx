@@ -72,9 +72,10 @@ def test_one_connection_serves_both_libraries(two_media):
             db.Message(1, db.MessageType.MENU_TRACK, [descriptor, 0])
         )
         assert replies[0].type is db.MessageType.SUCCESS
+        count = replies[0].args[1]
         return [
             item.args[3]
-            for item in connection.menus[replies[0].args[1]]
+            for item in connection.menus[(descriptor, count)]
         ]
 
     assert titles(MediaSlot.USB) == ["OnUsb"]

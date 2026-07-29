@@ -58,6 +58,7 @@ and analysis files · **METH** capture methodology.
 | [F38](#f38) | STAT | **LOAD SETTINGS** is a UDP `0x35`/`0x36` exchange reading `PIONEER/MYSETTING.DAT` |
 | [F39](#f39) | — | **All four containers play and settings load.** Serve objective complete |
 | [F40](#f40) | DB | Root ids derive from the **item type**; `0x14` is BITRATE, not KEY. Drill-downs added |
+| [F41](#f41) | DB | Result sets key on `(descriptor, count)` — count alone collided at 13 items |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1524,6 +1525,42 @@ format.
 indistinguishable to the user on a CDJ's screen. Any menu type we do not
 implement will look like a category that exists and is empty, so the list of
 implemented types is a user-visible surface rather than an internal detail.
+
+
+<a id="f41"></a>
+
+### F41 — Result sets must be keyed on the **descriptor**, not just the item count
+
+With the drill-downs implemented, browsing an album corrupted the view: the
+track list turned into metadata part-way through paging.
+
+F27 keyed each pending result set on its **item count**, because that was what
+distinguished the two menus in that capture — a 692-item track list and an
+8-item metadata lookup. F32 then made a metadata reply exactly **13** items. So
+a 13-track album collides:
+
+```
+MENU_TRACKS_FOR_ALBUM  desc=0x2010301  count=13   <- the list being scrolled
+GET_METADATA           desc=0x2020301  count=13   <- overwrites it
+RENDER off=1 total=13                             <- serves metadata
+```
+
+The **descriptor** supplies the missing bit, and it was there all along. Its
+menu-target byte separates the list a deck is scrolling (`M=1`) from the
+transient menu it dips into (`M=2`), and it appears in argument 0 of both the
+menu request *and* the render that pages through it. Keying on
+`(descriptor, count)` makes the two independent.
+
+*Worth noting about how this arrived.* F27's key was correct when written and
+became wrong when an unrelated change — making metadata 13 items to match a real
+deck — happened to collide with a plausible album length. Nothing in the
+protocol changed. That is the kind of coupling a comment cannot prevent, so the
+key now uses the field that actually identifies a menu rather than a proxy that
+happened to be unique.
+
+*Still not ground truth.* No capture shows a real player answering a drill-down,
+so their reply shapes remain inferred (F40), and the sort-order menus — by BPM,
+by key, by rating — have never been exercised at all.
 
 
 

@@ -97,7 +97,7 @@ two media sharing a root would be indistinguishable afterwards.
 STATUS.md          this file — current state
 README.md          what the repo is, how to run it
 docs/
-  FINDINGS.md      F1-F40, C1-C14, O1-O7 with evidence. Has an index.
+  FINDINGS.md      F1-F41, C1-C14, O1-O7 with evidence. Has an index.
   HARDWARE.md      runbook for a session with real CDJs
   CAPTURE-PLAN.md  the S1..S10 capture scenarios
 research/
@@ -109,7 +109,7 @@ prolinks_poc/
   net/             sockets, event loop, RPC/NFS client *and* server
   core/            discovery, announcer, library model, slots
   capture/         journal recorder, pcap reader, passivity guard
-tests/             248 tests, no hardware required
+tests/             249 tests, no hardware required
 tools/capture.sh   start a named scenario capture
 captures/
   S*/              named scenarios; NOTES.md and cmd.txt are tracked, pcaps are not

@@ -751,3 +751,52 @@ def test_bitrate_menu_puts_the_value_in_the_id_and_leaves_labels_empty():
     assert [i.args[1] for i in items] == [128, 320]
     assert all(i.args[3] == "" and i.args[5] == "" for i in items)
     assert all(i.args[6] == db.ItemType.BITRATE for i in items)
+
+
+def test_two_menus_of_the_same_size_do_not_collide(library):
+    """docs/FINDINGS.md F41.
+
+    F27 keyed result sets on item count because the two menus in that capture
+    had different sizes. F32 then made a metadata reply exactly 13 items, so
+    browsing a 13-track album destroyed the list: the metadata menu overwrote
+    it and every later page served metadata instead of tracks.
+
+    The descriptor's menu-target byte is what separates the list a deck scrolls
+    from the transient menu it dips into, and it is present in both the menu
+    request and the render.
+    """
+    server = DbServer(library, device_number=5, bind_ip="127.0.0.1",
+                      port=0, query_port=0)
+    connection = _Connection.__new__(_Connection)
+    connection.server = server
+    connection.peer = ("127.0.0.1", 1)
+    connection.menus = {}
+    connection.last_menu = []
+    connection.client_device_number = 2
+
+    listing = db.descriptor(2, MediaSlot.USB, db.MenuTarget.MAIN)
+    transient = db.descriptor(2, MediaSlot.USB, 2)
+    assert listing != transient
+
+    track = next(iter(library.tracks.values()))
+    # Establish a listing, then a same-sized transient menu over the top of it.
+    listing_items = server._track_list(0)
+    connection.menus[(listing, len(listing_items))] = listing_items
+    metadata = server._metadata(track.id)
+    connection.menus[(transient, len(metadata))] = metadata
+
+    def render(descriptor, total, limit=64):
+        replies = connection.handle(db.Message(
+            9, db.MessageType.RENDER_MENU, [descriptor, 0, limit, 0, total, 0]
+        ))
+        return [r for r in replies if r.type is db.MessageType.MENU_ITEM]
+
+    # Force the collision: make both menus the same length.
+    connection.menus[(listing, len(metadata))] = listing_items[: len(metadata)]
+    from_listing = render(listing, len(metadata))
+    from_transient = render(transient, len(metadata))
+
+    assert [i.args[6] for i in from_listing] != [i.args[6] for i in from_transient], (
+        "the listing and the transient menu must not resolve to the same items"
+    )
+    assert from_transient[0].args[6] == db.ItemType.TRACK_TITLE
