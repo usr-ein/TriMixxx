@@ -159,6 +159,41 @@ byte-for-byte.
 `test_our_announcer_reproduces_the_joining_handshake_byte_for_byte`.
 
 
+### F10 — **A CDJ-2000NXS serves NFS.** Experiment E4 passed  *(confirmed)*
+
+The go/no-go gate for the entire chosen transport, and it passes. With a USB
+stick inserted and the deck idle:
+
+```
+program   v  prot   port  name
+ 100003   2  udp    2049  nfs
+ 100005   1  udp   48276  mountd
+ 100000   2  udp     111  portmapper
+```
+
+Why this mattered: `research/06` §1 marks "standalone CDJs export NFS" as
+*confirmed*, but its evidence is libcdj's `rpcinfo` against an **XDJ**, and the
+players in dysentery's `LinkInfo` capture are not identified. The CDJ-2000NXS is
+a 2012 unit and nothing established that it had an RPC stack at all. Had this
+come back empty, the NFS path would have been dead for this hardware and the
+project would have had to pivot to dbserver.
+
+The ports match libcdj's XDJ observation and dysentery's capture **exactly** —
+nfsd on the standard 2049, mountd on the distinctly non-standard 48276. Three
+independent observations, three different devices, same numbers. Portmap
+discovery is still required, but 48276 looks like a Pioneer constant rather than
+a per-boot allocation.
+
+*Also answers E1 in passing.* Nothing in this session has ever transmitted on a
+DJ-Link port — `devices`, `sniff` and `pcap` only listen, and `rpcinfo` speaks
+RPC from an ephemeral port. So **NFS access works with no announcement at all**,
+which is what lets the Mixxx feature browse a live rig without claiming a device
+number or risking anything. Worth re-confirming with `--assert-passive`, which
+turns it from "we did not transmit" into "we could not have".
+
+*Evidence:* `captures/S04-media-insert`, deck A at 169.254.103.172.
+
+
 ---
 
 ## Corrections to the research docs
@@ -380,11 +415,7 @@ alongside the dbserver conversation, which is the first published hint that a
 real player touches the RPC stack during a LINK session. Worth pulling apart
 before tonight's hardware run.
 
-### O2 — Does a CDJ-2000NXS serve NFS? *(the go/no-go gate, experiment E4)*
-
-Unchanged, and still the single most important thing to establish. The
-"confirmed" NFS evidence in `research/06` §1 rests on an **XDJ** capture. The
-portmap traffic noted in O1 is suggestive but not yet decoded.
+### ~~O2~~ — resolved: **yes**, see F10.
 
 ### ~~O3~~ — resolved, see F9.
 
