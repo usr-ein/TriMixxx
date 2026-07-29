@@ -115,12 +115,29 @@ It goes active on its own once a deck powers on. **This does not block S1**:
 can start with everything still off. The address only matters for running
 `prolinks`, which happens after the decks are up regardless.
 
-If it is still missing once a deck is on and `status: active`, set it directly
-in the kernel, bypassing IPConfiguration:
+**Use `ipconfig set`, not `ifconfig inet`.** They are not interchangeable for
+link-local addresses, and the difference is invisible until nothing works:
 
 ```bash
-sudo ifconfig bridge1 inet 169.254.99.100 netmask 255.255.0.0
+sudo ipconfig set en9 MANUAL 169.254.99.100 255.255.0.0     # works
+sudo ifconfig en9 inet 169.254.99.100 netmask 255.255.0.0   # looks identical, does not work
 ```
+
+`ifconfig` writes the address straight into the kernel; `ipconfig` goes through
+IPConfiguration, which performs the RFC 3927 link-local ARP probe and
+announcement that makes a 169.254 address actually usable. After `ifconfig`,
+`ifconfig en9 | grep inet` shows exactly what you asked for, the route looks
+right — and every ARP for a peer stays `(incomplete)`, so every unicast fails
+with "Host is down" while broadcast reception keeps working perfectly. That
+combination is deeply misleading: you can *see* the decks and cannot *reach*
+them.
+
+Diagnose with `arp -an | grep 169.254`. An `(incomplete)` entry for a deck
+means the address is not properly announced, not that the deck is absent.
+
+Note also that **a CDJ does not answer ICMP**, so `ping` is useless as a
+reachability test. Use `prolinks rpcinfo <ip>` instead -- it is one RPC round
+trip and it exercises the path that matters.
 
 Once the decks are up, confirm neither of them picked `169.254.99.100` — the
 address is chosen statically here rather than ARP-probed, so a collision is
