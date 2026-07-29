@@ -48,7 +48,7 @@ from .net.vfs import Vfs
 from .net.rpcclient import RpcTimeout
 from .net.udp import UdpChannel, djl_socket
 from .proto import dbserver as dbproto
-from .proto import djl, mountd, nfs2, portmap, rpc
+from .proto import djl, mountd, mysetting, nfs2, portmap, rpc
 from .proto.bytes import hexdump
 from .proto.errors import ProlinkError
 
@@ -200,6 +200,23 @@ def _build_credential(args: argparse.Namespace):
         return rpc.AUTH_NULL_CRED
     stamp = getattr(args, "stamp", None)
     return rpc.AuthUnix(stamp=stamp if stamp is not None else rpc.STAMP_OBSERVED_CDJ)
+
+
+def _read_device_settings(volume: Path) -> bytes:
+    """The medium's saved utility settings, or empty if it has none.
+
+    A player asking to load settings from us does **not** read the file over
+    NFS -- it asks on UDP 50002 and expects the bytes inline (F38) -- so the
+    server has to read it itself.
+    """
+    path = volume / mysetting.MY_SETTING_PATH
+    try:
+        settings = mysetting.settings_payload(path.read_bytes())
+    except OSError:
+        return b""
+    if settings:
+        log.debug("loaded %d bytes of device settings from %s", len(settings), path)
+    return settings
 
 
 def _default_capture_dir() -> Path:
@@ -1271,6 +1288,7 @@ def cmd_serve(ctx: Context) -> int:
             # slots, however loudly we announce (FINDINGS F20/F21).
             emit_status=True, has_usb=True, recorder=ctx.recorder,
             media_name=volume.name,
+            device_settings=_read_device_settings(volume),
             track_count=len(library.tracks),
             playlist_count=sum(1 for p in library.playlists.values() if not p.is_folder),
             on_state=lambda state, message: _warn(f"  [{state.value}] {message}"),

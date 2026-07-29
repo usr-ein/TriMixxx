@@ -52,6 +52,12 @@ class StatusType(enum.IntEnum):
     MIXER_STATUS = 0x29
     MEDIA_QUERY = 0x05
     MEDIA_RESPONSE = 0x06
+    #: "Load settings from that device's medium." Undocumented anywhere, and the
+    #: mechanism is a surprise: the settings do **not** travel as a file. A deck
+    #: told to load settings from a peer's USB mounts the export, reads nothing
+    #: from it, and asks for them here instead. docs/FINDINGS.md F38.
+    SETTINGS_QUERY = 0x35
+    SETTINGS_RESPONSE = 0x36
 
 
 class MediaState(enum.IntEnum):
@@ -359,4 +365,94 @@ def build_media_response(
     packet[OFF_MR_PLAYLIST_COUNT : OFF_MR_PLAYLIST_COUNT + 4] = (
         playlist_count & 0xFFFFFFFF
     ).to_bytes(4, "big")
+    return bytes(packet)
+
+
+# -- device settings ("MY SETTINGS" / LOAD SETTINGS) -----------------------
+#
+# A CDJ can adopt the utility settings -- brightness, key display format, jog
+# tension and so on -- stored on a medium by rekordbox. Doing that from a
+# *peer's* medium over LINK turns out not to involve the medium's filesystem at
+# all: the requesting deck mounts the NFS export and then never reads a byte,
+# asking over UDP 50002 instead. The owner reads its own local file and hands
+# back the settings inline. docs/FINDINGS.md F38.
+
+#: Offsets shared by both packets. The 50002 header puts the name at 0x0b-0x1e
+#: with the structural 0x01 at 0x1f (C14), so the body starts at 0x20.
+OFF_SET_DEVICE = 0x21          #: sender's device number
+OFF_SET_LENGTH = 0x22          #: u16, bytes following 0x24
+OFF_SET_REQUESTER = 0x24       #: device number that asked
+OFF_SET_SLOT = 0x25            #: slot being read from
+#: Response only.
+OFF_SET_MAGIC = 0x28
+OFF_SET_UNKNOWN = 0x2C
+OFF_SET_PAYLOAD = 0x30
+
+#: Leads the settings block in the response. Meaning unknown; it is a constant
+#: in the one exchange captured, and conspicuous enough to be worth naming.
+SETTINGS_MAGIC = 0x12345678
+
+#: Bytes of settings carried in a response.
+LEN_SETTINGS = 32
+
+
+@dataclass(frozen=True)
+class SettingsQuery:
+    """A type-``0x35`` request: "give me the settings on your slot N".
+
+    There is no target field: the packet is unicast, so the destination address
+    identifies whose medium is being asked about. Unlike the media query
+    (``0x05``), which names its target explicitly.
+    """
+
+    #: Device number that wants the settings. Appears twice, at 0x21 as the
+    #: sender and at 0x24 as the requester -- the same value in a query, and
+    #: different in the response, which is how the two are told apart.
+    requester: int
+    sender: int
+    slot: int
+
+
+def decode_settings_query(data: bytes) -> SettingsQuery:
+    if (
+        len(data) < 0x28
+        or data[:MAGIC_LEN] != MAGIC
+        or data[MAGIC_LEN] != StatusType.SETTINGS_QUERY
+    ):
+        raise DecodeError("not a settings query")
+    return SettingsQuery(
+        requester=data[OFF_SET_REQUESTER],
+        sender=data[OFF_SET_DEVICE],
+        slot=data[OFF_SET_SLOT],
+    )
+
+
+def build_settings_response(
+    *, device_number: int, requester: int, slot: int, settings: bytes,
+    name: str = "CDJ-2000nexus",
+) -> bytes:
+    """A type-``0x36`` reply carrying *settings* verbatim.
+
+    *settings* is padded or truncated to :data:`LEN_SETTINGS`. Its contents are
+    deliberately not interpreted: the observed bytes look like ``0x80``-based
+    enumerations (``80``/``81``/``88``/``01``/``00``) but nothing maps them to
+    the named options on the deck's screen, and a server only has to hand over
+    what the medium holds.
+    """
+    body = bytes(settings)[:LEN_SETTINGS].ljust(LEN_SETTINGS, b"\x00")
+    packet = bytearray(OFF_SET_PAYLOAD + LEN_SETTINGS)
+    packet[:MAGIC_LEN] = MAGIC
+    packet[MAGIC_LEN] = StatusType.SETTINGS_RESPONSE
+    encoded = name.encode("ascii", errors="replace")[:LEN_NAME_STATUS]
+    packet[OFF_NAME : OFF_NAME + LEN_NAME_STATUS] = encoded.ljust(LEN_NAME_STATUS, b"\x00")
+    packet[0x1F] = 0x01
+    packet[OFF_SET_DEVICE] = device_number & 0xFF
+    packet[OFF_SET_LENGTH : OFF_SET_LENGTH + 2] = (
+        len(packet) - 0x24
+    ).to_bytes(2, "big")
+    packet[OFF_SET_REQUESTER] = requester & 0xFF
+    packet[OFF_SET_SLOT] = slot & 0xFF
+    packet[OFF_SET_MAGIC : OFF_SET_MAGIC + 4] = SETTINGS_MAGIC.to_bytes(4, "big")
+    packet[OFF_SET_UNKNOWN : OFF_SET_UNKNOWN + 4] = (2).to_bytes(4, "big")
+    packet[OFF_SET_PAYLOAD:] = body
     return bytes(packet)

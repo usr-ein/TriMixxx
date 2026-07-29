@@ -44,6 +44,7 @@ A real CDJ-2000NXS, with nothing but a Mac and a USB stick on the other end:
 | NFS mount, path walk to the audio file | works | F28 |
 | **Load and play a track** | works | F30, F31, F32 |
 | Hot cues, preview waveform, scrubbing | works | F32 |
+| LOAD SETTINGS from our medium | works | F38 |
 | **Scrolling (main) waveform** | works | F33 |
 
 S10j is the first session with **zero errors**: every request a CDJ-2000NXS
@@ -89,7 +90,7 @@ can serve `/B/` and `/C/` together.
 STATUS.md          this file — current state
 README.md          what the repo is, how to run it
 docs/
-  FINDINGS.md      F1-F36, C1-C14, O1-O7 with evidence. Has an index.
+  FINDINGS.md      F1-F38, C1-C14, O1-O7 with evidence. Has an index.
   HARDWARE.md      runbook for a session with real CDJs
   CAPTURE-PLAN.md  the S1..S10 capture scenarios
 research/
@@ -101,7 +102,7 @@ prolinks_poc/
   net/             sockets, event loop, RPC/NFS client *and* server
   core/            discovery, announcer, library model, slots
   capture/         journal recorder, pcap reader, passivity guard
-tests/             224 tests, no hardware required
+tests/             232 tests, no hardware required
 tools/capture.sh   start a named scenario capture
 captures/
   S*/              named scenarios; NOTES.md and cmd.txt are tracked, pcaps are not

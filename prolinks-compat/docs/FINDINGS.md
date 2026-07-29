@@ -55,6 +55,7 @@ and analysis files · **METH** capture methodology.
 | [F35](#f35) | DB | `GET_TRACK_INFO` item **1** is the container; item 6 is a constant `1` |
 | [F36](#f36) | DISC | **Auto numbering**: byte `31` = `01`, and a type-`05` "number in use" reply |
 | [F37](#f37) | NFS | SD is `/B/`; **one** dbserver connection multiplexes both slots by descriptor byte |
+| [F38](#f38) | STAT | **LOAD SETTINGS** is a UDP `0x35`/`0x36` exchange reading `PIONEER/MYSETTING.DAT` |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1380,6 +1381,72 @@ preferred path because one capture showed `/C/` and `/C/EXPORT` on different
 peers, and that is still the more robust client behaviour — but it is *not* what
 the hardware does, so a server that only answers `MNT` would satisfy a real
 player. Worth knowing before treating `EXPORT` as load-bearing.
+
+
+<a id="f38"></a>
+
+### F38 — LOAD SETTINGS over LINK is a **UDP exchange, not a file read**
+
+A CDJ can adopt the utility settings a medium carries — LCD brightness, whether
+the key display is alphanumeric or classic, jog tension, auto-cue level. Doing
+that from a **peer's** medium turns out not to touch the medium's filesystem at
+all.
+
+Deck B, told to load settings from deck A's USB:
+
+```
+MNT '/C/'                          <- mounts the export
+   ...and then reads nothing. Zero LOOKUPs, zero READs.
+0x35  deck B -> deck A   40B, unicast   requester=2, slot=3
+0x36  deck A -> deck B   80B, unicast   requester=2, slot=3, then 32 bytes
+```
+
+Two packet types nobody has documented, on UDP 50002. The mount is real and
+then abandoned, which is the tell: a server that only implemented NFS would see
+a mount, conclude nothing was wanted, and never learn a request had been made.
+
+**The bytes come from `PIONEER/MYSETTING.DAT`.** With the medium back on the
+Mac, that file's 32 bytes at offset `0x70` are exactly what crossed the wire.
+The container is uniform across the four variants a real stick carries:
+
+```
+0x00  u32       header length, always 96
+0x04  char[32]  brand      "PIONEER" / "PIONEER DJ" / "PioneerDJ"
+0x24  char[32]  creator    "rekordbox"
+0x44  char[32]  version    "0.001" / "7.1.0" / "1.000"
+0x64  u32       payload length
+0x68  payload   -- 0x12345678, one word, then the settings
+      u16       checksum, then two pad bytes
+```
+
+**Little-endian**, unlike the big-endian ANLZ files sitting beside it, and the
+`0x12345678` appears **big-endian** on the wire. So the type-`0x36` payload is
+the file's payload with its two leading words byte-swapped and the settings
+verbatim.
+
+*Implemented and verified:* reading the file off the medium and building a reply
+reproduces the real deck's 80 bytes **byte for byte**, and the announcer answers
+a captured `0x35` with exactly that.
+
+**Four settings files exist; only one is understood.**
+
+| File | payload | magic | |
+|---|---|---|---|
+| `MYSETTING.DAT` | 32 | yes | the one observed on the wire |
+| `MYSETTING2.DAT` | 40 | **no** | settings appear to start at `0x68` |
+| `DEVSETTING.DAT` | 24 | yes | brand `PIONEER DJ`, version 7.1.0 |
+| `DJMMYSETTING.DAT` | 44 | yes | mixer settings |
+
+`MYSETTING2.DAT` is left uninterpreted rather than guessed at: without the magic,
+its first eight bytes are settings data, and reading them as a header would be
+inventing a format. Nothing in the capture says how a deck would ask for the
+other three — the `0x35` request has no field that obviously selects one — so
+that is open.
+
+*Not interpreted:* the 32 settings bytes themselves. They look like `0x80`-based
+enumerations (`80`/`81`/`88`/`01`/`00`) but nothing maps them to the named
+options on the deck's screen, and a server only has to hand over what the medium
+holds. Decoding them would be needed to *display* settings, not to serve them.
 
 
 

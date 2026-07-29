@@ -129,6 +129,7 @@ class VirtualCdj:
         media_name: str = "",
         track_count: int = 0,
         playlist_count: int = 0,
+        device_settings: bytes = b"",
         recorder=None,
         on_state: Callable[[AnnouncerState, str], None] | None = None,
     ) -> None:
@@ -154,6 +155,11 @@ class VirtualCdj:
         self.media_name = media_name
         self.track_count = track_count
         self.playlist_count = playlist_count
+        #: 32 bytes from the medium's ``PIONEER/MYSETTING.DAT``, answered to a
+        #: type-0x35 query. Empty means "no settings on this medium", which
+        #: the reply has a representation for.
+        self.device_settings = device_settings
+        self.settings_queries_answered = 0
         self.media_queries_answered = 0
         self.recorder = recorder
         self._status_channel: UdpChannel | None = None
@@ -383,7 +389,10 @@ class VirtualCdj:
         )
 
     def _on_status_datagram(self, data: bytes, peer) -> None:
-        """Answer media queries; ignore everything else on this port."""
+        """Answer media and settings queries; ignore everything else here."""
+        if len(data) > status.MAGIC_LEN and data[status.MAGIC_LEN] == status.StatusType.SETTINGS_QUERY:
+            self._answer_settings_query(data, peer)
+            return
         try:
             query = status.decode_media_query(data)
         except DecodeError:
@@ -404,6 +413,31 @@ class VirtualCdj:
         log.info(
             "answered media query from %s for slot %d (%d tracks, %d playlists)",
             query.requester_ip, query.slot, self.track_count, self.playlist_count,
+        )
+
+    def _answer_settings_query(self, data: bytes, peer) -> None:
+        """Answer a type-``0x35`` "load settings from your medium" request.
+
+        The settings travel inline; the requester mounts our NFS export and
+        never reads the file (F38). An empty block is a legitimate answer -- a
+        medium with no saved settings -- so a missing file is not an error.
+        """
+        try:
+            query = status.decode_settings_query(data)
+        except DecodeError:
+            return
+        reply = status.build_settings_response(
+            device_number=self.device_number,
+            requester=query.requester,
+            slot=query.slot,
+            settings=self.device_settings,
+            name=self.name,
+        )
+        self._query_channel.sendto(reply, (peer[0], status.STATUS_PORT))
+        self.settings_queries_answered += 1
+        log.info(
+            "answered settings query from %s for slot %d (%d bytes)",
+            peer[0], query.slot, len(self.device_settings),
         )
 
     def build_status(self) -> bytes:

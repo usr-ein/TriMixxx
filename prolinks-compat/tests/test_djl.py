@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from prolinks_poc.proto import djl
+from prolinks_poc.core.slots import MediaSlot
+from prolinks_poc.proto import djl, djl_status
 from prolinks_poc.proto.errors import DecodeError
 
 NAME = "CDJ-2000nexus"
@@ -582,3 +583,116 @@ def test_stage_two_claim_assignment_mode_byte(mode, expected):
         "000001020032a9feca54745e1c56ca5402010101"
     )
     assert djl.decode(real_auto).assignment_mode == djl.AssignmentMode.AUTO
+
+
+# The one captured LOAD SETTINGS exchange: deck B (device 2) asking deck A
+# (device 1) for the settings on its USB, and deck A's reply.
+# ``captures/S16a-settings-over-link``.
+NXS_SETTINGS_QUERY = bytes.fromhex(
+    "5173707431576d4a4f4c3543444a2d323030306e657875730000000000000001"
+    "0002000402030000"
+)
+NXS_SETTINGS_RESPONSE = bytes.fromhex(
+    "5173707431576d4a4f4c3643444a2d323030306e657875730000000000000001"
+    "0001002c02030000123456780000000281818188810181818101010180808081"
+    "8081800000800000818181818180 0000".replace(" ", "")
+)
+
+
+def test_settings_query_decodes():
+    """FINDINGS F38. LOAD SETTINGS from a peer's medium is a UDP 50002
+    request/response pair, not a file read -- the deck mounts the NFS export and
+    then never touches it."""
+    query = djl_status.decode_settings_query(NXS_SETTINGS_QUERY)
+    assert query.requester == 2
+    assert query.sender == 2
+    assert query.slot == MediaSlot.USB
+
+
+def test_settings_response_is_reproduced_byte_for_byte():
+    query = djl_status.decode_settings_query(NXS_SETTINGS_QUERY)
+    settings = NXS_SETTINGS_RESPONSE[djl_status.OFF_SET_PAYLOAD:]
+    assert len(settings) == djl_status.LEN_SETTINGS == 32
+
+    built = djl_status.build_settings_response(
+        device_number=1, requester=query.requester, slot=query.slot,
+        settings=settings,
+    )
+    assert built == NXS_SETTINGS_RESPONSE
+
+
+def test_settings_response_pads_a_short_block():
+    built = djl_status.build_settings_response(
+        device_number=3, requester=2, slot=MediaSlot.SD, settings=b"\x81\x80",
+    )
+    assert len(built) == djl_status.OFF_SET_PAYLOAD + djl_status.LEN_SETTINGS
+    assert built[djl_status.OFF_SET_PAYLOAD:] == b"\x81\x80" + bytes(30)
+    assert built[djl_status.OFF_SET_SLOT] == MediaSlot.SD
+
+
+# PIONEER/MYSETTING.DAT from the medium that answered the query above, header
+# and payload verbatim. 148 bytes on disk; the trailing checksum is included.
+REAL_MYSETTING_DAT = bytes.fromhex(
+    "60000000" + b"PIONEER".hex() + "00" * 25
+    + b"rekordbox".hex() + "00" * 23
+    + b"0.001".hex() + "00" * 27
+    + "28000000" "78563412" "02000000"
+    + "81818188810181818101010180808081"
+    + "8081800000800000818181818180 0000".replace(" ", "")
+    + "c78b0000"
+)
+
+
+def test_mysetting_file_parses():
+    """FINDINGS F38. Little-endian, unlike the big-endian ANLZ files beside it."""
+    from prolinks_poc.proto import mysetting
+
+    parsed = mysetting.parse(REAL_MYSETTING_DAT)
+    assert (parsed.brand, parsed.creator, parsed.version) == (
+        "PIONEER", "rekordbox", "0.001"
+    )
+    assert parsed.has_magic
+    assert len(parsed.settings) == mysetting.SETTINGS_LENGTH == 32
+
+
+def test_the_settings_file_produces_the_captured_reply_byte_for_byte():
+    """The whole point: file on the medium -> bytes on the wire.
+
+    This is the pair that pins F38 -- the request, the reply a real deck sent,
+    and the file it read them from.
+    """
+    from prolinks_poc.proto import mysetting
+
+    query = djl_status.decode_settings_query(NXS_SETTINGS_QUERY)
+    built = djl_status.build_settings_response(
+        device_number=1, requester=query.requester, slot=query.slot,
+        settings=mysetting.settings_payload(REAL_MYSETTING_DAT),
+    )
+    assert built == NXS_SETTINGS_RESPONSE
+
+
+def test_a_medium_without_settings_yields_an_empty_block():
+    """Normal, not an error: the reply has a representation for it."""
+    from prolinks_poc.proto import mysetting
+
+    assert mysetting.settings_payload(b"") == b""
+    assert mysetting.settings_payload(b"\x00" * 200) == b""
+
+
+def test_mysetting2_is_recognised_but_not_interpreted():
+    """It lacks the payload magic, so its first eight bytes are settings data
+    rather than a header. Returning them as though they were a magic and a
+    count would be inventing a format."""
+    from prolinks_poc.proto import mysetting
+
+    without_magic = bytearray(REAL_MYSETTING_DAT)
+    without_magic[0x68:0x6C] = b"\x80\x80\x82\x81"
+    parsed = mysetting.parse(bytes(without_magic))
+    assert not parsed.has_magic
+    assert parsed.settings == b""
+
+
+def test_a_payload_running_past_the_buffer_is_rejected():
+    truncated = bytearray(REAL_MYSETTING_DAT[:0x80])
+    with pytest.raises(DecodeError, match="payload claims"):
+        __import__("prolinks_poc.proto.mysetting", fromlist=["parse"]).parse(bytes(truncated))
