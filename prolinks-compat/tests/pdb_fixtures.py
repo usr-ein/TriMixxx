@@ -139,12 +139,17 @@ class PdbBuilder:
 
 def track_row(track_id: int, title: str, artist_id: int, bpm_100: int, path: str,
                analyze_path: str = "/PIONEER/USBANLZ/P001/00001/ANLZ0000.DAT",
-               file_type: int = 1, disc_number: int = 1) -> bytes:
+               file_type: int = 1, disc_number: int = 1,
+               album_id: int = 0, genre_id: int = 0,
+               track_number: int = 0, bitrate: int = 320) -> bytes:
     """A track row: fixed part, 21-entry string offset table, then the strings."""
     row = bytearray(0x5E + 21 * 2)
     struct.pack_into("<H", row, 0x00, 0x24)  # magic
     struct.pack_into("<I", row, 0x08, 44100)  # sample_rate
-    struct.pack_into("<I", row, 0x30, 320)  # bitrate
+    struct.pack_into("<I", row, 0x30, bitrate)
+    struct.pack_into("<I", row, 0x34, track_number)
+    struct.pack_into("<I", row, 0x3C, genre_id)
+    struct.pack_into("<I", row, 0x40, album_id)
     struct.pack_into("<I", row, 0x38, bpm_100)
     struct.pack_into("<I", row, 0x44, artist_id)
     struct.pack_into("<I", row, 0x48, track_id)
@@ -173,6 +178,15 @@ def artist_row(artist_id: int, name: str) -> bytes:
 
 def id_name_row(row_id: int, name: str) -> bytes:
     return struct.pack("<I", row_id) + encode_piostring(name)
+
+
+def album_row(album_id: int, name: str, album_artist_id: int = 0) -> bytes:
+    """Magic ``0x80``: two ids at 0x08, and a one-byte name offset at 0x15."""
+    row = bytearray(0x16)
+    struct.pack_into("<H", row, 0, 0x80)
+    struct.pack_into("<II", row, 0x08, album_artist_id, album_id)
+    row[0x15] = 0x16
+    return bytes(row) + encode_piostring(name)
 
 
 def playlist_row(playlist_id: int, name: str, parent_id: int, is_folder: bool) -> bytes:

@@ -57,6 +57,7 @@ and analysis files · **METH** capture methodology.
 | [F37](#f37) | NFS | SD is `/B/`; **one** dbserver connection multiplexes both slots by descriptor byte |
 | [F38](#f38) | STAT | **LOAD SETTINGS** is a UDP `0x35`/`0x36` exchange reading `PIONEER/MYSETTING.DAT` |
 | [F39](#f39) | — | **All four containers play and settings load.** Serve objective complete |
+| [F40](#f40) | DB | Root ids derive from the **item type**; `0x14` is BITRATE, not KEY. Drill-downs added |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1476,6 +1477,53 @@ from the medium's own `MYSETTING.DAT` (F38).
 **Both objectives are now demonstrated end to end against real hardware.** What
 remains in Phase A is the two-slot work (F37) and the unexplained fields listed
 in `STATUS.md`, none of which block anything.
+
+
+<a id="f40"></a>
+
+### F40 — Root-menu ids are derived from the **item type**, and F26's rule was wrong for KEY
+
+Two slots worked on the first try, and browsing exposed two bugs that had been
+there since the root menu first rendered.
+
+**1. `0x14` is BITRATE, not KEY.** F26 derived a root item's category id from
+the low byte of the corresponding *menu request* type. That agrees for five
+categories and is a coincidence: a real player's root items show a constant
+offset between the id and the **item type**, not the request type.
+
+| Category | id | item type | difference |
+|---|---|---|---|
+| GENRE | 1 | `0x80` | `0x7f` |
+| ARTIST | 2 | `0x81` | `0x7f` |
+| ALBUM | 3 | `0x82` | `0x7f` |
+| PLAYLIST | 5 | `0x84` | `0x7f` |
+| LABEL | `0xa` | `0x89` | `0x7f` |
+| BITRATE | **`0x14`** | `0x93` | `0x7f` |
+
+`MENU_KEY` is `0x1014`, so F26's rule gave KEY the id `0x14` — which a real
+player uses for **BITRATE**. The deck did exactly as told: opening our "KEY"
+category, it sent `MENU_BITRATE`, got `0x4003`, and showed nothing. KEY's id is
+`item_type - 0x7f` = `0x0c`.
+
+The id is now derived from the item type, so the two cannot disagree again.
+
+**2. Drilling into a category was never implemented.** `MENU_ARTISTS_FOR_GENRE`,
+`MENU_ALBUMS_FOR_ARTIST` and `MENU_TRACKS_FOR_ALBUM` all fell through to the
+unknown-request path and returned `0x4003`. **A deck renders that as an empty
+folder, not as an error**, which is why browsing looked correct until you went
+two levels deep — ARTIST listed every artist, and picking one showed "EMPTY".
+
+The filter id is argument 2 in all three, observed across 32 requests. The
+request shapes are confirmed; **the reply shapes are inferred** by analogy with
+the flat menus, because no capture we have shows a real player answering one.
+`MENU_BITRATE` is implemented too, and that one *is* confirmed — a real server's
+reply puts the value in the id and leaves both labels empty for the deck to
+format.
+
+*Worth noting for the Mixxx port:* an error and an empty folder are
+indistinguishable to the user on a CDJ's screen. Any menu type we do not
+implement will look like a category that exists and is empty, so the list of
+implemented types is a user-visible surface rather than an internal detail.
 
 
 

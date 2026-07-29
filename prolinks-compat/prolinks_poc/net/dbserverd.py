@@ -460,6 +460,14 @@ class DbServer:
             return self._by_name(medium.library.keys, db.ItemType.KEY)
         if request_type == db.MessageType.GET_TRACK_INFO:
             return self._track_info(message.number(1), medium)
+        if request_type == db.MessageType.MENU_ARTISTS_FOR_GENRE:
+            return self._artists_for_genre(message.number(2), medium)
+        if request_type == db.MessageType.MENU_ALBUMS_FOR_ARTIST:
+            return self._albums_for_artist(message.number(2), medium)
+        if request_type == db.MessageType.MENU_TRACKS_FOR_ALBUM:
+            return self._tracks_for_album(message.number(2), medium)
+        if request_type == db.MessageType.MENU_BITRATE:
+            return self._bitrate_menu(medium)
         if request_type == db.MessageType.MENU_SEARCH:
             return self._search(message.string(2), medium)
         return None
@@ -504,6 +512,14 @@ class DbServer:
             return self._by_name(medium.library.keys, db.ItemType.KEY)
         if request_type == db.MessageType.GET_TRACK_INFO:
             return self._track_info(message.number(1), medium)
+        if request_type == db.MessageType.MENU_ARTISTS_FOR_GENRE:
+            return self._artists_for_genre(message.number(2), medium)
+        if request_type == db.MessageType.MENU_ALBUMS_FOR_ARTIST:
+            return self._albums_for_artist(message.number(2), medium)
+        if request_type == db.MessageType.MENU_TRACKS_FOR_ALBUM:
+            return self._tracks_for_album(message.number(2), medium)
+        if request_type == db.MessageType.MENU_BITRATE:
+            return self._bitrate_menu(medium)
         if request_type == db.MessageType.MENU_SEARCH:
             return self._search(message.string(2), medium)
         return None
@@ -565,13 +581,18 @@ class DbServer:
     #: Root-menu categories: item type, label, and the id a real player puts in
     #: argument 2 -- the low byte of the corresponding menu request type
     #: (GENRE 0x1001 -> 1, ARTIST 0x1002 -> 2, PLAYLIST 0x1105 -> 5).
+    #: Root categories we offer, as ``(item type, label)``. The per-category id
+    #: is **derived** from the item type by :data:`db.ROOT_CATEGORY_ID_BIAS`
+    #: rather than listed, because deriving it from the *request* type -- F26's
+    #: rule -- silently produced the wrong id for KEY and made a deck open
+    #: BITRATE instead. See docs/FINDINGS.md F40.
     ROOT_CATEGORIES = (
-        (db.ItemType.MENU_GENRE, "GENRE", db.MessageType.MENU_GENRE & 0xFF),
-        (db.ItemType.MENU_ARTIST, "ARTIST", db.MessageType.MENU_ARTIST & 0xFF),
-        (db.ItemType.MENU_ALBUM, "ALBUM", db.MessageType.MENU_ALBUM & 0xFF),
-        (db.ItemType.MENU_TRACK, "TRACK", db.MessageType.MENU_TRACK & 0xFF),
-        (db.ItemType.MENU_PLAYLIST, "PLAYLIST", db.MessageType.MENU_PLAYLIST & 0xFF),
-        (db.ItemType.MENU_KEY, "KEY", db.MessageType.MENU_KEY & 0xFF),
+        (db.ItemType.MENU_GENRE, "GENRE"),
+        (db.ItemType.MENU_ARTIST, "ARTIST"),
+        (db.ItemType.MENU_ALBUM, "ALBUM"),
+        (db.ItemType.MENU_TRACK, "TRACK"),
+        (db.ItemType.MENU_PLAYLIST, "PLAYLIST"),
+        (db.ItemType.MENU_KEY, "KEY"),
     )
 
     def _root_menu(self) -> list[db.Message]:
@@ -590,7 +611,8 @@ class DbServer:
                 0, menu_id, db.menu_label(label), "",
                 item_type=item_type, flags=0,
             )
-            for item_type, label, menu_id in self.ROOT_CATEGORIES
+            for item_type, label in self.ROOT_CATEGORIES
+            for menu_id in (db.root_category_id(item_type),)
         ]
 
     def _track_list(self, sort: int, medium: Medium | None = None) -> list[db.Message]:
@@ -750,6 +772,67 @@ class DbServer:
                 item_type=db.ItemType.TITLE_AND_ARTIST,
             )
             for track in medium.library.search(term)
+        ]
+
+    # -- drilling into a category ----------------------------------------
+    #
+    # GENRE -> an artist -> an album -> its tracks. Every one of these came back
+    # 0x4003 before, which a deck renders as an EMPTY folder rather than an
+    # error, so browsing looked like it worked until you tried to go two levels
+    # deep. No capture we have shows a real player *answering* them, so the item
+    # shapes below are by analogy with the flat menus -- the requests and their
+    # argument positions are observed, the replies are inferred.
+
+    def _artists_for_genre(self, genre_id: int, medium: Medium | None = None):
+        medium = medium or self.default_medium
+        artist_ids = {
+            track.artist_id for track in medium.library.tracks.values()
+            if track.genre_id == genre_id
+        }
+        return self._by_name(
+            {i: medium.library.artists.get(i, "") for i in artist_ids},
+            db.ItemType.ARTIST,
+        )
+
+    def _albums_for_artist(self, artist_id: int, medium: Medium | None = None):
+        medium = medium or self.default_medium
+        album_ids = {
+            track.album_id for track in medium.library.tracks.values()
+            if track.artist_id == artist_id
+        }
+        return self._by_name(
+            {i: medium.library.albums.get(i, "") for i in album_ids},
+            db.ItemType.ALBUM,
+        )
+
+    def _tracks_for_album(self, album_id: int, medium: Medium | None = None):
+        medium = medium or self.default_medium
+        tracks = [
+            track for track in medium.library.tracks.values()
+            if track.album_id == album_id
+        ]
+        # Album order, not alphabetical: a track number is what it is for.
+        tracks.sort(key=lambda t: (t.disc_number, t.track_number, t.title.lower()))
+        return [
+            db.make_menu_item(
+                0, track.id, track.title, track.artist,
+                item_type=db.ItemType.TITLE_AND_ARTIST,
+                artwork_id=medium.library.artwork_ids.get(track.id, 0),
+            )
+            for track in tracks
+        ]
+
+    def _bitrate_menu(self, medium: Medium | None = None):
+        """Distinct bitrates, ascending.
+
+        A real server sends the value in the id and leaves both labels empty --
+        the deck formats the number itself.
+        """
+        medium = medium or self.default_medium
+        rates = sorted({t.bitrate for t in medium.library.tracks.values() if t.bitrate})
+        return [
+            db.make_menu_item(0, rate, "", "", item_type=db.ItemType.BITRATE)
+            for rate in rates
         ]
 
     def _by_name(self, mapping: dict[int, str], item_type: int) -> list[db.Message]:

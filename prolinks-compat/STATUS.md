@@ -68,7 +68,7 @@ All four supported containers play, including 75 MB lossless files read across
 their whole length, and LOAD SETTINGS works. Zero dbserver errors in the
 session (F39).
 
-## Two media at once — implemented, untested on hardware
+## Two media at once — working
 
 ```bash
 sudo .venv/bin/prolinks -v serve --volume /Volumes/ONE --sd-volume /Volumes/TWO --iface en9
@@ -97,7 +97,7 @@ two media sharing a root would be indistinguishable afterwards.
 STATUS.md          this file — current state
 README.md          what the repo is, how to run it
 docs/
-  FINDINGS.md      F1-F38, C1-C14, O1-O7 with evidence. Has an index.
+  FINDINGS.md      F1-F40, C1-C14, O1-O7 with evidence. Has an index.
   HARDWARE.md      runbook for a session with real CDJs
   CAPTURE-PLAN.md  the S1..S10 capture scenarios
 research/
@@ -109,7 +109,7 @@ prolinks_poc/
   net/             sockets, event loop, RPC/NFS client *and* server
   core/            discovery, announcer, library model, slots
   capture/         journal recorder, pcap reader, passivity guard
-tests/             232 tests, no hardware required
+tests/             248 tests, no hardware required
 tools/capture.sh   start a named scenario capture
 captures/
   S*/              named scenarios; NOTES.md and cmd.txt are tracked, pcaps are not

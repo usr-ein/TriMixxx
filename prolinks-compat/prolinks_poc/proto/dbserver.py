@@ -261,6 +261,23 @@ class ItemType(enum.IntEnum):
     TITLE_AND_ARTIST = 0x0704
 
 
+#: A root-menu item's category id and its item type differ by a constant. Six
+#: categories from a real player's root menu agree exactly::
+#:
+#:     GENRE 1/0x80   ARTIST 2/0x81   ALBUM 3/0x82
+#:     PLAYLIST 5/0x84   LABEL 0xa/0x89   BITRATE 0x14/0x93
+#:
+#: F26 derived the id from the *request* type's low byte instead, which happens
+#: to agree for those but gives KEY ``0x14`` -- and ``0x14`` is BITRATE, so a
+#: deck opening our KEY category asked for bitrates. docs/FINDINGS.md F40.
+ROOT_CATEGORY_ID_BIAS = 0x7F
+
+
+def root_category_id(item_type: int) -> int:
+    """The id a root-menu item carries, for a given menu item type."""
+    return item_type - ROOT_CATEGORY_ID_BIAS
+
+
 #: Real players wrap root-menu category labels in U+FFFA (interlinear
 #: annotation anchor) and U+FFFB (terminator) -- ``\ufffaPLAYLIST\ufffb``.
 #: Presumably a marker letting the player substitute a localised string for a

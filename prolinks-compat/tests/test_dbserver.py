@@ -28,7 +28,14 @@ from prolinks_poc.proto import dbserver as db
 from prolinks_poc.proto.bytes import ByteReader
 from prolinks_poc.proto.errors import DecodeError
 
-from pdb_fixtures import PdbBuilder, sample_library_bytes, track_row
+from pdb_fixtures import (
+    PdbBuilder,
+    album_row,
+    artist_row,
+    id_name_row,
+    sample_library_bytes,
+    track_row,
+)
 from prolinks_poc.proto.pdb import PageType
 
 DYSENTERY = Path(__file__).resolve().parent.parent / "research" / "ref-repos" / "dysentery" / "doc" / "assets"
@@ -343,7 +350,7 @@ def test_unknown_request_gets_an_error_not_an_empty_list(client):
     from prolinks_poc.proto.errors import ProtocolError
 
     with pytest.raises(ProtocolError):
-        client.menu(db.MessageType.MENU_BITRATE, MediaSlot.USB, 0)
+        client.menu(db.MessageType.MENU_HISTORY, MediaSlot.USB, 0)
 
 
 def test_missing_track_metadata_is_empty_rather_than_an_error(client):
@@ -637,3 +644,110 @@ def test_track_info_item_one_is_the_container(library, file_type, item_six):
     assert by_type[db.ItemType.TRACK_TITLE].args[1] == file_type
     assert by_type[db.ItemType.TRACK_TITLE].args[3] == "", "label is empty here"
     assert by_type[db.ItemType.UNKNOWN_2F].args[1] == item_six
+
+
+def test_root_category_ids_are_derived_from_the_item_type(library):
+    """docs/FINDINGS.md F40.
+
+    F26 derived the id from the *request* type's low byte, which agrees for five
+    of six categories and gives KEY 0x14 -- the id a real player uses for
+    BITRATE. A deck opening our KEY category duly asked for bitrates and got an
+    error, so KEY appeared to contain nothing.
+    """
+    server = DbServer(library, device_number=5, bind_ip="127.0.0.1",
+                      port=0, query_port=0)
+    by_label = {
+        item.args[3].strip("￺￻"): (item.args[1], item.args[6])
+        for item in server._root_menu()
+    }
+    # Every pair a real player's root menu shows, plus KEY derived the same way.
+    assert by_label["GENRE"] == (0x01, 0x80)
+    assert by_label["ARTIST"] == (0x02, 0x81)
+    assert by_label["ALBUM"] == (0x03, 0x82)
+    assert by_label["TRACK"] == (0x04, 0x83)
+    assert by_label["PLAYLIST"] == (0x05, 0x84)
+    assert by_label["KEY"] == (0x0C, 0x8B), "0x14 is BITRATE, not KEY"
+
+    for _label, (menu_id, item_type) in by_label.items():
+        assert item_type - menu_id == db.ROOT_CATEGORY_ID_BIAS
+
+
+def drillable_library() -> Library:
+    """Two artists, two albums, one genre — enough to prove the filtering."""
+    builder = PdbBuilder()
+    builder.add(PageType.ARTISTS, artist_row(1, "Artist One"))
+    builder.add(PageType.ARTISTS, artist_row(2, "Artist Two"))
+    builder.add(PageType.ALBUMS, album_row(10, "Album A"))
+    builder.add(PageType.ALBUMS, album_row(11, "Album B"))
+    builder.add(PageType.GENRES, id_name_row(7, "Techno"))
+    builder.add(PageType.GENRES, id_name_row(8, "Ambient"))
+    # Artist One: two tracks on Album A (out of track-number order) and one on B.
+    builder.add(PageType.TRACKS, track_row(
+        101, "Second", 1, 12800, "/Contents/2.mp3",
+        album_id=10, genre_id=7, track_number=2, bitrate=320))
+    builder.add(PageType.TRACKS, track_row(
+        102, "First", 1, 12800, "/Contents/1.mp3",
+        album_id=10, genre_id=7, track_number=1, bitrate=320))
+    builder.add(PageType.TRACKS, track_row(
+        103, "Other", 1, 12800, "/Contents/3.mp3",
+        album_id=11, genre_id=7, track_number=1, bitrate=128))
+    # Artist Two, different genre, so genre filtering is actually exercised.
+    builder.add(PageType.TRACKS, track_row(
+        104, "Elsewhere", 2, 12800, "/Contents/4.mp3",
+        album_id=11, genre_id=8, track_number=1, bitrate=128))
+    return Library.from_bytes(builder.build())
+
+
+def drillable_server() -> DbServer:
+    return DbServer(drillable_library(), device_number=5, bind_ip="127.0.0.1",
+                    port=0, query_port=0)
+
+
+def test_drilling_from_genre_to_artist_to_album_to_tracks():
+    """Each of these came back 0x4003 before, which a deck renders as an EMPTY
+    folder rather than an error -- so browsing looked fine until two levels in."""
+    server = drillable_server()
+
+    artists = server._artists_for_genre(7)
+    assert [i.args[3] for i in artists] == ["Artist One"], "genre 8 is Artist Two only"
+    assert all(i.args[6] == db.ItemType.ARTIST for i in artists)
+
+    albums = server._albums_for_artist(1)
+    assert [i.args[3] for i in albums] == ["Album A", "Album B"]
+    assert all(i.args[6] == db.ItemType.ALBUM for i in albums)
+
+    tracks = server._tracks_for_album(10)
+    assert [i.args[1] for i in tracks] == [102, 101], "album order, by track number"
+    assert all(i.args[6] == db.ItemType.TITLE_AND_ARTIST for i in tracks)
+
+
+def test_drill_downs_go_through_build_menu_with_the_right_argument():
+    """The filter id is argument 2, as observed in every captured request."""
+    server = drillable_server()
+    descriptor = db.descriptor(2, MediaSlot.USB)
+    for message_type, filter_id in (
+        (db.MessageType.MENU_ARTISTS_FOR_GENRE, 7),
+        (db.MessageType.MENU_ALBUMS_FOR_ARTIST, 1),
+        (db.MessageType.MENU_TRACKS_FOR_ALBUM, 10),
+    ):
+        items = server.build_menu(
+            db.Message(1, message_type, [descriptor, 0, filter_id]),
+            server.default_medium,
+        )
+        assert items, f"{message_type.name} produced nothing"
+
+
+def test_a_drill_down_with_no_matches_is_an_empty_list_not_an_error():
+    """An artist with no albums is a real state; the deck should show nothing
+    rather than get 0x4003."""
+    server = drillable_server()
+    assert server._artists_for_genre(999) == []
+    assert server._tracks_for_album(999) == []
+
+
+def test_bitrate_menu_puts_the_value_in_the_id_and_leaves_labels_empty():
+    """As a real server does -- the deck formats the number itself."""
+    items = drillable_server()._bitrate_menu()
+    assert [i.args[1] for i in items] == [128, 320]
+    assert all(i.args[3] == "" and i.args[5] == "" for i in items)
+    assert all(i.args[6] == db.ItemType.BITRATE for i in items)
