@@ -61,6 +61,7 @@ and analysis files · **METH** capture methodology.
 | [F41](#f41) | DB | Result sets key on `(descriptor, count)` — count alone collided at 13 items |
 | [F42](#f42) | DB | Drill-downs are a **grid** `0x1000\|depth<<8\|category`; ALL entries; the SORT menu |
 | [F43](#f43) | DB | Sorting picks the item's **second column**; all 12 root categories listed |
+| [F44](#f44) | DB | Search text is argument **3**; KEY drills to a **harmonic tolerance** first |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1691,6 +1692,53 @@ We offer eleven of them. `FOLDER` is left out deliberately: it browses
 unanalysed files by directory using a track-type-2 descriptor we do not serve,
 and an unimplemented category is indistinguishable from an empty one on the
 deck's screen (F40) — so advertising it would be worse than omitting it.
+
+
+<a id="f44"></a>
+
+### F44 — Search reads argument **3**; KEY drills to a *harmonic tolerance* first
+
+Three bugs and one feature that was never built.
+
+**Search matched nothing because we read the wrong argument.** A real request is
+`[descriptor, sort, byte length, text, 0]` — argument 2 is the term's UTF-16
+size including its NUL, and argument **3** is the text. We read argument 2, so
+every search looked for a number. A deck searches as you type, one request per
+keystroke: `H`, `HE`, `HEL`, `HELO`.
+
+**Drill-downs ignored the sort.** Argument 1 carries it in a drill request
+exactly as it does in `MENU_TRACK`, which is why LABEL → artist → album →
+tracks was the one place sorting still did nothing after F43.
+
+**The KEY menu sorted alphabetically**, so a Camelot library came out
+`1A 10A 11A 12A 2A`. It now uses the wheel order of F43's divergence.
+
+**KEY has a level no other category has.** Choosing a key does not list that
+key's tracks — a real player offers three widening *harmonic tolerances* and
+only then the tracks. For `Abm`, all three carry the same key id and differ
+only in argument 0:
+
+```
+arg0=0   'Abm'
+arg0=1   'Abm, B'
+arg0=2   'Abm, B, Dbm, Ebm'
+```
+
+`Abm`=1A, `B`=1B, `Dbm`=12A, `Ebm`=2A. So the levels are: the key itself, plus
+its relative at the same wheel position, plus the two adjacent positions in the
+same mode — the standard harmonic-mixing set, and the reason the KEY chain has
+an extra step. `0x1214` then takes `(key id, tolerance)` and returns the tracks.
+
+Implemented for **both notations**: rekordbox writes Camelot or classical
+depending on a preference, and the reference capture used classical throughout,
+so a name is resolved to a wheel position before anything else happens. A key
+that cannot be placed on the wheel falls back to an exact match rather than
+inventing neighbours.
+
+*Not resolved:* the deck's green key indicator. It is not obviously any of
+these — this menu is the harmonic *browse*, and the indicator marks compatible
+keys in an ordinary listing. Diagnosing it needs a capture of a real deck
+showing green indicators while browsing a peer, which none of ours contains.
 
 
 

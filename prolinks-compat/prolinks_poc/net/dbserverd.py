@@ -89,6 +89,62 @@ _ANALYSIS_REQUESTS = {
 #: Camelot / Open Key notation: a wheel position and a letter, e.g. ``12A``.
 _CAMELOT = re.compile(r"^\s*(\d{1,2})\s*([ABab])\s*$")
 
+#: Classical key names to their Camelot wheel position. rekordbox writes either
+#: notation depending on a preference, and the harmonic menu has to work for
+#: both -- the reference capture used classical names throughout.
+_CLASSICAL = {
+    "abm": (1, "A"), "g#m": (1, "A"), "b": (1, "B"),
+    "ebm": (2, "A"), "d#m": (2, "A"), "f#": (2, "B"), "gb": (2, "B"),
+    "bbm": (3, "A"), "a#m": (3, "A"), "db": (3, "B"), "c#": (3, "B"),
+    "fm": (4, "A"), "ab": (4, "B"), "g#": (4, "B"),
+    "cm": (5, "A"), "eb": (5, "B"), "d#": (5, "B"),
+    "gm": (6, "A"), "bb": (6, "B"), "a#": (6, "B"),
+    "dm": (7, "A"), "f": (7, "B"),
+    "am": (8, "A"), "c": (8, "B"),
+    "em": (9, "A"), "g": (9, "B"),
+    "bm": (10, "A"), "d": (10, "B"),
+    "f#m": (11, "A"), "gbm": (11, "A"), "a": (11, "B"),
+    "dbm": (12, "A"), "c#m": (12, "A"), "e": (12, "B"),
+}
+
+
+def _wheel(key: str):
+    """A key's Camelot position as ``(1-12, "A"/"B")``, or ``None``.
+
+    Accepts either notation. Everything downstream works in wheel coordinates,
+    so a library in classical names gets harmonic matching too.
+    """
+    matched = _CAMELOT.match(key or "")
+    if matched:
+        position = int(matched.group(1))
+        if 1 <= position <= 12:
+            return position, matched.group(2).upper()
+        return None
+    return _CLASSICAL.get((key or "").strip().lower())
+
+
+#: How far from the selected key each harmonic tolerance reaches. Read straight
+#: off a real reply for ``Abm`` (1A): level 0 offered ``Abm``, level 1
+#: ``Abm, B`` -- the relative major at the same position -- and level 2
+#: ``Abm, B, Dbm, Ebm``, adding the two adjacent positions in the same mode.
+HARMONIC_LEVELS = 3
+
+
+def _harmonic_set(position: int, letter: str, tolerance: int):
+    """Wheel positions matching *(position, letter)* at *tolerance*.
+
+    Ordered as a real player lists them: the key itself, its relative, then the
+    position below and the position above -- ``Abm, B, Dbm, Ebm`` for 1A.
+    """
+    other = "B" if letter == "A" else "A"
+    matches = [(position, letter)]
+    if tolerance >= 1:
+        matches.append((position, other))
+    if tolerance >= 2:
+        matches.append(((position - 2) % 12 + 1, letter))
+        matches.append((position % 12 + 1, letter))
+    return matches
+
 
 def _key_order(key: str):
     """Sort key for a musical key, ordering Camelot notation **numerically**.
@@ -507,7 +563,9 @@ class DbServer:
         if request_type == db.MessageType.MENU_GENRE:
             return self._by_name(medium.library.genres, db.ItemType.GENRE)
         if request_type == db.MessageType.MENU_KEY:
-            return self._by_name(medium.library.keys, db.ItemType.KEY)
+            # Wheel order, not alphabetical -- see _key_order.
+            return self._by_name(medium.library.keys, db.ItemType.KEY,
+                                 order=_key_order)
         if request_type == db.MessageType.MENU_LABEL:
             return self._by_name(medium.library.labels, db.ItemType.LABEL)
         if request_type == db.MessageType.MENU_HISTORY:
@@ -523,13 +581,17 @@ class DbServer:
             drilled = self._drill(
                 depth, int(request_type) & 0xFF,
                 [message.number(i) for i in range(2, 2 + depth)], medium,
+                sort=message.number(1),
             )
             if drilled is not None:
                 return drilled
         if request_type == db.MessageType.MENU_BITRATE:
             return self._bitrate_menu(medium)
         if request_type == db.MessageType.MENU_SEARCH:
-            return self._search(message.string(2), medium)
+            # Argument 2 is the term's UTF-16 byte length, argument 3 the text.
+            # Reading 2 searched for a number and matched nothing.
+            return self._search(message.string(3), medium,
+                                sort=message.number(1))
         return None
 
     # -- menu construction -----------------------------------------------
@@ -570,7 +632,9 @@ class DbServer:
         if request_type == db.MessageType.MENU_GENRE:
             return self._by_name(medium.library.genres, db.ItemType.GENRE)
         if request_type == db.MessageType.MENU_KEY:
-            return self._by_name(medium.library.keys, db.ItemType.KEY)
+            # Wheel order, not alphabetical -- see _key_order.
+            return self._by_name(medium.library.keys, db.ItemType.KEY,
+                                 order=_key_order)
         if request_type == db.MessageType.MENU_LABEL:
             return self._by_name(medium.library.labels, db.ItemType.LABEL)
         if request_type == db.MessageType.MENU_HISTORY:
@@ -586,13 +650,17 @@ class DbServer:
             drilled = self._drill(
                 depth, int(request_type) & 0xFF,
                 [message.number(i) for i in range(2, 2 + depth)], medium,
+                sort=message.number(1),
             )
             if drilled is not None:
                 return drilled
         if request_type == db.MessageType.MENU_BITRATE:
             return self._bitrate_menu(medium)
         if request_type == db.MessageType.MENU_SEARCH:
-            return self._search(message.string(2), medium)
+            # Argument 2 is the term's UTF-16 byte length, argument 3 the text.
+            # Reading 2 searched for a number and matched nothing.
+            return self._search(message.string(3), medium,
+                                sort=message.number(1))
         return None
 
     def analysis_files(self, track_id: int):
@@ -867,15 +935,14 @@ class DbServer:
             item(1, db.ItemType.UNKNOWN_2F),
         ]
 
-    def _search(self, term: str, medium: Medium | None = None) -> list[db.Message]:
+    def _search(self, term: str, medium: Medium | None = None,
+                sort: int = 0) -> list[db.Message]:
+        """Tracks matching *term*. A deck searches as you type, one request per
+        keystroke, so this runs on every letter."""
         medium = medium or self.default_medium
-        return [
-            db.make_menu_item(
-                0, track.id, track.title, track.artist,
-                item_type=db.ItemType.TITLE_AND_ARTIST,
-            )
-            for track in medium.library.search(term)
-        ]
+        return self._track_items(
+            self._sorted(medium.library.search(term), sort), medium, sort
+        )
 
     # -- drilling into a category ----------------------------------------
     #
@@ -911,8 +978,19 @@ class DbServer:
     #: A filter of ``0xffffffff`` is the ALL entry: do not narrow at this level.
     FILTER_ALL = 0xFFFFFFFF
 
-    def _drill(self, depth: int, category: int, filters, medium: Medium):
-        """Items *depth* levels into *category*, narrowed by *filters*."""
+    KEY_CATEGORY = db.MessageType.MENU_KEY & 0xFF
+
+    def _drill(self, depth: int, category: int, filters, medium: Medium,
+               sort: int = 0):
+        """Items *depth* levels into *category*, narrowed by *filters*.
+
+        Argument 1 is the sort here too, so a list reached by drilling sorts
+        like any other -- LABEL -> artist -> album -> tracks was the one place
+        sorting still did nothing.
+        """
+        if category == self.KEY_CATEGORY:
+            return self._key_drill(depth, filters, medium, sort)
+
         chain = self.DRILL_CHAINS.get(category)
         if chain is None:
             return None
@@ -924,7 +1002,7 @@ class DbServer:
             tracks = [t for t in tracks if getattr(t, field, None) == value]
 
         if depth >= len(chain):
-            return self._track_items(tracks, medium)  # drill-downs are unsorted
+            return self._track_items(self._sorted(tracks, sort), medium, sort)
 
         field = chain[depth]
         table, item_type = self._FILTER_ITEMS[field]
@@ -932,7 +1010,8 @@ class DbServer:
         names = getattr(medium.library, table) if table else {}
         entries = {v: (names.get(v, "") if table else "") for v in values if v}
         items = (
-            self._by_name(entries, item_type) if table
+            self._by_name(entries, item_type,
+                          order=_key_order if field == "key_id" else None) if table
             else [db.make_menu_item(0, v, "", "", item_type=item_type)
                   for v in sorted(entries)]
         )
@@ -941,6 +1020,53 @@ class DbServer:
         if len(items) > 1:
             items.insert(0, self._all_item())
         return items
+
+    def _key_drill(self, depth: int, filters, medium: Medium, sort: int):
+        """KEY drills to a *harmonic tolerance* first, then to tracks.
+
+        Choosing a key does not go straight to that key's tracks. A real player
+        offers three widening matches -- the key alone, plus its relative, plus
+        the adjacent wheel positions -- and only then lists tracks. It is the
+        harmonic-mixing feature, and it is why KEY has an extra level that no
+        other category has.
+        """
+        key_id = filters[0] if filters else 0
+        wheel = _wheel(medium.library.keys.get(key_id, ""))
+        if wheel is None:
+            # A key we cannot place on the wheel: fall back to an exact match,
+            # which is at least correct, rather than inventing neighbours.
+            tracks = [t for t in medium.library.tracks.values() if t.key_id == key_id]
+            return self._track_items(self._sorted(tracks, sort), medium, sort)
+
+        position, letter = wheel
+        by_wheel = {
+            _wheel(name): (row_id, name)
+            for row_id, name in medium.library.keys.items()
+            if _wheel(name)
+        }
+
+        if depth <= 1:
+            items = []
+            for tolerance in range(HARMONIC_LEVELS):
+                names = [
+                    by_wheel[spot][1]
+                    for spot in _harmonic_set(position, letter, tolerance)
+                    if spot in by_wheel
+                ]
+                items.append(db.make_menu_item(
+                    tolerance, key_id, ", ".join(names), "",
+                    item_type=db.ItemType.KEY,
+                ))
+            return items
+
+        tolerance = filters[1] if len(filters) > 1 else 0
+        wanted = {
+            by_wheel[spot][0]
+            for spot in _harmonic_set(position, letter, tolerance)
+            if spot in by_wheel
+        }
+        tracks = [t for t in medium.library.tracks.values() if t.key_id in wanted]
+        return self._track_items(self._sorted(tracks, sort), medium, sort)
 
     @staticmethod
     def _all_item() -> db.Message:
@@ -1062,9 +1188,12 @@ class DbServer:
             for rate in rates
         ]
 
-    def _by_name(self, mapping: dict[int, str], item_type: int) -> list[db.Message]:
+    def _by_name(self, mapping: dict[int, str], item_type: int,
+                 order=None) -> list[db.Message]:
+        """Named rows as menu items, alphabetically unless *order* says otherwise."""
+        key = (lambda kv: order(kv[1])) if order else (lambda kv: kv[1].lower())
         return [
             db.make_menu_item(0, row_id, name, "", item_type=item_type)
-            for row_id, name in sorted(mapping.items(), key=lambda kv: kv[1].lower())
+            for row_id, name in sorted(mapping.items(), key=key)
             if name
         ]

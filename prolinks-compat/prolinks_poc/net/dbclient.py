@@ -231,6 +231,28 @@ class DbClient:
     ) -> int:
         return db.descriptor(self.device_number, int(slot), menu, track_type)
 
+    def search(
+        self,
+        term: str,
+        slot: MediaSlot,
+        *,
+        sort: int = 0,
+        menu_target: int = db.MenuTarget.MAIN,
+    ):
+        """Search as a real player does: one request per keystroke.
+
+        The arguments are ``[descriptor, sort, byte length, text, 0]``. The
+        length is the term's UTF-16 size *including* its NUL -- the same
+        ``(chars + 1) * 2`` a menu item's label carries -- and the text itself
+        is argument **3**. Putting the term at argument 2, where the length
+        belongs, is a search that quietly matches nothing.
+        """
+        return self.menu(
+            db.MessageType.MENU_SEARCH, slot,
+            sort, (len(term) + 1) * 2, term, 0,
+            menu_target=menu_target,
+        )
+
     def menu(
         self,
         request_type: int,

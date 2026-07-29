@@ -333,8 +333,15 @@ def test_playlist_folder_and_contents(client):
 
 
 def test_search(client):
-    items = client.menu(db.MessageType.MENU_SEARCH, MediaSlot.USB, 0, "monday")
+    items = client.search("monday", MediaSlot.USB)
     assert [item.id for item in items] == [101]
+
+
+def test_search_reads_the_term_from_argument_three(client):
+    """docs/FINDINGS.md F44. Argument 2 is the term's UTF-16 byte length and
+    argument 3 is the text; reading 2 searches for a number."""
+    assert client.search("nope-no-such-track", MediaSlot.USB) == []
+    assert [i.id for i in client.search("temptation", MediaSlot.USB)] == [102]
 
 
 def test_track_info_returns_the_mount_path(client):
@@ -995,3 +1002,82 @@ def test_the_root_menu_offers_every_category_we_can_answer():
     # with a track-type-2 descriptor, which we do not serve, and an
     # unimplemented category looks identical to an empty one on the deck.
     assert "FOLDER" not in labels
+
+
+def harmonic_server() -> DbServer:
+    from prolinks_poc.core.medium import Medium
+    from prolinks_poc.core.slots import MediaSlot
+
+    builder = PdbBuilder()
+    builder.add(PageType.ARTISTS, artist_row(1, "A"))
+    for track_id in (101, 102, 103, 104, 105):
+        builder.add(PageType.TRACKS,
+                    track_row(track_id, f"T{track_id}", 1, 12800, f"/C/{track_id}.mp3"))
+    library = Library.from_bytes(builder.build())
+    # 1A, 1B, 12A, 2A, 5A -- the first four are Abm's harmonic neighbours.
+    library.keys = {1: "Abm", 2: "B", 3: "Dbm", 4: "Ebm", 5: "Cm"}
+    for track_id, key_id in ((101, 1), (102, 2), (103, 3), (104, 4), (105, 5)):
+        library.tracks[track_id].key_id = key_id
+
+    server = DbServer.__new__(DbServer)
+    server.media = {int(MediaSlot.USB): Medium(slot=MediaSlot.USB, library=library)}
+    server.default_medium = server.media[int(MediaSlot.USB)]
+    return server
+
+
+def test_key_drills_to_harmonic_tolerances_before_tracks():
+    """docs/FINDINGS.md F44.
+
+    Choosing a key does not go straight to that key's tracks. A real player
+    offers three widening matches and only then lists tracks -- the labels below
+    are exactly what it sent for Abm.
+    """
+    server = harmonic_server()
+    items = server._drill(1, server.KEY_CATEGORY, [1], server.default_medium)
+    assert [(i.args[0], i.args[3]) for i in items] == [
+        (0, "Abm"), (1, "Abm, B"), (2, "Abm, B, Dbm, Ebm"),
+    ]
+    assert all(i.args[6] == db.ItemType.KEY and i.args[1] == 1 for i in items)
+
+
+@pytest.mark.parametrize("tolerance,expected", [
+    (0, [101]),                    # Abm alone
+    (1, [101, 102]),               # plus its relative major
+    (2, [101, 102, 103, 104]),     # plus the adjacent wheel positions
+])
+def test_key_tolerance_widens_the_track_list(tolerance, expected):
+    server = harmonic_server()
+    tracks = server._drill(2, server.KEY_CATEGORY, [1, tolerance],
+                           server.default_medium)
+    assert sorted(i.args[1] for i in tracks) == expected
+    # Cm is 5A and never harmonically adjacent to 1A.
+    assert 105 not in [i.args[1] for i in tracks]
+
+
+def test_the_wheel_accepts_both_notations():
+    from prolinks_poc.net.dbserverd import _wheel
+
+    assert _wheel("Abm") == _wheel("1A") == (1, "A")
+    assert _wheel("B") == _wheel("1B") == (1, "B")
+    assert _wheel("Dbm") == (12, "A")
+    assert _wheel("nonsense") is None
+    assert _wheel("13A") is None, "the wheel only has twelve positions"
+
+
+def test_an_unplaceable_key_falls_back_to_an_exact_match():
+    """Better a correct narrow answer than invented neighbours."""
+    server = harmonic_server()
+    server.default_medium.library.keys[9] = "???"
+    server.default_medium.library.tracks[101].key_id = 9
+    tracks = server._drill(2, server.KEY_CATEGORY, [9, 2], server.default_medium)
+    assert [i.args[1] for i in tracks] == [101]
+
+
+def test_the_key_menu_is_in_wheel_order():
+    server = harmonic_server()
+    server.default_medium.library.keys = {1: "12A", 2: "1A", 3: "2A", 4: "10A"}
+    items = server.build_menu(
+        db.Message(1, db.MessageType.MENU_KEY, [db.descriptor(2, MediaSlot.USB), 0]),
+        server.default_medium,
+    )
+    assert [i.args[3] for i in items] == ["1A", "2A", "10A", "12A"]
