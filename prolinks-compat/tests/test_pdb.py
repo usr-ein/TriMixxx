@@ -20,7 +20,14 @@ import pytest
 
 from prolinks_poc.core.library import Library
 from prolinks_poc.proto.errors import DecodeError
-from prolinks_poc.proto.pdb import ENTRIES_START, GROUP_SIZE, PAGE_SIZE, PageType, Pdb
+from prolinks_poc.proto.pdb import (
+    ENTRIES_START,
+    GROUP_SIZE,
+    PAGE_SIZE,
+    PageType,
+    Pdb,
+    stable_digest,
+)
 from prolinks_poc.proto.piostring import encode_piostring, read_piostring
 
 from pdb_fixtures import (
@@ -215,3 +222,37 @@ def test_zero_string_offset_is_an_absent_field(sample_pdb):
     # ...while the slots that *were* populated still decode.
     assert track.title == "Blue Monday"
     assert track.path == "/Contents/blue.mp3"
+
+
+def test_stable_digest_ignores_the_players_write_counter():
+    """A CDJ bumps the header's `sequence` field as it operates.
+
+    Pulling the same database over NFS and then reading it off the ejected
+    stick produced files differing in exactly two header fields and nowhere
+    else. Mixxx keys its media cache on this hash, so a naive whole-file digest
+    would re-download and re-parse a whole library because a play count was
+    written. See FINDINGS F13.
+    """
+    import hashlib
+    import struct
+
+    original = bytearray(sample_library_bytes())
+    touched = bytearray(original)
+    # Simulate the player writing: unknown1 4 -> 5, sequence n -> n+1.
+    struct.pack_into("<I", touched, 0x10, 5)
+    struct.pack_into("<I", touched, 0x14, 20586)
+
+    assert hashlib.sha256(original).digest() != hashlib.sha256(touched).digest()
+    assert stable_digest(bytes(original)) == stable_digest(bytes(touched))
+
+
+def test_stable_digest_still_notices_real_changes():
+    """It must only mask the bookkeeping, not actual library content."""
+    original = sample_library_bytes()
+    builder = PdbBuilder()
+    builder.add(PageType.TRACKS, track_row(999, "Different", 0, 12000, "/x.mp3"))
+    assert stable_digest(original) != stable_digest(builder.build())
+
+
+def test_stable_digest_handles_a_runt_file():
+    assert stable_digest(b"tiny")  # must not raise on a file shorter than the header

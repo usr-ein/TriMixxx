@@ -36,7 +36,7 @@ from typing import Iterator
 from .errors import DecodeError
 from .piostring import read_piostring
 
-__all__ = ["PageType", "Pdb", "Row", "PAGE_SIZE"]
+__all__ = ["PageType", "Pdb", "Row", "PAGE_SIZE", "stable_digest", "VOLATILE_HEADER"]
 
 PAGE_SIZE = 4096
 #: Offset of the first row within a data page; also the page-header length.
@@ -46,6 +46,12 @@ GROUP_SIZE = 0x24
 ROWS_PER_GROUP = 16
 #: ``entry_count_large`` uses this as "not meaningful".
 ENTRY_COUNT_SENTINEL = 8191
+
+#: Bytes of the file header that a player rewrites as it operates: ``unknown1``
+#: at 0x10 and the global write counter ``sequence`` at 0x14 (``research/05``
+#: §2.1). Observed changing on a real deck between two reads of an otherwise
+#: byte-identical database. Excluded from :func:`stable_digest`.
+VOLATILE_HEADER = (0x10, 0x18)
 
 
 class PageType(enum.IntEnum):
@@ -418,3 +424,27 @@ _DECODERS = {
     PageType.PLAYLIST_TREE: _decode_playlist,
     PageType.PLAYLIST_ENTRIES: _decode_playlist_entry,
 }
+
+
+def stable_digest(data: bytes) -> str:
+    """A content hash that survives the player rewriting its own bookkeeping.
+
+    A CDJ increments the ``sequence`` counter in the file header as it
+    operates, so hashing the raw bytes gives a different answer every time the
+    deck touches the database — even when not one track has changed. Pulling
+    the same 1,077,248-byte database twice produced files differing in exactly
+    two header fields and nothing else.
+
+    That matters because the Mixxx feature keys its cache on this hash: a naive
+    whole-file digest would invalidate the cache spuriously and re-download and
+    re-parse an entire library because a play count was written somewhere. So
+    zero the volatile window before hashing.
+    """
+    import hashlib
+
+    start, end = VOLATILE_HEADER
+    if len(data) < end:
+        return hashlib.sha256(data).hexdigest()
+    stable = bytearray(data)
+    stable[start:end] = bytes(end - start)
+    return hashlib.sha256(bytes(stable)).hexdigest()

@@ -256,6 +256,58 @@ would settle the E4 decision-tree branch about gating on media state.
 *Evidence:* `captures/S04-media-insert`, deck A.
 
 
+### F13 — Anchor test passes: NFS transfer is byte-exact. Plus a real cache bug caught
+
+Pulled the 1,077,248-byte `export.pdb` off deck A over NFS — 842 READs, **zero
+short reads**, no retries, 1459 KiB/s — then ejected the stick and read the same
+file directly on the Mac. The SHA-256s differ.
+
+They differ in **exactly two bytes**, both in the file header, and nowhere else
+in a megabyte:
+
+| Offset | Field (`research/05` §2.1) | Over NFS | On the stick |
+|---|---|---|---|
+| `0x10` | `unknown1` | 4 | 5 |
+| `0x14` | `sequence` (global write counter) | 20585 | 20586 |
+
+Both are documented write bookkeeping, and the counter advanced by exactly one.
+**The deck wrote to its own database between the two reads.** The library
+content is bit-identical: 692 tracks, 329 artists, 275 albums, 35 playlists,
+same records in the same order from both files.
+
+So the transport is verified. The mismatch is the *deck* changing the file, not
+us mis-reading it.
+
+**The part that matters for Mixxx.** `research/10` specifies the media cache key
+as `mediaKey = sha1(export.pdb)[0:16]`, content-addressing the whole file. That
+is now known to be wrong: the hash changes whenever the player writes its own
+bookkeeping — a play count, a history entry — which would invalidate the cache
+and force a full re-download and re-parse of a library that has not changed by
+one track. On a busy deck that could happen repeatedly in a set.
+
+Fixed with :func:`prolinks_poc.proto.pdb.stable_digest`, which zeroes the
+volatile window `0x10..0x18` before hashing. Verified against the two real
+files: raw digests differ, stable digests match. The Mixxx cache key should use
+the same rule.
+
+*Evidence:* `/tmp/deckA.pdb` versus `/Volumes/SAM2/PIONEER/rekordbox/export.pdb`;
+`test_stable_digest_ignores_the_players_write_counter`.
+
+### F14 — The pdb parser works on a real 692-track library, first contact
+
+Until now it had only ever seen a synthetic database built by our own test
+fixtures — a real risk of being self-consistently wrong. Against deck A's actual
+library it parsed **692 tracks, 329 artists, 275 albums, 21 genres, 24 keys, 35
+playlists and 2 folders**, and produced identical results from the NFS copy and
+the physical copy.
+
+It handled without complaint: an artist name containing an emoji and quoting
+(`'❂RAINDAAMAGE'`), tracks with an empty artist field, and duplicate titles
+under different track ids — i.e. the UTF-16BE PioString path, the
+zero-string-offset path (see the `comment` bug fixed earlier), and the
+multi-page table chain walking all work on real data.
+
+
 ---
 
 ## Corrections to the research docs

@@ -473,7 +473,12 @@ path-translation logic:
 ```
 
 `mediaKey = sha1(export.pdb)[0:16]` — **content-addressed, not keyed on
-`(mac, slot)`**. Two CDJs playing off clones of the same USB then share one cache
+`(mac, slot)`** — but hashed over a *stabilised* copy of the file, not the raw
+bytes. A player rewrites its own bookkeeping in the pdb header as it operates
+(`unknown1` at `0x10` and the write counter `sequence` at `0x14`), so a raw
+digest changes whenever a play count is written and would invalidate the cache
+for a library that has not changed by one track. Zero `0x10..0x18` before
+hashing; see FINDINGS F13 and `prolinks_poc.proto.pdb.stable_digest`. Two CDJs playing off clones of the same USB then share one cache
 entry, halving traffic and disk on exactly this two-deck rig; swapping media yields a
 new key naturally, with no stale-media bug class; and the key survives DHCP
 renumbering and player-number changes. The chicken-and-egg (we can only hash after
