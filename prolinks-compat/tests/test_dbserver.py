@@ -270,9 +270,31 @@ def test_handshake_exchanges_device_numbers(client, server):
 
 
 def test_root_menu_lists_browse_categories(client):
+    """Labels arrive wrapped in U+FFFA/U+FFFB and the client strips them."""
     items = client.root_menu(MediaSlot.USB)
     labels = {item.label1 for item in items}
     assert {"ARTIST", "ALBUM", "TRACK", "PLAYLIST"} <= labels
+    # ...but the wrapper really is on the wire, because a deck needs it.
+    assert all(item.raw.string(3).startswith("\ufffa") for item in items)
+
+
+def test_root_menu_items_match_a_real_players_structure():
+    """FINDINGS F26. Byte-for-byte against a real root item from S05.
+
+    A deck renders bare labels perfectly well and then refuses to open the
+    category, so these three details are copied rather than invented: the
+    per-category id in argument 2, the U+FFFA/U+FFFB wrapper, and argument 8
+    being zero rather than a track item's 0x01000000.
+    """
+    item = db.make_menu_item(
+        0, 2, db.menu_label("ARTIST"), "",
+        item_type=db.ItemType.MENU_ARTIST, flags=0,
+    )
+    assert item.args[1] == 2
+    assert item.args[2] == 0x12
+    assert item.args[3] == "\ufffaARTIST\ufffb"
+    assert item.args[6] == 0x81
+    assert item.args[7] == 0
 
 
 def test_track_list_round_trips_through_the_protocol(client):

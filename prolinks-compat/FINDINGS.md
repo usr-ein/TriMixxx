@@ -668,6 +668,36 @@ without understanding it, which is honest but worth revisiting -- the empty
 string argument in particular looks like somewhere a name belongs.
 
 
+### F26 — Root-menu items need three details a bare implementation gets wrong
+
+With `0x3e03` answered, the deck still rendered our six categories and then
+declined to open any of them. Diffing our root items against a real player's
+showed three differences, all in fields that look inconsequential:
+
+| Argument | Real player | Ours (wrong) |
+|---|---|---|
+| 2 — category id | `1`, `2`, `3`, `5`, `0xa` … | `0` |
+| 4 — label | `"\ufffaPLAYLIST\ufffb"` | `"PLAYLIST"` |
+| 8 — flags | `0` | `0x01000000` |
+
+The label wrapper is the striking one: **U+FFFA** (interlinear annotation
+anchor) and **U+FFFB** (terminator). Presumably a marker telling the player
+"this is a known category, substitute your own localised string" — which would
+explain why a bare label displays correctly but is not treated as an openable
+category.
+
+The category id turns out to be the **low byte of the corresponding menu
+request type**: GENRE `0x1001` → 1, ARTIST `0x1002` → 2, ALBUM `0x1003` → 3,
+PLAYLIST `0x1105` → 5, LABEL `0x100a` → 0xa. So the root menu is telling the
+player which request to send to open each entry.
+
+Argument 8 carries `0x01000000` on *track* items — the value `research/04` §4.4
+gives as an example — but zero on menu-category items. Copying the track value
+everywhere was my error.
+
+Our root item is now byte-identical to a real player's given the same category.
+
+
 ---
 
 ## Corrections to the research docs

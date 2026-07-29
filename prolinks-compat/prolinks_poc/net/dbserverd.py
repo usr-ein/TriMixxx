@@ -299,23 +299,35 @@ class DbServer:
             return self._search(message.string(2))
         return None
 
+    #: Root-menu categories: item type, label, and the id a real player puts in
+    #: argument 2 -- the low byte of the corresponding menu request type
+    #: (GENRE 0x1001 -> 1, ARTIST 0x1002 -> 2, PLAYLIST 0x1105 -> 5).
+    ROOT_CATEGORIES = (
+        (db.ItemType.MENU_GENRE, "GENRE", db.MessageType.MENU_GENRE & 0xFF),
+        (db.ItemType.MENU_ARTIST, "ARTIST", db.MessageType.MENU_ARTIST & 0xFF),
+        (db.ItemType.MENU_ALBUM, "ALBUM", db.MessageType.MENU_ALBUM & 0xFF),
+        (db.ItemType.MENU_TRACK, "TRACK", db.MessageType.MENU_TRACK & 0xFF),
+        (db.ItemType.MENU_PLAYLIST, "PLAYLIST", db.MessageType.MENU_PLAYLIST & 0xFF),
+        (db.ItemType.MENU_KEY, "KEY", db.MessageType.MENU_KEY & 0xFF),
+    )
+
     def _root_menu(self) -> list[db.Message]:
         """Which browse categories we claim to offer.
 
-        A real player renders exactly the entries we list here, so only
-        advertise what :meth:`build_menu` can actually answer.
+        Three details are copied from a real player's root menu rather than
+        invented, because a deck that renders our labels perfectly well will
+        still refuse to open a category if they are wrong (FINDINGS F26):
+
+        * argument 2 carries a per-category id, not zero;
+        * the label is wrapped in U+FFFA/U+FFFB;
+        * argument 8 is zero, not the ``0x01000000`` that a track item carries.
         """
-        entries = [
-            (db.ItemType.MENU_ARTIST, "ARTIST"),
-            (db.ItemType.MENU_ALBUM, "ALBUM"),
-            (db.ItemType.MENU_TRACK, "TRACK"),
-            (db.ItemType.MENU_GENRE, "GENRE"),
-            (db.ItemType.MENU_KEY, "KEY"),
-            (db.ItemType.MENU_PLAYLIST, "PLAYLIST"),
-        ]
         return [
-            db.make_menu_item(0, 0, label, "", item_type=item_type)
-            for item_type, label in entries
+            db.make_menu_item(
+                0, menu_id, db.menu_label(label), "",
+                item_type=item_type, flags=0,
+            )
+            for item_type, label, menu_id in self.ROOT_CATEGORIES
         ]
 
     def _track_list(self, sort: int) -> list[db.Message]:

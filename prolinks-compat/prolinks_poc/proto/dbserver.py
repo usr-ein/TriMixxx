@@ -57,6 +57,7 @@ __all__ = [
     "make_introduce",
     "make_render",
     "make_menu_request",
+    "menu_label",
 ]
 
 #: Every dbserver message starts with this UInt32.
@@ -226,6 +227,20 @@ class ItemType(enum.IntEnum):
     MENU_PLAYLIST = 0x0084
     MENU_KEY = 0x008B
     TITLE_AND_ARTIST = 0x0704
+
+
+#: Real players wrap root-menu category labels in U+FFFA (interlinear
+#: annotation anchor) and U+FFFB (terminator) -- ``\ufffaPLAYLIST\ufffb``.
+#: Presumably a marker letting the player substitute a localised string for a
+#: known category. A bare label renders, but the deck then declines to open the
+#: category (FINDINGS F26).
+MENU_LABEL_PREFIX = "\ufffa"
+MENU_LABEL_SUFFIX = "\ufffb"
+
+
+def menu_label(text: str) -> str:
+    """Wrap a root-menu category label the way real hardware does."""
+    return f"{MENU_LABEL_PREFIX}{text}{MENU_LABEL_SUFFIX}"
 
 
 def item_type_of(raw: int) -> int:
@@ -554,6 +569,7 @@ def make_menu_item(
     item_type: int = ItemType.TRACK_TITLE,
     artwork_id: int = 0,
     playlist_position: int = 0,
+    flags: int = 0x01000000,
 ) -> Message:
     """Build a ``0x4101`` menu item -- the server side of a browse.
 
@@ -573,7 +589,7 @@ def make_menu_item(
             (len(label2) + 1) * 2,
             label2,
             item_type,
-            0x01000000,
+            flags,
             artwork_id,
             playlist_position,
             0,

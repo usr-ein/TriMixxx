@@ -67,8 +67,10 @@ class MenuItem:
         self.raw = message
         self.parent_id = message.number(0)
         self.id = message.number(1)
-        self.label1 = message.string(3)
-        self.label2 = message.string(5)
+        # Root-menu categories arrive wrapped in U+FFFA/U+FFFB (FINDINGS F26).
+        # Strip them for display; the raw form is still on ``.raw``.
+        self.label1 = message.string(3).strip("\ufffa\ufffb")
+        self.label2 = message.string(5).strip("\ufffa\ufffb")
         # CDJ-3000s pack extra data into the high bytes of the type.
         self.item_type = db.item_type_of(message.number(6))
         self.artwork_id = message.number(8)
