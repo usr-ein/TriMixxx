@@ -14,7 +14,7 @@ close to worthless a month later.
 ```bash
 cd prolinks-compat
 uv venv && uv pip install -e '.[dev]'
-.venv/bin/python -m pytest tests/ -q          # 116 should pass
+.venv/bin/python -m pytest tests/ -q          # 150 should pass
 ```
 
 Wiring: Mac → USB-Ethernet dongle → unmanaged switch → both CDJs. The players
