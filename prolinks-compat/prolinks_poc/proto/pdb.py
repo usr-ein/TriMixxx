@@ -54,6 +54,28 @@ ENTRY_COUNT_SENTINEL = 8191
 VOLATILE_HEADER = (0x10, 0x18)
 
 
+class FileType(enum.IntEnum):
+    """The container a track is stored in, from row offset ``0x5a``.
+
+    Values determined by rendering one source track into every format a
+    CDJ-2000NXS accepts and reading back what rekordbox wrote -- 651 rows, no
+    exceptions within a container. dysentery's schema leaves this field
+    unnamed.
+
+    It matters more than an identifier usually would: it is what a player is
+    told over dbserver, and a player believes it. Announcing ``MP3`` for a WAV
+    makes the deck fetch the file, try to decode it as MP3, and report
+    "CDJ DOES NOT DECODE THIS FORMAT" -- which is exactly what happened when we
+    sent a hardcoded 1. docs/FINDINGS.md F34.
+    """
+
+    MP3 = 1
+    AAC = 4          # .m4a
+    FLAC = 5
+    WAV = 11
+    AIFF = 12
+
+
 class PageType(enum.IntEnum):
     """Table identifiers (``research/05`` §2.3)."""
 
@@ -301,6 +323,10 @@ def _decode_track(data: bytes, offset: int) -> dict | None:
         disc_number, play_count, year, sample_depth, duration, _u4,
     ) = struct.unpack_from("<HHHHHH", data, offset + 0x4C)
     color_id, rating = data[offset + 0x58], data[offset + 0x59]
+    # 0x5a is the container/codec identifier. Undocumented -- dysentery's schema
+    # calls it ``unknown6`` -- and it is the field that decides whether a player
+    # can play a track we serve, so it is not optional. See FileType.
+    (file_type,) = struct.unpack_from("<H", data, offset + 0x5A)
 
     fields = {
         "id": track_id,
@@ -326,6 +352,7 @@ def _decode_track(data: bytes, offset: int) -> dict | None:
         "year": year,
         "rating": rating,
         "color_id": color_id,
+        "file_type": file_type,
     }
     for index, name in TRACK_STRINGS.items():
         position = offset + 0x5E + index * 2

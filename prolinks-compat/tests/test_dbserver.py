@@ -603,3 +603,22 @@ def test_the_last_unknown_request_is_acknowledged_not_errored(library):
         replies = connection.handle(db.Message(1, message_type, [0x2010301, 101]))
         assert [r.type for r in replies] == [db.MessageType.SUCCESS]
         assert replies[0].args == [message_type, 0]
+
+
+@pytest.mark.parametrize("file_type", [1, 4, 11, 12])
+def test_track_info_announces_the_real_container_and_disc(library, file_type):
+    """docs/FINDINGS.md F34. These two items were previously hardcoded to 1.
+
+    Item 6 is the container. Hardcoding MP3 meant AAC, WAV and AIFF were all
+    announced as MP3 -- the deck fetched each one, failed to decode it, and
+    reported "CDJ DOES NOT DECODE THIS FORMAT", while MP3s played fine.
+    """
+    track = next(iter(library.tracks.values()))
+    track.file_type = file_type
+    track.disc_number = 3
+
+    server = DbServer(library, device_number=5, bind_ip="127.0.0.1",
+                      port=0, query_port=0)
+    by_type = {i.args[6]: i for i in server._track_info(track.id)}
+    assert by_type[db.ItemType.FILE_TYPE].args[1] == file_type
+    assert by_type[db.ItemType.TRACK_TITLE].args[1] == 3, "disc number"

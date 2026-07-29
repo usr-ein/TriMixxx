@@ -242,12 +242,11 @@ class ItemType(enum.IntEnum):
     ORIGINAL_ARTIST = 0x0028
     REMIXER = 0x0029
     DATE_ADDED = 0x002E
-    #: Undocumented, and the sixth item of a ``GET_TRACK_INFO`` reply.
-    #: Observed once, carrying ``1``. The likeliest candidate for a codec
-    #: identifier: a deck that never read a byte of the file still
-    #: complained it could not decode the format, so the judgement came
-    #: from that reply. Unconfirmed. docs/FINDINGS.md F31.
-    UNKNOWN_2F = 0x002F
+    #: The container a track is stored in -- pdb row offset ``0x5a``, and the
+    #: sixth item of a ``GET_TRACK_INFO`` reply. A player takes this at face
+    #: value: told ``MP3`` for a WAV it fetches the file, fails to decode it,
+    #: and says so. docs/FINDINGS.md F34.
+    FILE_TYPE = 0x002F
     ALL = 0x00A0
     MENU_GENRE = 0x0080
     MENU_ARTIST = 0x0081

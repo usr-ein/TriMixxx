@@ -58,12 +58,13 @@ Both objectives work against real hardware. What remains in the PoC is
 tidying rather than discovery:
 
 - the opaque prefix word (F33) must be non-zero but is still unexplained;
-- items 1 and 6 of `GET_TRACK_INFO`, and argument 0 of the metadata items,
-  are reproduced as observed constants rather than derived (F31, F32);
+- argument 0 of the metadata items is reproduced as an observed constant
+  rather than derived (F32);
 - `0x3d03` is acknowledged with a guessed reply — no capture shows a real one.
 
-None of these blocks anything. A capture of a non-MP3, or of a track on
-disc 2, would settle most of them.
+None of these blocks anything. Items 1 and 6 of `GET_TRACK_INFO` *were* on
+this list and are now resolved (F34) by building a stick holding one track in
+all 40 supported formats — `tools/make-format-matrix.sh`.
 
 ## Not started
 
@@ -80,7 +81,7 @@ disc 2, would settle most of them.
 STATUS.md          this file — current state
 README.md          what the repo is, how to run it
 docs/
-  FINDINGS.md      F1-F32, C1-C14, O1-O7 with evidence. Has an index.
+  FINDINGS.md      F1-F34, C1-C14, O1-O7 with evidence. Has an index.
   HARDWARE.md      runbook for a session with real CDJs
   CAPTURE-PLAN.md  the S1..S10 capture scenarios
 research/
@@ -92,7 +93,7 @@ prolinks_poc/
   net/             sockets, event loop, RPC/NFS client *and* server
   core/            discovery, announcer, library model, slots
   capture/         journal recorder, pcap reader, passivity guard
-tests/             209 tests, no hardware required
+tests/             220 tests, no hardware required
 tools/capture.sh   start a named scenario capture
 captures/
   S*/              named scenarios; NOTES.md and cmd.txt are tracked, pcaps are not

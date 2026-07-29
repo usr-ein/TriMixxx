@@ -305,3 +305,34 @@ def test_stable_digest_still_notices_real_changes():
 
 def test_stable_digest_handles_a_runt_file():
     assert stable_digest(b"tiny")  # must not raise on a file shorter than the header
+
+
+@pytest.mark.parametrize(
+    "file_type,name",
+    [(1, "MP3"), (4, "AAC"), (5, "FLAC"), (11, "WAV"), (12, "AIFF")],
+)
+def test_file_type_is_parsed_from_row_offset_0x5a(file_type, name):
+    """docs/FINDINGS.md F34.
+
+    Determined by rendering one track into every format a CDJ accepts and
+    reading back what rekordbox wrote: 651 rows, no exceptions within a
+    container. dysentery's schema leaves the field unnamed.
+
+    It is not cosmetic. A player takes this value at face value, so announcing
+    MP3 for a WAV makes it fetch the file, fail to decode it, and say so.
+    """
+    from prolinks_poc.proto.pdb import FileType
+
+    builder = PdbBuilder()
+    builder.add(PageType.TRACKS,
+                track_row(1, "T", 1, 12800, "/Contents/a.x", file_type=file_type))
+    row = next(iter(Pdb(builder.build()).rows(PageType.TRACKS)))
+    assert row["file_type"] == file_type
+    assert FileType(row["file_type"]).name == name
+
+
+def test_disc_number_survives_the_round_trip():
+    builder = PdbBuilder()
+    builder.add(PageType.TRACKS,
+                track_row(1, "T", 1, 12800, "/Contents/a.mp3", disc_number=3))
+    assert next(iter(Pdb(builder.build()).rows(PageType.TRACKS)))["disc_number"] == 3

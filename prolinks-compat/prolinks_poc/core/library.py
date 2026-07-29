@@ -65,6 +65,12 @@ class Track:
     color_id: int = 0
     artwork_id: int = 0
 
+    #: Container/codec identifier (:class:`~prolinks_poc.proto.pdb.FileType`).
+    #: A player takes our word for this, so getting it wrong makes it fetch
+    #: the file and then refuse to decode it.
+    file_type: int = 0
+    disc_number: int = 0
+
     @property
     def bpm(self) -> float:
         """Stored as an integer ×100 so the wire format has no floats."""
@@ -159,6 +165,8 @@ class Library:
                 label_id=row.get("label_id", 0),
                 color_id=row.get("color_id", 0),
                 artwork_id=row.get("artwork_id", 0),
+                file_type=row.get("file_type", 0),
+                disc_number=row.get("disc_number", 0),
             )
             self.tracks[track.id] = track
             self.artwork_ids[track.id] = row.get("artwork_id", 0)

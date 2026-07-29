@@ -138,7 +138,8 @@ class PdbBuilder:
 
 
 def track_row(track_id: int, title: str, artist_id: int, bpm_100: int, path: str,
-               analyze_path: str = "/PIONEER/USBANLZ/P001/00001/ANLZ0000.DAT") -> bytes:
+               analyze_path: str = "/PIONEER/USBANLZ/P001/00001/ANLZ0000.DAT",
+               file_type: int = 1, disc_number: int = 1) -> bytes:
     """A track row: fixed part, 21-entry string offset table, then the strings."""
     row = bytearray(0x5E + 21 * 2)
     struct.pack_into("<H", row, 0x00, 0x24)  # magic
@@ -149,6 +150,8 @@ def track_row(track_id: int, title: str, artist_id: int, bpm_100: int, path: str
     struct.pack_into("<I", row, 0x48, track_id)
     struct.pack_into("<H", row, 0x54, 245)  # duration
     row[0x59] = 4  # rating
+    struct.pack_into("<H", row, 0x4C, disc_number)
+    struct.pack_into("<H", row, 0x5A, file_type)  # container; see pdb.FileType
 
     strings = {14: analyze_path, 17: title, 19: path.rsplit("/", 1)[-1], 20: path}
     blob = bytearray()

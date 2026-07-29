@@ -620,13 +620,15 @@ class DbServer:
         could not decode the format -- having never read a byte of the file, so
         the verdict came from this reply and nowhere else.
 
-        Two of the six are unresolved. Both carry the value ``1`` in the only
-        capture that contains this exchange, and ``disc_number`` is the sole
-        field of that track equal to 1, which is not enough to attribute either
-        of them. They are sent as the observed constants; a second capture of a
-        track on disc 2, or a non-MP3, would settle it. Type ``0x2f`` is the
-        better suspect for a codec identifier, since the format complaint has to
-        come from somewhere.
+        Both of the two that were unresolved are now attributed, by serving a
+        stick holding one track rendered into every format a CDJ accepts:
+
+        * item 6, type ``0x2f``, is the **container** -- pdb row offset
+          ``0x5a``. Sending a hardcoded ``1`` meant every file was announced as
+          MP3, so MP3s played and AAC, WAV and AIFF were all fetched and then
+          rejected with "CDJ DOES NOT DECODE THIS FORMAT";
+        * item 1, type ``0x04``, is the **disc number**, which is why the only
+          real capture showed ``1``.
         """
         track = self.library.tracks.get(track_id)
         if track is None:
@@ -637,7 +639,7 @@ class DbServer:
                                      item_type=item_type, flags=0)
 
         return [
-            item(1, db.ItemType.TRACK_TITLE),
+            item(track.disc_number, db.ItemType.TRACK_TITLE),
             item(track.duration, db.ItemType.DURATION),
             item(track.bpm_100, db.ItemType.TEMPO),
             item(track.id, db.ItemType.COMMENT, track.comment),
@@ -647,7 +649,7 @@ class DbServer:
             # that browsing does not, which fits a deck that renders the track
             # perfectly and then cannot open it.
             item(track.id, db.ItemType.PATH, track.path, parent=track.file_size),
-            item(1, db.ItemType.UNKNOWN_2F),
+            item(track.file_type, db.ItemType.FILE_TYPE),
         ]
 
     def _search(self, term: str) -> list[db.Message]:
