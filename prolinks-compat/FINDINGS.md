@@ -476,6 +476,72 @@ Fragment reassembly is now implemented and tested; without it the headline
 finding above would have been read exactly backwards.
 
 
+### F20 — Media state **is** advertised, in 50002 status packets
+
+The question F15 got wrong, now answered on the correct tap. 1507 packets on
+50002 during S4b, of which 1503 are type-`0x0a` CDJ status and all 1503 decode.
+Offsets `0x6f` (USB) and `0x73` (SD) track the slots exactly, and the timeline
+matches the physical actions to the second:
+
+```
+t= 0.00  D=1  usb=empty                 D=2 usb=loaded
+t=10.43  D=1  usb=loaded                <- stick inserted into deck A
+t=50.06  D=2  usb=unmounting            <- eject pressed on deck B
+t=51.63  D=2  usb=empty
+t=83.25  D=2  usb=loaded                <- re-inserted
+```
+
+Media presence is therefore discoverable in real time, at the ~200 ms status
+cadence, with no polling — *if* you can receive the packets. Which is F21.
+
+Also present: two type-`0x05` media queries and two type-`0x06` responses, the
+Link-Info exchange. The `0x06` payload carries the volume name as UTF-16BE
+(`00 53 00 41 …` = "SA…", i.e. the stick labelled SAM2).
+
+### F21 — **Status is unicast to announced peers only.** This decides the Mixxx design
+
+Every one of the 1507 status packets went deck-to-deck:
+
+```
+169.254.202.84  -> 169.254.103.172   756  unicast
+169.254.103.172 -> 169.254.202.84    751  unicast
+packets addressed to the Mac (169.254.99.100):  0
+```
+
+Not one was broadcast, and not one reached the Mac — which was on the network
+with an address the whole time, but had **never announced itself**. The same is
+true of the `0x05`/`0x06` media queries.
+
+So F15's *conclusion* — that media presence cannot be learned passively — turns
+out to hold, but for an entirely different reason than the one I gave. I claimed
+the packets are not sent; in fact they are sent constantly, just never to us.
+The distinction matters because it tells us the remedy.
+
+**The design consequence, stated properly:**
+
+| Mode | Media state | dbserver | Risk |
+|---|---|---|---|
+| **Passive** (no announcement) | poll MOUNT `EXPORT` | unavailable | none — cannot disturb a live rig |
+| **Announced** (virtual CDJ) | pushed in real time, ~200 ms | available if number ≤ 4 | contends for a device number |
+
+That is a better outcome than the polling-only design F15 implied: announcing
+buys a real-time media feed rather than merely enabling dbserver. `research/10`'s
+`ProLinkStatusListener` is therefore viable exactly as designed — but it is
+strictly an *announced-mode* component, and the passive path needs the `EXPORT`
+poll as its own mechanism rather than as a fallback.
+
+*Evidence:* `captures/S4b-media-insert`;
+`test_status_packets_are_unicast_to_peers_only`.
+
+### F22 — A CDJ-2000nexus on firmware 1.44 sends **284-byte** status packets
+
+Every one of the 1503 was `0x11c` (284) bytes. `research/03` §1.1 maps `0xd4`
+(212) to "Nexus" and `0x11c`/`0x124` to "Newer firmware / Nexus 2". So the
+length does not identify the generation on its own — a plain CDJ-2000nexus on
+current firmware sits in the "Nexus 2" row. A parser keying behaviour off the
+packet length would mis-classify these decks.
+
+
 ---
 
 ## Corrections to the research docs

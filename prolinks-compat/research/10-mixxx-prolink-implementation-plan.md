@@ -359,7 +359,10 @@ src/network/prolink/
   prolinkdevice.{h,cpp}         value struct, keyed on MAC (stable across DHCP)
   prolinkpacket.{h,cpp}         UDP-50000 parse/build (0x06 now; 0x0a/00/02/04/08 later)
   prolinkdiscovery.{h,cpp}      QUdpSocket on 50000, passive peer table + reaper
-  prolinkstatuslistener.{h,cpp} QUdpSocket on 50002, passive; media-slot presence
+  prolinkstatuslistener.{h,cpp} QUdpSocket on 50002. NOT passive: status is
+                                unicast to announced peers only (FINDINGS F21),
+                                so this only works in announced mode. The
+                                passive path polls MOUNT EXPORT instead.
   prolinkvirtualcdj.{h,cpp}     announcer + claim chain (stub in v1)
   prolinknetworkservice.{h,cpp} the ONE object the library layer talks to; owns the net thread
   rpc/xdrbuffer.{h,cpp}         XDR incl. the Pioneer UTF-16LE strings

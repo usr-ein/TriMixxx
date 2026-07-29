@@ -372,3 +372,60 @@ def test_ip_fragment_reassembly_waits_for_a_hole():
     # Final fragment first: total is known, but the front is missing.
     assert defrag.add(key, 1480, b"B" * 100, more=False) is None
     assert defrag.add(key, 0, b"A" * 1480, more=True) == b"A" * 1480 + b"B" * 100
+
+
+# -- UDP 50002 status packets ----------------------------------------------
+
+
+@pytest.mark.skipif(
+    not (REPO / "captures" / "S4b-media-insert" / "run.pcap").exists(),
+    reason="S4b capture absent",
+)
+def test_status_packets_decode_and_track_media_state():
+    """FINDINGS F20. Media state is advertised on 50002, promptly.
+
+    The retracted F15 claimed media events produced no traffic; that came from
+    a capture on a tap blind to unicast. On the correct tap the media timeline
+    is unambiguous.
+    """
+    from prolinks_poc.proto import djl_status as st
+
+    path = REPO / "captures" / "S4b-media-insert" / "run.pcap"
+    packets = [
+        p for p in read_capture(path)
+        if p.protocol == "udp" and p.dst_port == st.STATUS_PORT
+    ]
+    statuses = [
+        st.decode_status(p.payload) for p in packets if st.is_status_packet(p.payload)
+    ]
+    assert len(statuses) > 1000
+
+    # Every deck's USB slot is seen both loaded and empty across the session.
+    per_deck: dict[int, set] = {}
+    for s in statuses:
+        per_deck.setdefault(s.device_number, set()).add(s.usb_state)
+    assert st.MediaState.LOADED in per_deck[2]
+    assert st.MediaState.EMPTY in per_deck[2]
+
+
+@pytest.mark.skipif(
+    not (REPO / "captures" / "S4b-media-insert" / "run.pcap").exists(),
+    reason="S4b capture absent",
+)
+def test_status_packets_are_unicast_to_peers_only():
+    """FINDINGS F21 -- the finding that decides the Mixxx design.
+
+    Status is unicast deck-to-deck. The Mac was on the network with an address
+    throughout and received not one, because it never announced itself. So a
+    passive listener cannot learn media state at all; announcing is the price
+    of the real-time status stream.
+    """
+    from prolinks_poc.proto import djl_status as st
+
+    path = REPO / "captures" / "S4b-media-insert" / "run.pcap"
+    destinations = {
+        p.dst_ip for p in read_capture(path)
+        if p.protocol == "udp" and p.dst_port == st.STATUS_PORT
+    }
+    assert not any(d.endswith(".255") for d in destinations), "expected no broadcast"
+    assert "169.254.99.100" not in destinations, "the Mac never announced, so gets nothing"
