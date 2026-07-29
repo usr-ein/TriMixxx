@@ -220,3 +220,29 @@ def test_rpc_stats_show_no_retries_on_a_healthy_link(stack):
     client.download(handle, attrs.size)
     assert client.rpc.stats["retries"] == 0
     assert client.rpc.stats["timeouts"] == 0
+
+
+def test_filehandles_resolve_on_their_leading_bytes(stack):
+    """FINDINGS F28. A CDJ rewrites all but the first 12 bytes of a handle.
+
+    NFSv2 says the handle is opaque and must be echoed back verbatim; a
+    CDJ-2000NXS returns one whose leading 12 bytes match ours and whose
+    remaining 20 it has replaced with its own file reference. Rejecting those
+    as stale is what made track loading fail with "media collapsed or
+    unavailable" after browsing worked perfectly.
+    """
+    _client, _server, vfs = stack
+    root = vfs.root_handle()
+    mangled = root[:12] + bytes(range(20))
+    assert mangled != root
+    assert vfs.resolve(mangled) is vfs.resolve(root)
+    assert vfs.lookup(mangled, "PIONEER") is not None
+
+
+def test_leading_bytes_still_distinguish_files(stack):
+    """Truncating to 12 bytes must not collapse distinct paths."""
+    _client, _server, vfs = stack
+    handles = {vfs.handle_for(p)[:12] for p in
+               ("/", "/PIONEER", "/PIONEER/rekordbox",
+                "/PIONEER/rekordbox/export.pdb", "/Contents")}
+    assert len(handles) == 5

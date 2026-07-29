@@ -6,15 +6,28 @@ from Mixxx's database -- the NFS wire layer above it should not have to change.
 So the wire layer talks only to this interface, and the backing store is
 swappable.
 
-**Filehandles.** NFSv2 handles are 32 opaque bytes that the client must echo
-back verbatim; their internal structure is entirely the server's business. Here
-they are a truncated SHA-256 of the path, which makes them deterministic (the
-same tree always yields the same handles, so a client's cached root handle
-survives a server restart) and collision-resistant in practice. The tradeoff is
-that they cannot express "this handle is stale" on their own, so the server
-keeps an explicit table and returns ``NFSERR_STALE`` for anything absent from
-it -- which is exactly the behaviour experiment E8 expects from real hardware
-after a media swap.
+**Filehandles, and the one place a CDJ breaks the spec.** NFSv2 says a handle
+is 32 *opaque* bytes that the client must echo back verbatim. **A CDJ-2000NXS
+does not.** Handed a handle, it returns one whose first 12 bytes match ours and
+whose remaining 20 it has rewritten with its own data:
+
+```
+served:   8a5edab282632443219e051e 4ade2d1d5bbc671c781051bf1437897cbdfea0f1
+returned: 8a5edab282632443219e051e 03012d0000001b58000000000303010000000162
+          |____ first 12 kept ____| |______ replaced by the player _______|
+```
+
+That fits the shape of a real player's own handles, which are a 4-byte value
+repeated three times followed by zeros (`01c1cec8 01c1cec8 01c1cec8 00…`) --
+evidently the leading 12 bytes are the volume identity and the rest is the
+player's own file reference, so it feels free to overwrite them.
+
+Consequently **only the first 12 bytes can be relied upon**, and the handle
+table is keyed on those. Handles are a truncated SHA-256 of the path, so 12
+bytes is still ample to be collision-free and deterministic -- the same tree
+yields the same handles, and a client's cached root handle survives a restart.
+Anything not in the table is ``NFSERR_STALE``, which is the behaviour
+experiment E8 expects after a media swap.
 """
 
 from __future__ import annotations
@@ -150,8 +163,8 @@ class Vfs:
 
     def _register(self, node: VfsNode, path: str) -> bytes:
         handle = self.handle_for(path)
-        self._handles[handle] = node
-        self._paths[handle] = path
+        self._handles[handle[: self.HANDLE_PREFIX]] = node
+        self._paths[handle[: self.HANDLE_PREFIX]] = path
         return handle
 
     # -- addressing ------------------------------------------------------
@@ -160,12 +173,18 @@ class Vfs:
     def handle_for(path: str) -> bytes:
         return hashlib.sha256(path.encode("utf-8")).digest()[:FHANDLE_SIZE]
 
+    #: Bytes of a filehandle a CDJ preserves. See the module docstring.
+    HANDLE_PREFIX = 12
+
     def resolve(self, handle: bytes) -> VfsNode | None:
-        """The node for *handle*, or ``None`` -- meaning ``NFSERR_STALE``."""
-        return self._handles.get(handle)
+        """The node for *handle*, or ``None`` -- meaning ``NFSERR_STALE``.
+
+        Matches on the leading bytes only, because a CDJ rewrites the rest.
+        """
+        return self._handles.get(handle[: self.HANDLE_PREFIX])
 
     def path_of(self, handle: bytes) -> str | None:
-        return self._paths.get(handle)
+        return self._paths.get(handle[: self.HANDLE_PREFIX])
 
     def root_handle(self) -> bytes:
         return self.handle_for("/")
@@ -177,7 +196,7 @@ class Vfs:
         child = parent.children.get(name)
         if child is None:
             return None
-        parent_path = self._paths.get(dir_handle, "/")
+        parent_path = self._paths.get(dir_handle[: self.HANDLE_PREFIX], "/")
         child_path = ("" if parent_path == "/" else parent_path) + "/" + name
         return self.handle_for(child_path), child
 

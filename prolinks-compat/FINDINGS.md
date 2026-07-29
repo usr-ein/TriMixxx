@@ -740,6 +740,41 @@ without it a player never asks for the image at all, which is why INFO showed
 no cover.
 
 
+### F28 — **A CDJ does not treat the NFS filehandle as opaque**
+
+Browsing, pagination and artwork all worked; loading a track failed with "media
+collapsed or unavailable". The capture shows the deck mounting `/C/`, looking
+up `Contents` twice, and stopping — and our replies were `NFSERR_STALE`.
+
+The handle it sent back is not the handle we gave it:
+
+```
+served:   8a5edab282632443219e051e 4ade2d1d5bbc671c781051bf1437897cbdfea0f1
+returned: 8a5edab282632443219e051e 03012d0000001b58000000000303010000000162
+          |____ first 12 kept ____| |______ replaced by the player _______|
+```
+
+RFC 1094 is unambiguous that the filehandle is **opaque** and must be echoed
+back verbatim; both reference clients treat it that way, and so did we. A
+CDJ-2000NXS keeps only the leading **12 bytes** and overwrites the remaining 20
+with its own data.
+
+It is not arbitrary. A real player's own handles are a 4-byte value repeated
+three times followed by 20 zero bytes (`01c1cec8 01c1cec8 01c1cec8 00…`, from
+`LinkInfo.pcapng`). So the leading 12 bytes are evidently the volume identity —
+the only part it considers the server's — and the rest is its own file
+reference, which it feels free to author.
+
+*Fixed:* the handle table is keyed on the first 12 bytes. A truncated SHA-256
+of the path is still ample there to stay collision-free and deterministic.
+
+*Consequence for the Mixxx serve side, and for anyone else attempting this:* a
+server that trusts the spec here works perfectly for browsing and then fails at
+exactly the moment a DJ tries to load a track — the worst possible time to
+discover it. No reference implementation could have caught this, because none
+of them serve.
+
+
 ---
 
 ## Corrections to the research docs
