@@ -38,11 +38,19 @@ from typing import Callable
 
 from ..net.iface import Interface
 from ..net.loop import EventLoop
+from ..net.udp import UdpChannel, rpc_socket
 from ..proto import djl
+from ..proto import djl_status as status
 
 log = logging.getLogger(__name__)
 
-__all__ = ["AnnouncerState", "VirtualCdj", "SAFE_OBSERVER_NUMBER", "PLAYER_NUMBERS"]
+__all__ = [
+    "AnnouncerState",
+    "VirtualCdj",
+    "SAFE_OBSERVER_NUMBER",
+    "PLAYER_NUMBERS",
+    "STATUS_INTERVAL_S",
+]
 
 #: Outside the 1-6 player range, so it can never collide with real hardware.
 #: Cannot issue dbserver queries (``research/02`` §3.2) -- the price of safety.
@@ -68,6 +76,10 @@ class AnnouncerState(enum.Enum):
     ACTIVE = "active"
     FAILED = "failed"
 
+
+#: Status-packet cadence. Measured at 199 ms mean (min 63, max 207) on a real
+#: CDJ-2000nexus, matching research/03's "roughly every 200 ms".
+STATUS_INTERVAL_S = 0.2
 
 #: Keep-alive byte ``25``, latched at boot: ``02`` if we were the first device
 #: on the network, ``01`` if peers were already present. See FINDINGS F9 --
@@ -111,6 +123,9 @@ class VirtualCdj:
         claim: bool = False,
         dry_run: bool = False,
         trailing: int = 0x00,
+        emit_status: bool = False,
+        has_usb: bool = False,
+        recorder=None,
         on_state: Callable[[AnnouncerState, str], None] | None = None,
     ) -> None:
         self.loop = loop
@@ -124,6 +139,15 @@ class VirtualCdj:
         #: 64 is required to coexist with CDJ-3000s on players 5/6.
         self.trailing = trailing
         self.on_state = on_state
+        #: Emit CDJ status packets on 50002. Without these a player sees us as
+        #: a device with empty slots, because media presence is advertised
+        #: there and nowhere else (FINDINGS F20/F21).
+        self.emit_status = emit_status
+        self.has_usb = has_usb
+        self.recorder = recorder
+        self._status_channel: UdpChannel | None = None
+        self._status_timer = None
+        self._status_counter = 0
 
         self.state = AnnouncerState.IDLE
         self.device_number = device_number
@@ -173,10 +197,13 @@ class VirtualCdj:
         self._timer = self.loop.call_later(PRESCAN_SECONDS, self._finish_prescan)
 
     def stop(self) -> None:
-        for timer in (self._timer, self._keepalive_timer):
+        for timer in (self._timer, self._keepalive_timer, self._status_timer):
             if timer is not None:
                 timer.cancel()
-        self._timer = self._keepalive_timer = None
+        self._timer = self._keepalive_timer = self._status_timer = None
+        if self._status_channel is not None:
+            self._status_channel.close()
+            self._status_channel = None
         self.discovery.on_conflict = None
         self._enter(AnnouncerState.IDLE, "stopped")
 
@@ -299,6 +326,54 @@ class VirtualCdj:
         self._keepalive_timer = self.loop.call_every(
             djl.KEEPALIVE_INTERVAL_S, self._send_keepalive
         )
+        if self.emit_status:
+            self._start_status()
+
+    # -- status (announced mode only) ------------------------------------
+
+    def _start_status(self) -> None:
+        """Begin emitting status packets to each known peer.
+
+        Status is **unicast** on real hardware -- not one of 1507 captured
+        packets was broadcast (FINDINGS F21) -- so this sends one copy per
+        peer rather than a single broadcast. Peers that have not announced
+        themselves get nothing, which mirrors why we received nothing until
+        we announced.
+        """
+        if self.dry_run:
+            log.info("DRY RUN: would emit status every %.0f ms", STATUS_INTERVAL_S * 1000)
+            return
+        self._status_channel = UdpChannel(
+            rpc_socket(self.interface.ip, 0),
+            recorder=self.recorder,
+            guard=None,  # announced mode: transmitting is the whole point
+            label="status:50002",
+        )
+        self._status_timer = self.loop.call_every(STATUS_INTERVAL_S, self._send_status)
+
+    def build_status(self) -> bytes:
+        """The status packet we emit. Exposed for byte-diffing against real ones."""
+        return status.build_status(
+            device_number=self.device_number,
+            name=self.name,
+            usb_state=(
+                status.MediaState.LOADED if self.has_usb else status.MediaState.EMPTY
+            ),
+            sd_state=status.MediaState.EMPTY,
+            link_available=1 if (self.has_usb or self.discovery.table) else 0,
+            packet_counter=self._status_counter,
+        )
+
+    def _send_status(self) -> None:
+        if self._status_channel is None:
+            return
+        packet = self.build_status()
+        self._status_counter = (self._status_counter + 1) & 0xFFFFFFFF
+        for device in self.discovery.table.all(include_stale=False):
+            try:
+                self._status_channel.sendto(packet, (device.ip, status.STATUS_PORT))
+            except OSError as exc:
+                log.debug("status to %s failed: %s", device.ip, exc)
 
     def _send_keepalive(self) -> None:
         self._send(self.build_keepalive())

@@ -542,6 +542,44 @@ current firmware sits in the "Nexus 2" row. A parser keying behaviour off the
 packet length would mis-classify these decks.
 
 
+### F23 — We can emit a status packet indistinguishable from a real deck's
+
+Built the emitter (`proto/djl_status.build_status`). Given the same identity and
+state, our synthesised packet is **byte-identical** to a real CDJ-2000nexus one
+— all 284 bytes.
+
+The method matters. Across 749 consecutive packets from an idle deck, only
+**six** bytes ever changed: the USB slot state, the link flag, two
+still-unidentified bytes at `0x6a`/`0x74`, and the 16-bit packet counter. So
+rather than construct a packet field-by-field from a specification full of
+unknowns, the emitter starts from a captured skeleton and substitutes only the
+fields we understand. The ~270 bytes whose meaning is still unknown are
+reproduced exactly rather than guessed — which is the difference between
+"plausible" and "indistinguishable".
+
+Wired into `announce --status` and into `serve`, which now emits status
+unconditionally: without it a player sees us as a deck with empty slots however
+loudly we announce, because media presence is advertised here and nowhere else.
+Sent **unicast per peer** at 200 ms, matching the hardware (F21).
+
+*Observed but not imitated:* a real deck sends each status packet from a
+**different, incrementing source port** (6688, 6689, 6690 …). Ours uses one
+socket. Nothing suggests a receiver cares, and if something does, this is where
+to look.
+
+### C14 — The status packet's name field is 20 bytes, not 21
+
+`research/03` §0 gives the device name as `0x0b`–`0x1f`, 21 bytes. Byte `0x1f`
+is a **constant `0x01`** in all 1503 captured packets, so the name is 20 bytes
+(`0x0b`–`0x1e`) and `0x1f` is a structural constant — exactly mirroring the
+keep-alive on port 50000, where the name occupies `0x0c`–`0x1f` and the same
+constant sits at `0x20`.
+
+*Impact:* an emitter following the doc writes a 21st name byte over that
+constant. Caught because our synthesised packet differed from a real one in
+exactly that byte.
+
+
 ---
 
 ## Corrections to the research docs

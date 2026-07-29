@@ -27,6 +27,7 @@ from .errors import DecodeError
 
 __all__ = [
     "STATUS_PORT",
+    "build_status",
     "StatusType",
     "MediaState",
     "PlayState",
@@ -182,3 +183,89 @@ def decode_status(data: bytes) -> CdjStatus:
         play_state=reader.u8_at(0x7B),
         bpm_100=int.from_bytes(reader.raw_at(0x92, 2), "big") if len(data) > 0x93 else 0,
     )
+
+
+# -- emitting status (announced mode) --------------------------------------
+#
+# A status packet is 284 bytes of which, across 749 consecutive packets from an
+# idle CDJ-2000nexus, only **six** ever changed: the USB slot state, the
+# link-available flag, two still-unidentified bytes at 0x6a/0x74, and the
+# 16-bit packet counter. So rather than construct one field by field from a
+# specification full of unknowns, we start from a real packet and substitute
+# the fields we understand. Everything we cannot name is preserved exactly as
+# a real deck sends it.
+#
+# Captured from the author's deck A (firmware 1.44) with a stick loaded. The
+# device name, device number, media state, link flag and packet counter are
+# zeroed here, so nothing identifying the source deck is baked in.
+
+_TEMPLATE = bytes.fromhex(
+    "5173707431576d4a4f4c0a000000000000000000000000000000000000000001040000f8"
+    "000000000000000000000000000000000000000000000000000000000000000000000000"
+    "000000000000000000000000000000000000000000000000000000000000000001000604"
+    "00000000000000000100000000000000312e343400000000000000030084fffe000f8312"
+    "7fffffff7fffffff00000000000000ff0000000401ff0000000000000000000000000000"
+    "000001000000000000000000000f831200000000000000000f0100001234567800000001"
+    "010101010201000000000000000000000000000000000000000000000000000000000000"
+    "00000000000000000000000000000000000000000000001500000753000005b4"
+)
+
+#: Offsets we substitute. Everything else in the template is left untouched.
+OFF_NAME = 0x0B
+#: 20 bytes, not the 21 ``research/03`` §0 states. Byte 0x1f is a constant
+#: 0x01 in all 1503 captured packets -- the same shape as the keep-alive, where
+#: the name is 0x0c-0x1f and the constant sits at 0x20. FINDINGS C14.
+LEN_NAME_STATUS = 20
+OFF_SUBTYPE = 0x20
+OFF_DEVICE = 0x21
+OFF_DEVICE_2 = 0x24
+OFF_USB_STATE = 0x6F
+OFF_SD_STATE = 0x73
+OFF_LINK = 0x75
+OFF_PLAY_STATE = 0x7B
+OFF_FIRMWARE = 0x7C
+OFF_PACKET_COUNTER = 0xC8
+
+
+def build_status(
+    device_number: int,
+    name: str = "CDJ-2000nexus",
+    usb_state: int = MediaState.LOADED,
+    sd_state: int = MediaState.EMPTY,
+    link_available: int = 1,
+    play_state: int = 0x00,
+    firmware: str = "1.44",
+    packet_counter: int = 0,
+) -> bytes:
+    """Synthesise a CDJ status packet for UDP 50002.
+
+    This is what makes a real player treat us as a deck with media in it.
+    Keep-alives on 50000 only announce that we exist; media presence is
+    advertised here (FINDINGS F20), and these packets are unicast to announced
+    peers (F21) -- so a device that never sends them looks, to a CDJ, like a
+    player with empty slots.
+
+    ``packet_counter`` occupies ``0xc8``-``0xcb`` and increments once per
+    packet on real hardware. It is passed in rather than held as module state
+    so that emission stays a pure function.
+    """
+    packet = bytearray(_TEMPLATE)
+    encoded = name.encode("ascii", errors="replace")[:LEN_NAME_STATUS]
+    packet[OFF_NAME : OFF_NAME + LEN_NAME_STATUS] = encoded.ljust(LEN_NAME_STATUS, b"\x00")
+    packet[OFF_DEVICE] = device_number & 0xFF
+    # The device number appears twice; prolink-connect notes the same, and a
+    # real packet carries it at both 0x21 and 0x24.
+    packet[OFF_DEVICE_2] = device_number & 0xFF
+    packet[OFF_USB_STATE] = usb_state & 0xFF
+    packet[OFF_SD_STATE] = sd_state & 0xFF
+    # 0x74 is left exactly as the real deck sent it. It takes 0 and 1 and is
+    # clearly media-related, but it does not track 0x75: three of the four
+    # combinations occur, so it is a separate flag we cannot yet name. Guessing
+    # would be worse than copying.
+    packet[OFF_LINK] = link_available & 0xFF
+    packet[OFF_PLAY_STATE] = play_state & 0xFF
+    packet[OFF_FIRMWARE : OFF_FIRMWARE + 4] = firmware.encode("ascii")[:4].ljust(4, b"\x00")
+    packet[OFF_PACKET_COUNTER : OFF_PACKET_COUNTER + 4] = (
+        packet_counter & 0xFFFFFFFF
+    ).to_bytes(4, "big")
+    return bytes(packet)

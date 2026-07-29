@@ -796,6 +796,9 @@ def cmd_announce(ctx: Context) -> int:
         claim=args.claim,
         dry_run=args.dry_run,
         trailing=args.trailing,
+        emit_status=args.status,
+        has_usb=args.has_usb,
+        recorder=ctx.recorder,
         on_state=lambda state, message: _warn(f"  [{state.value}] {message}"),
     )
     # An active announcer must defend its number or it will simply lose it to
@@ -1243,6 +1246,9 @@ def cmd_serve(ctx: Context) -> int:
         virtual = VirtualCdj(
             ctx.loop, discovery, interface,
             device_number=args.number, name=args.name, claim=args.claim,
+            # Without status packets a player sees us as a deck with empty
+            # slots, however loudly we announce (FINDINGS F20/F21).
+            emit_status=True, has_usb=True, recorder=ctx.recorder,
             on_state=lambda state, message: _warn(f"  [{state.value}] {message}"),
         )
         discovery.on_claim = virtual.defend
@@ -1462,6 +1468,15 @@ def build_parser() -> argparse.ArgumentParser:
     announce.add_argument(
         "--trailing", type=lambda v: int(v, 0), default=0x00,
         help="keep-alive byte 0x35: 0x00 nexus (observed), 0x64 CDJ-3000 coexistence",
+    )
+    announce.add_argument(
+        "--status", action="store_true",
+        help="also emit CDJ status packets on 50002 -- required for a player to "
+             "believe we have media (FINDINGS F20/F21)",
+    )
+    announce.add_argument(
+        "--has-usb", action="store_true",
+        help="with --status: claim a loaded USB slot",
     )
     announce.add_argument("--duration", type=float, default=0.0, help="0 = until Ctrl-C")
     announce.set_defaults(func=cmd_announce)

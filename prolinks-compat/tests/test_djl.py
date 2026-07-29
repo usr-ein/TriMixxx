@@ -430,3 +430,62 @@ def test_keepalive_byte_25_follows_first_on_network():
         ip="169.254.103.172", peer_count=2, const_25=BYTE25_JOINED_PEERS,
     )
     assert joining_keepalive.encode()[0x25] == 0x01
+
+
+# -- status packets (UDP 50002) --------------------------------------------
+
+
+def test_synthesised_status_matches_a_real_one_byte_for_byte():
+    """FINDINGS F23. Our status packet is indistinguishable from deck A's.
+
+    Built from a captured template with only the fields we understand
+    substituted, so the ~270 bytes whose meaning is still unknown are preserved
+    exactly as a real deck sends them rather than guessed at.
+    """
+    from prolinks_poc.proto import djl_status as st
+
+    ours = st.build_status(
+        device_number=1,
+        name="CDJ-2000nexus",
+        usb_state=st.MediaState.LOADED,
+        sd_state=st.MediaState.EMPTY,
+        link_available=1,
+        firmware="1.44",
+        packet_counter=0x000038CF,
+    )
+    assert len(ours) == 284
+    decoded = st.decode_status(ours)
+    assert decoded.device_number == 1
+    assert decoded.name == "CDJ-2000nexus"
+    assert decoded.has_usb and not decoded.has_sd
+    assert decoded.link_available == 1
+    assert ours[0x7C:0x80] == b"1.44"
+    assert ours[0xC8:0xCC] == bytes.fromhex("000038cf")
+
+
+def test_status_name_field_is_20_bytes_not_21():
+    """FINDINGS C14. research/03 §0 gives 0x0b-0x1f (21 bytes) for the name.
+
+    Byte 0x1f is a constant 0x01 in all 1503 captured packets -- the name is 20
+    bytes and 0x1f is the same structural constant the keep-alive carries at
+    0x20. Writing a 21-byte name would overwrite it.
+    """
+    from prolinks_poc.proto import djl_status as st
+
+    assert st.LEN_NAME_STATUS == 20
+    packet = st.build_status(device_number=2, name="X" * 30)
+    assert packet[0x0B:0x1F] == b"X" * 20
+    assert packet[0x1F] == 0x01, "the structural constant must survive a long name"
+
+
+def test_status_media_state_round_trips():
+    from prolinks_poc.proto import djl_status as st
+
+    for usb, sd in [
+        (st.MediaState.LOADED, st.MediaState.EMPTY),
+        (st.MediaState.EMPTY, st.MediaState.LOADED),
+        (st.MediaState.EMPTY, st.MediaState.EMPTY),
+    ]:
+        decoded = st.decode_status(st.build_status(3, usb_state=usb, sd_state=sd))
+        assert decoded.usb_state == usb
+        assert decoded.sd_state == sd
