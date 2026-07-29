@@ -170,23 +170,30 @@ class UdpChannel:
         A keep-alive is emitted on a timer several times a second; letting
         ``ENETDOWN`` or ``EHOSTDOWN`` propagate turns a cable being unplugged
         into a screenful of identical tracebacks that buries whatever else the
-        run was telling you. The first failure is logged at warning level and
-        the rest at debug, since the interesting event is the transition.
+        run was telling you. The first failure per destination is logged at
+        warning level and the rest at debug, since the transition is the
+        interesting event.
+
+        Failures are tracked **per destination**. A single shared flag meant
+        that with two peers on one socket, each one's success reset the other's
+        failure, producing an endless failed/recovered alternation that
+        conveyed nothing about what was actually wrong.
         """
         if self.guard is not None:
             self.guard.check(self.local_port, peer)
+        host = peer[0] if peer else ""
         try:
             sent = self.sock.sendto(data, peer)
         except OSError as exc:
-            if not self._send_failed:
-                self._send_failed = True
-                log.warning("%s: send to %s failed: %s", self.label, peer[0], exc)
+            if host not in self._failed_peers:
+                self._failed_peers.add(host)
+                log.warning("%s: send to %s failed: %s", self.label, host, exc)
             else:
-                log.debug("%s: send to %s failed: %s", self.label, peer[0], exc)
+                log.debug("%s: send to %s failed: %s", self.label, host, exc)
             return 0
-        if self._send_failed:
-            log.info("%s: sending to %s recovered", self.label, peer[0])
-            self._failed_peers: set[str] = set()
+        if host in self._failed_peers:
+            log.info("%s: sending to %s recovered", self.label, host)
+            self._failed_peers.discard(host)
         self._journal("tx", peer, data)
         return sent
 
