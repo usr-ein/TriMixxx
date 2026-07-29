@@ -276,49 +276,39 @@ arithmetic: the 10 s device timeout is **5** missed keep-alives, not the "6-7"
 *Evidence:* `captures/S01-cold-boot-a`.
 
 
-### C13 — Stage-3 repeat count is **not** governed by auto-vs-manual  *(revised)*
+### C13 — Stage-3 repeat count depends on **peer presence at boot**, not on the assignment mode  *(resolved)*
 
 `research/02` §1.3 reads byte `31` of the stage-2 claim as `01` auto-assign /
-`02` specific number, and §1.0 adds: *"When set to a specific (manual) number,
-the device sends only **one** stage-3 packet (N=01)."*
+`02` specific number — **confirmed**, both decks are manual and both send `02`.
 
-The **mode byte is confirmed**: both decks are set manually and both send
-`31` = `02`.
+§1.0 then adds: *"When set to a specific (manual) number, the device sends only
+**one** stage-3 packet (N=01)."* That attributes the repeat count to the wrong
+variable. Three controlled boots, all manual, same firmware:
 
-The **packet count is not explained by the mode**. Two decks, both manual, both
-firmware v1.44, disagree:
+| Capture | Deck | Number | Booted into | Stage-3 packets |
+|---|---|---|---|---|
+| S01 | A | 1 | empty network | **3** |
+| S1b | B | 2 | empty network | **3** |
+| S02 | B | 2 | deck A present | **1** |
 
-| Deck | Number | Booted into | Stage-3 packets |
-|---|---|---|---|
-| A | 1 (manual) | an empty network | **3** (N=1,2,3) |
-| B | 2 (manual) | a network with deck A present | **1** (N=1) |
+Deck B sends three when alone and one when joining — same deck, same number,
+same setting. So the rule is:
 
-So the doc's rule holds for deck B and fails for deck A, and the variable that
-actually differs is **whether another device was already on the network**, not
-the assignment mode.
+> **Booting into an empty network → three stage-3 packets. Joining a network
+> that already has peers → one.** The assignment mode does not enter into it.
 
 > An earlier version of this entry claimed the doc's packet count was simply
-> wrong. That was drawn from deck A alone and was too strong: with deck B in
-> hand, "manual sends one" is right at least sometimes. The honest statement is
-> that the repeat count depends on something the doc does not model.
+> wrong; that came from deck A alone and was too strong. S1b isolated the real
+> variable by re-booting deck B with nothing else on the wire.
 
-*Not yet isolated.* Two candidates fit both observations equally: presence of a
-peer, or the number being claimed (1 vs 2). Separating them needs two more
-captures, **S1b** and **S2c** (see the capture plan) — boot deck B alone, and
-boot deck A into an occupied network. If deck B alone sends three, presence is
-the variable; if it still sends one, the number is.
+*Impact:* our announcer always sends three, which matches the boot-alone case
+and is what the golden vector pins. To be faithful when joining an occupied
+network it should send one — worth doing, since the whole point is to be
+indistinguishable.
 
-*Impact on us:* none yet — we send three of every stage, which matches deck A.
-Worth revisiting once the variable is known, since matching the hardware
-case-for-case is the point of impersonation.
+*Evidence:* `captures/S01-cold-boot-a`, `captures/S1b-cold-boot-b-alone`,
+`captures/S02-deck-b-joins`.
 
-**Still true and worth keeping:** our announcer's claim handshake is
-byte-identical to deck A's twelve packets — hellos, stage-1, stage-2, stage-3 —
-given the same identity. That golden vector covers the **boot-into-empty-network**
-case specifically.
-
-*Evidence:* `captures/S01-cold-boot-a`, `captures/S02-deck-b-joins`;
-`test_our_announcer_reproduces_the_claim_handshake_byte_for_byte`.
 
 
 
@@ -358,36 +348,50 @@ Unchanged, and still the single most important thing to establish. The
 "confirmed" NFS evidence in `research/06` §1 rests on an **XDJ** capture. The
 portmap traffic noted in O1 is suggestive but not yet decoded.
 
-### O3 — Keep-alive byte `25` semantics *(see C4)*
+### O3 — Keep-alive byte `25` is fixed at boot *(much narrowed)*
 
-**Correction to my own earlier analysis.** I originally aggregated this byte by
-device *name* — but every CDJ-2000nexus reports the same name, and dysentery's
-capture contains two of them. Regrouped by **MAC**, which actually identifies a
-device:
+Two corrections to my own earlier analysis of this byte:
 
-| Capture | D | Device | byte `25` |
-|---|---|---|---|
-| ours | 1 | CDJ-2000nexus | `02` ×108 |
-| ours | 2 | CDJ-2000nexus | `01` ×66 |
-| dysentery | 2 | CDJ-2000nexus | `02` ×31, `01` ×43 |
-| dysentery | 3 | CDJ-2000nexus | `01` ×74 |
-| dysentery | 33 | DJM-2000nexus | `01` ×32, `02` ×59 |
+1. I first aggregated it by device **name** — but every CDJ-2000nexus reports
+   the identical name and dysentery's capture contains two of them, so I was
+   mixing devices together.
+2. Having regrouped by MAC, I then said it "varies within a single device over
+   dysentery's busier sessions". Also wrong: that was an artefact of pooling two
+   *separate captures*. Per capture, it is **constant for every device in every
+   capture we have** — five captures, ten device-sessions, zero variation:
 
-What this rules out:
+| Capture | Devices and their byte `25` |
+|---|---|
+| S01 (deck A alone) | D=1: `02` |
+| S1b (deck B alone) | D=2: `02` |
+| S02 (A up, B joins) | D=1: `02`, D=2: `01` |
+| dysentery LinkInfo | D=2: `02`, D=3: `01`, D=33: `01` |
+| dysentery LinkInfo2 | D=2: `01`, D=3: `01`, D=33: `02` |
 
-- **Not a CDJ/mixer role byte** (the doc's reading): a DJM sends both values and
-  so does a CDJ.
-- **Not the peer count**: deck A held `02` across a peer-count change from 1 to
-  2 at t=24.031 s in S02.
-- **Not "the other player's number"**: deck A sent `02` while provably alone on
-  the network in S01.
+So it is **set once at boot and held for the session**, and the same physical
+deck can come up with either value on different boots. That kills the readings
+the sources offer — it is not a CDJ/mixer role byte, not the peer count (deck A
+held `02` across peers 1→2), and not "the other player's number" (dysentery's
+D=33 sends `01` with only D=2 alive).
 
-What is left: it is stable per device over a hundred-odd packets on a quiet rig,
-yet varies within a single device over dysentery's longer, busier sessions. So
-it tracks *something that changes during use* — S5/S6/S7, where tracks are
-loaded and played, are where to look.
+**Leading hypothesis, and it is the same variable as C13:** every boot whose
+starting conditions we actually know fits *alone at boot → `02`, peer present at
+boot → `01`*:
 
-### ~~O5~~ — resolved, see C13.
+| Boot | Peer present? | byte `25` |
+|---|---|---|
+| deck A (S01) | no | `02` |
+| deck B (S1b) | no | `02` |
+| deck B (S02) | yes | `01` |
+
+That is n=3, and dysentery cannot corroborate it because those captures start
+mid-session so the boot conditions are unknown. But it is striking that the
+stage-3 repeat count (C13) turns on exactly the same thing — suggesting both
+are expressions of one internal "am I the first device here?" state.
+
+**The decisive test is S2c**: boot deck A into a network where deck B is already
+up. Deck A has come up `02` in every capture so far; if it comes up `01` this
+time, the hypothesis holds and both C13 and O3 are closed by one power cycle.
 
 ### O4 — What are `0x3e03` and `0x3100`? *(see C11)*
 
