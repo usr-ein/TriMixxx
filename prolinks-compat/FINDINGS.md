@@ -211,6 +211,51 @@ substantially de-risks the whole consume objective.
 *Evidence:* `captures/S04-media-insert`, deck A at 169.254.103.172.
 
 
+### F12 — Export names confirmed on an NXS, and the access list is a **subnet**
+
+`prolinks exports` against deck A with a USB stick inserted:
+
+```
+'/C/'  raw=2f0043002f00  groups=['169.254.0.0/255.255.0.0']
+```
+
+Three things settled at once:
+
+**E3 resolved.** USB is `/C/` on a CDJ-2000NXS, matching `research/06` §3 — which
+was previously confirmed only against XDJ-class hardware. The raw bytes
+`2f 00 43 00 2f 00` also confirm the **UTF-16LE** path encoding directly:
+three characters, six bytes.
+
+**C7 confirmed on target hardware.** The path is UTF-16LE but the group is plain
+ASCII, in the same reply. The convention genuinely is not applied uniformly, and
+decoding the group as UTF-16LE would have produced mojibake here too.
+
+**The access list is a whole subnet, and that is why F11 works.** This deck
+exports `/C/` to `169.254.0.0/255.255.0.0` — the entire link-local range, not a
+list of known peers. So an unannounced host is inside the permitted set by
+default, which is the mechanism behind passive NFS access.
+
+> **Caveat, and it matters for the Mixxx feature.** dysentery's capture shows a
+> device exporting `/C/EXPORT` to two **per-host** entries
+> (`169.254.244.181/255.255.255.255` and `169.254.192.112/255.255.255.255`) —
+> the two peers it had discovered. A device that scopes its export that way
+> would presumably refuse an unannounced client, which would make F11
+> firmware- or model-dependent rather than universal.
+>
+> Consequence: the consume path should treat `NFSERR_ACCES` on MNT as "try
+> announcing first", not as a hard failure. It is also a plausible explanation
+> for the `NFSERR_ACCES` libcdj hit (experiment E2) that has nothing to do with
+> the credential flavour.
+
+**Only the populated slot is listed.** No `/B/` appears, and deck A has no SD
+card in it. If that holds up, `EXPORT` is a direct way to discover which slots
+have media — cheaper and more reliable than probing each slot with `MNT`, and it
+would settle the E4 decision-tree branch about gating on media state.
+*Untested:* insert an SD card and re-run to confirm `/B/` appears.
+
+*Evidence:* `captures/S04-media-insert`, deck A.
+
+
 ---
 
 ## Corrections to the research docs
