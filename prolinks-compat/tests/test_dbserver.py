@@ -416,22 +416,55 @@ def test_server_answers_menu_close_with_silence(client, server):
     assert {item.id for item in items} == {101, 102, 103}
 
 
-def test_menu_close_clears_pending_state(library):
-    """It is a 'release that menu' signal, so the result set should go."""
+def test_menu_close_does_not_discard_the_result_set(library):
+    """FINDINGS F27. It must not, or pagination breaks.
+
+    "Release that menu" was an inference from where 0x0001 sits in the stream.
+    Acting on it broke scrolling, because a deck sends this while still paging
+    through the very list it is supposedly finished with.
+    """
     from prolinks_poc.net.dbserverd import _Connection
 
     server = DbServer(library, bind_ip="127.0.0.1", port=0, query_port=0)
     try:
         connection = _Connection.__new__(_Connection)
         connection.server = server
-        connection.pending = [db.make_menu_item(0, 1, "x")]
+        items = [db.make_menu_item(0, 1, "x")]
+        connection.menus = {1: items}
+        connection.last_menu = items
         connection.client_device_number = 1
         assert connection.handle(
             db.Message(transaction_id=1, type=db.MessageType.MENU_CLOSE, args=[])
         ) == []
-        assert connection.pending == []
+        assert connection.menus == {1: items}
     finally:
         server.stop()
+
+
+def test_concurrent_menus_are_kept_apart(client):
+    """FINDINGS F27. A deck interleaves metadata lookups with list scrolling.
+
+    It pages a 692-track list, dips into an 8-item metadata menu for a
+    highlighted track, then resumes the list at the next offset *without*
+    re-issuing the menu request. A single result set meant the metadata
+    replaced the list and every later page came back empty -- the list going
+    blank part-way down.
+    """
+    tracks = client.track_list(MediaSlot.USB)
+    assert len(tracks) == 3
+
+    # Establish a second, differently-sized menu in between.
+    metadata = client.track_metadata(MediaSlot.USB, 101)
+    assert metadata["title"] == "Blue Monday"
+
+    # The track list must still be renderable at a later offset.
+    desc = client.descriptor(MediaSlot.USB)
+    client._send_raw(
+        db.make_render(client._transaction_id(), desc, 1, 2, len(tracks)).encode()
+    )
+    resumed = client._read_menu_page()
+    assert [item.label1 for item in resumed] == [t.label1 for t in tracks[1:3]]
+
 
 
 def test_unknown_3e03_is_answered_not_errored(client, server):

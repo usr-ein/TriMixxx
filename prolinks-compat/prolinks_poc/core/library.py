@@ -111,6 +111,9 @@ class Library:
         self.colors = by_id(PageType.COLORS)
         self.artwork = by_id(PageType.ARTWORK, "path")
 
+        #: track id -> artwork id, kept because a menu item must carry it or
+        #: the player never asks for the image.
+        self.artwork_ids: dict[int, int] = {}
         self.tracks: dict[int, Track] = {}
         for row in pdb.rows(PageType.TRACKS):
             track = Track(
@@ -138,6 +141,7 @@ class Library:
                 date_added=row.get("date_added", ""),
             )
             self.tracks[track.id] = track
+            self.artwork_ids[track.id] = row.get("artwork_id", 0)
 
         self.playlists: dict[int, Playlist] = {
             row["id"]: Playlist(

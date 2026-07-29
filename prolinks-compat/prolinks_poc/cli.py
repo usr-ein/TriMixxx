@@ -1217,6 +1217,7 @@ def cmd_serve(ctx: Context) -> int:
         bind_ip="0.0.0.0",
         port=args.db_port,
         query_port=dbproto.QUERY_PORT,
+        media_root=volume,
         recorder=ctx.recorder,
     ).start()
     _warn(f"dbserver on TCP {db_server.port} (port query on {db_server.query_port})")

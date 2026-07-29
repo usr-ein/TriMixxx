@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 import socket
 import threading
+from pathlib import Path
 
 from ..core.library import Library
 from ..core.slots import MediaSlot
@@ -48,9 +49,22 @@ class _Connection(threading.Thread):
         self.sock = sock
         self.peer = peer
         self.buffer = b""
-        #: The result set established by the last menu request, waiting for
-        #: its render. Keyed by nothing: a client runs one menu at a time.
-        self.pending: list[db.Message] = []
+        #: Result sets awaiting render, keyed by item count.
+        #:
+        #: A client does **not** run one menu at a time. A real CDJ browsing a
+        #: track list interleaves per-track ``GET_METADATA`` lookups with
+        #: continued scrolling of the list, then resumes rendering the list at
+        #: the next offset without re-issuing the menu request. Holding a
+        #: single result set meant the metadata replaced the track list and
+        #: every later page came back empty -- which presented as the list
+        #: going blank part-way down.
+        #:
+        #: The render request's ``total`` argument is what distinguishes them
+        #: (692 for the track list, 8 for a metadata lookup), so that is the
+        #: key. Two concurrent menus of identical length would still collide;
+        #: nothing observed does that, and the fallback below covers it.
+        self.menus: dict[int, list[db.Message]] = {}
+        self.last_menu: list[db.Message] = []
         self.client_device_number = 0
 
     # -- framing ---------------------------------------------------------
@@ -128,7 +142,11 @@ class _Connection(threading.Thread):
             # menu and expects nothing back. Replying at all -- let alone with
             # the 0x4003 error an unhandled type would have produced -- risks
             # desynchronising a client that is not listening for one.
-            self.pending = []
+            #
+            # Deliberately does NOT discard the result sets. "Release that
+            # menu" was an inference from its position in the stream, and
+            # acting on it broke pagination: a deck sends this while still
+            # scrolling the list it is supposedly finished with.
             return []
 
         if message.type == db.MessageType.UNKNOWN_3E03:
@@ -143,6 +161,17 @@ class _Connection(threading.Thread):
                            db.FieldType.UINT32, db.FieldType.STRING],
             )]
 
+        if message.type == db.MessageType.GET_ARTWORK:
+            image = self.server.artwork_for(message.number(1))
+            # A zero-length binary argument is omitted from the wire entirely,
+            # so "no artwork" and "here is the artwork" share one shape.
+            return [db.Message(
+                transaction, db.MessageType.ARTWORK,
+                [message.number(1), 0, len(image), image],
+                arg_types=[db.FieldType.UINT32, db.FieldType.UINT32,
+                           db.FieldType.UINT32, db.FieldType.BINARY],
+            )]
+
         if message.type == db.MessageType.RENDER_MENU:
             return self._render(message)
 
@@ -152,15 +181,21 @@ class _Connection(threading.Thread):
             return [db.Message(transaction, db.MessageType.ERROR, [message.type, 0])]
 
         # Establish the result set, then answer with its size. The client
-        # follows up with 0x3000 to page through it.
-        self.pending = items
+        # follows up with 0x3000 to page through it -- possibly interleaved
+        # with other menus, hence keying by size rather than replacing.
+        self.menus[len(items)] = items
+        self.last_menu = items
         return [db.Message(transaction, db.MessageType.SUCCESS,
                            [message.type, len(items)])]
 
     def _render(self, message: db.Message) -> list[db.Message]:
         offset = message.number(1)
         limit = message.number(2)
-        window = self.pending[offset : offset + limit]
+        total = message.number(4)
+        # Pick the result set the client is actually paging through. It tells
+        # us which by echoing that menu's size in the total argument.
+        items = self.menus.get(total, self.last_menu)
+        window = items[offset : offset + limit]
 
         out = [db.Message(message.transaction_id, db.MessageType.MENU_HEADER, [1, 0])]
         for item in window:
@@ -183,9 +218,12 @@ class DbServer:
         bind_ip: str = "0.0.0.0",
         port: int = 0,
         query_port: int = db.QUERY_PORT,
+        media_root=None,
         recorder=None,
     ) -> None:
         self.library = library
+        #: Root of the served medium, so artwork can be read off it.
+        self.media_root = Path(media_root) if media_root is not None else None
         self.device_number = device_number
         self.slot = slot
         self.recorder = recorder
@@ -299,6 +337,24 @@ class DbServer:
             return self._search(message.string(2))
         return None
 
+    def artwork_for(self, artwork_id: int) -> bytes:
+        """The album-art image for *artwork_id*, or empty if we have none.
+
+        The pdb maps the id to a path on the medium; since we are serving that
+        medium we can simply read it. Returns empty rather than raising for a
+        missing file -- a track without art is ordinary, and the protocol has a
+        representation for it.
+        """
+        path = self.library.artwork.get(artwork_id)
+        if not path or self.media_root is None:
+            return b""
+        candidate = self.media_root / path.lstrip("/")
+        try:
+            return candidate.read_bytes()
+        except OSError:
+            log.debug("artwork %s not readable at %s", artwork_id, candidate)
+            return b""
+
     #: Root-menu categories: item type, label, and the id a real player puts in
     #: argument 2 -- the low byte of the corresponding menu request type
     #: (GENRE 0x1001 -> 1, ARTIST 0x1002 -> 2, PLAYLIST 0x1105 -> 5).
@@ -340,7 +396,7 @@ class DbServer:
             db.make_menu_item(
                 0, track.id, track.title, track.artist,
                 item_type=db.ItemType.TITLE_AND_ARTIST,
-                artwork_id=0,
+                artwork_id=self.library.artwork_ids.get(track.id, 0),
             )
             for track in tracks
         ]

@@ -698,6 +698,48 @@ everywhere was my error.
 Our root item is now byte-identical to a real player's given the same category.
 
 
+### F27 — **A CDJ browsed our library's categories.** Two bugs it exposed
+
+With the root items matching a real player's structure (F26), deck B opened
+GENRE, ARTIST, ALBUM, TRACK and PLAYLIST and listed their contents from our
+Mac. 61 renders, 280 menu items, 29 metadata lookups. The serve side works.
+
+Two defects surfaced immediately, both mine.
+
+**1. Concurrent menus.** A deck does *not* browse one menu at a time:
+
+```
+RENDER offset=20 limit=6 total=692     <- track list
+GET_METADATA                            <- highlighted track
+RENDER offset=0  limit=8 total=8        <- its metadata
+RENDER offset=21 limit=6 total=692      <- back to the list, no new MENU_TRACK
+```
+
+It dips into an 8-item metadata menu and resumes the 692-item list at the next
+offset **without re-issuing the menu request**. Holding one result set meant
+the metadata replaced the list and every later page returned nothing — which is
+exactly how it presented: scroll far enough and the list goes blank and the
+tracks already shown disappear.
+
+Both menus use the same descriptor (`0x2020301`, `M=0x02`), so the menu target
+does not separate them. The distinguishing field is the render's **`total`**
+argument, which echoes the size of the menu being paged. Result sets are now
+kept per size, with the most recent as fallback.
+
+**2. `MENU_CLOSE` must not discard state.** F16 read `0x0001` as "done with
+that menu, release its state" from where it sits in the stream, and I made the
+server act on it. That was wrong: a deck sends it *while still scrolling the
+list it is supposedly finished with*, so honouring it destroyed the result set
+mid-browse. It is now acknowledged and otherwise ignored. The inference was
+plausible and the observation that it draws no reply still stands — but the
+semantics were a guess, and guessing cost a real bug.
+
+*Also implemented:* `GET_ARTWORK`, reading the image off the served medium via
+the pdb's artwork table, and track menu items now carry their artwork id —
+without it a player never asks for the image at all, which is why INFO showed
+no cover.
+
+
 ---
 
 ## Corrections to the research docs
