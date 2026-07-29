@@ -1,1 +1,1 @@
-sudo tcpdump -i bridge1 -s 0 -n -w captures/S05-link-browse/run.pcap
+sudo tcpdump -i pktap,en12,en9 -s 0 -n -w captures/S05-link-browse/run.pcap

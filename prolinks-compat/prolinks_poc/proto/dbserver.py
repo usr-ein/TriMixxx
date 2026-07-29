@@ -122,6 +122,14 @@ class MessageType(enum.IntEnum):
     """Message type IDs (``research/04`` §3.4). Requests then responses."""
 
     INTRODUCE = 0x0000
+    #: Undocumented, and sent by a real CDJ-2000NXS during an ordinary LINK
+    #: browse (23 times in one session). Zero arguments, reuses the transaction
+    #: id of the ``RENDER_MENU`` it immediately follows, and draws **no reply at
+    #: all** -- every other request type in that capture is exactly accounted
+    #: for by the responses. Most likely "done with that menu, release its
+    #: state", which fits a protocol the docs describe as stateful per client.
+    #: The name is our inference; the wire behaviour is observed. FINDINGS F16.
+    MENU_CLOSE = 0x0001
     DISCONNECT = 0x0100
 
     RENDER_MENU = 0x3000

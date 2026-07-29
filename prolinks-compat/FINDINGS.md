@@ -351,6 +351,84 @@ check `/B/` appears, because the whole polling design rests on it.
 *Evidence:* `captures/S04-media-insert`.
 
 
+### F16 — A real LINK browse decoded end to end. `0x0001` identified; `0x3e03` absent
+
+Deck A browsing deck B's USB over LINK, captured on the bridge **members**
+(see F17). 410 KB of dbserver responses, **1957 messages, every byte consumed**
+by our codec.
+
+| Requests | | Responses | |
+|---|---|---|---|
+| `INTRODUCE` | 1 | `SUCCESS` | 74 |
+| `MENU_ROOT` | 2 | `MENU_HEADER` | 215 |
+| `RENDER_MENU` | 215 | `MENU_ITEM` | 1371 |
+| `MENU_PLAYLIST` | 38 | `MENU_FOOTER` | 215 |
+| `GET_METADATA` | 34 | `ARTWORK` | 82 |
+| `GET_ARTWORK` | 82 | | |
+| **`0x0001`** | **23** | — | — |
+
+**`0x0001` is fire-and-forget.** The accounting is exact: 215 renders produce
+215 headers and 215 footers, 82 artwork requests produce 82 artwork replies, and
+introduce + root + playlist + metadata account for the SUCCESS replies. Nothing
+is left over for `0x0001`, so it **draws no reply at all**.
+
+Its wire form is a bare 32-byte message — zero arguments and an all-zero
+argument-type blob:
+
+```
+11 87 23 49 ae   magic
+11 03 80 01 b7   transaction id -- the SAME as the RENDER_MENU it follows
+10 00 01         type 0x0001
+0f 00            argument count 0
+14 00 00 00 0c   12-byte argument-type blob, all zeroes
+```
+
+Reusing the preceding render's transaction id and expecting nothing back makes
+"done with that menu, release its state" the natural reading, which fits a
+protocol the docs describe as stateful per client. The semantics are inferred;
+the wire behaviour is observed.
+
+*Implemented:* the server now consumes it silently and clears its pending
+result set. Previously it fell through to the unknown-request path and answered
+`0x4003 ERROR` — precisely the kind of unsolicited reply that could
+desynchronise a client which is not listening for one, and a plausible reason a
+real player would have refused to browse us.
+
+**`0x3e03` did not appear.** C11 flagged it as the first thing a player sends
+after `Introduce`, from dysentery's capture, and treated it as the likely
+blocker for the serve side. A CDJ-2000NXS browsing another CDJ-2000NXS never
+sends it. So it is device-, firmware- or context-specific rather than universal
+— worth handling if it ever shows up, but not the obstacle it looked like.
+
+**The browse never touches NFS.** No traffic on UDP 111 or 2049 anywhere in the
+capture: browsing another player's media is **dbserver only**. That is a direct
+partial answer to O1 — and it sharpens the remaining question to whether *audio*
+crosses the wire, which S6 measures.
+
+*Evidence:* `captures/S05-link-browse`.
+
+### F17 — `bridge1` is the wrong tap: it never sees deck-to-deck unicast
+
+The first S5 attempt, captured on `bridge1`, recorded 210 keep-alives and **no
+TCP at all** during a browse that plainly worked on the deck's display.
+
+A BSD bridge **floods** broadcast frames, so keep-alives, hellos and claim
+packets all reach the bridge interface's BPF tap and a capture there looks
+healthy. Learned **unicast** is forwarded member-to-member directly and never
+reaches that tap. Everything of interest is unicast.
+
+The verification was the trap: confirming both decks are visible only proves
+*broadcast* arrives. Across every earlier capture taken on `bridge1`, every
+unicast frame recorded had the Mac itself as an endpoint — delivered locally
+rather than bridge-forwarded — which is why the NFS transfers recorded perfectly
+and gave false confidence.
+
+Capturing `pktap,en12,en9` (both members at once) fixed it: the same browse then
+yielded 3400 packets including 1441 dbserver and 1440 status packets. **Verify a
+tap with unicast, not broadcast**: a LINK browse must produce TCP on 12523 and
+1051.
+
+
 ---
 
 ## Corrections to the research docs
@@ -576,9 +654,10 @@ before tonight's hardware run.
 
 ### ~~O3~~ — resolved, see F9.
 
-### O4 — What are `0x3e03` and `0x3100`? *(see C11)*
+### O4 — What are `0x3e03` and `0x3100`? *(narrowed by F16)*
 
-Both are sent by a real player during an ordinary browse and neither is
-documented. Our server currently answers them with `0x4003` (error). Since
-`0x3e03` arrives before any menu request, a player may well refuse to browse us
-until it is answered properly.
+Neither appears in a CDJ-2000NXS-to-CDJ-2000NXS browse; `0x0001` does instead,
+and is now handled. So these two are device-, firmware- or context-specific
+rather than a universal part of the browse handshake. Still undocumented, still
+worth handling defensively if a mixer or a different player model turns up, but
+no longer the blocker C11 took them for.

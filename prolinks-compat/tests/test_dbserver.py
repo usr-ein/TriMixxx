@@ -356,3 +356,57 @@ def test_server_survives_an_abrupt_disconnect(server):
 
     with DbClient("127.0.0.1", 3, port=server.port) as connection:
         assert connection.track_list(MediaSlot.USB)
+
+
+# -- 0x0001, observed in a real CDJ-to-CDJ LINK browse ----------------------
+
+
+def test_menu_close_is_a_bare_32_byte_message():
+    """FINDINGS F16. Zero arguments, and the all-zero argument-type blob.
+
+    Byte-for-byte against a real one from the S05 capture.
+    """
+    real = bytes.fromhex("11872349ae11038001b71000010f00140000000c000000000000000000000000")
+    message = db.decode_message(ByteReader(real))
+    assert message.type == db.MessageType.MENU_CLOSE
+    assert message.args == []
+    assert len(real) == 32
+    assert message.encode() == real
+
+
+def test_server_answers_menu_close_with_silence(client, server):
+    """A reply would desynchronise a client that is not waiting for one.
+
+    Before this was handled it fell through to the unknown-request path and
+    produced a 0x4003 error, which is exactly the kind of thing that makes a
+    real player refuse to browse us.
+    """
+    connection = client
+    # Drive a menu first so there is server-side state to close.
+    assert connection.track_list(MediaSlot.USB)
+
+    connection._send_raw(
+        db.Message(transaction_id=0x1234, type=db.MessageType.MENU_CLOSE, args=[]).encode()
+    )
+    # Nothing should come back -- prove it by showing the next real request's
+    # reply arrives intact rather than being preceded by a stray message.
+    items = connection.track_list(MediaSlot.USB)
+    assert {item.id for item in items} == {101, 102, 103}
+
+
+def test_menu_close_clears_pending_state(library):
+    """It is a 'release that menu' signal, so the result set should go."""
+    from prolinks_poc.net.dbserverd import _Connection
+
+    server = DbServer(library, bind_ip="127.0.0.1", port=0, query_port=0)
+    try:
+        connection = _Connection.__new__(_Connection)
+        connection.server = server
+        connection.pending = [db.make_menu_item(0, 1, "x")]
+        connection.client_device_number = 1
+        assert connection.handle(
+            db.Message(transaction_id=1, type=db.MessageType.MENU_CLOSE, args=[])
+        ) == []
+        assert connection.pending == []
+    finally:
+        server.stop()

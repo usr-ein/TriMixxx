@@ -123,6 +123,14 @@ class _Connection(threading.Thread):
         if message.type == db.MessageType.DISCONNECT:
             raise OSError("client asked to disconnect")
 
+        if message.type == db.MessageType.MENU_CLOSE:
+            # Fire-and-forget: a real player sends this after finishing with a
+            # menu and expects nothing back. Replying at all -- let alone with
+            # the 0x4003 error an unhandled type would have produced -- risks
+            # desynchronising a client that is not listening for one.
+            self.pending = []
+            return []
+
         if message.type == db.MessageType.RENDER_MENU:
             return self._render(message)
 
