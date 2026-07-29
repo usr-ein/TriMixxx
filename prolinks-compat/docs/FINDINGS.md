@@ -47,6 +47,7 @@ and analysis files · **METH** capture methodology.
 | [F27](#f27) | DB | **A CDJ browsed our categories.** Menus are concurrent; `MENU_CLOSE` is not a release |
 | [F28](#f28) | NFS | **A CDJ does not treat the filehandle as opaque** — only 12 bytes survive |
 | [F29](#f29) | NFS | The filehandle fix let the deck walk the whole path; no READ follows |
+| [F30](#f30) | DB | The load sequence decoded: `0x2504` is the **VBR seek index**; analysis is transformed, not forwarded |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -57,8 +58,8 @@ C11 three undocumented message types · C12 keep-alives are **2.0 s** · C13
 stage-3 repeat count follows peer-presence-at-boot · C14 the status name field
 is 20 bytes.
 
-**Open** — O4 what are `0x3e03`/`0x3100`? · O5 why does the deck issue no READ
-after a successful `LOOKUP`? O1–O3 and O6 are resolved (F18/F19, F10, F9, and
+**Open** — O4 what is `0x3e03`? (`0x3100` answered, F30) · O5 the deck
+issues no READ after a successful `LOOKUP` — *cause identified, fix untested* O1–O3 and O6 are resolved (F18/F19, F10, F9, and
 three path bugs respectively).
 
 ---
@@ -981,6 +982,84 @@ imported 24 of these 692 tracks with unopenable paths. Any implementation
 reading `export.pdb` needs all three fixes; only the first is a protocol
 matter, and the other two are the kind that a reference client never hits
 because it reads the medium through a real FAT driver.
+<a id="f30"></a>
+
+### F30 — The load sequence, decoded. Analysis data is **transformed**, not forwarded
+
+S10g showed the deck resolving the audio file over NFS twice, getting the right
+size both times, and issuing **no READ** — then sitting on "LOADING FILE..." for
+15 s. The dbserver stream says why. The tail of a load attempt:
+
+```
+GET_TRACK_INFO        -> path, correct
+0x2504                -> we answered 0x4003 ERROR
+GET_BEAT_GRID         -> 8216B, wrong structure
+GET_WAVEFORM_PREVIEW  -> EMPTY
+                         (deck gives up)
+```
+
+Three defects, all found by diffing against `S06-load-and-play`, where a real
+CDJ-2000NXS loads track `0xc8` from another one — and, decisively, with the
+**very USB stick from that capture** to hand, so both the input and the output
+of a working implementation were available.
+
+**1. `0x2504` is the MP3 VBR seek index, and it is the likely gate on
+playback.** A real deck answers with 1604 bytes, exactly the size of a `PVBR`
+payload — fixed-size, so the match holds across two different media. Without a
+table mapping playing time to byte offset a player cannot seek within a VBR
+MP3, so it has no way to *begin* streaming. That fits the symptom precisely: the
+path resolves, the size is right, and not one READ follows. We were erroring on
+it. Its reply type is `0x4502`.
+
+**2. `0x3100` wants a bare `SUCCESS`.** C11 catalogued it without knowing what
+it does; a real deck answers `SUCCESS [0x3100, 0]` mid-load. We errored.
+
+**3. Every binary reply had the wrong envelope.** All of them share one shape:
+
+```
+[request type, 0, byte length, blob, *trailing]
+ uint32        uint32 uint32    binary
+```
+
+Argument 0 echoes the **request's message type**, not the track id — ours sent
+the track id. And `GET_WAVEFORM_PREVIEW` puts the track id at argument **2**,
+not 1: its arguments are `[descriptor, 3, track_id, 0, b""]`. We read argument
+1, asked for analysis of track 3, found none, and returned an empty blob.
+
+### The part F29 got wrong
+
+F29 said a server need only hand a player the bytes rekordbox wrote, and that
+parsing them would add a step and a chance to get it wrong. That was
+comfortable and false. **A real CDJ transforms every analysis blob**, and the
+file is big-endian while the wire is little-endian:
+
+| Request | Wire form |
+|---|---|
+| `0x2504` VBR index | `PVBR` payload, every 32-bit word byte-swapped |
+| `GET_BEAT_GRID` | 20-byte LE prefix, then 16-byte entries — the file's 8-byte `(beat, tempo, time)` byte-swapped and padded with eight `0xff` |
+| `GET_WAVEFORM_PREVIEW` | each packed `PWAV` byte split into `(height = b & 0x1f, whiteness = b >> 5)`, then the 100-byte `PWV2` appended — 900 bytes, not 800 |
+| `GET_WAVEFORM_DETAIL` | 20-byte LE prefix, then the `PWV3` payload verbatim |
+| `GET_CUE_POINTS` | two blobs: 36-byte records `[order, hot cue, 0, 0, frame]` and `(time, loop_time)` pairs, **sorted by time** — rekordbox had stored them newest-first |
+
+Cue positions travel as a **frame index at 150 fps**, truncated not rounded
+(271 ms → 40), which is the same 150 that appears in the detail waveform's
+prefix.
+
+*Verified:* our converters reproduce the captured blobs **byte for byte** —
+1604, 16628, 900, 70771, 108 and 24 bytes — from that track's own ANLZ files.
+
+*Not derivable:* both 20-byte prefixes carry a fifth word (`0x06114a48`,
+`0x0612e0b4`) that is not in the file and differs between two replies seconds
+apart. It looks like a pointer or timestamp on the serving deck. We send zero.
+If a player turns out to care, that is the field to suspect — it is the only
+byte in any of these replies we cannot account for.
+
+*Method note.* F29 is the second finding in this project to be wrong in the
+same way: an assumption that felt safe, stated as though observed, where the
+capture that would have settled it existed already. The rule that keeps
+working is to diff against a real implementation doing the same job.
+
+
 
 ---
 

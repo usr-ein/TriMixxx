@@ -167,6 +167,17 @@ class MessageType(enum.IntEnum):
     GET_WAVEFORM_DETAIL = 0x2904
     GET_CUE_POINTS_EXT = 0x2B04
     GET_ANALYSIS_TAG = 0x2C04
+    #: Undocumented. A player sends it mid-load, between ``GET_TRACK_INFO``
+    #: and the analysis fetches, and a real deck answers with a bare
+    #: ``SUCCESS`` echoing the type. Four arguments: descriptor, track id,
+    #: 0, 0. docs/FINDINGS.md F30.
+    UNKNOWN_3100 = 0x3100
+    #: Undocumented, and the likely gate on playback: a real deck answers
+    #: with 1604 bytes, exactly the size of a ``PVBR`` payload -- the MP3
+    #: variable-bitrate seek index. Without a time-to-byte-offset table a
+    #: player cannot seek in the file, which would explain a load that
+    #: resolves the path and then never issues a single READ.
+    GET_VBR_INDEX = 0x2504
     #: Undocumented. Sent immediately after ``Introduce`` by a player browsing
     #: a *foreign* device -- it does not appear between two CDJs. One argument,
     #: the r:m:s:t descriptor. Answering it with an error makes the player
@@ -190,6 +201,8 @@ class MessageType(enum.IntEnum):
     #: The reply to :attr:`UNKNOWN_3E03`. Four arguments, observed as
     #: ``[0x3e03, 0, <our device number>, ""]``.
     UNKNOWN_4B02 = 0x4B02
+    #: The reply to :attr:`GET_VBR_INDEX`.
+    VBR_INDEX = 0x4502
 
 
 class ItemType(enum.IntEnum):

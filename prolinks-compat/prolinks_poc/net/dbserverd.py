@@ -32,6 +32,7 @@ from pathlib import Path
 from ..core.library import Library
 from ..core.slots import MediaSlot
 from ..proto import anlz
+from ..proto import analysis_wire as wire
 from ..proto import dbserver as db
 from ..proto.bytes import ByteReader
 from ..proto.errors import DecodeError
@@ -41,20 +42,44 @@ log = logging.getLogger(__name__)
 __all__ = ["DbServer"]
 
 
-#: dbserver analysis requests -> (response type, ANLZ tag, read the .EXT?).
-#: A player asks for these when loading a track and appears to abort the load
-#: if they are unavailable -- browsing works without them, loading does not.
+#: How a player asks for per-track analysis, and how a real one answers.
+#:
+#: ``(response type, ANLZ tag, read the .EXT?, index of the track id, trailing)``
+#:
+#: Every binary reply shares one envelope, read off a real CDJ-to-CDJ load in
+#: ``captures/S06-load-and-play``::
+#:
+#:     [request type, 0, byte length, blob, *trailing]
+#:      uint32        uint32 uint32    binary
+#:
+#: Two details are easy to get wrong and both cost the load. Argument 0 echoes
+#: the **request's message type**, not the track id. And
+#: ``GET_WAVEFORM_PREVIEW`` does not carry the track id where its siblings do:
+#: its arguments are ``[descriptor, 3, track_id, 0, b""]``, so the id is at
+#: index **2**. Reading index 1 asks for analysis of track 3, gets nothing, and
+#: answers with an empty blob -- which is what happened.
+#:
+#: The blobs themselves are **not** the ANLZ bytes; see :mod:`proto.analysis_wire`.
 _ANALYSIS_REQUESTS = {
-    db.MessageType.GET_WAVEFORM_PREVIEW:
-        (db.MessageType.WAVEFORM_PREVIEW, anlz.TAG_WAVEFORM_PREVIEW, False),
-    db.MessageType.GET_BEAT_GRID:
-        (db.MessageType.BEAT_GRID, anlz.TAG_BEAT_GRID, False),
-    db.MessageType.GET_CUE_POINTS:
-        (db.MessageType.CUE_POINTS, anlz.TAG_CUES, False),
-    db.MessageType.GET_WAVEFORM_DETAIL:
-        (db.MessageType.WAVEFORM_DETAIL, anlz.TAG_WAVEFORM_DETAIL, True),
-    db.MessageType.GET_CUE_POINTS_EXT:
-        (db.MessageType.CUE_POINTS_EXT, anlz.TAG_CUES_EXT, True),
+    db.MessageType.GET_WAVEFORM_PREVIEW: (
+        db.MessageType.WAVEFORM_PREVIEW, 2, (),
+        lambda dat, ext: wire.waveform_preview(dat),
+    ),
+    db.MessageType.GET_BEAT_GRID: (
+        db.MessageType.BEAT_GRID, 1, (0,),
+        lambda dat, ext: wire.beat_grid(dat),
+    ),
+    db.MessageType.GET_WAVEFORM_DETAIL: (
+        db.MessageType.WAVEFORM_DETAIL, 1, (),
+        lambda dat, ext: wire.waveform_detail(ext),
+    ),
+    #: The VBR seek index, and the request that most plausibly gates playback:
+    #: without a time-to-byte-offset table a player cannot seek in an MP3, so it
+    #: has no way to start streaming. Erroring on it is where our loads stopped.
+    db.MessageType.GET_VBR_INDEX: (
+        db.MessageType.VBR_INDEX, 1, (),
+        lambda dat, ext: wire.vbr_index(dat),
+    ),
 }
 
 
@@ -179,27 +204,41 @@ class _Connection(threading.Thread):
                            db.FieldType.UINT32, db.FieldType.STRING],
             )]
 
+        if message.type == db.MessageType.UNKNOWN_3100:
+            # A real player answers with a bare SUCCESS echoing the request
+            # type. It appears in the middle of a load, between GET_TRACK_INFO
+            # and the analysis fetches, and we were erroring on it.
+            return [db.Message(
+                transaction, db.MessageType.SUCCESS, [message.type, 0],
+                arg_types=[db.FieldType.UINT32, db.FieldType.UINT32],
+            )]
+
         if message.type == db.MessageType.GET_ARTWORK:
             image = self.server.artwork_for(message.number(1))
             # A zero-length binary argument is omitted from the wire entirely,
             # so "no artwork" and "here is the artwork" share one shape.
+            return [self._binary_reply(transaction, db.MessageType.ARTWORK,
+                                       message.type, image)]
+
+        if message.type == db.MessageType.GET_CUE_POINTS:
+            # The one reply carrying two blobs: fixed-size cue records, then a
+            # (time, loop_time) pair per cue.
+            dat, _ext = self.server.analysis_files(message.number(1))
+            records, count, times = wire.cue_points(dat)
             return [db.Message(
-                transaction, db.MessageType.ARTWORK,
-                [message.number(1), 0, len(image), image],
-                arg_types=[db.FieldType.UINT32, db.FieldType.UINT32,
-                           db.FieldType.UINT32, db.FieldType.BINARY],
+                transaction, db.MessageType.CUE_POINTS,
+                [message.type, 0, len(records), records,
+                 wire.CUE_ENTRY_SIZE, count, 0, len(times), times],
+                arg_types=[db.FieldType.UINT32] * 3 + [db.FieldType.BINARY]
+                          + [db.FieldType.UINT32] * 4 + [db.FieldType.BINARY],
             )]
 
         analysis = _ANALYSIS_REQUESTS.get(message.type)
         if analysis is not None:
-            response_type, fourcc, use_ext = analysis
-            payload = self.server.analysis_for(message.number(1), fourcc, use_ext)
-            return [db.Message(
-                transaction, response_type,
-                [message.number(1), len(payload), payload],
-                arg_types=[db.FieldType.UINT32, db.FieldType.UINT32,
-                           db.FieldType.BINARY],
-            )]
+            response_type, id_index, trailing, convert = analysis
+            dat, ext = self.server.analysis_files(message.number(id_index))
+            return [self._binary_reply(transaction, response_type,
+                                       message.type, convert(dat, ext), trailing)]
 
         if message.type == db.MessageType.RENDER_MENU:
             return self._render(message)
@@ -216,6 +255,25 @@ class _Connection(threading.Thread):
         self.last_menu = items
         return [db.Message(transaction, db.MessageType.SUCCESS,
                            [message.type, len(items)])]
+
+    @staticmethod
+    def _binary_reply(transaction, response_type, request_type, blob, trailing=()):
+        """The envelope every binary reply shares.
+
+        ``[request type, 0, byte length, blob, *trailing]``. Argument 0 echoes
+        the **request's** message type, not the track id -- a real player's
+        replies all do, and ours did not.
+
+        A zero-length binary argument is omitted from the wire entirely, so
+        "no data" and "here is the data" share one shape and a missing tag
+        needs no special case.
+        """
+        return db.Message(
+            transaction, response_type,
+            [request_type, 0, len(blob), blob, *trailing],
+            arg_types=[db.FieldType.UINT32] * 3 + [db.FieldType.BINARY]
+                      + [db.FieldType.UINT32] * len(trailing),
+        )
 
     def _render(self, message: db.Message) -> list[db.Message]:
         offset = message.number(1)
@@ -253,6 +311,10 @@ class DbServer:
         self.library = library
         #: Root of the served medium, so artwork can be read off it.
         self.media_root = Path(media_root) if media_root is not None else None
+        #: track id -> (.DAT, .EXT). A load asks for four tags across the
+        #: two files in quick succession, and a deck re-requests them when
+        #: the DJ reloads the same track.
+        self._analysis_cache: dict[int, tuple] = {}
         self.device_number = device_number
         self.slot = slot
         self.recorder = recorder
@@ -366,29 +428,41 @@ class DbServer:
             return self._search(message.string(2))
         return None
 
-    def analysis_for(self, track_id: int, fourcc: bytes, use_ext: bool) -> bytes:
-        """One ANLZ tag for a track, read off the served medium.
+    def analysis_files(self, track_id: int):
+        """The parsed ``.DAT`` and ``.EXT`` for a track, either possibly ``None``.
 
-        Returns empty for anything we cannot supply -- a track analysed by an
-        older rekordbox genuinely lacks the newer tags, and the protocol has a
-        representation for an empty blob.
+        Both are read together because a load asks for tags from each within a
+        few milliseconds, and parsing a container is walking a tag list -- far
+        cheaper than the two file reads it saves. Anything missing or corrupt
+        comes back as ``None`` rather than raising: a track analysed by an older
+        rekordbox legitimately lacks the newer tags, and a missing waveform
+        should cost the waveform, not the load.
         """
         track = self.library.tracks.get(track_id)
-        if track is None or self.media_root is None:
-            return b""
-        relative = track.analyze_ext_path if use_ext else track.analyze_path
-        if not relative:
-            return b""
-        try:
-            data = (self.media_root / relative.lstrip("/")).read_bytes()
-        except OSError:
-            log.debug("no analysis file at %s for track %s", relative, track_id)
-            return b""
-        try:
-            return anlz.AnlzFile(data).tag_payload(fourcc)
-        except Exception:
-            log.debug("could not parse %s", relative)
-            return b""
+        if track is None or self.media_root is None or not track.analyze_path:
+            return None, None
+
+        cached = self._analysis_cache.get(track_id)
+        if cached is not None:
+            return cached
+
+        def load(relative: str):
+            if not relative:
+                return None
+            try:
+                data = (self.media_root / relative.lstrip("/")).read_bytes()
+            except OSError:
+                log.debug("no analysis file at %s for track %s", relative, track_id)
+                return None
+            try:
+                return anlz.AnlzFile(data)
+            except Exception:
+                log.debug("could not parse %s", relative)
+                return None
+
+        pair = (load(track.analyze_path), load(track.analyze_ext_path))
+        self._analysis_cache[track_id] = pair
+        return pair
 
     def artwork_for(self, artwork_id: int) -> bytes:
         """The album-art image for *artwork_id*, or empty if we have none.

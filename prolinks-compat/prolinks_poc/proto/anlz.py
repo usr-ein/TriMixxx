@@ -26,12 +26,14 @@ from dataclasses import dataclass
 from .errors import DecodeError
 
 __all__ = ["AnlzTag", "AnlzFile", "TAG_BEAT_GRID", "TAG_WAVEFORM_PREVIEW",
-           "TAG_CUES", "TAG_CUES_EXT", "TAG_WAVEFORM_DETAIL", "TAG_PATH"]
+           "TAG_CUES", "TAG_CUES_EXT", "TAG_WAVEFORM_DETAIL", "TAG_PATH",
+           "TAG_VBR_INDEX", "TAG_WAVEFORM_TINY"]
 
 MAGIC = b"PMAI"
 
 #: Tags we can serve. ``research/05`` §5.3 catalogues the rest.
 TAG_PATH = b"PPTH"              # track file path, UTF-16BE
+TAG_VBR_INDEX = b"PVBR"         # MP3 seek index (.DAT), fixed 1604B payload
 TAG_BEAT_GRID = b"PQTZ"         # beat grid (.DAT)
 TAG_WAVEFORM_PREVIEW = b"PWAV"  # small preview waveform (.DAT)
 TAG_WAVEFORM_TINY = b"PWV2"
