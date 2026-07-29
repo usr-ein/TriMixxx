@@ -48,6 +48,7 @@ and analysis files · **METH** capture methodology.
 | [F28](#f28) | NFS | **A CDJ does not treat the filehandle as opaque** — only 12 bytes survive |
 | [F29](#f29) | NFS | The filehandle fix let the deck walk the whole path; no READ follows |
 | [F30](#f30) | DB | The load sequence decoded: `0x2504` is the **VBR seek index**; analysis is transformed, not forwarded |
+| [F31](#f31) | DB | `GET_TRACK_INFO` is **six** items, and argument 0 of the path item is the **file size** |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1058,6 +1059,53 @@ byte in any of these replies we cannot account for.
 same way: an assumption that felt safe, stated as though observed, where the
 capture that would have settled it existed already. The rule that keeps
 working is to diff against a real implementation doing the same job.
+
+
+<a id="f31"></a>
+
+### F31 — `GET_TRACK_INFO` is **six** items, and one of them is the file size
+
+With the analysis replies right (F30), the deck showed the preview waveform and
+then stuck on "NOW LOADING...", finally reporting **"CDJ DOES NOT DECODE THIS
+FORMAT"** — having issued **no READ of any kind**. S10h contains 2772 NFS calls
+and every one is a `LOOKUP`; procedure 6 never appears. A verdict about the
+audio format, reached without reading one byte of audio, has to come from the
+metadata. It did.
+
+`GET_TRACK_INFO` (`0x2102`) answers **6** in a real load; ours answered **1**,
+the path alone:
+
+| # | type | value | |
+|---|---|---|---|
+| 1 | `0x04` | `1` | unresolved |
+| 2 | `0x0b` | 471 | duration, seconds |
+| 3 | `0x0d` | 13201 | tempo ×100 |
+| 4 | `0x23` | comment | |
+| 5 | `0x00` | path | **argument 0 = 7,633,531 = the file size** |
+| 6 | `0x2f` | `1` | unresolved |
+
+**Argument 0 of the path item carries the file size.** It is zero on every
+other menu item in every capture we have, which is exactly why it went
+unnoticed — the field looked structural. It is also the one thing a load needs
+that browsing does not, which fits a deck that renders the track perfectly,
+resolves its path over NFS, and then never opens it: it had no idea how many
+bytes to ask for.
+
+*Verified:* all six of our items are now **byte-identical** to that real deck's,
+for the same track off the same medium.
+
+**Two fields remain unattributed.** Items 1 and 6 both carry `1`, and
+`disc_number` is the only field of that track equal to 1 — not enough to
+attribute either. They are sent as the observed constants. Type `0x2f` is the
+better suspect for a codec identifier, since the format complaint has to come
+from somewhere; a capture of a non-MP3, or of a track on disc 2, would settle
+it.
+
+*Method note.* Returning one item was not an oversight so much as an
+unexamined assumption — `research/04` §5 says track info "is the Path", and it
+is, and that was enough for everything except the one operation that matters.
+The reply had been byte-comparable against a real one since the S06 capture was
+taken; nobody compared it until the symptom forced it.
 
 
 

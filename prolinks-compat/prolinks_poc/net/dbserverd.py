@@ -585,11 +585,44 @@ class DbServer:
         return items
 
     def _track_info(self, track_id: int) -> list[db.Message]:
-        """The mount path of a track, as a single ``PATH`` item."""
+        """``GET_TRACK_INFO`` -- **six** items, of which the path is only one.
+
+        Returning the path alone is enough for a player to render the file name
+        and to walk it over NFS, and it is what we did. It is not enough for the
+        player to *load* the track: a real deck answers with six items, and
+        without the rest ours sat at "NOW LOADING..." and then reported that it
+        could not decode the format -- having never read a byte of the file, so
+        the verdict came from this reply and nowhere else.
+
+        Two of the six are unresolved. Both carry the value ``1`` in the only
+        capture that contains this exchange, and ``disc_number`` is the sole
+        field of that track equal to 1, which is not enough to attribute either
+        of them. They are sent as the observed constants; a second capture of a
+        track on disc 2, or a non-MP3, would settle it. Type ``0x2f`` is the
+        better suspect for a codec identifier, since the format complaint has to
+        come from somewhere.
+        """
         track = self.library.tracks.get(track_id)
         if track is None:
             return []
-        return [db.make_menu_item(0, track.id, track.path, "", item_type=db.ItemType.PATH)]
+
+        def item(main_id, item_type, label="", parent=0):
+            return db.make_menu_item(parent, main_id, label, "",
+                                     item_type=item_type, flags=0)
+
+        return [
+            item(1, db.ItemType.TRACK_TITLE),
+            item(track.duration, db.ItemType.DURATION),
+            item(track.bpm_100, db.ItemType.TEMPO),
+            item(track.id, db.ItemType.COMMENT, track.comment),
+            # Argument 0 is zero on every other menu item ever captured; on this
+            # one it is the **file size in bytes**. That is how a player learns
+            # how much there is to read -- and it is the one field a load needs
+            # that browsing does not, which fits a deck that renders the track
+            # perfectly and then cannot open it.
+            item(track.id, db.ItemType.PATH, track.path, parent=track.file_size),
+            item(1, db.ItemType.UNKNOWN_2F),
+        ]
 
     def _search(self, term: str) -> list[db.Message]:
         return [

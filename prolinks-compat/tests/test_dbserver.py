@@ -331,9 +331,11 @@ def test_search(client):
 
 
 def test_track_info_returns_the_mount_path(client):
+    """The path is one of six items, so select it by type rather than position
+    -- a real reply also carries duration, tempo, comment and two unknowns."""
     items = client.menu(db.MessageType.GET_TRACK_INFO, MediaSlot.USB, 101)
-    assert items[0].item_type == db.ItemType.PATH
-    assert items[0].label1 == "/Contents/blue.mp3"
+    paths = [item for item in items if item.item_type == db.ItemType.PATH]
+    assert [item.label1 for item in paths] == ["/Contents/blue.mp3"]
 
 
 def test_unknown_request_gets_an_error_not_an_empty_list(client):
@@ -511,3 +513,39 @@ def test_analysis_requests_are_answered_rather_than_errored(client):
         # No analysis files in the synthetic fixture, so an empty blob -- which
         # is a valid answer, unlike 0x4003.
         assert reply.number(1) == 0
+
+
+def test_track_info_returns_all_six_items_with_the_file_size(library):
+    """docs/FINDINGS.md F31.
+
+    ``GET_TRACK_INFO`` is six items, not one. Returning only the path is enough
+    to render a track and to walk it over NFS, and not enough to load it: a deck
+    sat at "NOW LOADING..." and then said it could not decode the format, having
+    never read a byte -- so the verdict came from this reply alone.
+
+    Argument 0 of the path item is zero on every other menu item ever captured;
+    here it carries the **file size**, which is how a player learns how much
+    there is to read.
+    """
+    server = DbServer(library, device_number=5, bind_ip="127.0.0.1",
+                      port=0, query_port=0)
+    track = next(iter(library.tracks.values()))
+    items = server._track_info(track.id)
+
+    assert [item.args[6] for item in items] == [0x04, 0x0B, 0x0D, 0x23, 0x00, 0x2F]
+
+    by_type = {item.args[6]: item for item in items}
+    assert by_type[0x0B].args[1] == track.duration
+    assert by_type[0x0D].args[1] == track.bpm_100
+    path_item = by_type[0x00]
+    assert path_item.args[3] == track.path
+    assert path_item.args[0] == track.file_size, "argument 0 is the file size"
+    assert all(i.args[0] == 0 for i in items if i is not path_item)
+    # Menu items in this reply carry no flags, unlike browse items.
+    assert all(i.args[7] == 0 for i in items)
+
+
+def test_track_info_for_an_unknown_track_is_empty(library):
+    server = DbServer(library, device_number=5, bind_ip="127.0.0.1",
+                      port=0, query_port=0)
+    assert server._track_info(999999) == []
