@@ -205,63 +205,64 @@
       </control>
 
       <!-- ===================== Ring B buttons (notes 0x43..0x48) ===================== -->
-      <!-- B1..B4 hotcues 1..4: activate on BOTH edges (press = jump/set,
-           release = end preview when paused), same as cue. -->
+      <!-- B1..B4 hotcues 1..4 -> TriMixxx.hotcue (both edges: press jump/create +
+           colour, release ends the preview). Script-bound so a newly-created cue
+           gets a colour from HOTCUE_COLORS; existing ones keep their own. -->
       <control>
         <group>[Channel1]</group>
-        <key>hotcue_1_activate</key>
+        <key>TriMixxx.hotcue</key>
         <status>0x90</status>
         <midino>0x43</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>hotcue_1_activate</key>
+        <key>TriMixxx.hotcue</key>
         <status>0x80</status>
         <midino>0x43</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>hotcue_2_activate</key>
+        <key>TriMixxx.hotcue</key>
         <status>0x90</status>
         <midino>0x44</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>hotcue_2_activate</key>
+        <key>TriMixxx.hotcue</key>
         <status>0x80</status>
         <midino>0x44</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>hotcue_3_activate</key>
+        <key>TriMixxx.hotcue</key>
         <status>0x90</status>
         <midino>0x45</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>hotcue_3_activate</key>
+        <key>TriMixxx.hotcue</key>
         <status>0x80</status>
         <midino>0x45</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>hotcue_4_activate</key>
+        <key>TriMixxx.hotcue</key>
         <status>0x90</status>
         <midino>0x46</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>hotcue_4_activate</key>
+        <key>TriMixxx.hotcue</key>
         <status>0x80</status>
         <midino>0x46</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <!-- B5 slip: toggle (script) -->
       <control>

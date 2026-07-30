@@ -332,7 +332,32 @@ TriMixxx.play = function(channel, control, value, status, group) {
 //      MoveVertical acts on whichever library widget currently has focus, which
 //      is what lets one encoder scroll the sidebar and then the track list. ----
 TriMixxx.browse = function(channel, control, value, status, group) {
-    engine.setValue("[Library]", "MoveVertical", (value === 1) ? -1 : 1);
+    if (engine.getValue("[Master]", "show_library")) {
+        // Library open: scroll whichever pane has focus.
+        engine.setValue("[Library]", "MoveVertical", (value === 1) ? -1 : 1);
+    } else {
+        // Playing view: zoom the waveform. (up = zoom in; swap the two control
+        // names if the direction feels inverted.)
+        engine.setValue(TriMixxx.DECK, (value === 1) ? "waveform_zoom_down" : "waveform_zoom_up", 1);
+    }
+};
+
+// Hotcues: activate (jump if set, create at the playhead if empty), both edges so
+// a press-hold previews while paused. When WE create one (empty -> set), colour it
+// from the sequence below; a loaded track's own hotcues keep their stored colours
+// because that path never runs this handler.
+TriMixxx.HOTCUE_COLORS = [0xFE0000, 0xFDFE02, 0x0BFF01, 0x011EFE, 0xFE00F6];
+TriMixxx.hotcue = function(channel, control, value, status, group) {
+    var idx = control - 0x42; // note 0x43 -> hotcue 1
+    if (!value) {
+        engine.setValue(group, "hotcue_" + idx + "_activate", 0); // end any preview
+        return;
+    }
+    var wasEmpty = !engine.getValue(group, "hotcue_" + idx + "_enabled");
+    engine.setValue(group, "hotcue_" + idx + "_activate", 1);
+    if (wasEmpty && idx <= TriMixxx.HOTCUE_COLORS.length) {
+        engine.setValue(group, "hotcue_" + idx + "_color", TriMixxx.HOTCUE_COLORS[idx - 1]);
+    }
 };
 
 // ---- Track encoder push: one button, three jobs, depending on where you are.
