@@ -1,8 +1,3 @@
-> **Superseded in one place (F47):** where this document says live rows must be
-> bounded by the page's entry count rather than the presence bitmask, it has it
-> backwards. The bitmask is authoritative; trusting the count drops trailing
-> rows. See `docs/FINDINGS.md` F47.
-
 # 05 — Rekordbox Export Database (export.pdb / DeviceSQL) and Track Analysis Files (ANLZ)
 
 > **⚠ Pre-hardware document.** Written from published reverse-engineering
@@ -183,13 +178,22 @@ Rows are stored **forward from `entries_start`**, but their offsets are stored i
   - `entry_enabled_override` — 16 flags (confirmed `page.py:56`)
   Layout: `[16×2B offsets][2B entry_enabled][2B entry_enabled_override]` per group,
   i.e. 36 bytes for a full 16-entry group (the `Seek(-36 …)` confirms, `page.py:57`).
-- A known wart: `entry_enabled` for the **last** group reports nonexistent entries; the
-  parser zips `reversed(entries)` with `reversed(entry_enabled)` and skips disabled slots
-  when collecting rows. (confirmed: `page.py:47-49`, `pdbdatabase.py:75-79`).
+- A claimed wart: `entry_enabled` for the **last** group "reports nonexistent entries",
+  so the reference parser zips `reversed(entries)` with `reversed(entry_enabled)` and
+  skips disabled slots. (`page.py:47-49`, `pdbdatabase.py:75-79`).
+
+  > **⚠ Do not turn that into an entry-count cap (F47).** Reading the bullet above as
+  > "the bitmask cannot be trusted at the end, so bound the walk by `entry_count`
+  > instead" is what our own parser did, and it silently lost rows. On a real medium a
+  > playlist-entries page carried `entry_count = 39` while its group masks marked
+  > 16 + 16 + 8 = **40** live — and the fortieth was a genuine track the deck itself
+  > lists. **The mask is authoritative.** A partial final group simply has its unused
+  > bits clear, which is exactly what makes zipping-and-skipping work; there is no wart
+  > to defend against. Losses land at the *end* of a table, where nothing looks wrong.
 
 To enumerate live rows of a table: walk the page chain for that `page_type`, and for each
-page iterate the reverse-index groups, taking entries where `entry_enabled` is true.
-(confirmed: `pdbdatabase.py:72-80`).
+page iterate the reverse-index groups, taking entries where `entry_enabled` is true —
+**and only that**. (confirmed: `pdbdatabase.py:72-80`; and F47, the hard way.)
 
 ### 2.5 "Strange" pages
 Every table chain begins with a "strange" page (`u5 & 0x40`, `u9 == 1004`) filled with the
