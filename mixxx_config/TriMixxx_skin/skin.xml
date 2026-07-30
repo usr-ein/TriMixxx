@@ -207,8 +207,8 @@
               <ProLinkPhaseMeter>
                 <ObjectName>ProLinkPhase</ObjectName>
                 <Group>[Channel1]</Group>
-                <MinimumSize>250,56</MinimumSize>
-                <MaximumSize>250,56</MaximumSize>
+                <MinimumSize>300,56</MinimumSize>
+                <MaximumSize>300,56</MaximumSize>
                 <MasterColor>#ff6600</MasterColor>
                 <DeckColor>#44ccff</DeckColor>
               </ProLinkPhaseMeter>

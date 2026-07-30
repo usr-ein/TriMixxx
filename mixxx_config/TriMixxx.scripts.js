@@ -13,7 +13,7 @@ TriMixxx.RING_B_N      = 6;     // ring B buttons populated today
 TriMixxx.DECK          = "[Channel1]";
 TriMixxx.DECK_NUM      = 1;      // [Channel1] = deck 1 (single fixed deck)
 TriMixxx.JOG_TICKS_REV = 12960; // JogWheel::TICKS_PER_REV (full-quad ticks / rev)
-TriMixxx.RATE_RANGE    = 0.16;  // tempo fader span at boot = +/-16%
+TriMixxx.RATE_RANGE    = 0.06;  // tempo fader span at boot = +/-6%
 TriMixxx.RATE_RANGES   = [0.06, 0.10, 0.16, 1.0]; // A1 cycles these: +/-6, 10, 16, Wide (100%)
 
 // ---- Ring button LED palette. Entries only need correct hue RATIOS -- dim()
