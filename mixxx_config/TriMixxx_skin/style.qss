@@ -33,6 +33,70 @@ WWidget, QWidget {
 
 #Root { background-color: #0c0c0c; }
 
+/* ============== QT MENU BAR ==============
+ * File / Library / View / Options / Developer / Help, and the popups they open.
+ *
+ * This is Qt chrome, NOT a skin widget -- WMainMenuBar belongs to
+ * MixxxMainWindow, not to skin.xml. It is styleable from here anyway because
+ * MixxxMainWindow copies the skin's whole stylesheet onto it verbatim:
+ * `m_pMenuBar->setStyleSheet(m_pCentralWidget->styleSheet())`, once after the
+ * skin loads and again on every skin reload (mixxxmainwindow.cpp). So no fork
+ * patch and no rebuild -- this ships with a normal upload.sh.
+ *
+ * The rules have to be EXPLICIT rather than relying on the QWidget rule above,
+ * and the reason is in MixxxMainWindow::initializeWindow(): it reads the menu
+ * bar's palette Window colour, tints the main window, then puts the menu bar's
+ * original colour back. That leaves the bar on the system default PALETTE while
+ * the base rule darkens the widget behind it, i.e. the stock dark-on-light menu
+ * text over a dark bar. Naming the colours here overrides the palette outright.
+ *
+ * Popups get the same treatment deliberately. They are separate top-level
+ * windows but children of the menu bar, so this sheet reaches them, and a dark
+ * bar that opens light menus looks broken rather than themed.
+ *
+ * Note the untouched padding on QMenu::item: the View menu has checkable
+ * entries, and overriding item padding without also placing QMenu::indicator
+ * is the usual way to end up with checkmarks sitting on top of the label. */
+QMenuBar {
+    background-color: #1a1a1a;
+    color: #ffffff;
+    border-bottom: 1px solid #2a2a2a;
+}
+QMenuBar::item {
+    /* Transparent so the bar colour above shows through; only the text and the
+       hover highlight are ours. */
+    background: transparent;
+    color: #ffffff;
+    padding: 6px 12px;
+}
+QMenuBar::item:selected,
+QMenuBar::item:pressed {
+    background-color: #88ff00;
+    color: #0c0c0c;
+}
+
+QMenu {
+    background-color: #1a1a1a;
+    color: #ffffff;
+    border: 1px solid #3a3a3a;
+}
+QMenu::item {
+    background-color: transparent;
+    color: #ffffff;
+}
+QMenu::item:selected {
+    background-color: #88ff00;
+    color: #0c0c0c;
+}
+QMenu::item:disabled {
+    color: #6a6a6a;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: #3a3a3a;
+    margin: 4px 8px;
+}
+
 /* ============== TOP HEADER ============== */
 #TopHeader {
     background-color: #1a1a1a;
@@ -89,7 +153,7 @@ WWidget, QWidget {
 #TimeElapsed {
     color: #ffffff;
     font-family: "MesloLGL Nerd Font", "Noto Sans", "DejaVu Sans Mono", monospace;
-    font-size: 17px;
+    font-size: 22px;
     qproperty-alignment: 'AlignRight | AlignVCenter';
     padding-right: 12px;
 }

@@ -26,6 +26,38 @@
 
   <Style src="skin:/style.qss"/>
 
+  <!-- The <Layout> and <Children> below are what make this a ">=1.12.0 style"
+       skin, and that is LOAD-BEARING for the Qt menu bar, not tidiness.
+
+       LegacySkinParser::parseNode() decides which of two root paths to take by
+       whether the <skin> node has a <Layout> (legacyskinparser.cpp). Without
+       one it takes the legacy path, which applies <Style> to an INNER widget,
+       wraps that in an outer widget, and returns the OUTER one as the skin
+       root. MixxxMainWindow then does
+
+           m_pMenuBar->setStyleSheet(m_pCentralWidget->styleSheet())
+
+       against that outer widget, whose stylesheet is an empty string, so the
+       menu bar got nothing and kept its stock light palette. The rest of the
+       skin still looked right because the inner widget's sheet propagates down
+       to its own children. The menu bar is the one widget that is NOT one of
+       those, because it belongs to MixxxMainWindow rather than to this file.
+
+       With a <Layout>, parseWidgetGroup() handles the root, applies <Style> to
+       the very widget it returns, and the menu bar gets the real sheet.
+
+       This also silences the two "Invalid node name in skin" warnings the log
+       carried for <manifest> and <Style>: the legacy path walked every child of
+       <skin> as if it were a widget, while parseWidgetGroup only descends into
+       <Children>.
+
+       One thing given up: the legacy path centred the skin in an outer widget
+       for fullscreen. The panel is exactly 1024x600 and so is this skin, so
+       there is nothing to centre. On a LARGER display it would now sit top-left
+       rather than centred. -->
+  <Layout>vertical</Layout>
+  <Children>
+
   <!-- Stacked so the shutdown confirm can sit ON TOP of the whole UI. Mixxx's
        stacked layout is a QStackedLayout in StackAll mode, so every child shows
        at once (rather than one-at-a-time) and a child's `visible` connection is
@@ -262,6 +294,10 @@
                   <NumberPos>
                     <ObjectName>TimeElapsed</ObjectName>
                     <Group>[Channel1]</Group>
+                    <!-- Explicitly the whole column. Without a Size the label
+                         takes its hint, which is one line high, and the second
+                         line of the wrapped string is simply cut off. -->
+                    <Size>132,72f</Size>
                     <Connection>
                       <ConfigKey>[Channel1],playposition</ConfigKey>
                     </Connection>
@@ -582,4 +618,5 @@
       </WidgetGroup>
     </Children>
   </WidgetGroup>
+  </Children>
 </skin>

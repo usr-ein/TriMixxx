@@ -157,11 +157,23 @@
         <midino>0x00</midino>
         <options><script-binding/></options>
       </control>
-      <!-- A2 master tempo = keylock: toggle (script) -->
+      <!-- A2 master tempo = keylock over the deck, SORT over the library.
+           Two entries, because the ring sends a real Note Off on release
+           (status 0x80) rather than a Note On with velocity 0, and the sort
+           needs the release: a short press is only distinguishable from a hold
+           once the button comes back up. With the press alone mapped, the
+           hold timer fired every time and nothing ever cycled. -->
       <control>
         <group>[Channel1]</group>
         <key>TriMixxx.keylock</key>
         <status>0x90</status>
+        <midino>0x01</midino>
+        <options><script-binding/></options>
+      </control>
+      <control>
+        <group>[Channel1]</group>
+        <key>TriMixxx.keylock</key>
+        <status>0x80</status>
         <midino>0x01</midino>
         <options><script-binding/></options>
       </control>
