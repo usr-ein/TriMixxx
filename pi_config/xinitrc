@@ -1,0 +1,35 @@
+#!/bin/sh
+
+# No screen blanking, ever
+xset s off
+xset -dpms
+xset s noblank
+
+# brightness
+#xrandr --output HDMI-1 --brightness 1.0
+
+# Hide cursor immediately (touchscreen)
+unclutter -idle 0 -root &
+
+# Minimal WM for reliable fullscreen
+#picom --vsync --backend glx --unredir-if-possible --glx-no-stencil --glx-no-rebind-pixmap &
+picom --vsync --backend glx --unredir-if-possible --glx-no-stencil --glx-no-rebind-pixmap &
+sleep 1
+matchbox-window-manager -use_titlebar no &
+
+# Auto-restart Mixxx if it crashes; sleep prevents tight loops
+#
+# To log audio underruns, add --developer to the mixxx line below. Without it
+# SoundManager::underflowHappened() sets its flag and returns silently
+# (soundmanager.h), so grepping the log for xruns always finds nothing whether
+# or not the buffer is coping. With it, each one logs "underflowHappened code: N".
+#
+# Do NOT leave it on for a gig. That warning is printed from the audio callback and
+# qWarning locks -- Mixxx's own comment on the line says it "will make the problem
+# worse", i.e. this flag can itself cause the dropouts it reports. It is a
+# measuring tool, not a setting. The live counter in Preferences -> Sound Hardware
+# ([App],audio_latency_overload_count) needs no flag and costs nothing.
+while true; do
+    mixxx --fullScreen --developer --log-level debug --log-flush-level info 2>>~/.mixxx/stderr.log
+    sleep 2
+done
