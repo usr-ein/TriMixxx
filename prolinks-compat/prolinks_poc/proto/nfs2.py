@@ -50,6 +50,9 @@ __all__ = [
 
 PROGRAM = 100003
 VERSION = 2
+
+#: The standard NFS port, which is also where a real player answers (F6).
+PORT = 2049
 FHANDLE_SIZE = 32
 
 #: NFSv2 sizes and offsets are unsigned 32-bit.

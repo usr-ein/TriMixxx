@@ -43,6 +43,12 @@ __all__ = [
 PROGRAM = 100005
 VERSION = 1
 
+#: The port a real player answers on. Not a registered number -- discover it
+#: through portmap rather than assuming it. Recorded because three independent
+#: observations across three devices all gave 48276 (F6), which makes it stable
+#: enough to serve on when impersonating a player (experiment E9).
+PIONEER_PORT = 48276
+
 #: NFSv2 filehandles are exactly 32 opaque bytes (RFC 1094). Treat the
 #: contents as an uninterpreted token and echo them back byte for byte.
 FHANDLE_SIZE = 32

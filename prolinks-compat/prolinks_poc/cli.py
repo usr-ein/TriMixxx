@@ -1271,6 +1271,7 @@ def cmd_serve(ctx: Context) -> int:
             nfs_server = NfsServer(
                 ctx.loop, vfs, exports=exports,
                 bind_ip="0.0.0.0", portmap_port=args.portmap_port,
+                mountd_port=args.mountd_port, nfsd_port=args.nfsd_port,
                 recorder=ctx.recorder,
             )
             nfs_server.start()
@@ -1280,9 +1281,16 @@ def cmd_serve(ctx: Context) -> int:
             )
             if nfs_server.portmap_port != portmap.PORT:
                 _warn(
-                    f"  WARNING: portmap is on {nfs_server.portmap_port}, not {portmap.PORT}. "
-                    "Real players only look on 111 -- re-run with sudo."
+                    f"  NOTE: portmap is on {nfs_server.portmap_port}, not {portmap.PORT}, "
+                    "so a player's GETPORT will go unanswered."
                 )
+                if (args.mountd_port, args.nfsd_port) == (mountd.PIONEER_PORT, nfs2.PORT):
+                    _warn(
+                        "  This is experiment E9: mountd and nfsd are on the ports a real "
+                        "player uses, so a deck that browses anyway does not need portmap."
+                    )
+                else:
+                    _warn("  Re-run with sudo, or see experiment E9 in research/10 §B5.")
         except PermissionError:
             _warn(
                 f"could not bind UDP {portmap.PORT} (needs root). Continuing without NFS; "
@@ -1605,6 +1613,19 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument(
         "--portmap-port", type=int, default=portmap.PORT,
         help="only change for testing; real players look on 111 only",
+    )
+    # Experiment E9: does a deck need portmap at all, or does it fall back to
+    # the well-known ports when GETPORT goes unanswered? Pin these to a real
+    # player's own numbers (mountd 48276, nfsd 2049 -- F6) and move portmap off
+    # 111. A pass means Mixxx never has to bind a privileged port; see
+    # research/10 §B5.
+    serve.add_argument(
+        "--mountd-port", type=int, default=0,
+        help="0 = ephemeral. 48276 is what a real player uses (experiment E9)",
+    )
+    serve.add_argument(
+        "--nfsd-port", type=int, default=0,
+        help="0 = ephemeral. 2049 is what a real player uses (experiment E9)",
     )
     serve.add_argument("--no-nfs", dest="nfs", action="store_false",
                        help="dbserver only; skips the port-111 bind that needs root")

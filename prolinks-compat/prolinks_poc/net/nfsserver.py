@@ -17,6 +17,14 @@ exports are read-only and so is this.
 
 Binding UDP/111 needs root, so *portmap_port* is configurable. Real CDJs use
 the fixed port, and impersonating one eventually means binding it for real.
+
+*mountd_port* and *nfsd_port* are configurable for **experiment E9**, which asks
+whether portmap is needed at all. A deck does query it (F24), but a real player
+answers 48276 and 2049 on every device we have seen (F6) -- numbers stable enough
+to be compiled-in defaults the deck may fall back to when ``GETPORT`` goes
+unanswered. Pin these two to the well-known ports, leave portmap off 111, and the
+deck's behaviour settles it. A pass deletes the whole privileged-port problem
+from the Mixxx port; see ``research/10`` §B5.
 """
 
 from __future__ import annotations
@@ -44,6 +52,8 @@ class NfsServer:
         exports: dict[str, str] | None = None,
         bind_ip: str = "127.0.0.1",
         portmap_port: int = 0,
+        mountd_port: int = 0,
+        nfsd_port: int = 0,
         recorder=None,
     ) -> None:
         self.loop = loop
@@ -57,10 +67,10 @@ class NfsServer:
             rpc_socket(bind_ip, portmap_port), recorder=recorder, label="srv:portmap"
         )
         self.mountd_channel = UdpChannel(
-            rpc_socket(bind_ip, 0), recorder=recorder, label="srv:mountd"
+            rpc_socket(bind_ip, mountd_port), recorder=recorder, label="srv:mountd"
         )
         self.nfsd_channel = UdpChannel(
-            rpc_socket(bind_ip, 0), recorder=recorder, label="srv:nfsd"
+            rpc_socket(bind_ip, nfsd_port), recorder=recorder, label="srv:nfsd"
         )
 
         self.portmap_port = self.portmap_channel.local_port
