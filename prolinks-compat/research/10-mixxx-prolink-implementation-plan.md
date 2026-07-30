@@ -538,20 +538,125 @@ of menu types implemented is a **user-visible surface**, not an internal detail.
 
 **A real CDJ calls portmap `GETPORT` against us** for both mountd and nfsd
 (F24) — so **UDP/111 must be bound**, and 111 is a privileged port. mountd and
-nfsd can sit on any ephemeral port, because we report them through portmap; 111
-is the only fixed one. The PoC ran under `sudo`; Mixxx will not.
+nfsd can sit on any port, because we report them through portmap; 111 is the only
+fixed one. The PoC ran under `sudo`; Mixxx will not.
 
-| Platform | Approach |
+#### Step 0: find out whether we need it at all — **experiment E9**
+
+*Before building any of what follows.* We know the deck **asks**; we do not know
+that it **needs an answer**. A real player serves mountd on 48276 and nfsd on
+2049 (F6), and those numbers were identical across three devices — so they may
+well be compiled-in defaults that a deck falls back to when its `GETPORT` times
+out.
+
+*Procedure:* run the PoC's `serve` with portmap on a high port — so nothing
+answers on 111 — and mountd/nfsd pinned to the numbers a real player uses. **No
+`sudo`**, which is the whole point:
+
+```bash
+.venv/bin/prolinks -v serve --volume /Volumes/SAM2 --iface en9 \
+    --portmap-port 11111 --mountd-port 48276 --nfsd-port 2049
+```
+
+Then browse and load a track from the deck.
+*Pass:* the deck opens the medium and plays. *Fail:* it lists us (status and the
+media query do not go through portmap) but nothing opens — the same symptom as
+no NFS server at all, so check the capture for `MNT` rather than trusting the
+screen.
+*If it passes:* delete this entire section. No elevation, no helper, no prompt,
+and macOS becomes a first-class serving platform.
+*If it fails:* the design below, which we then need.
+
+*Status: ready to run — the flags are in (`cli.py`, `net/nfsserver.py`).*
+
+Do not skip this because the helper is more interesting to build.
+
+#### The kernel's position, per platform
+
+| Platform | Can an unprivileged process bind UDP/111? |
 |---|---|
-| **Linux (the Pi — the actual target)** | `sysctl net.ipv4.ip_unprivileged_port_start=111`, set in TriMiXxX's provisioning. Least invasive: no capabilities on the binary, survives package upgrades. Alternative: `setcap cap_net_bind_service=+ep` on the mixxx binary — but that is lost on every reinstall and disables `LD_LIBRARY_PATH`, which breaks some builds |
-| **macOS** | Ports < 1024 need root and there are no capabilities. Serving is **not supported**; consume works fully. Also note macOS may already run `rpcbind` on 111 |
-| **Windows** | No privileged-port restriction; untested, not a target |
+| **Linux** | **Yes, if configured.** `sysctl net.ipv4.ip_unprivileged_port_start=111` lowers the reserved range globally. Set once in TriMiXxX's provisioning and no prompt ever appears. (`setcap cap_net_bind_service=+ep` on the binary also works but is lost on every reinstall and disables `LD_LIBRARY_PATH`, which breaks some builds.) |
+| **macOS** | **No.** Verified on the dev machine: `sysctl net.inet.ip.portrange` exposes only `first/last`, `hifirst/hilast` and `lowfirst/lowlast`. Those govern *ephemeral* allocation; FreeBSD's `reservedhigh`/`reservedlow`, which would relax the bind check, **do not exist on macOS**. XNU's check is hardcoded. There are no capabilities. So euid 0 is required, with no way around it |
+| **Windows** | **Yes.** Windows has never restricted low ports to administrators. Nothing to do |
 
-**Bind 111 last, and degrade cleanly.** If it fails, keep discovery, the virtual
-CDJ, status and the whole consume side running, and put a specific explanatory
-message in the feature's root view naming the sysctl. **Never a `QMessageBox`**
-(see the comment at `library.cpp:170-172`). A feature that refuses to start
-because of one socket is worse than one that starts degraded and says so.
+So the problem is real on exactly one platform, and it is the development
+machine rather than the deployment target.
+
+#### The design: borrow root for one syscall, then give it back
+
+Do **not** run Mixxx as root, and do **not** install a setuid binary. Bind the
+socket in a short-lived privileged helper and pass the **file descriptor** back
+to the unprivileged process over a Unix socket with `SCM_RIGHTS`. The fd carries
+the privilege; the process never does.
+
+```
+Mixxx (unprivileged)                     helper (root, ~20 ms)
+  |
+  | 1. mkdir 0700 <runtime>/prolink/
+  | 2. listen on AF_UNIX <runtime>/prolink/bind.sock
+  | 3. launch helper, elevated  ------->  socket(AF_INET, SOCK_DGRAM)
+  |                                       bind(0.0.0.0:111)
+  |                                       connect(argv[1])
+  | 4. accept, recvmsg(SCM_RIGHTS)  <----  sendmsg(fd)
+  | 5. verify: getsockname == udp/111      _exit(0)
+  | 6. QUdpSocket::setSocketDescriptor(fd, QAbstractSocket::BoundState)
+  | 7. unlink the socket, rmdir
+```
+
+`mixxx-prolink-portbind` is perhaps 80 lines of POSIX C. It takes **one**
+argument, the socket path. **The port is hardcoded** — there is no argument, env
+var or config that can make it bind anything but UDP/111, which is what keeps the
+blast radius of a compromised invocation to "somebody gets a socket on the
+portmapper port" rather than "somebody gets a socket on anything".
+
+Elevation is delegated to the platform's own mechanism, so we never handle a
+password and never store one:
+
+| Platform | Mechanism | Prompt |
+|---|---|---|
+| **Linux** | `pkexec /usr/libexec/mixxx-prolink-portbind <sock>` + a PolicyKit `.policy` file with `auth_admin_keep` | The desktop's standard auth dialog. **Never reached on a provisioned Pi**, which takes the sysctl path |
+| **macOS** | `osascript -e 'do shell script "… " with administrator privileges'` | The native admin dialog. Works unsigned, which matters because most Mixxx builds are self-built. `AuthorizationExecuteWithPrivileges` is deprecated and `SMAppService`/`SMJobBless` needs a Developer ID — neither is usable here |
+| **Windows** | none needed | — |
+
+**Timing: not at boot.** The requirement says "at boot", and that is the right
+*trigger* but the wrong *moment*. Prompt when the ProLink feature initialises
+**and serving is enabled** — which, since both settings default off, means a user
+who has never opened the ProLink preferences is never asked for anything. A music
+application that asks for an admin password on first launch, unprompted, is
+indistinguishable from malware.
+
+**Ask at most once per run**, and remember refusal for the session: a DJ who
+cancels the dialog should not be re-prompted every retry. Offer the permanent
+escape in the same breath — the preferences page shows the one-time
+`sysctl`/`setcap` command with a copy button, so a user who does not want a
+recurring prompt can make it go away for good.
+
+**Degrade cleanly, whatever happens.** If the helper is missing, elevation is
+refused, or the bind fails because something else holds 111 (macOS `rpcbind`,
+a running `nfsd`), keep discovery, the virtual CDJ, status, media queries and the
+entire consume side running. Serving alone goes unavailable, and says so.
+**Never a `QMessageBox`** (see the comment at `library.cpp:170-172`). A feature
+that refuses to start because of one socket is worse than one that starts
+degraded and explains itself.
+
+**Bind 111 last**, after everything else is up, so a failure there cannot take
+any of the rest down with it.
+
+#### Honest assessment
+
+This is a well-trodden pattern — privilege separation by fd passing is how
+`ping`, several VPN clients and Chrome's network service have historically
+handled the same problem — but it is still the largest non-protocol risk in the
+plan, for three reasons worth writing down rather than discovering later:
+
+1. **It adds a second installed artifact.** Packaging, code signing on macOS,
+   a PolicyKit policy on Linux, and a `find_program` at runtime with a sane
+   failure when it is absent.
+2. **It will be contentious upstream.** "Mixxx wants to install a privileged
+   helper" is a conversation, not a patch. This is a strong argument for the
+   serve side being a separate, default-off, separately-compiled feature —
+   which §B1 already does for unrelated reasons.
+3. **E9 may make all of it unnecessary.** Which is why E9 comes first.
 
 ### The dbserver surface
 
@@ -754,11 +859,39 @@ arrow-key press would saturate the link the CDJs are themselves playing over.
   | ☐ Act as a player (share mounted rekordbox media) | off |
   | Player number: `AUTO ▾ / 1 / 2 / 3 / 4` | AUTO |
   | Network interface: `Auto ▾` | Auto |
-  | *Status:* number held, peers seen, media served, and any degradation (port 111, no free number) | — |
 
-  The status area is the part that earns the page. Everything in this feature
-  that goes wrong goes wrong silently — a taken number, an unbindable socket, a
-  third USB ignored — and a DJ needs to see that before the set, not during it.
+  The status area below them is the part that earns the page. Everything in this
+  feature that goes wrong goes wrong *silently* — a taken number, an unbindable
+  socket, a third USB ignored — and a DJ needs to see that before the set, not
+  during it. Live, one line each:
+
+  ```
+  Status
+    Network      eth0 · 169.254.83.12
+    Player       3 (automatic)                     [or: no free number 1-4 — not serving]
+    Peers        2 CDJ-2000nexus (1, 2)
+    Serving      SAM2 as USB · 692 tracks
+                 (SD slot empty)
+    Portmapper   UDP/111 bound                     <-- see below
+  ```
+
+  **The portmapper line is required, and is the one the user explicitly asked
+  for.** It reports the outcome of the privileged bind described in §B5, in the
+  four states it can actually be in:
+
+  | State | Line | Action offered |
+  |---|---|---|
+  | Bound, no elevation needed | `UDP/111 bound` | — |
+  | Bound via the helper | `UDP/111 bound (authorised)` | *Make permanent* → shows the one-time `sysctl`/`setcap` command |
+  | Refused by the kernel | `UDP/111 blocked — needs privilege. Other players can see this unit but cannot open its media.` | *Authorise…* (re-runs the helper) and *Make permanent* |
+  | Held by another process | `UDP/111 in use by another program (rpcbind? another Mixxx?)` | — |
+
+  Two things that line must get right. It states the **consequence**, not just
+  the failure — "other players can see this unit but cannot open its media" is
+  the exact symptom, and it is otherwise indistinguishable from a dozen unrelated
+  bugs. And it distinguishes **blocked** from **in use**, because the fixes are
+  completely different and the kernel's `EACCES` and `EADDRINUSE` are right there
+  to tell them apart.
 
 - **Remaining `[ProLink]` config keys**, no UI: `CacheDir`, `ReadSizeBytes`=1280,
   `DeviceTimeoutMs`=10000, `DeviceRemovalGraceMs`=60000, `PrefetchAnalysis`=1,
