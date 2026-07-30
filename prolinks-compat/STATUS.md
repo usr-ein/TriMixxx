@@ -95,30 +95,56 @@ library the moment the DJ switches slots). One `Vfs` holds both media under
 is a hash of the path, and a CDJ preserves only the leading 12 bytes (F28), so
 two media sharing a root would be indistinguishable afterwards.
 
-## Not started
+## Phase B — started, and runnable on the deck
 
-**Phase B — Mixxx C++ integration**, both directions. The plan is
+Build order steps 1–5 of `research/10` §B10 are done and deployable:
+
+| | |
+|---|---|
+| **B0** | Two pre-existing Rekordbox bugs fixed — the cross-thread `appendChild()` and the cloned-media `UNIQUE` collisions (which turned out to be **two** columns, `location` *and* `analyze_path`) |
+| **step 2** | `ksy/prolink_djl.ksy` — UDP 50000 as a Kaitai schema, validated against **7833 packets from 38 capture files**, all eight observed types, zero field disagreements with the PoC decoder |
+| **step 4** | `ProLinkDevice`, `ProLinkDiscovery`, `ProLinkNetworkService` — passive listener on a dedicated network thread |
+| **step 5** | `ProLinkFeature` — players appear, grey out, disappear, in the library sidebar |
+
+**Deploy and test: `docs/HARDWARE.md` §11.** `cd ../mixxx && ./upload.sh` then
+`cd ../mixxx_config && ./upload.sh`.
+
+Passive throughout: this build transmits **nothing** on any Pro DJ Link port, so
+it cannot contend for a device number or disturb a live rig.
+
+Two things learned in the port so far, both recorded where they will be found
+again:
+
+- **Kaitai cannot generate C++ serializers** (Java and Python only), so the
+  `.ksy` files give us readers and the writers are hand-written, round-tripped
+  through the generated readers. See `ksy/README.md`.
+- **Never use Kaitai's `encoding:` for UTF-16 here.** Mixxx compiles the runtime
+  with `KS_STR_ENCODING_NONE`, making `bytes_to_str` a pass-through — the
+  identity function for ASCII, and silent mojibake for UTF-16. That is exactly
+  how O6 hid for three sessions.
+
+### Still to do
+
+The plan is
 [`research/10`](research/10-mixxx-prolink-implementation-plan.md), revised
 2026-07-30 for two-way scope and Kaitai; build order in its §B10.
 
-The three things from that revision worth knowing before starting:
+Next up is step 6 — fetch and parse a player's `export.pdb` over NFS, and turn
+the sidebar's flat device list into device → slot → playlists.
 
-- **Kaitai cannot generate C++ serializers** — Java and Python only, and the
-  runtime vendored in Mixxx (`lib/kaitai/`, 0.11) has no `write_*` at all. So
-  `.ksy` gives us the readers and the writers are hand-written, round-tripped
-  through the generated readers and cross-checked against a Python encoder built
-  from the same `.ksy`.
+One thing to know before the serve half:
+
 - **Serving needs UDP/111.** A real deck calls portmap `GETPORT` for mountd and
   nfsd (F24), and 111 is privileged. The Pi sets
   `net.ipv4.ip_unprivileged_port_start=111`; macOS cannot serve at all. Binding
-  it must be the last thing tried and must degrade visibly.
-- **B0 first** — the two pre-existing Rekordbox bugs: the `buildPlaylistTree()`
-  cross-thread `appendChild()`, and `location TEXT UNIQUE` colliding for two
-  devices holding cloned media.
+  it must be the last thing tried and must degrade visibly. Confirmed the hard
+  way in F46: a deck retries `GETPORT` once a second forever and never falls back
+  to the well-known ports, so without it we are not listed at all.
 
-Two Phase A deliverables were never made and are worth making before the port:
-`PORTING.md`, and the golden decode JSON that turns "did I port the parser
-correctly" into a diff.
+One Phase A deliverable was never made and is still worth having: the golden
+decode JSON that turns "did I port the parser correctly" into a diff. The
+`.ksy` corpus test (`tests/test_ksy_corpus.py`) now covers UDP 50000 that way,
+so the remaining gap is the dbserver and ANLZ codecs.
 
 ---
 
@@ -129,13 +155,14 @@ STATUS.md          this file — current state
 README.md          what the repo is, how to run it
 docs/
   PROTOCOL.md      the protocol as observed -- the spec to implement from
-  FINDINGS.md      F1-F44, C1-C14, O1-O7 with evidence. Has an index.
+  FINDINGS.md      F1-F46, C1-C14, O1-O7 with evidence. Has an index.
   HARDWARE.md      runbook for a session with real CDJs
   CAPTURE-PLAN.md  the S1..S10 capture scenarios
 research/
   00..09           pre-hardware literature review; PROTOCOL.md supersedes it
   10               the approved build plan for Mixxx
   ref-repos/       cloned upstream projects (git-ignored, reference only)
+ksy/               Kaitai wire-format schemas; regenerate.sh writes both trees
 prolinks_poc/
   proto/           pure codecs, no I/O — both directions for every format
   net/             sockets, event loop, RPC/NFS client *and* server

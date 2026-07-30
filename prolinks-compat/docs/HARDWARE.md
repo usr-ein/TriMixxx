@@ -247,6 +247,60 @@ things to note when it does not work:
 Run it alongside `tcpdump` — a capture of a real player rejecting us is worth
 more than any amount of guessing.
 
+## 11. Testing the Mixxx feature on the deck  *(phase B)*
+
+The first increment of the C++ port: **players appear in Mixxx's library
+sidebar**. Nothing can be browsed or loaded yet — that is the next increment —
+so what is under test here is discovery, the thread boundary, the offline/removal
+timing, and clean shutdown.
+
+Entirely passive. Mixxx transmits **nothing** on any Pro DJ Link port in this
+build, so it cannot contend for a device number or disturb a live rig.
+
+### Deploy
+
+```sh
+cd ../mixxx        && ./upload.sh      # build arm64 in Docker, swap /usr/bin/mixxx
+cd ../mixxx_config && ./upload.sh      # ~/.mixxx, incl. ShowProLinkLibrary 1
+```
+
+`mixxx/upload.sh` reads the Debian release off the deck and builds against it, so
+the binary links to the libraries already there. First build is ~3 min; after
+that the ccache and build-tree cache mounts make it ~1 min.
+
+`pi_config/upload.sh` is **not** needed for this increment — the UDP/111 sysctl
+only matters for serving.
+
+### What to expect
+
+| Action | Expected |
+|---|---|
+| Open the **Pro DJ Link** item in the sidebar | Status page: "Listening on UDP port 50000", and a table of players |
+| Power on a CDJ | It appears as `1 · CDJ-2000nexus` within a few seconds. **Allow ~10 s**: a CDJ tries DHCP about three times before self-assigning and says nothing until then (F8) |
+| Pull its Ethernet cable | Goes grey and gains ` (offline)` after **10 s** — five missed keep-alives. The row stays |
+| Plug it back in | Label returns to normal, no flicker |
+| Leave it unplugged | Row disappears at **60 s** |
+| Set `[ProLink],refresh` to 1 | Offline rows go immediately, without waiting out the 60 s |
+| Quit Mixxx with a CDJ on the network | Clean exit, no crash. This is the shutdown-ordering test and it only fails when a device is actually present |
+
+Check the log for the interface column: on the Pi it must say `eth0`, not
+`wlan0`. A device attributed to the wrong interface is the multi-homing failure
+(R5), and it is silent until something tries to open a socket towards it.
+
+```sh
+ssh trimixxx-pi 'journalctl --user -n 200 | grep -i prolink'
+```
+
+### If no players appear
+
+- Is the sidebar item even there? If not, `ShowProLinkLibrary` did not take —
+  check `~/.mixxx/mixxx.cfg` on the deck.
+- Does the status page say the port could not be bound? Something else holds
+  50000.
+- Cross-check with the PoC from the Mac on the same switch:
+  `prolinks devices --watch`. If that sees the decks and Mixxx does not, the bug
+  is ours; if neither does, it is the network.
+
 ## What to bring back
 
 - `captures/` from the whole session, with `--notes` filled in
