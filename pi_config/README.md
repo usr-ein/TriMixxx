@@ -38,6 +38,11 @@ config — and a system change here never has to go through the Mixxx-restart pa
   only be told one family name, so per-character fallback is fontconfig's job and
   this is where the order is pinned. `fonts-noto-extra` (Tibetan, Yi, the rarer
   scripts) is deliberately left out — a few hundred MB; add it if you want them.
+- `getty-tty1-stop-mixxx.conf` — `getty@tty1` drop-in that asks Mixxx to quit and
+  waits for it *before* systemd tears the session down. Mixxx handles the
+  termination signal itself, but X is in the same scope and dies in the same
+  instant, so without this the shutdown aborts on `The X11 connection broke`
+  with settings unwritten and threads unjoined.
 - `dj-usb/` — USB stick auto-mount (udev rule → templated systemd service +
   mount helper). Self-contained; `upload.sh` delegates to its `install.sh`.
 

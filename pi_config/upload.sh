@@ -9,6 +9,7 @@
 #   * cpu-governor.service     -- pin cores to `performance` (low-latency audio)
 #   * trimixxx-bridge.service  -- ttymidi serial<->MIDI bridge (gates Mixxx boot)
 #   * 99-prolink-ports.conf    -- let Mixxx bind UDP/111 (Pro DJ Link serving)
+#   * getty-tty1-stop-mixxx.conf -- quit Mixxx before the session (and X) go
 #   * prolink-eth0.sh          -- eth0 to IPv4 link-local, for the CDJ network
 #   * ~/.xinitrc               -- the X session startx runs (WM + Mixxx loop)
 #   * dj-usb/*                 -- USB auto-mount (delegated to its own installer)
@@ -108,6 +109,24 @@ ssh "$HOST" '
 # getty@tty1`), not immediately.
 scp "$HERE/xinitrc" "$HOST":'~/.xinitrc'
 ssh "$HOST" 'chmod 0755 ~/.xinitrc'
+
+# ---- clean Mixxx shutdown on `systemctl stop getty@tty1` ---------------------
+# Mixxx handles the termination signal itself, but X lives in the same session
+# scope and dies in the same instant, aborting the shutdown part-way. This
+# drop-in stops Mixxx first and waits for it. See the file's own comment.
+scp "$HERE/getty-tty1-stop-mixxx.conf" "$HOST":/tmp/
+ssh "$HOST" '
+    set -eux
+    sudo mkdir -p /etc/systemd/system/getty@tty1.service.d
+    sudo install -m 0644 /tmp/getty-tty1-stop-mixxx.conf \
+        /etc/systemd/system/getty@tty1.service.d/10-trimixxx-stop-mixxx.conf
+    rm -f /tmp/getty-tty1-stop-mixxx.conf
+    sudo systemctl daemon-reload
+    # Deliberately NOT restarting getty@tty1: that would kill the running Mixxx,
+    # which is rarely what someone deploying config wants. The drop-in applies
+    # to the next stop either way.
+    systemctl show -p ExecStop --value getty@tty1.service | head -2
+'
 
 # ---- eth0 for the Pro DJ Link network ----------------------------------------
 # A Pro DJ Link network has no DHCP server, so eth0 needs an IPv4 link-local
