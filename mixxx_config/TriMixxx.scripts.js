@@ -36,7 +36,6 @@ TriMixxx.SORT_BRIGHT   = 1.0;
 TriMixxx.sortStep      = -1;    // -1 = no sort; otherwise index into the cycle
 TriMixxx.sortLastStep  = 0;     // where to resume after a long-press clear
 TriMixxx.sortHoldTimer = 0;
-TriMixxx.SORT_ID_POSITION = 23;  // TrackModel::SortColumnId::Position
 
 // ---- Ring button LED palette. Entries only need correct hue RATIOS -- dim()
 //      normalizes each to full intensity, then scales by BRIGHTNESS. ----
@@ -332,13 +331,13 @@ TriMixxx.sortForget = function() {
 
 // Back to the order the list came in.
 //
-// Position is the natural order of a playlist -- the order somebody put the
-// tracks in. A model without a position column rejects it in
-// BaseSqlTableModel::setSort, which warns and leaves the sort alone rather than
-// failing the query, so this is safe to send everywhere.
+// sort_reset asks the model to drop its sort history and re-select, which is
+// the only thing that means "unsorted": there is no column id for it, and no
+// natural column to fall back on either. Sorting by Position came close for
+// playlists but the local library has no such column, so it silently kept
+// whatever sort was already running while the button went dark.
 TriMixxx.sortReset = function() {
-    engine.setValue("[Library]", "sort_column", TriMixxx.SORT_ID_POSITION);
-    engine.setValue("[Library]", "sort_order", 0);
+    engine.setValue("[Library]", "sort_reset", 1);
 };
 
 // B5 Slip mode: toggle on press.
