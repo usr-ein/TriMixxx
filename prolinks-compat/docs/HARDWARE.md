@@ -392,6 +392,63 @@ Take the flag back off afterwards: debug logging is not free on a Pi mid-set.
   `prolinks devices --watch`. If that sees the decks and Mixxx does not, the bug
   is ours; if neither does, it is the network.
 
+## 12. The anchor test — pull a database off a real CDJ  *(phase B, step 3)*
+
+The strongest check that exists on the RPC/NFS stack, and it needs no interface:
+fetch `export.pdb` over NFS and prove it byte-identical to the same file read off
+the physically ejected stick. If this passes, XDR, ONC RPC, portmap, mountd,
+NFSv2 `LOOKUP`/`GETATTR`/`READ`, the windowed transfer and the reassembly are all
+correct together.
+
+Deploy as in §11, then with a CDJ on the network and a rekordbox USB in it:
+
+1. In Mixxx, open **Developer Tools** (already enabled — `~/.xinitrc` passes
+   `--developer`).
+2. Find `[ProLink]` → `pull_db` and set it to **1**.
+3. Watch the log:
+
+```sh
+ssh trimixxx-pi 'tail -f ~/.mixxx/mixxx.log | grep -i "pull_db\|ProLinkNfs"'
+```
+
+Expect:
+
+```
+pull_db: mounting /C/ on 2 · CDJ-2000nexus 169.254.202.84
+pull_db: mounted, mountd 48276 nfsd 2049
+pull_db: export.pdb is 1077248 bytes
+pull_db OK: 1077248 bytes in 842 reads, 0 short, ... ms, ... KiB/s
+pull_db sha1: <digest>
+```
+
+Then eject the stick, put it in the Mac, and compare:
+
+```sh
+shasum -a 1 /Volumes/<STICK>/PIONEER/rekordbox/export.pdb
+```
+
+**The digests must match.** One legitimate exception: a player rewrites its own
+bookkeeping into the pdb header as it operates — a play count, a history entry,
+landing in the sequence counter at `0x14` (F13). If the two files differ *only*
+in bytes `0x10`–`0x18`, that is the deck writing to its own database, not a
+transfer error. Anything else is a real bug. Confirm with:
+
+```sh
+cmp -l /Volumes/<STICK>/PIONEER/rekordbox/export.pdb /tmp/pulled.pdb | head
+```
+
+### If it fails
+
+The log names the stage, which is the point of resolving both ports up front:
+
+| Message | Meaning |
+|---|---|
+| `no mountd: the portmapper did not answer` | Nothing on UDP/111 at the player, or we are talking to the wrong address |
+| `no nfsd: program 100003 is not registered` | Portmapper answered but NFS is not running — try with media inserted |
+| `MNT /C/: NFSERR_ACCES` | The export list did not include us. Firmware-dependent; try after announcing |
+| `LOOKUP PIONEER: NFSERR_NOENT` | HFS-formatted media puts the tree under `.PIONEER` |
+| `timed out` on everything | Almost always the wrong source interface — check the Interface column in §11 says `eth0` |
+
 ## What to bring back
 
 - `captures/` from the whole session, with `--notes` filled in
