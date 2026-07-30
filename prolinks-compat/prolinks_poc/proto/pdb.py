@@ -12,8 +12,12 @@ all of which bite:
   16 at the end of the page, and within a group they run backwards -- row 0
   occupies the *last* slot. Each group carries a 16-bit presence bitmask, and
   only the rows whose bit is set exist.
-* **The last group's presence bits describe rows that are not there.** Rows
-  have to be bounded by the page's entry count, not by the bitmask alone.
+* **The presence bitmask is authoritative; the header's entry count is not.**
+  This document previously said the opposite -- that rows must be bounded by
+  the entry count rather than the bitmask -- and that was wrong. A real medium
+  carried ``entry_count = 39`` on a page whose group masks marked 40 rows live,
+  and the 40th was a genuine track the deck itself lists. Trusting the count
+  silently drops trailing rows. See FINDINGS F47.
 * **The entry count is in one of two fields.** ``entry_count_large`` wins when
   it exceeds ``entry_count_small`` -- except when it is the sentinel 8191, and
   except on "strange" pages. Artwork and playlist-map pages are the ones that
@@ -207,8 +211,22 @@ class Pdb:
 
         count = header.entry_count
         groups = (count + ROWS_PER_GROUP - 1) // ROWS_PER_GROUP
-        emitted = 0
 
+        # The **presence bitmask is authoritative, not the header count.** They
+        # disagree: on one real medium a playlist-entries page carried
+        # ``entry_count = 39`` while its three group masks marked 16 + 16 + 8 =
+        # 40 rows live, and the 40th was a genuine track that the deck itself
+        # lists. Capping the walk at ``entry_count`` silently drops trailing rows
+        # whenever the two differ.
+        #
+        # This cost us a track for the whole of phase A and was invisible,
+        # because one missing row in 692 looks like nothing. It surfaced only
+        # when Mixxx's Kaitai parser -- which walks the groups and trusts the
+        # mask -- was pointed at the same file and found 40. See FINDINGS F47.
+        #
+        # ``groups`` is still derived from the count, which bounds the walk; the
+        # mask then decides which of those slots are live, and a partial final
+        # group simply has its unused bits clear.
         for group in range(groups):
             base = page_end - group * GROUP_SIZE
             block = base - GROUP_SIZE
@@ -216,12 +234,11 @@ class Pdb:
                 return
             (present,) = struct.unpack_from("<H", self.data, base - 4)
             for slot in range(ROWS_PER_GROUP):
-                if emitted >= count:
-                    return
                 # Slot ordering is reversed within the group.
                 position = block + (ROWS_PER_GROUP - 1 - slot) * 2
+                if position + 2 > page_end:
+                    continue
                 (row_offset,) = struct.unpack_from("<H", self.data, position)
-                emitted += 1
                 if not (present >> slot) & 1:
                     # A cleared bit is a deleted row, which is normal.
                     continue

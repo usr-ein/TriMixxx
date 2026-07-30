@@ -72,6 +72,7 @@ and analysis files · **METH** capture methodology.
 | [F44](#f44) | DB | Search text is argument **3**; KEY drills to a **harmonic tolerance** first |
 | [F45](#f45) | Serve | A server **must hold a number in 1-4**; at 5 a deck accepts it and never asks for its media |
 | [F46](#f46) | Serve | **E9 fails:** UDP/111 is mandatory — no fallback to 48276/2049. And NFS precedes dbserver |
+| [F47](#f47) | pdb | The row-group **presence bitmask is authoritative**, not the page header's entry count |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1862,6 +1863,50 @@ result, so it went straight for the mount. One query per slot, not repeated —
 which also means a server restart does not earn a fresh one *(inferred)*.
 
 *Evidence:* `captures/S24b-e9-control/` and `captures/S24c-e9-noportmap/`.
+
+<a id="f47"></a>
+
+### F47 — The presence bitmask outranks the page header's entry count  *(confirmed)*
+
+`research/05` says a page's live rows "have to be bounded by the page's entry
+count, not by the bitmask alone", and our parser did exactly that. It is wrong,
+and it silently loses rows.
+
+On a real medium the playlist-entries page reads:
+
+```
+page 18: entry_count = 39, 3 groups
+  group 0: mask 1111111111111111   16 live
+  group 1: mask 1111111111111111   16 live
+  group 2: mask 0000000011111111    8 live
+                                   -- 40
+```
+
+The header says 39; the masks say 40. **The masks are right.** The fortieth row
+is track id 651, `AIFF 24b 48k` — a genuine track, present in the tracks table,
+and the last of the 40 files the format-matrix generator emits.
+
+Capping the walk at `entry_count` drops trailing rows whenever the two disagree,
+and it always drops them from the *end*, which is the least conspicuous place.
+
+**How it was found, which is the point.** It survived the whole of phase A
+undetected: one missing row in 692 does not make a count look wrong, and nobody
+counts a CDJ's browse screen item by item. It surfaced the first time Mixxx's
+Kaitai parser — which walks the row groups and trusts the mask — was pointed at
+the same bytes as the Python one and returned 40 where Python returned 39.
+
+Two independent implementations of the same format, disagreeing by one, on a
+file we already had. That is the entire argument for keeping the cross-check
+(`tests/test_ksy_corpus.py`, `src/test/prolink_pdb_test.cpp`) rather than
+trusting either parser alone.
+
+*Fixed in* `prolinks_poc.proto.pdb._row_offsets`. The group count is still
+derived from `entry_count`, which bounds the walk; the mask then decides which
+of those slots are live, and a partial final group simply has its unused bits
+clear. Mixxx's parser needed no change — it was already correct.
+
+*Evidence:* `~/Downloads/SAM1-export.pdb`, page 18. 651 tracks, 329 artists,
+273 albums, one playlist of 40.
 
 ---
 

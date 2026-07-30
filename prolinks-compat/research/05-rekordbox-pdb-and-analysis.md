@@ -1,3 +1,8 @@
+> **Superseded in one place (F47):** where this document says live rows must be
+> bounded by the page's entry count rather than the presence bitmask, it has it
+> backwards. The bitmask is authoritative; trusting the count drops trailing
+> rows. See `docs/FINDINGS.md` F47.
+
 # 05 — Rekordbox Export Database (export.pdb / DeviceSQL) and Track Analysis Files (ANLZ)
 
 > **⚠ Pre-hardware document.** Written from published reverse-engineering
