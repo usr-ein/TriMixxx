@@ -287,24 +287,22 @@ TriMixxx.sortApply = function() {
     var column = TriMixxx.SORT_COLUMNS[Math.floor(TriMixxx.sortStep / 2)];
     var descending = (TriMixxx.sortStep % 2) === 1;
 
-    // **sort_column is not a setter.** It forwards straight to
-    // sort_column_toggle, which flips the direction when the id matches the
-    // column already sorted on and forces *ascending* when it does not. Setting
-    // sort_order alongside it therefore never survived: a new column reset it
-    // and the same column ignored it. Rekordbox showed this up because its view
-    // already had an Artist sort running, so the ids collided differently there
-    // than on a freshly opened list.
+    // **Column first, direction second.**
     //
-    // So drive the toggle and let Mixxx own the direction. Ascending means
-    // "select this column", which the toggle does on the first hit; descending
-    // means "hit it again". Reading sort_order back is what keeps the LED
-    // honest rather than assuming the write landed.
-    engine.setValue("[Library]", "sort_column_toggle", column.id);
-    if (descending && engine.getValue("[Library]", "sort_order") === 0) {
-        engine.setValue("[Library]", "sort_column_toggle", column.id);
-    } else if (!descending && engine.getValue("[Library]", "sort_order") !== 0) {
-        engine.setValue("[Library]", "sort_column_toggle", column.id);
-    }
+    // sort_column is not a setter: it forwards to sort_column_toggle, which
+    // flips the direction when the id matches the column already sorted on and
+    // forces ascending when it does not. So whatever it decides about direction
+    // has to be overwritten afterwards, never before.
+    //
+    // Writing sort_order last works because WTrackTableView watches that
+    // control in its own right and re-sorts on any change; it is not merely a
+    // flag the toggle reads. Driving the toggle twice instead -- once to pick
+    // the column, once to flip it -- depends on the *global* sort_column
+    // matching what the visible model is actually sorted by, and it does not
+    // after switching between two lists with different sorts. That is why
+    // direction worked on the Rekordbox list and not on the local one.
+    engine.setValue("[Library]", "sort_column", column.id);
+    engine.setValue("[Library]", "sort_order", descending ? 1 : 0);
     TriMixxx.ledSort();
 };
 
@@ -339,7 +337,8 @@ TriMixxx.sortForget = function() {
 // BaseSqlTableModel::setSort, which warns and leaves the sort alone rather than
 // failing the query, so this is safe to send everywhere.
 TriMixxx.sortReset = function() {
-    engine.setValue("[Library]", "sort_column_toggle", TriMixxx.SORT_ID_POSITION);
+    engine.setValue("[Library]", "sort_column", TriMixxx.SORT_ID_POSITION);
+    engine.setValue("[Library]", "sort_order", 0);
 };
 
 // B5 Slip mode: toggle on press.
