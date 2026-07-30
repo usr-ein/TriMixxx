@@ -5,6 +5,19 @@ A custom DJ media player — a CDJ-style deck — built from scratch around a Ra
 ![Front](screenshots/CDJ-TriMixxx-master-doc_v117_front.png)
 ![Back](screenshots/CDJ-TriMixxx-master-doc_v117_back.png)
 
+### The screen
+
+The 1024×600 touchscreen runs a purpose-built Mixxx skin (`mixxx_config/TriMixxx_skin`). There is no mouse and no laptop: every control is either on the deck or under a thumb, so the UI is built around big targets and the browse encoder rather than around pointer precision.
+
+| Playing | Browsing |
+|---|---|
+| ![Playback view](screenshots/trimixxx-playback.png) | ![Library view](screenshots/trimixxx-library.png) |
+| Scrolling waveform with the beat grid, red downbeats anchored on the intro cue, and the whole-track overview underneath. Tempo and pitch sit bottom-right; the header carries artwork, title/artist, the phase meter, elapsed/remaining and the underrun counter. | Rekordbox USBs, the local collection and the Pro DJ Link players lead the menu — the three a deck actually reaches for. The left column sizes itself to its content and follows the selection, and neither pane has a scrollbar: the encoder scrolls them. |
+
+![Loop over the waveform](screenshots/trimixxx-playback2.png)
+
+An active loop, set from the deck's hardware loop-in/out buttons, drawn as an amber window over the waveform. Nothing sits below it — the transport, hotcues, loop sizing and tempo range are all physical controls, so the screen gives that space back to the waveform.
+
 ## What is this?
 
 TriMixxx replaces the internals of a Pioneer CDJ with modern, open-source-friendly hardware while keeping the physical controls that DJs know and love. Plug in a Rekordbox-formatted USB stick, and you're ready to mix.
