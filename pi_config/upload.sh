@@ -61,6 +61,44 @@ ssh "$HOST" '
     cat /proc/sys/net/ipv4/ip_unprivileged_port_start
 '
 
+# ---- font fallback -----------------------------------------------------------
+# The deck's UI font (MesloLGL Nerd Font, shipped by mixxx_config/upload.sh) is a
+# terminal font: ~13k codepoints, no CJK, no Arabic or Hebrew, no Indic scripts,
+# no emoji. Mixxx can only be told ONE family name, so everything else in a track
+# title is resolved by fontconfig against whatever is installed -- which on a
+# stock Raspberry Pi OS is close to nothing, hence tofu boxes.
+#
+# Two halves, and both are needed: the Noto families to fall back TO, and the
+# conf.d rule saying to fall back to them in that order.
+#
+# Sizes are the reason this is spelled out rather than `apt install fonts-noto`:
+# the metapackage pulls every script Noto has. These four are the ones a track
+# title actually hits. fonts-noto-extra (Tibetan, Yi, and the other rare scripts)
+# is deliberately NOT here -- add it if you want them, it is a few hundred MB.
+#
+# Validate the XML locally first: fontconfig ignores a malformed conf.d file with
+# only a warning on stderr that nothing on the deck will ever show you.
+python3 -c "import xml.dom.minidom,sys; xml.dom.minidom.parse('$HERE/60-trimixxx-fonts.conf')" \
+    || { echo "ABORT: 60-trimixxx-fonts.conf is not well-formed XML." >&2; exit 1; }
+scp "$HERE/60-trimixxx-fonts.conf" "$HOST":/tmp/
+ssh "$HOST" '
+    set -eux
+    sudo apt-get update -qq
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+        fonts-noto-core fonts-noto-cjk fonts-noto-color-emoji fonts-dejavu-core
+    sudo install -m 0644 /tmp/60-trimixxx-fonts.conf /etc/fonts/conf.d/60-trimixxx-fonts.conf
+    rm -f /tmp/60-trimixxx-fonts.conf
+    sudo fc-cache -f >/dev/null
+
+    # Prove the chain resolves rather than trusting the install. fc-match reports
+    # which font a request actually lands on, so asking for the deck UI family
+    # with a CJK and an emoji character present is the real end-to-end check.
+    # Each must NOT come back as the default sans -- if it does, the package or
+    # the conf.d rule did not take.
+    fc-match "MesloLGL Nerd Font" >/dev/null
+    fc-match -s "MesloLGL Nerd Font" | head -8
+'
+
 # ---- X session ---------------------------------------------------------------
 # The session startx runs on tty1 login: no screen blanking, a minimal WM, and
 # the Mixxx restart loop. Deliberately not a system file -- it belongs to the

@@ -29,6 +29,15 @@ config — and a system change here never has to go through the Mixxx-restart pa
   (`../prolinks-compat/docs/FINDINGS.md` F46). Not `setcap`, because
   `../mixxx/upload.sh` swaps the `/usr/bin/mixxx` binary and would drop file
   capabilities on every deploy. See the file's own comment for the trade-off.
+- `60-trimixxx-fonts.conf` — `/etc/fonts/conf.d` rule giving the deck's UI font a
+  fallback chain, plus the `fonts-noto-*` packages it points at (installed by
+  `upload.sh`). The UI font itself, MesloLGL Nerd Font, ships from
+  [`../mixxx_config/fonts`](../mixxx_config) — it is a *terminal* font, ~13k
+  codepoints, so a track title in Japanese, Korean, Arabic, Hebrew, an Indic
+  script, or with emoji in it, has no glyphs and renders as tofu boxes. Mixxx can
+  only be told one family name, so per-character fallback is fontconfig's job and
+  this is where the order is pinned. `fonts-noto-extra` (Tibetan, Yi, the rarer
+  scripts) is deliberately left out — a few hundred MB; add it if you want them.
 - `dj-usb/` — USB stick auto-mount (udev rule → templated systemd service +
   mount helper). Self-contained; `upload.sh` delegates to its `install.sh`.
 
