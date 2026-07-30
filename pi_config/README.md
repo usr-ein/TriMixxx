@@ -20,6 +20,15 @@ config — and a system change here never has to go through the Mixxx-restart pa
   `getty@tty1` (hence Mixxx) at boot so the deck's virtual MIDI port exists
   before Mixxx enumerates devices. The `ttymidi` binary itself is built from the
   submodule in `../mixxx_config/ttymidi`.
+- `99-prolink-ports.conf` — `/etc/sysctl.d` drop-in lowering
+  `net.ipv4.ip_unprivileged_port_start` to 111, so Mixxx can bind the RPC
+  portmapper without root and serve its rekordbox USBs to real CDJs. A CDJ asks
+  the portmapper for the mountd/nfsd ports *before* it will list us as a source
+  at all, and retries forever if nothing answers — so without this, serving
+  fails in a way that looks like a discovery bug
+  (`../prolinks-compat/docs/FINDINGS.md` F46). Not `setcap`, because
+  `../mixxx/upload.sh` swaps the `/usr/bin/mixxx` binary and would drop file
+  capabilities on every deploy. See the file's own comment for the trade-off.
 - `dj-usb/` — USB stick auto-mount (udev rule → templated systemd service +
   mount helper). Self-contained; `upload.sh` delegates to its `install.sh`.
 

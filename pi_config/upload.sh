@@ -8,6 +8,7 @@
 # Everything here is idempotent -- safe to re-run. Installs:
 #   * cpu-governor.service     -- pin cores to `performance` (low-latency audio)
 #   * trimixxx-bridge.service  -- ttymidi serial<->MIDI bridge (gates Mixxx boot)
+#   * 99-prolink-ports.conf    -- let Mixxx bind UDP/111 (Pro DJ Link serving)
 #   * dj-usb/*                 -- USB auto-mount (delegated to its own installer)
 set -eux
 
@@ -36,6 +37,22 @@ ssh "$HOST" '
     # Mixxx -- the virtual MIDI port just drops and reappears.
     sudo systemctl enable trimixxx-bridge.service
     sudo systemctl restart trimixxx-bridge.service
+'
+
+# ---- unprivileged port floor -------------------------------------------------
+# Lets Mixxx bind UDP/111 (the RPC portmapper) without root, which Pro DJ Link
+# serving requires -- a CDJ asks the portmapper for the mountd/nfsd ports before
+# it will even list us as a source, and retries forever if nothing answers.
+# The unit file explains why this rather than setcap. Applied immediately as
+# well as installed, so serving works without a reboot.
+scp "$HERE/99-prolink-ports.conf" "$HOST":/tmp/
+ssh "$HOST" '
+    set -eux
+    sudo install -m 0644 /tmp/99-prolink-ports.conf /etc/sysctl.d/99-prolink-ports.conf
+    rm -f /tmp/99-prolink-ports.conf
+    sudo sysctl --system >/dev/null
+    # Confirm it took (prints "111"). A kernel older than 4.11 has no such knob.
+    sysctl -n net.ipv4.ip_unprivileged_port_start
 '
 
 # ---- DJ USB auto-mount -------------------------------------------------------
