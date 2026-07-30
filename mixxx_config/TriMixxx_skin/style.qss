@@ -47,23 +47,6 @@ WWidget, QWidget {
     padding-right: 8px;
 }
 
-/* Jog-touch indicator: always present so that "dark" reads as "touch not
-   detected" rather than as a missing widget. Lit = Mixxx received the touch. */
-#TouchIndicator {
-    background-color: #1a1a1a;
-    border: 1px solid #3a3a3a;
-    border-radius: 4px;
-    color: #4a4a4a;
-    font-size: 13px;
-    font-weight: bold;
-}
-
-#TouchIndicator[highlight="1"] {
-    background-color: #88ff00;
-    border: 1px solid #88ff00;
-    color: #0c0c0c;
-}
-
 /* Underrun counter. Deliberately dim: it reads 0 the entire time the deck is
    healthy, so it must not compete with the track info beside it. There is no
    "turns red when > 0" rule -- qss cannot branch on a numeric value, and the
@@ -94,83 +77,15 @@ WWidget, QWidget {
     padding-right: 12px;
 }
 
-/* ============== BOTTOM BAR ============== */
-#BottomBar {
-    background-color: #161616;
-    border-top: 1px solid #88ff00;
-    padding: 6px;
-}
-
-/* ============== BUTTONS ============== */
-#LibraryToggle, #SyncButton, #LoopHalve, #LoopDouble,
-#HotcuePad, #BeatloopPad, #RangePad {
-    background-color: #2a2a2a;
-    border: 1px solid #3a3a3a;
-    border-radius: 6px;
-    color: #e0e0e0;
-    font-size: 16px;
-    font-weight: bold;
-    margin: 3px;
-}
-
-#LibraryToggle:pressed, #SyncButton:pressed,
-#HotcuePad:pressed, #BeatloopPad:pressed {
-    background-color: #88ff00;
-    color: #0c0c0c;
-}
-
-#LibraryToggle[displayValue="1"],
-#SyncButton[displayValue="1"] {
-    background-color: #2a2a2a;
-    border: 2px solid #88ff00;
-    color: #88ff00;
-}
-
-/* Loop-size buttons: amber, matching the loop window on the waveform */
-#LoopHalve, #LoopDouble {
-    border: 1px solid #b35f00;
-    color: #ff8800;
-    font-size: 22px;
-}
-#LoopHalve:pressed, #LoopDouble:pressed {
-    background-color: #ff8800;
-    color: #0c0c0c;
-}
-
-/* Tempo-range pads: like the hotcue pads, the selected range is bound to
-   `highlight` rather than displayValue -- the connection is press-only, so
-   displayValue never latches. */
-#RangePad {
-    font-size: 15px;
-    color: #cccccc;
-}
-#RangePad:pressed {
-    background-color: #88ff00;
-    color: #0c0c0c;
-}
-#RangePad[highlight="1"] {
-    background-color: #223a00;
-    border: 2px solid #88ff00;
-    color: #88ff00;
-}
-
-/* Hotcue / beatloop pads: their "set / active" state is bound to the `highlight`
-   property (hotcue_X_enabled / beatloop_X_enabled), NOT displayValue — the
-   activate/toggle control is momentary and only flashes on press, so styling
-   displayValue left a set hotcue / active loop looking idle. Style highlight so
-   it stays lit. */
-#HotcuePad[highlight="1"],
-#BeatloopPad[highlight="1"] {
-    background-color: #223a00;
-    border: 2px solid #88ff00;
-    color: #88ff00;
-}
-
-/* On-screen Play/Cue removed — those controls live on the hardware deck. */
+/* ============== BUTTONS ==============
+   There are none under the waveform any more. Transport, hotcues, loop sizing
+   and the tempo-fader range are all hardware, and LIBRARY/DECK is the browse
+   encoder's push, so every button those rules styled has been deleted from
+   skin.xml. POWER, in the header, is the only on-screen button left. */
 
 /* ============== SHUTDOWN MENU ============== */
-/* POWER sits in the bottom bar but must not read as a normal deck control, so
-   it is red rather than the skin's lime. It only ever opens the confirm. */
+/* POWER must not read as a normal deck control, so it is red rather than the
+   skin's lime. It only ever opens the confirm. */
 #PowerButton {
     background-color: #2a2a2a;
     border: 1px solid #7a2a2a;
@@ -246,6 +161,11 @@ WWidget, QWidget {
    text: white on white, and untouched white alternating rows. */
 
 #LibraryView { background-color: #000000; }
+#LibraryPanes { background-color: #000000; }
+
+/* The unreachable strip along the bottom edge. Same black as the panes above
+   it, so it reads as "the list ends here", not as a bar you failed to hit. */
+#LibraryBottomPad { background-color: #000000; }
 
 /* Rows: black / dark-grey alternating, text always white. Selection deliberately
    flips to dark-on-lime -- white text on lime would be the same unreadable

@@ -50,7 +50,7 @@ deck runs [our 2.5.6 fork](../mixxx)). One deck = `[Channel1]`.
 | Cue | note `0x3D` | `cue_default` (momentary); LED ← `cue_indicator` |
 | Loop in / out | notes `0x3E` / `0x3F` | `loop_in` / `loop_out`; both LEDs ← `loop_enabled` |
 | Reloop | note `0x40` | `reloop_toggle` (no LED) |
-| Track encoder | CC `0x10` + note `0x41` | browse library + `LoadSelectedTrack` |
+| Track encoder | CC `0x10` + note `0x41` | browse library; push = open / `GoToItem` / `LoadSelectedTrack` (see below) |
 | Jog | CC `0x11` + note `0x42` | scratch when touched, pitch bend otherwise |
 | Tempo | CC `0x12`/`0x32` (14-bit) | `rate` |
 
@@ -75,6 +75,28 @@ deck runs [our 2.5.6 fork](../mixxx)). One deck = `[Channel1]`.
 Both pad ranges reserve 50 notes in `MidiMap.hpp` even though fewer nodes are
 populated, so adding a board never renumbers anything. `TriMixxx.RING_A_N` /
 `RING_B_N` at the top of the script are the counts actually wired today.
+
+## The screen has no buttons except POWER
+Everything the skin used to put under the waveform — LIBRARY/DECK, the ±6/±10/±16/
+WIDE tempo-range pads, LOOP ÷2 / ×2 — is on the hardware (ring A1, A5, A6 and the
+encoder push), so the bar is gone and the waveform takes its 130 px. The jog TOUCH
+indicator went with it; it was a bring-up aid for "did note `0x42` reach Mixxx",
+and the waveform answers that now. POWER moved into the header, because it is the
+**only** way to shut the deck down from the UI — there is no hardware equivalent.
+
+### Library menu
+Menu order is `Library::Library()` in [our fork](../mixxx/src/library/library.cpp),
+not the skin: `SidebarModel` renders features in `addFeature()` order. Rekordbox,
+Tracks and Players lead; everything else follows. iTunes and Serato are switched
+off in `mixxx.cfg` (`ShowITunesLibrary` / `ShowSeratoLibrary`), which needs no
+rebuild. Startup selection is pinned to Tracks so a boot doesn't open on
+Rekordbox's "plug in a prepared device" page.
+
+Encoder push in the left pane sends `[Library],GoToItem`, which expands an entry
+that has children (Rekordbox → its USBs, Players → the CDJs on the network) and
+keeps focus there, and only jumps to the track list on a leaf or on Tracks. The
+bottom 56 px of the library view is a dead strip: the panel's last row sits behind
+the bezel, so the last menu entry and last track row were untappable without it.
 
 ### Ring LEDs are SysEx, not `<output>`
 A Mixxx `<output>` can only emit a 3-byte message, and a Note-On velocity sets

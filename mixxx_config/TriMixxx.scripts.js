@@ -362,7 +362,8 @@ TriMixxx.hotcue = function(channel, control, value, status, group) {
 
 // ---- Track encoder push: one button, three jobs, depending on where you are.
 //        deck view -> open the library, focused on the sidebar
-//        sidebar   -> step right into the track list
+//        sidebar   -> expand the selected menu entry if it has children,
+//                     otherwise step right into the track list
 //        track list-> load the selected track (the track_loaded connection in
 //                     init() then drops us back on the waveform)
 //
@@ -384,7 +385,14 @@ TriMixxx.encoderPush = function(channel, control, value, status, group) {
     }
 
     if (engine.getValue("[Library]", "focused_widget") === TriMixxx.FOCUS_SIDEBAR) {
-        engine.setValue("[Library]", "focused_widget", TriMixxx.FOCUS_TRACKS);
+        // GoToItem, not a straight focus jump: LibraryControl::slotGoToItem does
+        // exactly the branch we want. A menu entry with children (Rekordbox and
+        // its USB drives, Players and the CDJs on the network, Playlists) toggles
+        // expanded and KEEPS focus in the sidebar, so the next turn of the
+        // encoder walks into the children. A leaf -- or a root that owns a track
+        // table, i.e. Tracks -- hands focus to the track list instead, which is
+        // what the old unconditional jump did for everything.
+        engine.setValue("[Library]", "GoToItem", 1);
         return;
     }
 

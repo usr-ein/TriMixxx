@@ -228,35 +228,6 @@
                 </Children>
               </WidgetGroup>
 
-              <!-- Jog-touch indicator. Bound to scratch2_enable, which Mixxx sets
-                   to 1 inside scratchEnable() itself, before the scratch timer
-                   starts and before any tick arrives, so this lights on touch
-                   alone, with no rotation. It therefore answers exactly one
-                   question: did the 0x90/0x42 touch note reach Mixxx and fire
-                   TriMixxx.jogTouch? Dim = no. It carries no ButtonState
-                   connection, so it is display-only and cannot be clicked. -->
-              <WidgetGroup>
-                <ObjectName>TouchColumn</ObjectName>
-                <Layout>vertical</Layout>
-                <MinimumSize>84,72</MinimumSize>
-                <MaximumSize>84,72</MaximumSize>
-                <Children>
-                  <WidgetGroup><SizePolicy>f,e</SizePolicy><Children/></WidgetGroup>
-                  <PushButton>
-                    <ObjectName>TouchIndicator</ObjectName>
-                    <MinimumSize>78,28</MinimumSize>
-                    <MaximumSize>78,28</MaximumSize>
-                    <NumberStates>1</NumberStates>
-                    <State><Number>0</Number><Text>TOUCH</Text></State>
-                    <Connection>
-                      <ConfigKey>[Channel1],scratch2_enable</ConfigKey>
-                      <BindProperty>highlight</BindProperty>
-                    </Connection>
-                  </PushButton>
-                  <WidgetGroup><SizePolicy>f,e</SizePolicy><Children/></WidgetGroup>
-                </Children>
-              </WidgetGroup>
-
               <!-- Audio underrun counter. [App],audio_latency_overload_count is
                    bumped by SoundManager::processUnderflowHappened() whenever an
                    underflow flag was set, rate-limited to one count per 500ms.
@@ -322,6 +293,38 @@
                 </Children>
               </WidgetGroup>
 
+              <!-- POWER: raises the shutdown confirm overlay. It lives in the
+                   header because nothing sits below the waveform any more, and
+                   this is the ONLY way to shut the deck down from the UI (there
+                   is no hardware shutdown button). Far right, away from the
+                   transport, for the same reason it was far right in the old bar.
+
+                   Deliberately a 2-state toggle, not a 1-state momentary button:
+                   a momentary one writes 1 on press and 0 on release, so the
+                   overlay would flash up and vanish again. -->
+              <WidgetGroup>
+                <ObjectName>PowerColumn</ObjectName>
+                <Layout>vertical</Layout>
+                <MinimumSize>84,72</MinimumSize>
+                <MaximumSize>84,72</MaximumSize>
+                <Children>
+                  <WidgetGroup><SizePolicy>f,e</SizePolicy><Children/></WidgetGroup>
+                  <PushButton>
+                    <ObjectName>PowerButton</ObjectName>
+                    <MinimumSize>78,56</MinimumSize>
+                    <MaximumSize>78,56</MaximumSize>
+                    <NumberStates>2</NumberStates>
+                    <State><Number>0</Number><Unpressed>power.svg</Unpressed><Pressed>power.svg</Pressed></State>
+                    <State><Number>1</Number><Unpressed>power.svg</Unpressed><Pressed>power.svg</Pressed></State>
+                    <Connection>
+                      <ConfigKey persist="false">[TriMixxx],shutdown_confirm</ConfigKey>
+                      <ButtonState>LeftButton</ButtonState>
+                    </Connection>
+                  </PushButton>
+                  <WidgetGroup><SizePolicy>f,e</SizePolicy><Children/></WidgetGroup>
+                </Children>
+              </WidgetGroup>
+
             </Children>
           </WidgetGroup>
 
@@ -329,8 +332,10 @@
           <WidgetGroup>
             <ObjectName>DeckView</ObjectName>
             <Layout>vertical</Layout>
-            <MinimumSize>1024,390</MinimumSize>
-            <MaximumSize>1024,390</MaximumSize>
+            <!-- 600 total - 80 header. There is no bottom bar any more, so the
+                 deck owns everything under the header. -->
+            <MinimumSize>1024,520</MinimumSize>
+            <MaximumSize>1024,520</MaximumSize>
             <Connection>
               <ConfigKey persist="true">[Master],show_library</ConfigKey>
               <Transform><Not/></Transform>
@@ -342,10 +347,10 @@
               <Visual>
                 <ObjectName>ScrollingWaveform</ObjectName>
                 <Group>[Channel1]</Group>
-                <!-- 335 + 55 (Overview) = 390: the waveform absorbs the row the
-                     hotcue pads used to occupy, rather than leaving a hole. -->
-                <MinimumSize>1024,335</MinimumSize>
-                <MaximumSize>1024,335</MaximumSize>
+                <!-- 465 + 55 (Overview) = 520: the waveform absorbs every row of
+                     buttons that used to sit under it, rather than leaving a hole. -->
+                <MinimumSize>1024,465</MinimumSize>
+                <MaximumSize>1024,465</MaximumSize>
                 <SignalHighColor>#ff5544</SignalHighColor>
                 <SignalMidColor>#88ff00</SignalMidColor>
                 <SignalLowColor>#2266ff</SignalLowColor>
@@ -450,172 +455,75 @@
           <!-- =========== MIDDLE: LIBRARY VIEW (shown when toggled) =========== -->
           <WidgetGroup>
             <ObjectName>LibraryView</ObjectName>
-            <Layout>horizontal</Layout>
-            <!-- 390 beside the deck; 520 once BottomBar hides in library view
-                 (600 total - 80 header). `me` is what lets it claim that. -->
-            <MinimumSize>1024,390</MinimumSize>
+            <!-- Vertical, not horizontal: the two panes live in a nested row so
+                 that LibraryBottomPad can sit UNDER both of them. -->
+            <Layout>vertical</Layout>
+            <!-- 600 total - 80 header. Nothing shares the space now. -->
+            <MinimumSize>1024,520</MinimumSize>
             <MaximumSize>1024,520</MaximumSize>
-            <SizePolicy>f,me</SizePolicy>
             <Connection>
               <ConfigKey persist="true">[Master],show_library</ConfigKey>
               <BindProperty>visible</BindProperty>
             </Connection>
             <Children>
               <WidgetGroup>
-                <ObjectName>LibrarySidebarCol</ObjectName>
-                <Layout>vertical</Layout>
-                <MinimumSize>240,390</MinimumSize>
-                <MaximumSize>240,520</MaximumSize>
-                <SizePolicy>f,me</SizePolicy>
+                <ObjectName>LibraryPanes</ObjectName>
+                <Layout>horizontal</Layout>
+                <!-- Width stated explicitly. A horizontally Fixed group with no
+                     MinimumSize takes its size HINT instead, which here is only
+                     as wide as the two panes ask to be, so the row would sit
+                     narrower than the screen. -->
+                <MinimumSize>1024,200</MinimumSize>
+                <MaximumSize>1024,520</MaximumSize>
+                <SizePolicy>f,e</SizePolicy>
                 <Children>
-                  <SearchBox>
-                    <ObjectName>LibrarySearch</ObjectName>
-                    <MinimumSize>240,40</MinimumSize>
-                    <MaximumSize>240,40</MaximumSize>
-                  </SearchBox>
-                  <LibrarySidebar>
-                    <ObjectName>LibrarySidebar</ObjectName>
+                  <WidgetGroup>
+                    <ObjectName>LibrarySidebarCol</ObjectName>
+                    <Layout>vertical</Layout>
+                    <MinimumSize>240,200</MinimumSize>
+                    <MaximumSize>240,520</MaximumSize>
                     <SizePolicy>f,e</SizePolicy>
-                  </LibrarySidebar>
-                </Children>
-              </WidgetGroup>
-              <Library>
-                <ObjectName>LibraryTable</ObjectName>
-                <SizePolicy>e,e</SizePolicy>
-              </Library>
-            </Children>
-          </WidgetGroup>
-
-          <!-- =========== BOTTOM BUTTON BAR (always visible) =========== -->
-          <WidgetGroup>
-            <ObjectName>BottomBar</ObjectName>
-            <Layout>horizontal</Layout>
-            <MinimumSize>1024,130</MinimumSize>
-            <MaximumSize>1024,130</MaximumSize>
-            <!-- Deck-only: tempo range, loop size and power mean nothing while
-                 browsing, and hiding this hands its 130px to the track list
-                 (LibraryView grows to 520 to take it). -->
-            <Connection>
-              <ConfigKey persist="true">[Master],show_library</ConfigKey>
-              <Transform><Not/></Transform>
-              <BindProperty>visible</BindProperty>
-            </Connection>
-            <Children>
-
-              <!-- Library toggle -->
-              <PushButton>
-                <ObjectName>LibraryToggle</ObjectName>
-                <MinimumSize>140,110</MinimumSize>
-                <MaximumSize>140,110</MaximumSize>
-                <NumberStates>2</NumberStates>
-                <State><Number>0</Number><Text>LIBRARY</Text></State>
-                <State><Number>1</Number><Text>DECK</Text></State>
-                <Connection>
-                  <ConfigKey persist="true">[Master],show_library</ConfigKey>
-                  <ButtonState>LeftButton</ButtonState>
-                </Connection>
-              </PushButton>
-
-              <!-- Tempo-fader range: pick the span the hardware fader covers.
-                   These are radio pads, not a cycle button: legacy skin XML has
-                   no Multiply transform, so a single button cannot map its state
-                   index onto arbitrary values like 0.06/0.10/0.16. -->
-              <WidgetGroup>
-                <ObjectName>RangeRow</ObjectName>
-                <Layout>horizontal</Layout>
-                <MinimumSize>320,110</MinimumSize>
-                <MaximumSize>320,110</MaximumSize>
-                <Children>
-                  <Template src="skin:/rate_range_pad.xml">
-                    <SetVariable name="label">±6</SetVariable>
-                    <SetVariable name="range">0.06</SetVariable>
-                  </Template>
-                  <Template src="skin:/rate_range_pad.xml">
-                    <SetVariable name="label">±10</SetVariable>
-                    <SetVariable name="range">0.10</SetVariable>
-                  </Template>
-                  <Template src="skin:/rate_range_pad.xml">
-                    <SetVariable name="label">±16</SetVariable>
-                    <SetVariable name="range">0.16</SetVariable>
-                  </Template>
-                  <Template src="skin:/rate_range_pad.xml">
-                    <SetVariable name="label">WIDE</SetVariable>
-                    <SetVariable name="range">1.00</SetVariable>
-                  </Template>
+                    <Children>
+                      <SearchBox>
+                        <ObjectName>LibrarySearch</ObjectName>
+                        <MinimumSize>240,40</MinimumSize>
+                        <MaximumSize>240,40</MaximumSize>
+                      </SearchBox>
+                      <LibrarySidebar>
+                        <ObjectName>LibrarySidebar</ObjectName>
+                        <SizePolicy>f,e</SizePolicy>
+                      </LibrarySidebar>
+                    </Children>
+                  </WidgetGroup>
+                  <Library>
+                    <ObjectName>LibraryTable</ObjectName>
+                    <SizePolicy>e,e</SizePolicy>
+                  </Library>
                 </Children>
               </WidgetGroup>
 
-              <!-- Loop-size controls: shown only while a loop is active. ÷2 / ×2
-                   keep the loop start fixed and move the end (loop_anchor = 0).
-                   Start/exit a loop from the hardware loop-in/out/reloop buttons. -->
-              <WidgetGroup>
-                <ObjectName>LoopControls</ObjectName>
-                <Layout>horizontal</Layout>
-                <SizePolicy>e,f</SizePolicy>
-                <Connection>
-                  <ConfigKey>[Channel1],loop_enabled</ConfigKey>
-                  <BindProperty>visible</BindProperty>
-                </Connection>
-                <Children>
-                  <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
-                  <PushButton>
-                    <ObjectName>LoopHalve</ObjectName>
-                    <MinimumSize>150,110</MinimumSize>
-                    <MaximumSize>150,110</MaximumSize>
-                    <NumberStates>1</NumberStates>
-                    <State><Number>0</Number><Text>LOOP ÷2</Text></State>
-                    <Connection>
-                      <ConfigKey>[Channel1],loop_halve</ConfigKey>
-                      <ButtonState>LeftButton</ButtonState>
-                    </Connection>
-                  </PushButton>
-                  <PushButton>
-                    <ObjectName>LoopDouble</ObjectName>
-                    <MinimumSize>150,110</MinimumSize>
-                    <MaximumSize>150,110</MaximumSize>
-                    <NumberStates>1</NumberStates>
-                    <State><Number>0</Number><Text>LOOP ×2</Text></State>
-                    <Connection>
-                      <ConfigKey>[Channel1],loop_double</ConfigKey>
-                      <ButtonState>LeftButton</ButtonState>
-                    </Connection>
-                  </PushButton>
-                  <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
-                </Children>
-              </WidgetGroup>
+              <!-- Dead strip along the bottom edge. The last row of the panel is
+                   physically hard to hit (the bezel gets your fingertip before
+                   the glass does), so the last menu entry and the last track row
+                   were effectively untappable. This pushes both up out of that
+                   band. Empty on purpose: it exists to be unreachable.
 
-              <!-- Spacer: fills the bar when no loop is active -->
+                   Note for editors: no double hyphen anywhere in this comment.
+                   XML forbids it inside comments and Qt's parser rejects the
+                   whole skin, which boots Mixxx to a default one. -->
               <WidgetGroup>
-                <ObjectName>BottomSpacer</ObjectName>
-                <SizePolicy>e,f</SizePolicy>
-                <Connection>
-                  <ConfigKey>[Channel1],loop_enabled</ConfigKey>
-                  <Transform><Not/></Transform>
-                  <BindProperty>visible</BindProperty>
-                </Connection>
+                <ObjectName>LibraryBottomPad</ObjectName>
+                <MinimumSize>1024,56</MinimumSize>
+                <MaximumSize>1024,56</MaximumSize>
+                <SizePolicy>f,f</SizePolicy>
                 <Children/>
               </WidgetGroup>
-
-
-              <!-- POWER: raises the shutdown confirm overlay. Deliberately a 2-state
-                   toggle, not a 1-state momentary button: a momentary one writes 1
-                   on press and 0 on release, so the overlay would flash up and
-                   vanish again. Sits far right, away from the transport. -->
-              <PushButton>
-                <ObjectName>PowerButton</ObjectName>
-                <MinimumSize>55,110</MinimumSize>
-                <MaximumSize>55,110</MaximumSize>
-                <NumberStates>2</NumberStates>
-                <State><Number>0</Number><Unpressed>power.svg</Unpressed><Pressed>power.svg</Pressed></State>
-                <State><Number>1</Number><Unpressed>power.svg</Unpressed><Pressed>power.svg</Pressed></State>
-                <Connection>
-                  <ConfigKey persist="false">[TriMixxx],shutdown_confirm</ConfigKey>
-                  <ButtonState>LeftButton</ButtonState>
-                </Connection>
-              </PushButton>
-
             </Children>
           </WidgetGroup>
+
+          <!-- No bottom button bar. Everything that used to live under the
+               waveform (LIBRARY/DECK, the tempo-range pads, LOOP div-2 / x-2)
+               is on the hardware, and POWER moved into the header. -->
 
         </Children>
       </WidgetGroup>
