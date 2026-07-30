@@ -347,3 +347,26 @@ WTrackTableView QScrollBar::add-page:horizontal,
 WTrackTableView QScrollBar::sub-page:horizontal {
     background-color: #0c0c0c;
 }
+
+/*
+ * Tempo readout, bottom right.
+ *
+ * Digital-7 is a seven-segment face: it has DIGITS, a period and a colon, and
+ * essentially nothing else, which is exactly right for a number and useless for
+ * anything with letters in it. Shipped in this repo (fonts/) and installed to
+ * ~/.local/share/fonts by upload.sh; the family name is "Digital-7 Mono", not
+ * the file name, and the mono cut is the one to use so the digits stop shifting
+ * sideways as the tempo changes.
+ */
+#TempoDisplay {
+    font-family: "Digital-7 Mono", "MesloLGL Nerd Font", monospace;
+    /* Digital-7's ascent and descent are generous for a seven-segment face, so
+     * the glyph box needs a good deal more height than the digits themselves
+     * suggest. The bottom row was widened to 76px for this; at 55px the bottom
+     * of every digit was clipped by the edge of the screen. */
+    font-size: 42px;
+    color: #ff6600;
+    background: transparent;
+    qproperty-alignment: 'AlignRight | AlignVCenter';
+    padding-right: 12px;
+}

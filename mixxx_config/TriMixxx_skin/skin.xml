@@ -206,20 +206,9 @@
                 <MinimumSize>120,72</MinimumSize>
                 <MaximumSize>120,72</MaximumSize>
                 <Children>
-                  <!-- Rate-adjusted BPM (local_bpm * rate_ratio), i.e. what is
-                       actually playing, not the file's stored BPM. NumberBpm is
-                       deprecated and parses as a plain Number, which has no
-                       implicit BPM binding; without this Connection it renders
-                       nothing. -->
-                  <Number>
-                    <ObjectName>BpmDisplay</ObjectName>
-                    <Group>[Channel1]</Group>
-                    <NumberOfDigits>1</NumberOfDigits>
-                    <Text>%1</Text>
-                    <Connection>
-                      <ConfigKey>[Channel1],bpm</ConfigKey>
-                    </Connection>
-                  </Number>
+                  <!-- The tempo used to be here. It is bottom right now, in
+                       the seven-segment face, where a CDJ puts it; showing the
+                       same number twice on a 1024x600 panel is just clutter. -->
                   <Key>
                     <ObjectName>KeyDisplay</ObjectName>
                     <Group>[Channel1]</Group>
@@ -348,27 +337,43 @@
                    above the waveform because that is where the eye already is
                    while beatmatching.
 
-                   The 58 px it takes come out of the waveform below (465 -> 407),
+                   The 58 px it takes come out of the waveform below (465 -> 386),
                    so the total height of the deck view is unchanged. -->
-              <ProLinkPhaseMeter>
-                <ObjectName>ProLinkPhase</ObjectName>
-                <Group>[Channel1]</Group>
+              <WidgetGroup>
+                <ObjectName>ProLinkPhaseRow</ObjectName>
+                <Layout>horizontal</Layout>
                 <MinimumSize>1024,58</MinimumSize>
                 <MaximumSize>1024,58</MaximumSize>
-                <MasterColor>#ff6600</MasterColor>
-                <DeckColor>#44ccff</DeckColor>
-                <InSyncColor>#44ff88</InSyncColor>
-              </ProLinkPhaseMeter>
+                <Children>
+                  <!-- Expanding spacers either side keep the meter centred
+                       without hard-coding half the screen width twice. -->
+                  <WidgetGroup><Size>0me,0me</Size><Children/></WidgetGroup>
+                  <ProLinkPhaseMeter>
+                    <ObjectName>ProLinkPhase</ObjectName>
+                    <Group>[Channel1]</Group>
+                    <!-- 20% of the 1024 px panel. Narrow on purpose: the two
+                         rows are read against each other, and stretching them
+                         across the whole screen puts the thing being compared
+                         a foot apart. -->
+                    <MinimumSize>205,58</MinimumSize>
+                    <MaximumSize>205,58</MaximumSize>
+                    <MasterColor>#ff6600</MasterColor>
+                    <DeckColor>#44ccff</DeckColor>
+                    <InSyncColor>#44ff88</InSyncColor>
+                  </ProLinkPhaseMeter>
+                  <WidgetGroup><Size>0me,0me</Size><Children/></WidgetGroup>
+                </Children>
+              </WidgetGroup>
 
               <!-- Scrolling waveform -->
               <Visual>
                 <ObjectName>ScrollingWaveform</ObjectName>
                 <Group>[Channel1]</Group>
-                <!-- 407 + 58 (phase meter) + 55 (Overview) = 520: the waveform
+                <!-- 386 + 58 (phase meter) + 76 (bottom row) = 520: the waveform
                      absorbs every row of buttons that used to sit under it,
                      rather than leaving a hole. -->
-                <MinimumSize>1024,407</MinimumSize>
-                <MaximumSize>1024,407</MaximumSize>
+                <MinimumSize>1024,386</MinimumSize>
+                <MaximumSize>1024,386</MaximumSize>
                 <SignalHighColor>#ff5544</SignalHighColor>
                 <SignalMidColor>#88ff00</SignalMidColor>
                 <SignalLowColor>#2266ff</SignalLowColor>
@@ -424,12 +429,22 @@
                 </Mark>
               </Visual>
 
-              <!-- Overview (whole-track minimap) -->
+              <!-- Bottom row: the minimap, with the tempo readout to its right.
+                   The BPM lives here rather than up in the header because it is
+                   the number a DJ glances at constantly, and the bottom right
+                   corner is where a CDJ puts it. -->
+              <WidgetGroup>
+                <ObjectName>OverviewRow</ObjectName>
+                <Layout>horizontal</Layout>
+                <MinimumSize>1024,76</MinimumSize>
+                <MaximumSize>1024,76</MaximumSize>
+                <Children>
+
               <Overview>
                 <ObjectName>TrackOverview</ObjectName>
                 <Group>[Channel1]</Group>
-                <MinimumSize>1024,55</MinimumSize>
-                <MaximumSize>1024,55</MaximumSize>
+                <MinimumSize>844,76</MinimumSize>
+                <MaximumSize>844,76</MaximumSize>
                 <Connection>
                   <ConfigKey>[Channel1],playposition</ConfigKey>
                 </Connection>
@@ -465,6 +480,27 @@
                   <DisabledOpacity>0.4</DisabledOpacity>
                 </MarkRange>
               </Overview>
+
+                  <!-- Rate-adjusted BPM: what is actually playing, not the
+                       file's stored tempo. Number, not NumberBpm: the latter
+                       is deprecated and parses as a plain Number with no
+                       implicit binding, so without the Connection it renders
+                       nothing at all. (No double hyphens in an XML comment;
+                       they are illegal and reject the whole file.) -->
+                  <Number>
+                    <ObjectName>TempoDisplay</ObjectName>
+                    <Group>[Channel1]</Group>
+                    <NumberOfDigits>2</NumberOfDigits>
+                    <Text>%1</Text>
+                    <MinimumSize>180,76</MinimumSize>
+                    <MaximumSize>180,76</MaximumSize>
+                    <Connection>
+                      <ConfigKey>[Channel1],bpm</ConfigKey>
+                    </Connection>
+                  </Number>
+
+                </Children>
+              </WidgetGroup>
 
 
             </Children>
