@@ -1,13 +1,13 @@
 # TriMixxx
 
-A custom CDJ (Compact Disc Jockey) unit built from scratch around a Raspberry Pi, designed to run [Mixxx](https://mixxx.org/) DJ software. It reuses an original CDJ's buttons and jog wheel behind custom PCBs and a 3D-printed chassis for an authentic DJ feel, and reads Rekordbox-formatted USB sticks — no laptop required.
+A custom DJ media player — a CDJ-style deck — built from scratch around a Raspberry Pi, designed to run [Mixxx](https://mixxx.org/) DJ software. It reuses an original Pioneer CDJ's buttons and jog wheel behind custom PCBs and a 3D-printed chassis for an authentic DJ feel, and reads Rekordbox-formatted USB sticks — no laptop required.
 
 ![Front](screenshots/CDJ-TriMixxx-master-doc_v117_front.png)
 ![Back](screenshots/CDJ-TriMixxx-master-doc_v117_back.png)
 
 ## What is this?
 
-TriMixxx replaces the internals of a CDJ with modern, open-source-friendly hardware while keeping the physical controls that DJs know and love. Plug in a Rekordbox-formatted USB stick, and you're ready to mix.
+TriMixxx replaces the internals of a Pioneer CDJ with modern, open-source-friendly hardware while keeping the physical controls that DJs know and love. Plug in a Rekordbox-formatted USB stick, and you're ready to mix.
 
 Where the CDJ's original main board did everything, TriMixxx today is a **small distributed system**: a Raspberry Pi runs a patched Mixxx behind a custom CDJ-style skin, an ESP32-S3 acts as the controller brain that reads every physical control and speaks MIDI, and a swarm of tiny satellite boards handle the buttons and the LED rings. They all talk over plain TTL UART.
 
@@ -186,6 +186,14 @@ screenshots/                Renders + schematics (incl. the monolithic-board his
 - **Fusion 360** — mechanical design
 - **JLCPCB** — PCB fabrication and assembly
 - **Go**, **Python** (`uv`) — Pi daemon and ProLink proof-of-concept
+
+## Trademarks and affiliation
+
+TriMixxx is an independent project with **no affiliation with, sponsorship by, or endorsement from AlphaTheta Corporation** (formerly Pioneer DJ) or the Mixxx project.
+
+**CDJ**, **rekordbox**, **Pro DJ Link**, **DJM**, **NXS/nexus** and **Pioneer DJ** are trademarks of AlphaTheta Corporation. They appear here only to refer to that company's own products — which hardware this project interoperates with, which protocol it speaks, and which units the chassis was measured against. **Mixxx** is the name of the independent open-source project at [mixxx.org](https://mixxx.org/); "TriMixxx" is this project's own name and is not a Mixxx project product.
+
+The ProLink work in `prolinks-compat/` is reverse engineering for **interoperability**, from observation of network traffic between devices the author owns. Protocol facts are not copyrightable, and no code from any reference implementation is copied — see `prolinks-compat/research/10` for the working discipline.
 
 ## License
 
