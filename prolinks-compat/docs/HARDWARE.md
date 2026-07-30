@@ -268,8 +268,19 @@ cd ../mixxx_config && ./upload.sh      # ~/.mixxx, incl. ShowProLinkLibrary 1
 the binary links to the libraries already there. First build is ~3 min; after
 that the ccache and build-tree cache mounts make it ~1 min.
 
-`pi_config/upload.sh` is **not** needed for this increment — the UDP/111 sysctl
-only matters for serving.
+`pi_config/upload.sh` **is** needed, once: it runs `prolink-eth0.sh`, which puts
+eth0 on an IPv4 link-local address. Without that nothing is discovered at all,
+and the way it fails is misleading — Mixxx binds UDP 50000 happily, eth0's RX
+counter climbs, and the sidebar says "no players found". CDJs broadcast to
+`169.254.255.255`, a *directed subnet broadcast*, so a host with no address in
+that subnet receives the frames at the NIC and discards them at the IP layer.
+(The UDP/111 sysctl in the same script only matters for serving.)
+
+Confirm before testing anything else:
+
+```sh
+ssh trimixxx-pi 'ip -4 -br addr show eth0'      # want 169.254.x.y/16
+```
 
 ### What to expect
 
@@ -281,7 +292,19 @@ only matters for serving.
 | Plug it back in | Label returns to normal, no flicker |
 | Leave it unplugged | Row disappears at **60 s** |
 | Set `[ProLink],refresh` to 1 | Offline rows go immediately, without waiting out the 60 s |
-| Quit Mixxx with a CDJ on the network | Clean exit, no crash. This is the shutdown-ordering test and it only fails when a device is actually present |
+| Quit Mixxx with a CDJ on the network | Clean exit, no crash. The shutdown-ordering test (R5); it can only fail with a device actually present |
+
+> **Quit from inside Mixxx** — `Ctrl+Q` or File → Exit. `systemctl stop
+> getty@tty1.service` does **not** test this: it SIGTERMs the session scope, and
+> Mixxx installs no SIGTERM handler, so the process dies with no destructors at
+> all. `~ProLinkFeature` never runs and the test silently passes for the wrong
+> reason. Tell the two apart by whether the shutdown sequence is in the log:
+>
+> ```sh
+> ssh trimixxx-pi 'grep -c "deleting Library" ~/.mixxx/mixxx.log.1'
+> ```
+>
+> `1` means Qt's teardown ran and the test was real. `0` means it did not.
 
 **Check the Interface column on the status page**: on the deck it must say
 `eth0`, not `wlan0`. A device attributed to the wrong interface is the
@@ -336,6 +359,23 @@ ProLinkDiscovery - found 1 · CDJ-2000nexus at 169.254.202.84 on eth0
 ProLinkDiscovery - 1 · CDJ-2000nexus went offline
 ProLinkDiscovery - removing 1 · CDJ-2000nexus
 ```
+
+### Corroborating the timeouts with the kernel
+
+Do not take our own timestamps as evidence of our own timing. The Pi's NIC driver
+logs link transitions independently, so the two can be diffed:
+
+```sh
+ssh trimixxx-pi 'sudo dmesg -T | grep -i "eth0: Link"'
+```
+
+A confirmed run looked like this — kernel on the left, Mixxx on the right:
+
+| | | |
+|---|---|---|
+| `14:36:21 Link is Down` | `14:36:30.949 went offline` | 9.95 s → `kDeviceTimeoutMs` 10 s |
+| | `14:37:20.949 removing` | exactly 50.000 s later → 60 s total from the last keep-alive |
+| `14:37:30 Link is Up` | `14:37:41.544 found` | 11.5 s — the CDJ's own ~10 s self-assign delay (F8), not ours |
 
 `--log-level debug` additionally reports datagrams that failed to decode, which
 is what to reach for if a device on the network never appears — a mixer or a
