@@ -352,8 +352,11 @@ TriMixxx.slip = function(channel, control, value, status, group) {
 TriMixxx.back = function(channel, control, value, status, group) {
     if (!value) { return; } // press only
     if (!engine.getValue("[Master]", "show_library")) {
+        // No explicit focus: WLibrary::showEvent puts it on the track list when
+        // there is one, which is where a DJ coming back from loading a track
+        // wants to be -- picking the next one. Forcing the sidebar here undid
+        // that and dropped them back in the tree every time.
         engine.setValue("[Master]", "show_library", 1);
-        engine.setValue("[Library]", "focused_widget", TriMixxx.FOCUS_SIDEBAR);
     } else if (engine.getValue("[Library]", "focused_widget") === TriMixxx.FOCUS_TRACKS) {
         engine.setValue("[Library]", "focused_widget", TriMixxx.FOCUS_SIDEBAR);
     } else {
@@ -534,10 +537,9 @@ TriMixxx.encoderPush = function(channel, control, value, status, group) {
     if (!value) { return; } // press only
 
     if (!engine.getValue("[Master]", "show_library")) {
+        // Focus is left to WLibrary::showEvent, which lands on the track list
+        // when the pane has one. Back steps out to the tree from there.
         engine.setValue("[Master]", "show_library", 1);
-        // Focus the sidebar explicitly: otherwise the encoder's first turn goes
-        // to whatever Mixxx happened to focus last.
-        engine.setValue("[Library]", "focused_widget", TriMixxx.FOCUS_SIDEBAR);
         return;
     }
 
