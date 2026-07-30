@@ -409,6 +409,63 @@ working — the useful datum is which request it stalls on.
 4. Try to select us. Try to browse. Note exactly what the display says.
 5. Stop capture. Keep `serve`'s own request log — it prints what it received.
 
+### S24 — Does a deck need our portmapper?  *(experiment E9)*
+
+**Answers:** whether serving requires binding the privileged UDP/111. A deck
+does call portmap `GETPORT` for mountd and nfsd (F24) — but a real player
+answers **48276** and **2049** on every device we have seen (F6), stable enough
+to be compiled-in defaults it may fall back to when `GETPORT` goes unanswered.
+
+If it falls back, Mixxx never needs a privileged port, on any platform, and the
+whole privileged-helper design in `research/10` §B5 can be deleted. That makes
+this the cheapest high-value capture left.
+
+**Setup is the simplest of any scenario here: one deck, one cable, no bridge.**
+The bridge exists to watch two decks talk to each other; here the Mac is one of
+the two endpoints, so everything of interest crosses the dongle.
+
+```
+Mac ── USB-Ethernet dongle ── (cable, direct or via the switch) ── deck B
+```
+
+Two runs, differing in **one** variable. Run the control first; without it a
+failure in run B is unattributable.
+
+**S24a — control.** The known-good configuration, exactly as S17/S23:
+
+```bash
+tools/capture.sh S24a-e9-control en9 "control: portmap on 111, as sudo"
+sudo .venv/bin/prolinks -v serve --volume /Volumes/<STICK> --iface en9
+```
+
+**S24b — the experiment.** Same stick, same deck, same everything — but
+portmap is moved off 111 so nothing answers there, mountd and nfsd sit on the
+numbers a real player uses, and **there is no `sudo`**:
+
+```bash
+tools/capture.sh S24b-e9-noportmap en9 "E9: portmap off 111, mountd 48276, nfsd 2049, no root"
+.venv/bin/prolinks -v serve --volume /Volumes/<STICK> --iface en9 \
+    --portmap-port 11111 --mountd-port 48276 --nfsd-port 2049
+```
+
+In **both** runs, on the deck: press **LINK**, select us, browse — and then
+**load a track and play it**.
+
+> **Browsing proves nothing.** dbserver runs over TCP and never touches
+> portmap, so the deck will list us and open every menu identically in both
+> runs. Only a track load exercises NFS. The verdict is playback, not the menu.
+
+**Reading the result.** `serve` prints an RPC tally at exit:
+
+| S24b tally | Verdict |
+|---|---|
+| `mountd:MNT`, `nfsd:LOOKUP`, `nfsd:READ` present, track plays | **Pass** — portmap is optional; delete §B5 |
+| `portmap:*` absent and no `mountd:MNT` | **Fail** — the deck gave up when `GETPORT` went unanswered |
+
+The two failure modes look identical on the deck's screen ("LOADING…" then an
+error), so read the tally, not the display. If S24a also fails, the rig is at
+fault rather than the hypothesis — fix that before drawing any conclusion.
+
 ---
 
 ## 4. Analysis pass, same evening if possible

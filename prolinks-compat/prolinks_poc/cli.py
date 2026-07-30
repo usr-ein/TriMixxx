@@ -1337,13 +1337,30 @@ def cmd_serve(ctx: Context) -> int:
         db_server.stop()
         discovery.close()
 
+    nfs_stats = dict(nfs_server.stats) if nfs_server is not None else {}
+
     def render() -> None:
         print("dbserver requests served:")
         for name, count in sorted(db_server.stats.items()):
             print(f"  {name:<16} {count}")
+        # The RPC tally is what settles experiment E9. Browsing a medium needs
+        # no NFS at all, so a deck can list us, open every menu and still never
+        # touch these counters -- which is exactly the outcome that looks like
+        # success on the deck's screen and is not.
+        print("RPC calls served:")
+        if nfs_stats:
+            for name, count in sorted(nfs_stats.items()):
+                print(f"  {name:<16} {count}")
+        else:
+            print("  none")
+        if nfs_server is not None and not any(
+            name.startswith("mountd") for name in nfs_stats
+        ):
+            print("  ^ no MNT: the player never mounted us, so no track could load.")
         print(f"peers seen: {[d.label() for d in discovery.table.all()] or 'none'}")
 
     _emit(args, {"dbserver_requests": db_server.stats,
+                 "rpc_requests": nfs_stats,
                  "peers": [d.label() for d in discovery.table.all()]}, render)
     return 0
 

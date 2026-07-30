@@ -41,6 +41,29 @@ log = logging.getLogger(__name__)
 
 __all__ = ["NfsServer"]
 
+#: RPC program number -> (short name, its procedure enum).
+_PROGRAMS = {
+    portmap.PROGRAM: ("portmap", portmap.Proc),
+    mountd.PROGRAM: ("mountd", mountd.Proc),
+    nfs2.PROGRAM: ("nfsd", nfs2.Proc),
+}
+
+
+def _stat_key(program: int, procedure: int) -> str:
+    """``mountd:MNT`` rather than ``100005:1``.
+
+    Worth the few lines: the tally is the primary output of a serve session,
+    and "did a player call MNT?" should be answerable by reading it rather
+    than by looking up two numbers.
+    """
+    name, procs = _PROGRAMS.get(program, (str(program), None))
+    if procs is None:
+        return f"{name}:{procedure}"
+    try:
+        return f"{name}:{procs(procedure).name}"
+    except ValueError:
+        return f"{name}:{procedure}"
+
 
 class NfsServer:
     """Serves one :class:`Vfs` over the three RPC programs a CDJ exposes."""
@@ -123,7 +146,7 @@ class NfsServer:
             log.exception("handler failed for prog=%s proc=%s", call.program, call.procedure)
             results, accept_stat = b"", rpc.AcceptStat.SYSTEM_ERR
 
-        key = f"{call.program}:{call.procedure}"
+        key = _stat_key(call.program, call.procedure)
         self.stats[key] = self.stats.get(key, 0) + 1
         channel.sendto(rpc.build_reply(call.xid, results, accept_stat), peer)
 
