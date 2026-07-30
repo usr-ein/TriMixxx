@@ -10,6 +10,7 @@
 #   * trimixxx-bridge.service  -- ttymidi serial<->MIDI bridge (gates Mixxx boot)
 #   * 99-prolink-ports.conf    -- let Mixxx bind UDP/111 (Pro DJ Link serving)
 #   * getty-tty1-stop-mixxx.conf -- quit Mixxx before the session (and X) go
+#   * trimixxx-splash.*        -- logo on the panel for the first seconds of boot
 #   * prolink-eth0.sh          -- eth0 to IPv4 link-local, for the CDJ network
 #   * ~/.xinitrc               -- the X session startx runs (WM + Mixxx loop)
 #   * dj-usb/*                 -- USB auto-mount (delegated to its own installer)
@@ -127,6 +128,15 @@ ssh "$HOST" '
     # to the next stop either way.
     systemctl show -p ExecStop --value getty@tty1.service | head -2
 '
+
+# ---- boot splash -------------------------------------------------------------
+# The deck's logo on the panel for the first seconds of boot, then the boot log
+# as usual -- the splash sits on a spare VT rather than hiding the console, so
+# nothing is suppressed. Self-contained installer: it reads the panel's
+# framebuffer geometry off the Pi and renders the SVG to match, here, so the
+# deck needs no image tooling. Deliberately not shown now (`--test` does that on
+# demand) -- taking the screen away from a running Mixxx mid-deploy is rude.
+HOST="$HOST" "$HERE/splash-install.sh"
 
 # ---- eth0 for the Pro DJ Link network ----------------------------------------
 # A Pro DJ Link network has no DHCP server, so eth0 needs an IPv4 link-local

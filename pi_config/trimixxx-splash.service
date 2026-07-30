@@ -1,0 +1,44 @@
+[Unit]
+# Show the deck's logo on the panel for the first few seconds of boot, then get
+# out of the way and let the boot log finish on screen. See trimixxx-splash.sh
+# for how it manages both at once (short version: the splash lives on a spare
+# VT, so the console is deferred rather than suppressed).
+Description=TriMixxx boot splash
+Documentation=file:/usr/local/bin/trimixxx-splash
+
+# A splash that appears after the units it is meant to cover is pointless, so
+# this runs in the sysinit phase, before the normal dependency web exists --
+# hence DefaultDependencies=no. It needs only devtmpfs and the root filesystem,
+# both of which the initramfs has already set up.
+#
+# Starting this early means /dev/fb0 is still the firmware's simplefb; vc4
+# replaces it with one of a different size and pixel format a couple of seconds
+# later, and the image only fits the second one. There is no unit to order
+# against for that -- it is a module bind, not a service -- so the script polls
+# for the geometry it was rendered for and draws nothing until it appears.
+DefaultDependencies=no
+After=systemd-udev-trigger.service
+Before=sysinit.target
+Conflicts=shutdown.target
+Before=shutdown.target
+
+# No image installed (a partial deploy, a re-image) means no splash, quietly.
+ConditionPathExists=/usr/local/share/trimixxx/splash.raw
+
+[Service]
+# Type=simple is load-bearing: the unit holds the screen for SPLASH_HOLD
+# seconds, and anything that made systemd wait for it to finish -- oneshot,
+# forking -- would add those seconds to every boot instead of spending them
+# alongside it.
+Type=simple
+Environment=SPLASH_HOLD=8
+ExecStart=/usr/local/bin/trimixxx-splash
+
+# Needs the framebuffer, /dev/tty*, and VT_ACTIVATE. Runs as root; nothing here
+# touches the network or the filesystem beyond reading its own image.
+StandardOutput=journal
+StandardError=journal
+TimeoutStopSec=2
+
+[Install]
+WantedBy=sysinit.target

@@ -43,6 +43,18 @@ config — and a system change here never has to go through the Mixxx-restart pa
   termination signal itself, but X is in the same scope and dies in the same
   instant, so without this the shutdown aborts on `The X11 connection broke`
   with settings unwritten and threads unjoined.
+- `trimixxx-splash.service` + `trimixxx-splash.sh` + `splash-render.py` +
+  `splash-install.sh` — the boot splash: `trimixxx_logo_crt.svg` on the panel
+  for the first ~8 s of boot, then the boot log as normal. The usual way to do
+  this is plymouth with `quiet splash`, which hides the console — but watching
+  the deck's units come up is how you spot the MIDI bridge or a USB mount
+  failing before a gig, so instead the splash takes an unused VT (7) and the
+  console keeps printing to tty1 in the background. Switching back redraws it:
+  the log is deferred, not suppressed. The Pi has no image tooling at all —
+  `splash-render.py` rasterises the SVG here and packs it into the panel's exact
+  framebuffer layout (read live off `/sys/class/graphics/fb0`, currently
+  1024×600 RGB565), so displaying it on the deck is one `cat` to `/dev/fb0`.
+  Self-contained; `upload.sh` delegates to `splash-install.sh`.
 - `dj-usb/` — USB stick auto-mount (udev rule → templated systemd service +
   mount helper). Self-contained; `upload.sh` delegates to its `install.sh`.
 
@@ -54,6 +66,20 @@ HOST=other ./upload.sh # a different host
 
 Each piece can also be installed on its own — e.g. `dj-usb/install.sh` — but
 `upload.sh` is the one-shot entry point.
+
+The splash is the one piece with something to *look* at, so it has its own
+try-it path (needs `uv` and `rsvg-convert`, i.e. `brew install librsvg`):
+
+```sh
+./splash-install.sh --preview   # render and open the image here; no Pi involved
+./splash-install.sh --test      # install, then show it on the deck for 5 s
+```
+
+`--test` runs the real boot-time script, so it exercises the VT switch and the
+blit exactly as boot does. Mixxx is not restarted or disturbed — Xorg is on tty1
+and simply loses the foreground while the logo is up, then redraws. To change
+how long the splash holds at boot, edit `SPLASH_HOLD` in
+`trimixxx-splash.service`.
 
 ## Not yet versioned here
 Some deck state still lives only on the Pi and would be lost on a re-image:
