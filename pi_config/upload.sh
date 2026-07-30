@@ -9,12 +9,15 @@
 #   * cpu-governor.service     -- pin cores to `performance` (low-latency audio)
 #   * trimixxx-bridge.service  -- ttymidi serial<->MIDI bridge (gates Mixxx boot)
 #   * 99-prolink-ports.conf    -- let Mixxx bind UDP/111 (Pro DJ Link serving)
+#   * prolink-eth0.sh          -- eth0 to IPv4 link-local, for the CDJ network
+#   * ~/.xinitrc               -- the X session startx runs (WM + Mixxx loop)
 #   * dj-usb/*                 -- USB auto-mount (delegated to its own installer)
 set -eux
 
 # ssh alias for the deck's Pi. Override for a one-off: HOST=other ./upload.sh
 HOST="${HOST:-trimixxx-pi}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 
 # ---- systemd units (governor + bridge) ---------------------------------------
 # Shipped together: both are plain unit files installed into /etc/systemd/system
@@ -57,6 +60,23 @@ ssh "$HOST" '
     # sudo has its own secure_path).
     cat /proc/sys/net/ipv4/ip_unprivileged_port_start
 '
+
+# ---- X session ---------------------------------------------------------------
+# The session startx runs on tty1 login: no screen blanking, a minimal WM, and
+# the Mixxx restart loop. Deliberately not a system file -- it belongs to the
+# login user, so no sudo here. startx *execs* ~/.xinitrc rather than sourcing
+# it, so the exec bit is load-bearing: without it X comes up to a grey screen
+# and no Mixxx. Takes effect on the next tty1 login (or `sudo systemctl restart
+# getty@tty1`), not immediately.
+scp "$HERE/xinitrc" "$HOST":'~/.xinitrc'
+ssh "$HOST" 'chmod 0755 ~/.xinitrc'
+
+# ---- eth0 for the Pro DJ Link network ----------------------------------------
+# A Pro DJ Link network has no DHCP server, so eth0 needs an IPv4 link-local
+# address or the CDJs' broadcasts to 169.254.255.255 are discarded at the IP
+# layer and Mixxx sees nothing. Self-contained and eth0-only; it verifies wlan0
+# and the default route are unchanged before returning. See the script's header.
+HOST="$HOST" "$HERE/prolink-eth0.sh"
 
 # ---- DJ USB auto-mount -------------------------------------------------------
 # Self-contained installer (its own scp + sudo dance, incl. udev reload/trigger).
