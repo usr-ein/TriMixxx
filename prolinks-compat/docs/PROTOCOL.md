@@ -128,6 +128,13 @@ itself**, though it was on the network with an address the whole time (F21).
 | Passive (no announcement) | poll MOUNT `EXPORT` | unavailable | none |
 | Announced (virtual CDJ) | pushed, ~200 ms | available if number ≤ 4 | contends for a number |
 
+**A number in 1–4 is required to be *browsable*, not merely preferred** (F45).
+At device 5 a deck accepts the announcement completely — it puts us in its
+device table and unicasts 900+ status packets to us — and then never sends a
+single media query, so it never offers us as a source. The check precedes the
+whole browse path, and the failure is silent. Serving is impossible when 1–4
+are all taken; degrade to the observer number 7 with serving off.
+
 ### 3.2 CDJ status, type `0x0a` *(confirmed)*
 
 284 bytes on firmware 1.44. **Length does not identify the generation** —
@@ -545,7 +552,9 @@ draw (F33). We emit a counter of the same shape.
 
 The complete list, learned by getting each one wrong in turn:
 
-1. **Announce** on 50000 — keep-alive at least, claim chain to hold a number.
+1. **Announce** on 50000 — keep-alive at least, claim chain to hold a number,
+   and that number **must be in 1–4** (F45). Outside it, every later step still
+   works and none of them is ever reached.
 2. **Emit status** on 50002, unicast per peer at 200 ms, with the slot state set
    (F20/F21). Media presence is advertised here and nowhere else.
 3. **Answer media queries** (`0x05`) with true track and playlist counts (F24).

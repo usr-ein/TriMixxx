@@ -1317,6 +1317,16 @@ def cmd_serve(ctx: Context) -> int:
         discovery.on_claim = virtual.defend
         virtual.start()
         _warn(f"announcing as {args.name!r} device {args.number}")
+        if not 1 <= args.number <= 4:
+            # Cheap check, expensive lesson: at device 5 a deck accepts us into
+            # its table and trades status with us all session, then never sends
+            # a single media query, so it never lists us (F45). The symptom is
+            # "we do not show up on LINK", which reads like an announce bug.
+            _warn(
+                f"  WARNING: device {args.number} is outside 1-4. Players will see us "
+                "but will NOT offer our media -- they never send a media query. "
+                "Use --number 1..4."
+            )
     else:
         _warn("not announcing (--no-announce); players will not discover us")
 
@@ -1623,7 +1633,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--sd-volume",
         help="a second rekordbox volume to present in the SD slot. TriMiXxX has two\nUSB ports and a CDJ expects a USB and an SD, so the second one is served as SD",
     )
-    serve.add_argument("--number", type=int, default=5, help="our device number")
+    # Must be 1-4 to be browsable (F45). The old default of 5 announced
+    # perfectly, got accepted into the deck's device table and exchanged status
+    # with it -- and was never offered as a LINK source, because the deck never
+    # asked what media it had.
+    serve.add_argument(
+        "--number", type=int, default=3,
+        help="our device number; must be 1-4 to be browsable (F45)",
+    )
     serve.add_argument("--name", default="CDJ-2000nexus", help="20-byte device name")
     serve.add_argument("--claim", action="store_true", help="claim a real player slot")
     serve.add_argument("--db-port", type=int, default=0, help="0 = pick a free port")

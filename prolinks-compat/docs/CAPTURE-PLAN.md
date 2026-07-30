@@ -435,8 +435,13 @@ failure in run B is unattributable.
 
 ```bash
 tools/capture.sh S24a-e9-control en9 "control: portmap on 111, as sudo"
-sudo .venv/bin/prolinks -v serve --volume /Volumes/<STICK> --iface en9
+sudo .venv/bin/prolinks -v serve --volume /Volumes/<STICK> --iface en9 --number 3
 ```
+
+**`--number` must be 1–4** (F45). At 5 the deck accepts us and trades status
+with us all session, then never sends a media query, so it never lists us —
+which reads exactly like an announce bug and is not one. `serve` now defaults
+to 3 and warns if you go outside the range.
 
 **S24b — the experiment.** Same stick, same deck, same everything — but
 portmap is moved off 111 so nothing answers there, mountd and nfsd sit on the
@@ -444,7 +449,7 @@ numbers a real player uses, and **there is no `sudo`**:
 
 ```bash
 tools/capture.sh S24b-e9-noportmap en9 "E9: portmap off 111, mountd 48276, nfsd 2049, no root"
-.venv/bin/prolinks -v serve --volume /Volumes/<STICK> --iface en9 \
+.venv/bin/prolinks -v serve --volume /Volumes/<STICK> --iface en9 --number 3 \
     --portmap-port 11111 --mountd-port 48276 --nfsd-port 2049
 ```
 

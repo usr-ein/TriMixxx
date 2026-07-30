@@ -70,6 +70,7 @@ and analysis files · **METH** capture methodology.
 | [F42](#f42) | DB | Drill-downs are a **grid** `0x1000\|depth<<8\|category`; ALL entries; the SORT menu |
 | [F43](#f43) | DB | Sorting picks the item's **second column**; all 12 root categories listed |
 | [F44](#f44) | DB | Search text is argument **3**; KEY drills to a **harmonic tolerance** first |
+| [F45](#f45) | Serve | A server **must hold a number in 1-4**; at 5 a deck accepts it and never asks for its media |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1748,7 +1749,53 @@ these — this menu is the harmonic *browse*, and the indicator marks compatible
 keys in an ordinary listing. Diagnosing it needs a capture of a real deck
 showing green indicators while browsing a peer, which none of ours contains.
 
+<a id="f45"></a>
 
+### F45 — A server must hold a device number in **1–4**  *(confirmed)*
+
+Announcing at device **5** is not enough to be browsable, and the way it fails
+is quiet enough to look like an announce bug.
+
+Two `serve` runs against the same deck, the same stick and the same code,
+differing in one flag:
+
+| | `--number 3` | `--number 5` |
+|---|---|---|
+| Our keep-alives sent | 61 | 126 |
+| Deck's status packets **unicast to us** | present | 927 |
+| Our status packets to the deck | present | 891 |
+| **Media queries (`0x05`) received** | **2** | **0** |
+| Offered on the deck's LINK screen | **yes** | no |
+
+At 5 the deck accepts us completely. Status on 50002 is unicast only to
+announced peers (F21), so 927 of them arriving is proof we were in its device
+table for the whole four minutes, and it took our status in return. It simply
+**never asked what our slots contained**, and a deck that has not asked has
+nothing to offer.
+
+So the media query is not merely a step that can go unanswered (F24) — it is a
+step a deck **declines to take at all** for a peer numbered outside the player
+range. 1–4 is what a CDJ's LINK screen enumerates, and the check happens before
+any of the browse machinery is reached.
+
+**Consequence for Mixxx:** AUTO numbering must choose within 1–4, and "all four
+taken" means *serving is impossible*, not "pick 5". The consume side is
+unaffected — it needs no number at all (F11) — so the correct degradation is to
+the observer number 7 with serving switched off, announced clearly rather than
+silently.
+
+`research/02` §3.2 says metadata queries need a number ≤ 6 and `docs/PROTOCOL.md`
+§3.1 said ≤ 4 marked *inferred*. This settles it at ≤ 4, at least for being
+offered as a source by a CDJ-2000NXS on firmware 1.44.
+
+*Evidence:* journals `20260729T230710Z` (number 3, works) and
+`20260730T103428Z` (number 5, does not).
+
+> **A red herring worth recording**, because it cost time before the A/B was
+> run: in **both** journals the deck emits `ClaimNumber` in endless 3-packet
+> cycles — 102 and 221 of them — instead of settling into steady keep-alives.
+> It is in AUTO mode and does this whether or not anything is wrong. It is not
+> a symptom, and chasing it is a dead end.
 
 ---
 
