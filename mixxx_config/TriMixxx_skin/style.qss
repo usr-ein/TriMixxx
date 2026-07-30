@@ -349,56 +349,37 @@ WTrackTableView QScrollBar::sub-page:horizontal {
 }
 
 /*
- * Tempo readout, bottom right.
- *
- * Digital-7 is a seven-segment face: it has DIGITS, a period and a colon, and
- * essentially nothing else, which is exactly right for a number and useless for
- * anything with letters in it. Shipped in this repo (fonts/) and installed to
- * ~/.local/share/fonts by upload.sh; the family name is "Digital-7 Mono", not
- * the file name, and the mono cut is the one to use so the digits stop shifting
- * sideways as the tempo changes.
+ * Tempo, pitch and range are painted by WTempoPanel, which owns its own fonts
+ * and colours (a value-dependent colour cannot come from qss: Qt resolves it at
+ * polish time and will not re-evaluate it when a control changes). All that is
+ * left here is to keep the panel transparent so the waveform reads through.
  */
-#TempoDisplay {
-    font-family: "Digital-7 Mono", "MesloLGL Nerd Font", monospace;
-    /* Digital-7's ascent and descent are generous for a seven-segment face, so
-     * the glyph box needs a good deal more height than the digits themselves
-     * suggest. The bottom row was widened to 76px for this; at 55px the bottom
-     * of every digit was clipped by the edge of the screen. */
-    font-size: 50px;
-    color: #ff6600;
+#TempoPanel, #WaveformStack {
     background: transparent;
-    qproperty-alignment: 'AlignRight | AlignVCenter';
-    /* Real breathing room from the corner. Hard against the edge the digits
-     * read as an artefact of the panel rather than as a number. */
-    padding-right: 26px;
 }
 
 /*
- * Pitch column, immediately left of the tempo: how far the fader is from the
- * track's own tempo, over the range that fader spans. Smaller than the tempo on
- * purpose -- it is the qualifier, not the headline.
+ * The tempo cluster floats over the waveform, so every layer of it has to be
+ * transparent; a solid background would punch a hole in the waveform the size
+ * of the group.
  */
-#PitchPercent, #PitchRange, #PitchRangeUnit {
-    font-family: "MesloLGL Nerd Font", "Noto Sans", monospace;
+#TempoOverlay, #PitchColumn, 
+/*
+ * BPM column: number only.
+ *
+ * The delegate behind it is a CheckboxDelegate, which draws a lock indicator to
+ * the left of the value; that is the white rectangle. It is drawn through this
+ * hidden widget's style rules, so removing the image and the width removes the
+ * indicator without touching the delegate or losing the editor.
+ */
+#LibraryBPMButton::indicator:checked,
+#LibraryBPMButton::indicator:unchecked,
+#LibraryBPMButton::indicator {
+    image: none;
+    width: 0px;
+    height: 0px;
+    margin: 0px;
+    padding: 0px;
+    border: none;
     background: transparent;
-    qproperty-alignment: 'AlignRight | AlignVCenter';
-    padding-right: 8px;
-}
-#PitchPercent {
-    font-size: 19px;
-    color: #cccccc;
-}
-#PitchRange, #PitchRangeUnit {
-    font-size: 15px;
-    color: #777777;
-}
-#PitchRange {
-    /* The per cent sign is the sibling label to its right, so this one keeps no
-     * padding of its own or a gap opens between the number and the sign. */
-    padding-right: 0px;
-}
-#PitchRangeUnit {
-    qproperty-alignment: 'AlignLeft | AlignVCenter';
-    padding-right: 8px;
-    padding-left: 1px;
 }

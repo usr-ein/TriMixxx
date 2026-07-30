@@ -199,6 +199,20 @@
                 </Children>
               </WidgetGroup>
 
+              <!-- Pro DJ Link phase meter: where the network's tempo master is
+                   in its bar, over where this deck is in its own. Unlabelled
+                   apart from the master's player number overlaid on the top
+                   row; in the header there is no width for anything else, and
+                   the bottom row is always this deck. -->
+              <ProLinkPhaseMeter>
+                <ObjectName>ProLinkPhase</ObjectName>
+                <Group>[Channel1]</Group>
+                <MinimumSize>250,56</MinimumSize>
+                <MaximumSize>250,56</MaximumSize>
+                <MasterColor>#ff6600</MasterColor>
+                <DeckColor>#44ccff</DeckColor>
+              </ProLinkPhaseMeter>
+
               <!-- BPM / KEY column -->
               <WidgetGroup>
                 <ObjectName>BpmKeyColumn</ObjectName>
@@ -332,38 +346,16 @@
             </Connection>
             <Children>
 
-              <!-- Pro DJ Link phase meter: where the network's tempo master is
-                   in its bar, over where this deck is in its own. Sits directly
-                   above the waveform because that is where the eye already is
-                   while beatmatching.
-
-                   The 58 px it takes come out of the waveform below (465 -> 360),
-                   so the total height of the deck view is unchanged. -->
+              <!-- The waveform, with the tempo read-out laid over it.
+                   Stacked, not side by side: QStackedLayout in StackAll mode
+                   draws every child with later ones on top, so the numbers
+                   float over the waveform instead of stealing width from it. -->
               <WidgetGroup>
-                <ObjectName>ProLinkPhaseRow</ObjectName>
-                <Layout>horizontal</Layout>
-                <MinimumSize>1024,58</MinimumSize>
-                <MaximumSize>1024,58</MaximumSize>
+                <ObjectName>WaveformStack</ObjectName>
+                <Layout>stacked</Layout>
+                <MinimumSize>1024,414</MinimumSize>
+                <MaximumSize>1024,414</MaximumSize>
                 <Children>
-                  <!-- Expanding spacers either side keep the meter centred
-                       without hard-coding half the screen width twice. -->
-                  <WidgetGroup><Size>0me,0me</Size><Children/></WidgetGroup>
-                  <ProLinkPhaseMeter>
-                    <ObjectName>ProLinkPhase</ObjectName>
-                    <Group>[Channel1]</Group>
-                    <!-- 40% of the 1024 px panel. Wide enough to read the
-                         offset between the two rows, narrow enough that they
-                         stay side by side rather than a foot apart. -->
-                    <MinimumSize>410,58</MinimumSize>
-                    <MaximumSize>410,58</MaximumSize>
-                    <MasterColor>#ff6600</MasterColor>
-                    <DeckColor>#44ccff</DeckColor>
-                    <InSyncColor>#44ff88</InSyncColor>
-                  </ProLinkPhaseMeter>
-                  <WidgetGroup><Size>0me,0me</Size><Children/></WidgetGroup>
-                </Children>
-              </WidgetGroup>
-
               <!-- Scrolling waveform -->
               <Visual>
                 <ObjectName>ScrollingWaveform</ObjectName>
@@ -374,8 +366,8 @@
                      one that gets squeezed for it. The waveform
                      absorbs every row of buttons that used to sit under it,
                      rather than leaving a hole. -->
-                <MinimumSize>1024,360</MinimumSize>
-                <MaximumSize>1024,360</MaximumSize>
+                <MinimumSize>1024,414</MinimumSize>
+                <MaximumSize>1024,414</MaximumSize>
                 <SignalHighColor>#ff5544</SignalHighColor>
                 <SignalMidColor>#88ff00</SignalMidColor>
                 <SignalLowColor>#2266ff</SignalLowColor>
@@ -431,22 +423,38 @@
                 </Mark>
               </Visual>
 
-              <!-- Bottom row: the minimap, with the tempo readout to its right.
-                   The BPM lives here rather than up in the header because it is
-                   the number a DJ glances at constantly, and the bottom right
-                   corner is where a CDJ puts it. -->
+                  <!-- Tempo, pitch and range, painted over the waveform by
+                       one widget. Not a group of labels: Mixxx's stacked layout
+                       forces Qt::AlignCenter onto every layout it builds,
+                       nested ones included, so a group inside it sizes to its
+                       hint instead of filling and collapses to a sliver. -->
+                  <TempoPanel>
+                    <ObjectName>TempoPanel</ObjectName>
+                    <Group>[Channel1]</Group>
+                    <MinimumSize>1024,414</MinimumSize>
+                    <MaximumSize>1024,414</MaximumSize>
+                    <TempoFont>Digital-7 Mono</TempoFont>
+                    <TempoSize>52</TempoSize>
+                    <TempoColor>#ff6600</TempoColor>
+                  </TempoPanel>
+
+                </Children>
+              </WidgetGroup>
+
+              <!-- The minimap. Taller than it was, and with a dead strip
+                   below it for the bezel. -->
               <WidgetGroup>
                 <ObjectName>OverviewRow</ObjectName>
                 <Layout>horizontal</Layout>
-                <MinimumSize>1024,76</MinimumSize>
-                <MaximumSize>1024,76</MaximumSize>
+                <MinimumSize>1024,72</MinimumSize>
+                <MaximumSize>1024,72</MaximumSize>
                 <Children>
 
               <Overview>
                 <ObjectName>TrackOverview</ObjectName>
                 <Group>[Channel1]</Group>
-                <MinimumSize>728,76</MinimumSize>
-                <MaximumSize>728,76</MaximumSize>
+                <MinimumSize>1024,72</MinimumSize>
+                <MaximumSize>1024,72</MaximumSize>
                 <Connection>
                   <ConfigKey>[Channel1],playposition</ConfigKey>
                 </Connection>
@@ -489,68 +497,18 @@
                        implicit binding, so without the Connection it renders
                        nothing at all. (No double hyphens in an XML comment;
                        they are illegal and reject the whole file.) -->
-                  <!-- Pitch column: how far the fader is from the track's own
-                       tempo, over the range that fader spans. Both are stock
-                       Mixxx widgets ; NumberRate already does (rate_ratio-1)
-                       x100 with a sign, and RateRange already formats the
-                       range as a percentage, so neither needs a Transform (the
-                       skin has Add but no Multiply, which is why doing this by
-                       hand would not have worked). -->
-                  <WidgetGroup>
-                    <ObjectName>PitchColumn</ObjectName>
-                    <Layout>vertical</Layout>
-                    <MinimumSize>86,76</MinimumSize>
-                    <MaximumSize>86,76</MaximumSize>
-                    <Children>
-                      <NumberRate>
-                        <ObjectName>PitchPercent</ObjectName>
-                        <Group>[Channel1]</Group>
-                        <NumberOfDigits>2</NumberOfDigits>
-                        <Size>86,38f</Size>
-                      </NumberRate>
-                      <!-- The range the pitch fader spans, as "16%".
-                           RateRange writes its own text and ignores any Text
-                           format, so the per cent sign is a sibling label
-                           rather than part of it; Display=range drops the +/-
-                           prefix the default adds, which belongs on the pitch
-                           value above and not on the range. -->
-                      <WidgetGroup>
-                        <ObjectName>PitchRangeRow</ObjectName>
-                        <Layout>horizontal</Layout>
-                        <Size>86,38f</Size>
-                        <Children>
-                          <WidgetGroup><Size>0me,0me</Size><Children/></WidgetGroup>
-                          <RateRange>
-                            <ObjectName>PitchRange</ObjectName>
-                            <Group>[Channel1]</Group>
-                            <Display>range</Display>
-                            <Size>34,38f</Size>
-                          </RateRange>
-                          <Text>
-                            <ObjectName>PitchRangeUnit</ObjectName>
-                            <Text>%</Text>
-                            <Size>14,38f</Size>
-                          </Text>
-                        </Children>
-                      </WidgetGroup>
-                    </Children>
-                  </WidgetGroup>
-
-                  <Number>
-                    <ObjectName>TempoDisplay</ObjectName>
-                    <Group>[Channel1]</Group>
-                    <NumberOfDigits>2</NumberOfDigits>
-                    <Text>%1</Text>
-                    <MinimumSize>210,76</MinimumSize>
-                    <MaximumSize>210,76</MaximumSize>
-                    <Connection>
-                      <ConfigKey>[Channel1],bpm</ConfigKey>
-                    </Connection>
-                  </Number>
-
                 </Children>
               </WidgetGroup>
 
+              <!-- Dead strip for the bezel. The panel's bottom edge sits under
+                   a lip, so anything drawn in the last few pixels cannot be
+                   seen; better empty than half a waveform behind plastic. -->
+              <WidgetGroup>
+                <ObjectName>BevelPad</ObjectName>
+                <MinimumSize>1024,14</MinimumSize>
+                <MaximumSize>1024,14</MaximumSize>
+                <Children/>
+              </WidgetGroup>
 
             </Children>
           </WidgetGroup>
