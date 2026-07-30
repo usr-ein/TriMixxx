@@ -459,15 +459,18 @@ filehandles a time until the player's table churns and it starts refusing handle
 a millisecond old. Artwork now goes over dbserver, by id, where no handle exists
 to go stale.
 
-### Power both decks on
+### Mixxx claims its own player number now
 
-This is new and it is load-bearing. Every dbserver request carries a device
-number in its descriptor, and the player validates it: 1–4, **belonging to a
-device actually on the network**, and not the deck being asked. We do not
-announce, so we have no number of our own and have to borrow the *other* deck's.
-With one deck on the network there is nobody to borrow from; Mixxx falls back to
-the lowest number in range that is not the target's and tries anyway, which is
-untested — see the experiment below.
+Earlier revisions of this section told you to power both decks on so Mixxx could
+*borrow* a number. That advice was wrong and the reason is F50: a borrowed number
+is accepted at Introduce and then silently ignored, so covers loaded from one
+deck and not the other with nothing in the log but a timeout. Mixxx now announces
+itself as a virtual CDJ and claims the highest free number in 1-4 after a 2.5 s
+pre-scan. Nothing about the number needs arranging.
+
+What to check on the ProLink page: **"Mixxx is on the network as player N"**. If
+it says "no player number yet", nothing that talks to another player's dbserver
+will work, and that line is the first thing to look at.
 
 ### The test
 
@@ -490,7 +493,8 @@ ssh trimixxx-pi 'grep -E "ProLinkDbServer|cover images" ~/.mixxx/mixxx.log'
 | `queued N cover images for <mac>|3 over dbserver` | The prefetch started. N is distinct images, not tracks |
 | `connected to <ip> port 1051 as device 2; peer reports device 1` | Handshake done. The two numbers must differ |
 | `Introduce rejected (reply 0x4003)` | The borrowed number was refused — see the experiment |
-| `no other player to borrow a device number from; claiming N` | Only one deck is up |
+| `claimed device number N` | The handshake finished. Nothing works before this |
+| `player N slot M holds "..." - X tracks` | The media query answered; the sidebar is named after it |
 | `gave up after 3 dbserver failures` | Three connection attempts failed; nothing further is tried this session |
 
 ### The experiment worth running while you are there

@@ -75,6 +75,8 @@ and analysis files · **METH** capture methodology.
 | [F47](#f47) | pdb | The row-group **presence bitmask is authoritative**, not the page header's entry count |
 | [F48](#f48) | NFS | **`NFSERR_ACCES` on `MNT` means the slot is empty**, not that we were refused — resolves E2 |
 | [F49](#f49) | NFS | Filehandles are **allocator pointers**, `[self][parent][root]`, and go stale under churn. A real CDJ never fetches artwork over NFS |
+| [F50](#f50) | DB | A **borrowed** device number is accepted at Introduce and then silently ignored. Announcing is mandatory for dbserver, not optional |
+| [F51](#f51) | Status | Once announced, a media query answers with the volume label, the counts **and slot occupancy** — resolving F20 |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -2283,3 +2285,89 @@ and is now handled. So these two are device-, firmware- or context-specific
 rather than a universal part of the browse handshake. Still undocumented, still
 worth handling defensively if a mixer or a different player model turns up, but
 no longer the blocker C11 took them for.
+
+---
+
+<a id="f50"></a>
+### F50 — A borrowed dbserver device number fails *silently*  *(confirmed)*
+
+Every dbserver request carries our device number in the top byte of its
+descriptor, and `research/04` §2.3 lists four rules for it. Three are easy to
+respect: 1–4, present on the network, not the player being asked. The fourth is
+the one that bites — it must not belong to a *different* player that has
+Link-connected to the target and loaded a track from it.
+
+Since Mixxx did not announce, it had no number of its own and borrowed the other
+deck's. On a rig with deck A holding an SD and deck B holding a USB:
+
+| Browsing | Claimed | Result |
+|---|---|---|
+| A (`.172`, device 1) | 2 = deck B | covers load, 113 images |
+| B (`.84`, device 2) | 1 = deck A | **nothing** |
+
+```
+19:38:05 connected to "169.254.202.84" port 1051 as device 1 ; peer reports device 2
+19:38:05 queued 576 cover images for "745e1c56ca54|3" over dbserver
+19:38:16 "169.254.202.84" timed out in state 4          <- Ready
+19:38:50 connected to "169.254.103.172" port 1051 as device 2 ; peer reports device 1
+```
+
+**The Introduce succeeds.** State 4 is Ready, so the handshake completed, the
+`GET_ARTWORK` went out, and the player simply never answered — no `0x4003`, no
+close, nothing. Ten seconds of silence per request. Deck A had linked into deck
+B's USB, so device 1 already had a session with B and ours went nowhere;
+claiming 2 to deck A worked only because B had not linked into A's SD.
+
+*Consequence:* there is no borrowed number that is safe in general, and the
+failure mode is indistinguishable from a network problem. **Announcing is a hard
+dependency of dbserver**, not the optional extra `research/10` had it as — which
+also makes `prolinkvirtualcdj` a prerequisite of artwork rather than Phase C
+groundwork. Implemented; Mixxx now claims the highest free number in 1–4 after a
+2.5 s pre-scan, and holds it.
+
+*Diagnostic value:* a dbserver timeout in state Ready means "wrong number", not
+"slow player". A refusal would have been `0x4003`.
+
+---
+
+<a id="f51"></a>
+### F51 — A media query answers for empty slots too, which resolves F20  *(confirmed)*
+
+Having claimed a number (F50), Mixxx can finally use UDP 50002. A type-0x05
+query — built byte for byte from a real one in `captures/S10-serve-to-cdj` —
+draws a 192-byte type-0x06 response:
+
+| Offset | Field |
+|---|---|
+| `0x24` | responding device number (u32) |
+| `0x28` | slot (u32) |
+| `0x2c` | volume label, UTF-16**BE**, NUL-padded to 64 bytes |
+| `0xa4` | track count (u32) |
+| `0xac` | playlist count (u32) |
+| `0xb3`, `0xbb` | two byte counts, plausibly used and free space |
+
+Four queries, four answers, from two CDJ-2000NXS:
+
+```
+player 1 slot 2  "Sam CDJ1000mk3"   113 tracks, 11 playlists
+player 1 slot 3  (all zeroed)
+player 2 slot 3  (no name)          651 tracks,  1 playlist
+player 2 slot 2  (all zeroed)
+```
+
+Two things follow.
+
+**A deck answers for an empty slot**, with the whole body zeroed, rather than
+staying silent. So occupancy is knowable — which `F20` recorded as invisible,
+correctly, because it is published on 50002 and a player unicasts there only to
+announced peers (F21). The consequence recorded in `research/10` — "offer both
+slots and let the fetch fail" — no longer applies.
+
+**An unnamed volume is not an empty one.** Player 2's stick reports no label at
+all while carrying 651 tracks, so occupancy must key on the track count. Treating
+an empty name as an empty slot would have hidden the larger of the two media on
+this rig.
+
+*Consequence:* the sidebar names slots after the media in them, marks empty ones
+empty, and falls back to "USB"/"SD" for an unlabelled volume.
+
