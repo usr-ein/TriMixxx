@@ -182,7 +182,7 @@ TriMixxx.init = function(id, debugging) {
     // this the light would claim a sort that is no longer in effect.
     TriMixxx.conns.push(engine.makeConnection("[Master]", "show_library", function(v) {
         if (v && TriMixxx.sortStep >= 0) { TriMixxx.sortApply(); }
-        TriMixxx.ledKeylock();
+        TriMixxx.ledSort();
     }));
     TriMixxx.ledConnect("loop_enabled", TriMixxx.ledLoopMods);
     TriMixxx.ledConnect("beatloop_8_enabled", function() { TriMixxx.ledBeatloop(8, 2); });
@@ -228,12 +228,15 @@ TriMixxx.tempoRange = function(channel, control, value, status, group) {
 // keylock; over the library there is no track to lock the key of, and sorting is
 // the thing there is no other way to reach without a keyboard.
 TriMixxx.keylock = function(channel, control, value, status, group) {
-    if (engine.getValue("[Master]", "show_library")) {
-        TriMixxx.sortButton(value);
-        return;
-    }
     if (!value) { return; }
     engine.setValue(TriMixxx.DECK, "keylock", !engine.getValue(TriMixxx.DECK, "keylock"));
+};
+
+// B6: SORT while the library is open, and nothing over the deck -- the pad is
+// reserved there for key sync over the CDJ link, which does not exist yet.
+TriMixxx.sortKey = function(channel, control, value, status, group) {
+    if (!engine.getValue("[Master]", "show_library")) { return; }
+    TriMixxx.sortButton(value);
 };
 
 // Press cycles the sort; hold clears it.
@@ -243,18 +246,32 @@ TriMixxx.keylock = function(channel, control, value, status, group) {
 // release cancels it if it got there first.
 TriMixxx.sortButton = function(value) {
     if (value) {
+        // Act on the press, not the release. The button should answer the
+        // moment it is pushed, and a first cut that waited for the release
+        // did nothing at all when the release turned out to arrive as a real
+        // Note Off that the mapping was not listening for.
+        TriMixxx.sortAdvance();
         TriMixxx.sortHoldTimer = engine.beginTimer(TriMixxx.LONG_PRESS_MS, function() {
             TriMixxx.sortHoldTimer = 0;
+            // Held: the cycle step this press just applied was not wanted, so
+            // put it back before clearing. That way letting go of a hold and
+            // pressing again resumes where the cycle actually was.
+            TriMixxx.sortStepBack();
             TriMixxx.sortClear();
         }, true);
         return;
     }
-    if (!TriMixxx.sortHoldTimer) {
-        return;  // the hold already fired and cleared the sort
+    if (TriMixxx.sortHoldTimer) {
+        engine.stopTimer(TriMixxx.sortHoldTimer);
+        TriMixxx.sortHoldTimer = 0;
     }
-    engine.stopTimer(TriMixxx.sortHoldTimer);
-    TriMixxx.sortHoldTimer = 0;
-    TriMixxx.sortAdvance();
+};
+
+// Undo the step the press applied, without touching what is on screen: the
+// clear that follows overwrites it anyway.
+TriMixxx.sortStepBack = function() {
+    var steps = TriMixxx.SORT_COLUMNS.length * 2;
+    TriMixxx.sortLastStep = (TriMixxx.sortStep + steps - 1) % steps;
 };
 
 // Step to the next (column, direction) pair and apply it.
@@ -353,21 +370,21 @@ TriMixxx.ledTempoRange = function() {
 // A2 master tempo: off when keylock off, red when on. Yields to the sort colour
 // while the library is up, since that is what the button does there.
 TriMixxx.ledKeylock = function() {
-    if (engine.getValue("[Master]", "show_library")) { TriMixxx.ledSort(); return; }
     TriMixxx.led(0x01, 1, engine.getValue(TriMixxx.DECK, "keylock") ? TriMixxx.C_RED : TriMixxx.C_OFF);
 };
 
 // A2 sort: the column's colour, dim ascending and bright descending, off when
 // nothing is sorted.
 TriMixxx.ledSort = function() {
-    if (!engine.getValue("[Master]", "show_library")) { TriMixxx.ledKeylock(); return; }
-    if (TriMixxx.sortStep < 0) {
-        TriMixxx.led(0x01, 1, TriMixxx.C_OFF);
+    // Ring B node 5 -- the pad that carries the sort. Off over the deck, where
+    // the button does nothing.
+    if (!engine.getValue("[Master]", "show_library") || TriMixxx.sortStep < 0) {
+        TriMixxx.led(0x03, 5, TriMixxx.C_OFF);
         return;
     }
     var column = TriMixxx.SORT_COLUMNS[Math.floor(TriMixxx.sortStep / 2)];
     var descending = (TriMixxx.sortStep % 2) === 1;
-    TriMixxx.led(0x01, 1, column.colour,
+    TriMixxx.led(0x03, 5, column.colour,
         descending ? TriMixxx.SORT_BRIGHT : TriMixxx.SORT_DIM);
 };
 

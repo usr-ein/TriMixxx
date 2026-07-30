@@ -284,8 +284,26 @@
         <midino>0x47</midino>
         <options><script-binding/></options>
       </control>
-      <!-- B6 (note 0x48) key sync: OUTPUT-ONLY indicator, no input mapping
-           (will be operated later over the LAN CDJ link). -->
+      <!-- B6 (note 0x48): SORT while the library is open.
+           Was output-only, which is why pressing it did nothing at all: the
+           button sends on every press and the mapping simply had nowhere for
+           it to go. Both edges, because a short press is only distinguishable
+           from a hold once the button comes back up, and this ring sends a
+           real Note Off rather than a Note On with velocity zero. -->
+      <control>
+        <group>[Channel1]</group>
+        <key>TriMixxx.sortKey</key>
+        <status>0x90</status>
+        <midino>0x48</midino>
+        <options><script-binding/></options>
+      </control>
+      <control>
+        <group>[Channel1]</group>
+        <key>TriMixxx.sortKey</key>
+        <status>0x80</status>
+        <midino>0x48</midino>
+        <options><script-binding/></options>
+      </control>
 
     </controls>
     <outputs>
