@@ -40,6 +40,29 @@ for f in files:
 sys.exit(1 if bad else 0)
 PY
 
+# ---- Fonts -----------------------------------------------------------------
+# MesloLGL Nerd Font is not a stock Raspberry Pi OS font, and both
+# mixxx.cfg ([Library] Font) and the skin's stylesheet name it. Qt resolves font
+# families through fontconfig BY NAME, so an uninstalled font is not an error
+# anywhere: it silently falls back, and the deck comes up looking subtly wrong.
+# Ship it rather than leaving it as Pi-local state a re-image would not restore.
+#
+# ~/.local/share/fonts is the per-user fontconfig directory, so no sudo and no
+# system font path is touched. This is the ONE thing upload.sh puts outside
+# ~/.mixxx.
+#
+# Runs before the rm -rf below for the same reason the XML check does: a failure
+# here must not leave the deck with its skin deleted.
+echo "Installing fonts..."
+ssh "$HOST" 'mkdir -p ~/.local/share/fonts'
+scp fonts/*.ttf "$HOST":~/.local/share/fonts/
+# Verify the deck can actually RESOLVE the family, rather than trusting that
+# copying files was enough. This is the check that would have caught a renamed
+# font file or a stale fontconfig cache.
+ssh "$HOST" 'fc-cache -f ~/.local/share/fonts >/dev/null 2>&1;
+             fc-list : family | grep -q "MesloLGL Nerd Font"' \
+    || { echo "ABORT: the deck cannot resolve 'MesloLGL Nerd Font' after install." >&2; exit 1; }
+
 ssh "$HOST" 'rm -rf ~/.mixxx/skins/TriMixxx'
 
 scp -r TriMixxx_skin "$HOST":~/.mixxx/skins/

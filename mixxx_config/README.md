@@ -6,8 +6,9 @@ files map that device to Mixxx controls. Addresses match the firmware's
 [`lib/PiLink/MidiMap.hpp`](../firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp) exactly — **change both together.**
 
 The system side (systemd units, udev, USB automount) is in
-[`../pi_config`](../pi_config); `upload.sh` here touches only `~/.mixxx` and
-restarts Mixxx, so a mapping tweak can never disturb the deck's system config.
+[`../pi_config`](../pi_config); `upload.sh` here touches only `~/.mixxx` plus the
+per-user font directory `~/.local/share/fonts`, and restarts Mixxx, so a mapping
+tweak can never disturb the deck's system config.
 
 ## Files
 - `TriMixxx.midi.xml` — the deck mapping (inputs, LED outputs).
@@ -19,6 +20,21 @@ restarts Mixxx, so a mapping tweak can never disturb the deck's system config.
   POWER menu into a shutdown SysEx, and turns the daemon's USB-mount events into
   a Rekordbox device rescan.
 - `TriMixxx_skin/` — single-deck CDJ-style skin for the 1024×600 touchscreen.
+- `fonts/` — MesloLGL Nerd Font (Regular + Bold), installed to the deck's
+  `~/.local/share/fonts` by `upload.sh`. Both `mixxx.cfg` (`[Library] Font`) and
+  the skin's stylesheet name this family, and Qt resolves families through
+  fontconfig *by name*, so a missing font is never an error — it just silently
+  falls back and the deck comes up looking subtly wrong. Only the two weights the
+  skin uses are shipped; italic is synthesised. See the note in `style.qss`
+  before swapping it: **every** Meslo variant is monospace, the `Mono`/`Propo`
+  suffix only spaces the icon glyphs, so no Nerd Font spelling will make titles
+  narrower — that needs a different family.
+
+  Meslo is a *terminal* font (~13k codepoints), so it has no CJK, Arabic, Hebrew,
+  Indic scripts or emoji. Those are handled by the Noto fallback chain in
+  [`../pi_config/60-trimixxx-fonts.conf`](../pi_config), which is also what
+  installs them — the deck needs **both** uploads for a track title in Japanese
+  to render.
 - `soundconfig.xml` — audio device + buffer size. Mixxx keeps sound hardware in
   its own file, *not* `mixxx.cfg`. Deployed by `upload.sh`; see the buffer note
   below.

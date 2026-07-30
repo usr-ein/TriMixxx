@@ -477,21 +477,40 @@
                 <MaximumSize>1024,520</MaximumSize>
                 <SizePolicy>f,e</SizePolicy>
                 <Children>
+                  <!-- Width is CONTENT DRIVEN, not the old flat 240. `p` is
+                       Preferred, so the column asks for its sizeHint and the
+                       track table (Expanding) takes whatever is left. The hint
+                       comes from WLibrarySidebar::sizeHint() in our fork, which
+                       reports the widest row on show, indentation included, so
+                       expanding Rekordbox widens the column and collapsing it
+                       gives the width back.
+
+                       341 = 1024 / 3. Past that the column would be eating the
+                       track list to show folder names, so it stops and the
+                       sidebar scrolls sideways instead, following the selection
+                       (ensureCurrentItemVisible). 200 keeps it from collapsing
+                       to a sliver while a feature is still populating. -->
                   <WidgetGroup>
                     <ObjectName>LibrarySidebarCol</ObjectName>
                     <Layout>vertical</Layout>
-                    <MinimumSize>240,200</MinimumSize>
-                    <MaximumSize>240,520</MaximumSize>
-                    <SizePolicy>f,e</SizePolicy>
+                    <MinimumSize>200,200</MinimumSize>
+                    <MaximumSize>341,520</MaximumSize>
+                    <SizePolicy>p,e</SizePolicy>
                     <Children>
+                      <!-- `i` is Ignored: the search box's own sizeHint is left
+                           out of the column's width, so a wide-ish line edit
+                           cannot be what decides how wide the MENU is. It still
+                           stretches to fill whatever width the tree settles on,
+                           and MinimumSize keeps it usable. -->
                       <SearchBox>
                         <ObjectName>LibrarySearch</ObjectName>
-                        <MinimumSize>240,40</MinimumSize>
-                        <MaximumSize>240,40</MaximumSize>
+                        <MinimumSize>120,40</MinimumSize>
+                        <MaximumSize>-1,40</MaximumSize>
+                        <SizePolicy>i,f</SizePolicy>
                       </SearchBox>
                       <LibrarySidebar>
                         <ObjectName>LibrarySidebar</ObjectName>
-                        <SizePolicy>f,e</SizePolicy>
+                        <SizePolicy>p,e</SizePolicy>
                       </LibrarySidebar>
                     </Children>
                   </WidgetGroup>

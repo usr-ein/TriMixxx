@@ -1,8 +1,33 @@
-/* ============== BASE ============== */
+/* ============== BASE ==============
+ *
+ * MesloLGL Nerd Font everywhere, shipped with this repo and installed by
+ * upload.sh -- it is NOT a stock Raspberry Pi OS font, so the DejaVu fallbacks
+ * below are load-bearing: if the font ever fails to reach the deck the UI comes
+ * back plain instead of coming back wrong.
+ *
+ * Two things to know about it.
+ *
+ * It is MONOSPACE, and the family name does not warn you. Nerd Fonts ship three
+ * spacings of every family (plain, "Mono", "Propo") and it is tempting to read
+ * the plain one as proportional, but that suffix only describes how the ADDED
+ * ICON glyphs are spaced; the underlying Meslo is a terminal font and every
+ * variant is fixed-width. Measured from the hmtx tables, all six MesloLGL faces
+ * render the same string to exactly the same width, with one distinct advance
+ * across every character. So track titles take about 40% more width here than a
+ * proportional face would, and a long one elides sooner. Switching between the
+ * Nerd Font spellings will not change that; only a different family will.
+ *
+ * It covers Latin, Greek, Cyrillic, punctuation and symbols, but NOT CJK,
+ * Hangul, Hebrew, Arabic, the Indic scripts or emoji. Those come from the Noto
+ * families, per character, and the ORDER they are tried in is set by
+ * ../pi_config/60-trimixxx-fonts.conf, which also installs them. That file is
+ * the one that matters: the track table's font comes from mixxx.cfg, not from
+ * here, so it never sees this stack. The families listed after Meslo below are
+ * the same chain repeated for the widgets the stylesheet does reach. */
 WWidget, QWidget {
     background-color: #1a1a1a;
     color: #e0e0e0;
-    font-family: "DejaVu Sans", sans-serif;
+    font-family: "MesloLGL Nerd Font", "Noto Sans", "Noto Color Emoji", "DejaVu Sans", sans-serif;
     font-size: 14px;
 }
 
@@ -32,7 +57,7 @@ WWidget, QWidget {
 
 #BpmDisplay {
     color: #88ff00;
-    font-family: "DejaVu Sans Mono", monospace;
+    font-family: "MesloLGL Nerd Font", "Noto Sans", "DejaVu Sans Mono", monospace;
     font-size: 28px;
     font-weight: bold;
     qproperty-alignment: 'AlignRight | AlignVCenter';
@@ -41,7 +66,7 @@ WWidget, QWidget {
 
 #KeyDisplay {
     color: #cccccc;
-    font-family: "DejaVu Sans Mono", monospace;
+    font-family: "MesloLGL Nerd Font", "Noto Sans", "DejaVu Sans Mono", monospace;
     font-size: 18px;
     qproperty-alignment: 'AlignRight | AlignVCenter';
     padding-right: 8px;
@@ -55,7 +80,7 @@ WWidget, QWidget {
    thing worth reading anyway: it only ever goes up. */
 #XrunDisplay {
     color: #4a4a4a;
-    font-family: "DejaVu Sans Mono", monospace;
+    font-family: "MesloLGL Nerd Font", "Noto Sans", "DejaVu Sans Mono", monospace;
     font-size: 13px;
     font-weight: bold;
     qproperty-alignment: 'AlignCenter';
@@ -63,7 +88,7 @@ WWidget, QWidget {
 
 #TimeElapsed {
     color: #ffffff;
-    font-family: "DejaVu Sans Mono", monospace;
+    font-family: "MesloLGL Nerd Font", "Noto Sans", "DejaVu Sans Mono", monospace;
     font-size: 22px;
     qproperty-alignment: 'AlignRight | AlignVCenter';
     padding-right: 12px;
@@ -71,7 +96,7 @@ WWidget, QWidget {
 
 #TimeRemaining {
     color: #88ff00;
-    font-family: "DejaVu Sans Mono", monospace;
+    font-family: "MesloLGL Nerd Font", "Noto Sans", "DejaVu Sans Mono", monospace;
     font-size: 22px;
     qproperty-alignment: 'AlignRight | AlignVCenter';
     padding-right: 12px;
@@ -263,29 +288,28 @@ WSearchLineEdit {
    Arrow buttons are removed throughout: hopeless finger targets that only steal
    length from the handle. */
 
-/* Left panel: the only one you actually drag, so it gets the fat bar. */
-#LibrarySidebarCol QScrollBar:vertical {
-    background-color: #0c0c0c;
-    width: 44px;
-    margin: 0;
-}
-#LibrarySidebarCol QScrollBar::handle:vertical {
-    background-color: #3a3a3a;
-    border: 1px solid #4a4a4a;
-    border-radius: 8px;
-    min-height: 90px;
-}
-#LibrarySidebarCol QScrollBar::handle:vertical:pressed {
-    background-color: #88ff00;
-}
-#LibrarySidebarCol QScrollBar::add-line:vertical,
-#LibrarySidebarCol QScrollBar::sub-line:vertical {
-    height: 0;
+/* Left panel: no bars at all, in either direction.
+ *
+ * Zero-sized rather than turned off with a scrollbar POLICY, which is the same
+ * trick the track table uses below. Qt derives a scroll RANGE from the content,
+ * not from whether the bar is drawn, so a 0px bar still scrolls perfectly well
+ * under program control -- and it has to, because the sidebar scrolls sideways
+ * by itself to keep the selected row on screen
+ * (WLibrarySidebar::ensureCurrentItemVisible). ScrollBarAlwaysOff would have
+ * taken that away along with the pixels.
+ *
+ * Vertically there is nothing left to drag, so the encoder is the only way to
+ * move the list. That is the trade for the 44px the old fat bar cost: the menu
+ * is a nav list you step through, not a document you pan, and the selection
+ * scrolls the view along with it.
+ *
+ * Both selectors go through the container ObjectName, per the note above: the
+ * `WLibrarySidebar QScrollBar` class-descendant form does not take effect here. */
+#LibrarySidebarCol QScrollBar:vertical,
+#LibrarySidebarCol QScrollBar:horizontal {
     width: 0;
-}
-#LibrarySidebarCol QScrollBar::add-page:vertical,
-#LibrarySidebarCol QScrollBar::sub-page:vertical {
-    background-color: #0c0c0c;
+    height: 0;
+    background: transparent;
 }
 
 /* Right panel: the track encoder scrolls this, so the vertical bar is dead
