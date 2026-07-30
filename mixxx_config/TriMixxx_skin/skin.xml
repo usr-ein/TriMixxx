@@ -178,8 +178,11 @@
               <WidgetGroup>
                 <ObjectName>TitleArtistColumn</ObjectName>
                 <Layout>vertical</Layout>
+                <!-- A third of the panel and no more. Track titles run long and
+                     this one used to expand, squeezing the phase meter down to
+                     whatever was left over. -->
                 <MinimumSize>200,72</MinimumSize>
-                <MaximumSize>-1,72</MaximumSize>
+                <MaximumSize>341,72</MaximumSize>
                 <SizePolicy>me,f</SizePolicy>
                 <Children>
                   <TrackProperty>
@@ -207,8 +210,12 @@
               <ProLinkPhaseMeter>
                 <ObjectName>ProLinkPhase</ObjectName>
                 <Group>[Channel1]</Group>
-                <MinimumSize>300,56</MinimumSize>
-                <MaximumSize>300,56</MaximumSize>
+                <!-- Expanding: it gets the whole gap between the title and
+                     the clock, which is the widest the two rows can be and so
+                     the finest the offset between them can be read. -->
+                <MinimumSize>200,56</MinimumSize>
+                <MaximumSize>-1,56</MaximumSize>
+                <SizePolicy>me,f</SizePolicy>
                 <MasterColor>#ff6600</MasterColor>
                 <DeckColor>#44ccff</DeckColor>
               </ProLinkPhaseMeter>
@@ -231,52 +238,18 @@
                 </Children>
               </WidgetGroup>
 
-              <!-- Audio underrun counter. [App],audio_latency_overload_count is
-                   bumped by SoundManager::processUnderflowHappened() whenever an
-                   underflow flag was set, rate-limited to one count per 500ms.
-                   This is the SAME number Preferences / Sound Hardware shows as
-                   "Buffer Underflow Count", and unlike the developer-flag log
-                   lines it costs nothing to read: no qWarning, no lock in the
-                   audio callback. If this climbs during a set, enlarge the
-                   buffer (soundconfig.xml `latency`, see upload.sh).
-
-                   Caveat: it does NOT isolate the DAC. Every underflowHappened()
-                   source feeds this one counter, including the network/broadcast
-                   device (codes 24 and 25), which chatters harmlessly on its own.
-                   So treat a rising number as "look closer", not "the DAC dropped
-                   out"; only the developer flag plus a grep for code 6 proves
-                   that. Group is [App] (soundmanager.cpp), NOT [Channel1].
-
-                   Note for editors: no double hyphen anywhere in this comment.
-                   XML forbids it inside comments and Qt's parser rejects the
-                   whole skin, which boots Mixxx to a default one. -->
-              <WidgetGroup>
-                <ObjectName>XrunColumn</ObjectName>
-                <Layout>vertical</Layout>
-                <MinimumSize>84,72</MinimumSize>
-                <MaximumSize>84,72</MaximumSize>
-                <Children>
-                  <WidgetGroup><SizePolicy>f,e</SizePolicy><Children/></WidgetGroup>
-                  <Number>
-                    <ObjectName>XrunDisplay</ObjectName>
-                    <NumberOfDigits>0</NumberOfDigits>
-                    <Text>XRUN %1</Text>
-                    <Connection>
-                      <ConfigKey>[App],audio_latency_overload_count</ConfigKey>
-                    </Connection>
-                  </Number>
-                  <WidgetGroup><SizePolicy>f,e</SizePolicy><Children/></WidgetGroup>
-                </Children>
-              </WidgetGroup>
-
               <!-- TIME column -->
               <WidgetGroup>
                 <ObjectName>TimeColumn</ObjectName>
                 <Layout>vertical</Layout>
-                <!-- Wide enough for the combined string: the mode renders
-                     elapsed and remaining together in ONE widget. -->
-                <MinimumSize>240,72</MinimumSize>
-                <MaximumSize>240,72</MaximumSize>
+                <!-- Narrow on purpose. The mode renders elapsed and remaining
+                     together in ONE widget ; there is no way to split them,
+                     since every WNumberPos reads the same global
+                     [Controls],ShowDurationRemaining ; so the way to stack
+                     them is to give the label less width than the combined
+                     string needs and let it wrap. -->
+                <MinimumSize>132,72</MinimumSize>
+                <MaximumSize>132,72</MaximumSize>
                 <Children>
                   <!-- ONE widget, showing elapsed AND remaining together.
                        There is no <ShowRemaining> element: every WNumberPos

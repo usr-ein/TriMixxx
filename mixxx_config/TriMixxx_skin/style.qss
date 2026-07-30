@@ -89,7 +89,7 @@ WWidget, QWidget {
 #TimeElapsed {
     color: #ffffff;
     font-family: "MesloLGL Nerd Font", "Noto Sans", "DejaVu Sans Mono", monospace;
-    font-size: 22px;
+    font-size: 17px;
     qproperty-alignment: 'AlignRight | AlignVCenter';
     padding-right: 12px;
 }
@@ -382,4 +382,15 @@ WTrackTableView QScrollBar::sub-page:horizontal {
     padding: 0px;
     border: none;
     background: transparent;
+}
+
+/*
+ * The clock stacks elapsed over remaining. One widget renders both -- the
+ * display mode is a single global control, so a second widget could only
+ * repeat the first -- and wrapping is what puts them on two lines.
+ */
+#TimeElapsed {
+    qproperty-wordWrap: true;
+    qproperty-alignment: 'AlignRight | AlignVCenter';
+    padding-right: 6px;
 }

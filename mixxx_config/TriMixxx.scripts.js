@@ -15,6 +15,27 @@ TriMixxx.DECK_NUM      = 1;      // [Channel1] = deck 1 (single fixed deck)
 TriMixxx.JOG_TICKS_REV = 12960; // JogWheel::TICKS_PER_REV (full-quad ticks / rev)
 TriMixxx.RATE_RANGE    = 0.06;  // tempo fader span at boot = +/-6%
 TriMixxx.RATE_RANGES   = [0.06, 0.10, 0.16, 1.0]; // A1 cycles these: +/-6, 10, 16, Wide (100%)
+TriMixxx.LONG_PRESS_MS = 600;   // hold past this and a button takes its second meaning
+
+// ---- Library sort (A2 doubles as SORT while the library is open) --------
+// TrackModel::SortColumnId, from src/library/trackmodel.h. Each column is
+// visited twice, ascending then descending, before moving on; a long press
+// clears the sort and a later short press resumes from where the cycle was.
+// The order is the order a DJ actually reaches for: tempo, then feel, then who
+// made it, then what it will mix with.
+TriMixxx.SORT_COLUMNS = [
+    {id: 15, name: "BPM",    colour: [0, 90, 255]},   // blue
+    {id: 6,  name: "Genre",  colour: [0, 200, 0]},    // green
+    {id: 1,  name: "Artist", colour: [255, 110, 0]},  // amber
+    {id: 20, name: "Key",    colour: [150, 0, 255]}   // purple
+];
+// Ascending is the dim half of each pair, descending the bright one, so the
+// colour says which field and the brightness says which direction.
+TriMixxx.SORT_DIM      = 0.28;
+TriMixxx.SORT_BRIGHT   = 1.0;
+TriMixxx.sortStep      = -1;    // -1 = no sort; otherwise index into the cycle
+TriMixxx.sortLastStep  = 0;     // where to resume after a long-press clear
+TriMixxx.sortHoldTimer = 0;
 
 // ---- Ring button LED palette. Entries only need correct hue RATIOS -- dim()
 //      normalizes each to full intensity, then scales by BRIGHTNESS. ----
@@ -155,6 +176,14 @@ TriMixxx.init = function(id, debugging) {
     // Button LED indicators: connect each deck control to its colour updater.
     TriMixxx.ledConnect("rateRange", TriMixxx.ledTempoRange);
     TriMixxx.ledConnect("keylock", TriMixxx.ledKeylock);
+    // The button changes meaning with the view, so its light has to follow.
+    // Re-applying the sort on entry is not belt and braces: moving between
+    // features rebuilds the track model and the sort goes with it, so without
+    // this the light would claim a sort that is no longer in effect.
+    TriMixxx.conns.push(engine.makeConnection("[Master]", "show_library", function(v) {
+        if (v && TriMixxx.sortStep >= 0) { TriMixxx.sortApply(); }
+        TriMixxx.ledKeylock();
+    }));
     TriMixxx.ledConnect("loop_enabled", TriMixxx.ledLoopMods);
     TriMixxx.ledConnect("beatloop_8_enabled", function() { TriMixxx.ledBeatloop(8, 2); });
     TriMixxx.ledConnect("beatloop_4_enabled", function() { TriMixxx.ledBeatloop(4, 3); });
@@ -193,10 +222,72 @@ TriMixxx.tempoRange = function(channel, control, value, status, group) {
     engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGES[idx]);
 };
 
-// A2 Master tempo (= Mixxx keylock): toggle on press.
+// A2: master tempo on the deck, SORT in the library.
+//
+// The button does the job of whatever is on screen. Over the deck it is Mixxx's
+// keylock; over the library there is no track to lock the key of, and sorting is
+// the thing there is no other way to reach without a keyboard.
 TriMixxx.keylock = function(channel, control, value, status, group) {
+    if (engine.getValue("[Master]", "show_library")) {
+        TriMixxx.sortButton(value);
+        return;
+    }
     if (!value) { return; }
     engine.setValue(TriMixxx.DECK, "keylock", !engine.getValue(TriMixxx.DECK, "keylock"));
+};
+
+// Press cycles the sort; hold clears it.
+//
+// The distinction has to wait for the release, because a long press is only
+// knowable by nothing having happened yet: the timer fires the clear, and the
+// release cancels it if it got there first.
+TriMixxx.sortButton = function(value) {
+    if (value) {
+        TriMixxx.sortHoldTimer = engine.beginTimer(TriMixxx.LONG_PRESS_MS, function() {
+            TriMixxx.sortHoldTimer = 0;
+            TriMixxx.sortClear();
+        }, true);
+        return;
+    }
+    if (!TriMixxx.sortHoldTimer) {
+        return;  // the hold already fired and cleared the sort
+    }
+    engine.stopTimer(TriMixxx.sortHoldTimer);
+    TriMixxx.sortHoldTimer = 0;
+    TriMixxx.sortAdvance();
+};
+
+// Step to the next (column, direction) pair and apply it.
+TriMixxx.sortAdvance = function() {
+    var steps = TriMixxx.SORT_COLUMNS.length * 2;
+    // Coming back from cleared, resume where the cycle was rather than
+    // restarting at BPM: the DJ cleared the sort, they did not forget it.
+    TriMixxx.sortStep = TriMixxx.sortStep < 0
+        ? TriMixxx.sortLastStep
+        : (TriMixxx.sortStep + 1) % steps;
+    TriMixxx.sortLastStep = TriMixxx.sortStep;
+    TriMixxx.sortApply();
+};
+
+TriMixxx.sortApply = function() {
+    if (TriMixxx.sortStep < 0) { TriMixxx.ledSort(); return; }
+    var column = TriMixxx.SORT_COLUMNS[Math.floor(TriMixxx.sortStep / 2)];
+    var descending = (TriMixxx.sortStep % 2) === 1;
+    // Order first: sort_column is what triggers the re-sort, so setting the
+    // direction afterwards would sort twice and show the wrong one in between.
+    engine.setValue("[Library]", "sort_order", descending ? 1 : 0);
+    engine.setValue("[Library]", "sort_column", column.id);
+    TriMixxx.ledSort();
+};
+
+// Long press: back to the order the list came in.
+TriMixxx.sortClear = function() {
+    TriMixxx.sortStep = -1;
+    // SortColumnId::CurrentIndex (0) is the model's own order, which is what
+    // "no sort" means for a playlist: the order somebody put the tracks in.
+    engine.setValue("[Library]", "sort_order", 0);
+    engine.setValue("[Library]", "sort_column", 0);
+    TriMixxx.ledSort();
 };
 
 // B5 Slip mode: toggle on press.
@@ -259,9 +350,25 @@ TriMixxx.ledTempoRange = function() {
     TriMixxx.led(0x01, 0, c);
 };
 
-// A2 master tempo: off when keylock off, red when on.
+// A2 master tempo: off when keylock off, red when on. Yields to the sort colour
+// while the library is up, since that is what the button does there.
 TriMixxx.ledKeylock = function() {
+    if (engine.getValue("[Master]", "show_library")) { TriMixxx.ledSort(); return; }
     TriMixxx.led(0x01, 1, engine.getValue(TriMixxx.DECK, "keylock") ? TriMixxx.C_RED : TriMixxx.C_OFF);
+};
+
+// A2 sort: the column's colour, dim ascending and bright descending, off when
+// nothing is sorted.
+TriMixxx.ledSort = function() {
+    if (!engine.getValue("[Master]", "show_library")) { TriMixxx.ledKeylock(); return; }
+    if (TriMixxx.sortStep < 0) {
+        TriMixxx.led(0x01, 1, TriMixxx.C_OFF);
+        return;
+    }
+    var column = TriMixxx.SORT_COLUMNS[Math.floor(TriMixxx.sortStep / 2)];
+    var descending = (TriMixxx.sortStep % 2) === 1;
+    TriMixxx.led(0x01, 1, column.colour,
+        descending ? TriMixxx.SORT_BRIGHT : TriMixxx.SORT_DIM);
 };
 
 // A5/A6 double/halve: orange when there is a loop to act on, else off.
