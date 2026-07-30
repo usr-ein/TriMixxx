@@ -36,6 +36,7 @@ TriMixxx.SORT_BRIGHT   = 1.0;
 TriMixxx.sortStep      = -1;    // -1 = no sort; otherwise index into the cycle
 TriMixxx.sortLastStep  = 0;     // where to resume after a long-press clear
 TriMixxx.sortHoldTimer = 0;
+TriMixxx.SORT_ID_POSITION = 23;  // TrackModel::SortColumnId::Position
 
 // ---- Ring button LED palette. Entries only need correct hue RATIOS -- dim()
 //      normalizes each to full intensity, then scales by BRIGHTNESS. ----
@@ -184,6 +185,12 @@ TriMixxx.init = function(id, debugging) {
         if (!v) { TriMixxx.sortForget(); }
         TriMixxx.ledSort();
     }));
+    // Focus moving back to the tree ends the sort there and then. Waiting until
+    // a section was actually chosen left the button lit while the DJ scrolled
+    // the sidebar, claiming a sort over a list they had already left.
+    TriMixxx.conns.push(engine.makeConnection("[Library]", "focused_widget", function(v) {
+        if (v === TriMixxx.FOCUS_SIDEBAR) { TriMixxx.sortForget(); }
+    }));
     TriMixxx.ledConnect("loop_enabled", TriMixxx.ledLoopMods);
     TriMixxx.ledConnect("beatloop_8_enabled", function() { TriMixxx.ledBeatloop(8, 2); });
     TriMixxx.ledConnect("beatloop_4_enabled", function() { TriMixxx.ledBeatloop(4, 3); });
@@ -246,32 +253,21 @@ TriMixxx.sortKey = function(channel, control, value, status, group) {
 // release cancels it if it got there first.
 TriMixxx.sortButton = function(value) {
     if (value) {
-        // Act on the press, not the release. The button should answer the
-        // moment it is pushed, and a first cut that waited for the release
-        // did nothing at all when the release turned out to arrive as a real
-        // Note Off that the mapping was not listening for.
-        TriMixxx.sortAdvance();
+        // Nothing happens on the press. A hold has to be able to *not* cycle,
+        // and the only way to know a press was short is to see it end: acting
+        // immediately meant every hold cycled first and cleared afterwards.
         TriMixxx.sortHoldTimer = engine.beginTimer(TriMixxx.LONG_PRESS_MS, function() {
             TriMixxx.sortHoldTimer = 0;
-            // Held: the cycle step this press just applied was not wanted, so
-            // put it back before clearing. That way letting go of a hold and
-            // pressing again resumes where the cycle actually was.
-            TriMixxx.sortStepBack();
             TriMixxx.sortClear();
         }, true);
         return;
     }
-    if (TriMixxx.sortHoldTimer) {
-        engine.stopTimer(TriMixxx.sortHoldTimer);
-        TriMixxx.sortHoldTimer = 0;
+    if (!TriMixxx.sortHoldTimer) {
+        return;  // the hold already fired; the release is just the end of it
     }
-};
-
-// Undo the step the press applied, without touching what is on screen: the
-// clear that follows overwrites it anyway.
-TriMixxx.sortStepBack = function() {
-    var steps = TriMixxx.SORT_COLUMNS.length * 2;
-    TriMixxx.sortLastStep = (TriMixxx.sortStep + steps - 1) % steps;
+    engine.stopTimer(TriMixxx.sortHoldTimer);
+    TriMixxx.sortHoldTimer = 0;
+    TriMixxx.sortAdvance();
 };
 
 // Step to the next (column, direction) pair and apply it.
@@ -315,9 +311,7 @@ TriMixxx.sortApply = function() {
 // Long press: back to the order the list came in.
 TriMixxx.sortClear = function() {
     TriMixxx.sortStep = -1;
-    // SortColumnId::CurrentIndex (0) is the model's own order, which is what
-    // "no sort" means for a playlist: the order somebody put the tracks in.
-    engine.setValue("[Library]", "sort_column_toggle", 0);
+    TriMixxx.sortReset();
     TriMixxx.ledSort();
 };
 
@@ -331,7 +325,21 @@ TriMixxx.sortForget = function() {
     if (TriMixxx.sortStep < 0) { return; }
     TriMixxx.sortLastStep = TriMixxx.sortStep;
     TriMixxx.sortStep = -1;
+    // Actually unsort, do not just stop tracking it. Mixxx remembers a model's
+    // sort, so a pane opened later would otherwise arrive already sorted with
+    // the button dark -- the state saying one thing and the list another.
+    TriMixxx.sortReset();
     TriMixxx.ledSort();
+};
+
+// Back to the order the list came in.
+//
+// Position is the natural order of a playlist -- the order somebody put the
+// tracks in. A model without a position column rejects it in
+// BaseSqlTableModel::setSort, which warns and leaves the sort alone rather than
+// failing the query, so this is safe to send everywhere.
+TriMixxx.sortReset = function() {
+    engine.setValue("[Library]", "sort_column_toggle", TriMixxx.SORT_ID_POSITION);
 };
 
 // B5 Slip mode: toggle on press.
@@ -543,10 +551,6 @@ TriMixxx.encoderPush = function(channel, control, value, status, group) {
         // encoder walks into the children. A leaf -- or a root that owns a track
         // table, i.e. Tracks -- hands focus to the track list instead, which is
         // what the old unconditional jump did for everything.
-        // Entering a section: whatever was sorted is about to be replaced by a
-        // fresh model in its own order, so let go of the sort now rather than
-        // leaving the button lit over a list that is not sorted.
-        TriMixxx.sortForget();
         engine.setValue("[Library]", "GoToItem", 1);
         return;
     }
