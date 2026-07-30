@@ -558,11 +558,22 @@ The complete list, learned by getting each one wrong in turn:
 2. **Emit status** on 50002, unicast per peer at 200 ms, with the slot state set
    (F20/F21). Media presence is advertised here and nowhere else.
 3. **Answer media queries** (`0x05`) with true track and playlist counts (F24).
-4. **Answer the port query** on 12523.
-5. **Serve dbserver** on the advertised port, and **never** answer an unknown
+4. **Serve NFS** — and this comes **before** dbserver, which is not the order
+   we originally assumed (F46). A portmapper on **UDP/111 is mandatory**: with
+   nothing there a deck retries `GETPORT` once a second indefinitely, never
+   falls back to the well-known 48276/2049, and never reaches step 5, so it
+   does not list us at all. Key filehandles on their first 12 bytes (F28).
+5. **Answer the port query** on 12523.
+6. **Serve dbserver** on the advertised port, and **never** answer an unknown
    request with `0x4003` (F25).
-6. **Serve NFS**, keying filehandles on their first 12 bytes (F28).
 7. Optionally **answer `0x35`** for LOAD SETTINGS (F38).
+
+The observed sequence, from one load (F46):
+
+```
+media query 0x05  ──►  portmap GETPORT ──►  MNT  ──►  12523  ──►  dbserver  ──►  READ
+      (t=7.6s)              (t=44.09s)                 (t=44.11s)              (t=52s)
+```
 
 An error and an empty folder are indistinguishable on a CDJ's screen, so the set
 of menu types you implement is a **user-visible surface**, not an internal

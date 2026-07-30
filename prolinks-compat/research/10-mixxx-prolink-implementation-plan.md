@@ -541,33 +541,25 @@ of menu types implemented is a **user-visible surface**, not an internal detail.
 nfsd can sit on any port, because we report them through portmap; 111 is the only
 fixed one. The PoC ran under `sudo`; Mixxx will not.
 
-#### Step 0: find out whether we need it at all — **experiment E9**
+#### Step 0 — **experiment E9: run, and failed.** The helper is required
 
-*Before building any of what follows.* We know the deck **asks**; we do not know
-that it **needs an answer**. A real player serves mountd on 48276 and nfsd on
-2049 (F6), and those numbers were identical across three devices — so they may
-well be compiled-in defaults that a deck falls back to when its `GETPORT` times
-out.
+The hypothesis was that portmap might be skippable: a real player answers
+mountd on 48276 and nfsd on 2049 on every device we have seen (F6), stable
+enough to look like compiled-in defaults a deck might fall back to. If so,
+Mixxx would never need a privileged port.
 
-*Procedure:* run the PoC's `serve` with portmap on a high port — so nothing
-answers on 111 — and mountd/nfsd pinned to the numbers a real player uses. **No
-`sudo`**, which is the whole point:
+**It does not fall back** (F46). With portmap moved off 111 and mountd/nfsd
+pinned to exactly a real player's numbers, the deck sent `GETPORT` to UDP/111
+**31 times, once per second**, never tried 48276 or 2049 though both were bound
+and idle, and never reached the dbserver port query at all.
 
-```bash
-.venv/bin/prolinks -v serve --volume /Volumes/SAM2 --iface en9 \
-    --portmap-port 11111 --mountd-port 48276 --nfsd-port 2049
-```
+Worse than expected in one respect: the deck **mounts NFS before it opens
+dbserver**, so a missing portmapper is not "browse works, playback does not" —
+it is *not being listed at all*. The failure presents as an announce bug.
 
-Then browse and load a track from the deck.
-*Pass:* the deck opens the medium and plays. *Fail:* it lists us (status and the
-media query do not go through portmap) but nothing opens — the same symptom as
-no NFS server at all, so check the capture for `MNT` rather than trusting the
-screen.
-*If it passes:* delete this entire section. No elevation, no helper, no prompt,
-and macOS becomes a first-class serving platform.
-*If it fails:* the design below, which we then need.
+So everything below is required, and the serve side cannot ship without it.
 
-*Status: ready to run — the flags are in (`cli.py`, `net/nfsserver.py`).*
+*Evidence: `captures/S24b-e9-control/`, `captures/S24c-e9-noportmap/`.*
 
 Do not skip this because the helper is more interesting to build.
 
@@ -656,7 +648,19 @@ plan, for three reasons worth writing down rather than discovering later:
    helper" is a conversation, not a patch. This is a strong argument for the
    serve side being a separate, default-off, separately-compiled feature —
    which §B1 already does for unrelated reasons.
-3. **E9 may make all of it unnecessary.** Which is why E9 comes first.
+3. ~~E9 may make all of it unnecessary.~~ **E9 ran and failed** (F46). There is
+   no way around this on macOS, and on Linux the sysctl is the only way to
+   avoid the helper. Budget for it.
+
+Two consequences for the build order that follow from F46's ordering discovery:
+
+- **NFS must work before dbserver is worth writing.** Step 10 (the NFS server)
+  now strictly gates step 11 (dbserver), because a deck that cannot mount never
+  opens a dbserver connection. Building dbserver first would leave it untestable
+  against real hardware.
+- **On macOS the serve side cannot be developed at all without the helper**, so
+  the helper moves from "polish" into step 10. Until it exists, serve-side work
+  on the Mac is limited to the PoC under `sudo`.
 
 ### The dbserver surface
 

@@ -71,6 +71,7 @@ and analysis files · **METH** capture methodology.
 | [F43](#f43) | DB | Sorting picks the item's **second column**; all 12 root categories listed |
 | [F44](#f44) | DB | Search text is argument **3**; KEY drills to a **harmonic tolerance** first |
 | [F45](#f45) | Serve | A server **must hold a number in 1-4**; at 5 a deck accepts it and never asks for its media |
+| [F46](#f46) | Serve | **E9 fails:** UDP/111 is mandatory — no fallback to 48276/2049. And NFS precedes dbserver |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1796,6 +1797,71 @@ offered as a source by a CDJ-2000NXS on firmware 1.44.
 > cycles — 102 and 221 of them — instead of settling into steady keep-alives.
 > It is in AUTO mode and does this whether or not anything is wrong. It is not
 > a symptom, and chasing it is a dead end.
+
+<a id="f46"></a>
+
+### F46 — E9: the portmapper on UDP/111 is mandatory, and NFS comes first  *(confirmed)*
+
+Two questions answered by one A/B, `--number 3` on both sides, only the RPC
+ports and `sudo` differing.
+
+**The hypothesis was that portmap might be skippable.** A real player answers
+mountd on 48276 and nfsd on 2049 on every device we have seen (F6), stable
+enough to look like compiled-in defaults a deck might fall back to. If so,
+Mixxx would never need a privileged port.
+
+**It does not fall back.** With portmap moved to 11111 and mountd/nfsd bound to
+exactly the numbers a real player uses:
+
+```
+t=28.29s  169.254.202.84.4027 > 169.254.99.100.111  UDP len 76   GETPORT
+t=29.29s  ... again
+t=30.29s  ... again          31 times, once per second, to end of capture
+```
+
+The deck **never** tried 48276 or 2049, though both were bound and idle. It
+never opened TCP `12523`, never opened dbserver, and showed no sign of giving
+up within 31 attempts. We sent no ICMP port-unreachable, so it was a plain
+timeout rather than an active refusal — a deck facing a refusal might behave
+differently, but that is not the case we can create without root either.
+
+The DJ-Link layer was byte-identical to the control: us at device 3, deck at 2,
+the SD slot advertised present in all 145 status packets each way. So this is
+purely the RPC layer.
+
+**Verdict: serving requires binding UDP/111.** The privileged-helper design in
+`research/10` §B5 is needed, not optional.
+
+#### The ordering, which is not what we assumed
+
+The control's timeline is the more valuable half of this capture:
+
+| t | |
+|---|---|
+| 7.60s | deck sends the media query `0x05`; we answer |
+| 44.09s | portmap `GETPORT` ×2 → answered |
+| 44.09s | **`MNT`** to the mountd port just learned |
+| 44.11s | **only now** the TCP `12523` dbserver port query |
+| 44.12s | dbserver connection opens |
+| 52.08s | NFS `READ`s begin |
+
+**A deck mounts NFS before it opens dbserver.** `docs/PROTOCOL.md` §6 listed
+dbserver as step 5 and NFS as step 6, implying browse-then-fetch. The deck does
+the reverse, and that is why a missing portmapper stops it listing us *at all*
+rather than merely stopping playback — the failure is upstream of the entire
+browse path, and presents as "we do not appear on LINK".
+
+*Also confirmed in passing:* the deck sends each status packet from a different
+incrementing source port (3680, 3681, 3682 …) and **draws its RPC source port
+from the same counter** — the `GETPORT` came from 3757, between status packets
+3756 and 3758.
+
+*And consistent with F37:* the experiment run drew **no** media query at all.
+The deck had queried us 2.5 minutes earlier in the control and cached the
+result, so it went straight for the mount. One query per slot, not repeated —
+which also means a server restart does not earn a fresh one *(inferred)*.
+
+*Evidence:* `captures/S24b-e9-control/` and `captures/S24c-e9-noportmap/`.
 
 ---
 
