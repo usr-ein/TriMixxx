@@ -28,8 +28,12 @@ import pytest
 
 from prolinks_poc.capture.pcap import read_capture, tcp_streams
 from prolinks_poc.proto import djl
+from prolinks_poc.proto import djl_status as status
 from prolinks_poc.proto import dbserver as db
+from prolinks_poc.proto import mountd, nfs2, portmap, rpc
 from prolinks_poc.proto.bytes import ByteReader
+from prolinks_poc.proto.errors import DecodeError
+from prolinks_poc.proto.xdr import XdrReader
 
 generated = pytest.importorskip(
     "tests.generated.prolink_djl",
@@ -37,6 +41,8 @@ generated = pytest.importorskip(
 )
 ProlinkDjl = generated.ProlinkDjl
 ProlinkDbserver = pytest.importorskip("tests.generated.prolink_dbserver").ProlinkDbserver
+ProlinkStatus = pytest.importorskip("tests.generated.prolink_status").ProlinkStatus
+ProlinkRpc = pytest.importorskip("tests.generated.prolink_rpc").ProlinkRpc
 KaitaiStream = pytest.importorskip("kaitaistruct").KaitaiStream
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -199,6 +205,192 @@ def test_dbserver_ksy_agrees_with_the_hand_written_decoder():
         pytest.skip("no dbserver traffic in the corpus on this machine")
     # The dysentery LinkInfo captures alone hold well over ten thousand.
     assert seen > 200
+
+
+def _udp_payloads(port: int):
+    """Every UDP payload **addressed to** *port* in the corpus.
+
+    The destination, not either endpoint, and that distinction is the whole
+    reason this helper is not one line. The type byte at 0x0a is shared across
+    ports and the layouts behind it are not: `0x06` is a keep-alive on 50000 and
+    a media response on 50002. A tool that binds one socket and sends its
+    keep-alives *from* 50002 therefore contributes packets that match on
+    `src_port` and decode, under this schema, into confident nonsense — which is
+    exactly the failure `prolink_status.ksy` is kept separate to avoid, and which
+    a `port in (src, dst)` filter walked straight into.
+    """
+    for path in sorted(glob.glob(str(ROOT / "captures/journals/*/journal.jsonl"))):
+        for line in open(path):
+            if f'"port": {port}' not in line:
+                continue
+            record = json.loads(line)
+            if record.get("hex"):
+                yield bytes.fromhex(record["hex"])
+    patterns = ("captures/S*/run.pcap", "research/ref-repos/dysentery/doc/assets/*.pcapng")
+    for pattern in patterns:
+        for path in sorted(glob.glob(str(ROOT / pattern))):
+            try:
+                packets = list(read_capture(path))
+            except Exception:  # a truncated or unreadable capture costs that file
+                continue
+            for packet in packets:
+                if packet.dst_port == port and packet.payload:
+                    yield packet.payload
+
+
+def _enum_value(field):
+    """The integer behind a Kaitai enum field.
+
+    The Python target hands back a bare ``int`` when the value is not one the
+    enum declares, and an enum member when it is. Both happen here: a media state
+    of 0x02 is declared, and slot bytes outside 0-4 turn up in the corpus. The
+    C++ target simply casts, so this asymmetry is the Python binding's alone.
+    """
+    return field.value if hasattr(field, "value") else field
+
+
+def test_status_ksy_agrees_with_the_hand_written_decoder():
+    """The UDP-50002 schema, field by field, against every captured packet.
+
+    Both halves matter for the serve side. We *read* status packets to learn who
+    holds tempo master, and we *answer* the media and settings queries -- and
+    until those were answered a deck that had otherwise fully accepted us still
+    refused to list us as a source, because as far as it knew our slots held
+    nothing (F24).
+    """
+    seen, kinds, disagreements = 0, set(), []
+
+    for raw in _udp_payloads(status.STATUS_PORT):
+        if not raw.startswith(djl.MAGIC):
+            continue
+        try:
+            packet = ProlinkStatus.from_bytes(raw)
+        except Exception as exc:  # noqa: BLE001 -- the assertion is the report
+            disagreements.append(("parse", repr(exc), raw[:16].hex()))
+            continue
+        seen += 1
+        kinds.add(packet.packet_type.name)
+
+        if packet.packet_type == ProlinkStatus.PacketType.cdj_status:
+            try:
+                reference = status.decode_status(raw)
+            except DecodeError:
+                continue  # shorter than the media fields; nothing to compare
+            for name, mine, theirs in (
+                ("name", packet.device_name, reference.name),
+                ("device", packet.sender_device, reference.device_number),
+                ("usb", _enum_value(packet.status_usb_state), reference.usb_state),
+                ("sd", _enum_value(packet.status_sd_state), reference.sd_state),
+                ("link", packet.status_link_available, reference.link_available),
+                ("track_id", packet.status_track_id, reference.track_id),
+            ):
+                if mine != theirs:
+                    disagreements.append((name, mine, theirs, "cdj_status"))
+
+        elif packet.packet_type == ProlinkStatus.PacketType.media_query:
+            reference = status.decode_media_query(raw)
+            mine_ip = ".".join(str(b) for b in packet.query_requester_ip)
+            for name, mine, theirs in (
+                ("requester", packet.sender_device, reference.requester),
+                ("requester_ip", mine_ip, reference.requester_ip),
+                ("target", packet.query_target_device, reference.target_device),
+                ("slot", _enum_value(packet.query_slot), reference.slot),
+            ):
+                if mine != theirs:
+                    disagreements.append((name, mine, theirs, "media_query"))
+
+        elif packet.packet_type == ProlinkStatus.PacketType.settings_query:
+            reference = status.decode_settings_query(raw)
+            for name, mine, theirs in (
+                ("requester", packet.settings_requester, reference.requester),
+                ("sender", packet.sender_device, reference.sender),
+                ("slot", _enum_value(packet.settings_slot), reference.slot),
+            ):
+                if mine != theirs:
+                    disagreements.append((name, mine, theirs, "settings_query"))
+
+    assert not disagreements, f"{len(disagreements)} disagreements: {disagreements[:8]}"
+    if seen == 0:
+        pytest.skip("no UDP-50002 traffic in the corpus on this machine")
+    assert "cdj_status" in kinds, f"only saw {sorted(kinds)}"
+
+
+#: Which Kaitai argument type each (program, procedure) should decode to, and how
+#: to check it against the hand-written codec. Only the calls a CDJ actually
+#: makes -- the ones our server has to answer.
+_RPC_EXPECTED = {
+    (portmap.PROGRAM, portmap.Proc.GETPORT): "getport_args",
+    (mountd.PROGRAM, mountd.Proc.MNT): "path_args",
+    (nfs2.PROGRAM, nfs2.Proc.LOOKUP): "lookup_args",
+    (nfs2.PROGRAM, nfs2.Proc.READ): "read_args",
+    (nfs2.PROGRAM, nfs2.Proc.GETATTR): "fhandle_args",
+    (nfs2.PROGRAM, nfs2.Proc.STATFS): "fhandle_args",
+}
+
+
+def test_rpc_ksy_agrees_with_the_hand_written_decoder():
+    """The RPC call schema against every portmap/mountd/nfsd call in the corpus.
+
+    These are the calls a real player will make *to us*, so the schema is the
+    serve side's front door. Two Pioneer deviations are what it has to get right:
+    path and file names are **UTF-16LE counted in bytes**, not the ASCII standard
+    NFS uses, and the credential is AUTH_UNIX with a fresh stamp per call rather
+    than the magic constant documentation claimed (C8).
+    """
+    seen, procedures, disagreements = 0, set(), []
+    ports = (portmap.PORT, mountd.PIONEER_PORT, nfs2.PORT)
+
+    for port in ports:
+        for raw in _udp_payloads(port):
+            try:
+                reference = rpc.parse_call(raw)
+            except DecodeError:
+                continue  # a reply, or another program's traffic on this port
+            try:
+                call = ProlinkRpc.from_bytes(raw)
+            except Exception as exc:  # noqa: BLE001
+                disagreements.append(("parse", repr(exc), raw[:24].hex()))
+                continue
+            seen += 1
+            procedures.add((reference.program, reference.procedure))
+
+            for name, mine, theirs in (
+                ("xid", call.xid, reference.xid),
+                ("program", _enum_value(call.program), reference.program),
+                ("version", call.program_version, reference.version),
+                ("procedure", call.procedure, reference.procedure),
+                ("cred_flavor", _enum_value(call.credential.flavor), reference.cred_flavor),
+                ("cred_body", call.credential.body, reference.cred_body),
+            ):
+                if mine != theirs:
+                    disagreements.append((name, mine, theirs, reference.procedure))
+
+            wanted = _RPC_EXPECTED.get((reference.program, reference.procedure))
+            if wanted is None:
+                continue
+            kind = type(call.arguments).__name__
+            if kind.lower() != "".join(part.title() for part in wanted.split("_")).lower():
+                disagreements.append(("args_type", kind, wanted, reference.procedure))
+                continue
+
+            # The one field worth cross-checking in full: a mangled name is the
+            # difference between a track that loads and NFSERR_NOENT.
+            if wanted == "lookup_args":
+                reader = XdrReader(reference.args)
+                reader.opaque_fixed(nfs2.FHANDLE_SIZE)
+                mine = call.arguments.name.value.decode("utf-16-le")
+                theirs = reader.string_utf16le()
+                if mine != theirs:
+                    disagreements.append(("lookup_name", mine, theirs, "LOOKUP"))
+            elif wanted == "path_args":
+                mine = call.arguments.path.value.decode("utf-16-le")
+                theirs = XdrReader(reference.args).string_utf16le()
+                if mine != theirs:
+                    disagreements.append(("mnt_path", mine, theirs, "MNT"))
+
+    assert not disagreements, f"{len(disagreements)} disagreements: {disagreements[:8]}"
+    if seen == 0:
+        pytest.skip("no RPC traffic in the corpus on this machine")
 
 
 def test_every_packet_type_we_have_ever_seen_is_covered():

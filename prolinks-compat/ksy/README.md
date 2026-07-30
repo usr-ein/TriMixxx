@@ -14,13 +14,30 @@ These are the source of truth for the **parse** direction in Mixxx. Run
 | Schema | Covers | Validated against |
 |---|---|---|
 | `prolink_djl.ksy` | UDP 50000 — discovery, claim chain, keep-alive | **7833 packets / 38 capture files**, all 8 observed types, zero field disagreements with `prolinks_poc.proto.djl` |
-| `prolink_status.ksy` | UDP 50002 — status, media query, settings | *not written yet* |
+| `prolink_status.ksy` | UDP 50002 — status, media query, settings | **38371 packets**, all six observed types (37599 status, 681 mixer status, 56 media queries, 31 responses, 2+2 settings), zero disagreements with `prolinks_poc.proto.djl_status` |
+| `prolink_rpc.ksy` | ONC RPC v2 **calls** — portmap, MOUNT, NFSv2 | **8415 calls** (7885 READ, 387 LOOKUP, 106 GETPORT, 14 GETATTR, 9 MNT, plus EXPORT/UMNT/DUMP/NULL), zero disagreements with `prolinks_poc.proto.rpc`/`nfs2`/`mountd`/`portmap` |
 | `prolink_dbserver.ksy` | TCP 1051 — the metadata protocol | **11809 messages**, both directions, zero disagreements with `prolinks_poc.proto.dbserver` — including the byte count consumed, so the framing is checked and not just the contents |
 | `rekordbox_mysetting.ksy` | `PIONEER/*SETTING*.DAT` | *not written yet* |
 
 `export.pdb` and the ANLZ files are **not** here: Mixxx already vendors
 crate-digger's schemas at `mixxx/lib/rekordbox-metadata/`, and both sides of this
 feature reuse them.
+
+`prolink_rpc.ksy` is the one schema that covers a single direction. RPC replies
+are parsed by the hand-written client in `mixxx/src/network/prolink/rpc/`, which
+predates it and is exercised on every fetch; adding a second reader for the same
+bytes would be two implementations to keep in step for no new coverage. Calls
+were the gap, because nothing had ever needed to read one until we started
+answering them.
+
+## The trap that filtering by port walks into
+
+The type byte at 0x0a is **shared across ports and the layouts behind it are
+not**: `0x06` is a keep-alive on 50000 and a media response on 50002. So a
+corpus filter of "either endpoint is 50002" is wrong — a tool that binds one
+socket and sends its keep-alives *from* 50002 contributes packets that decode,
+under `prolink_status.ksy`, into confident nonsense. Filter on the
+**destination** port. `tests/test_ksy_corpus.py::_udp_payloads` does, and says so.
 
 ## Two constraints that shape every schema here
 
