@@ -13,7 +13,8 @@ Making a Mixxx-based unit interoperate with Pioneer CDJs over the Pro DJ Link
 | `STATUS.md` | Current state of both objectives, and what is being worked on |
 | `docs/PROTOCOL.md` | **The protocol as we have observed it. Implement from this.** |
 | `docs/FINDINGS.md` | How we know: every finding with its evidence, in the order learned |
-| `research/` | Pre-hardware literature review; doc 10 is the Mixxx build plan |
+| `research/` | Pre-hardware literature review; **doc 10 is the Mixxx build plan** |
+| `ksy/` | Kaitai `.ksy` wire-format definitions (phase 3; see doc 10) |
 | `prolinks_poc/` | The Python proof-of-concept (phase 2) |
 | `tests/` | 273 tests, including replay against real Pioneer captures |
 | `docs/HARDWARE.md` | Runbook for a session with real CDJs |

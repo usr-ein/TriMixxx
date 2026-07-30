@@ -1,41 +1,94 @@
-# 10 — Implementation plan: ProLink in Mixxx
+# 10 — Implementation plan: two-way ProLink in Mixxx
 
-The approved build plan for Phases 2 and 3. Supersedes the sketch in
+The approved build plan for Phase B. Supersedes the sketch in
 [08-python-poc-plan.md](08-python-poc-plan.md) and corrects the licensing claims in
 [09-mixxx-integration-notes.md](09-mixxx-integration-notes.md).
 
 Grounded in a full read of the Mixxx source at `../mixxx` (fork of 2.5.6). Line
 references are to that tree.
 
+**Revised 2026-07-30** for two changes of direction:
+
+1. **Serving is v1 scope, not a later phase.** Phase A proved both directions
+   against real hardware, so the old "consume now, serve someday" split has no
+   remaining justification. Former Phase C is folded into Phase B.
+2. **Kaitai Struct describes the wire formats.** With one large caveat that
+   shapes the whole design — see [§Kaitai](#kaitai-struct-what-it-can-and-cannot-do-here).
+
+> Implement from [`docs/PROTOCOL.md`](../docs/PROTOCOL.md), not from this file
+> and not from `research/00`–`09`. This document says *how to build it in Mixxx*;
+> PROTOCOL.md says *what the bytes are*. Where they disagree, PROTOCOL.md wins.
+
 ## Working-directory conventions
 
-- `prolinks-compat/` — research docs + the Python PoC (`prolinks_poc/`, `tests/`,
-  `fixtures/`). `captures/` and `research/ref-repos/` stay git-ignored.
+- `prolinks-compat/` — research docs, the Python PoC (`prolinks_poc/`, `tests/`),
+  and the `.ksy` sources. `captures/` and `research/ref-repos/` stay git-ignored.
 - `mixxx/` — the C++ fork. No PoC artifacts land there; only `src/`, `res/`,
-  `CMakeLists.txt` changes.
+  `CMakeLists.txt` changes, plus the generated Kaitai output.
+- Commit straight to `main` in both repos — no PRs (standing convention for this
+  project). Upstreaming to mixxxdj/mixxx is a separate, later exercise; see
+  [§Upstreaming](#upstreaming-reality-check).
 
-## Context
+---
 
-TriMiXxX is a Raspberry Pi running Mixxx that should behave like a CDJ on a
-Pro DJ Link network. Today Mixxx can only see Rekordbox libraries on **locally
-mounted** USB drives — `src/library/rekordbox/rekordboxfeature.cpp` scans
-`/Volumes`, `/media` and `QDir::drives()`. It has no concept of a library reachable
-over the network: there is not a single `QUdpSocket` or `QTcpSocket` anywhere in
-`src/` (only `QNetworkAccessManager`, for MusicBrainz).
+## Target behaviour
 
-The goal: other CDJs on the Ethernet network appear in Mixxx's left library
-sidebar exactly like a mounted Rekordbox USB does, browsable by playlist and
-loadable to a deck.
+The feature as specified, in the order a user meets it.
+
+### On boot
+
+- If **enabled in Mixxx settings** (default off), Mixxx acts as a CDJ on the
+  Pro DJ Link network. Disabled, it transmits nothing and binds nothing.
+- It advertises a **given player number, or AUTO** — AUTO is the default.
+- It watches the filesystem for mounted volumes carrying a rekordbox database,
+  and **reports media inserted/ejected** to other players as it sees them appear
+  and disappear.
+
+### Serving
+
+- Other CDJs **browse the media mounted in Mixxx** — the same categories, sorts,
+  drill-downs and search a real CDJ offers — and load and play tracks from them.
+- **Only the first two volumes** are served: the first fills the **USB** slot,
+  the second the **SD** slot. A third is ignored.
+- **The internal Mixxx library is never shared.** Only rekordbox media are.
+
+### Consuming
+
+- Mixxx finds other CDJs on the network and lists them in the library sidebar
+  under **ProLink**:
+
+  ```
+  ProLink
+  ├─ 1 · CDJ-2000nexus
+  │  ├─ USB
+  │  └─ SD
+  └─ 2 · CDJ-2000nexus  (offline)
+  ```
+
+- Opening a slot **downloads and parses that medium's `export.pdb`** over NFS.
+- Loading a track **downloads the whole file into a local cache**, which is
+  **cleared at every boot**.
+
+> **Reading of "menu bar".** The requirement says CDJs "display in the menu bar
+> under ProLink", with the path `ProLink > 1 - CDJ 2000 Nxs > USB/SD`. A
+> three-level browsable, track-loadable hierarchy is the library sidebar, not
+> Qt's menu bar — Mixxx has no other surface that can do this. Built as a
+> `LibraryFeature`.
 
 ### Decisions taken
 
 | | |
 |---|---|
-| Phasing | Python PoC first (validate against the two real CDJ-2000NXS), then port to C++/Qt |
-| Scope | Consume only; structure so the serve side drops in later |
-| Transport | NFSv2-over-UDP + `export.pdb`. No dbserver/remotedb TCP for now |
-| Discovery | Passive (listen on UDP 50000); active virtual-CDJ announcer later, behind a setting |
-| Audio | Fetch the whole file to a local cache, then hand the local path to `getOrAddTrack()` |
+| Phasing | Python PoC first (done — validated against two real CDJ-2000NXS), then port to C++/Qt |
+| Scope | **Both directions in v1** |
+| Consume transport | NFSv2-over-UDP + `export.pdb`. **No dbserver client** — we parse the database ourselves |
+| Serve transport | The full stack: 50000 + 50002 + 12523 + dbserver 1051 + portmap/mountd/nfsd |
+| Discovery | Active. The virtual CDJ is required for serving, and the consume side reuses it |
+| Numbering | AUTO by default, from 1–4; explicit override; observer number 7 when consume-only |
+| Served content | Mounted rekordbox media only. Never the Mixxx library |
+| Audio (consume) | Whole file into a boot-scoped cache, then `getOrAddTrack()` on the local path |
+| Audio (serve) | Streamed from the real volume via NFS, exactly as a CDJ does |
+| Wire formats | Kaitai `.ksy` as the source of truth → generated **readers**; hand-written **writers** |
 | Rekordbox glue | Duplicate into ProLink now, extract a shared importer later |
 | Pre-existing bugs | Fix in `rekordboxfeature.cpp` too, as a standalone change |
 
@@ -47,276 +100,184 @@ Rationale for each is in the [decision log](#decision-log).
 
 Verified by reading the `LICENSE` files in `ref-repos/` (2026-07-29):
 
-| Repo | License | Usable in a Mixxx PR? |
+| Repo | License | Usable in Mixxx? |
 |---|---|---|
 | **prolink-connect** | **MIT** | **Yes** — copy/adapt freely, keep the notice |
 | **prolink-cpp** | **MIT** | **Yes** |
-| python-prodj-link | **Apache-2.0** | **No** — Apache-2.0 is incompatible with GPLv2 |
+| python-prodj-link | **Apache-2.0** | **No** — incompatible with GPLv2 |
 | dysentery | EPL-1.0 | **No** |
 | vizlink | EPL-2.0 | **No** |
 | libcdj | *no LICENSE file* → all rights reserved | **No** — including the `.x` files |
 
-Mixxx is **GPLv2-or-later** (`../mixxx/COPYING`). This corrects doc 09, which calls
-python-prodj-link "GPL-ish"; it is Apache-2.0, which is *worse* for our purpose —
-the one common OSI license explicitly incompatible with GPLv2. Mixxx's "or later"
-means an Apache/EPL contribution would not make the tree undistributable, but it
-would strip the GPLv2 option from the combined work, forcing Mixxx to GPLv3+.
-Maintainers will not accept that in a feature PR.
-
-Note the irony: python-prodj-link is by far the most complete reference for
-objective 1, and it is the one we may not copy from.
+Mixxx is **GPLv2-or-later** (`../mixxx/COPYING`). Apache-2.0 and EPL would not make
+the tree undistributable under "or later", but they would strip the GPLv2 option
+from the combined work, forcing Mixxx to GPLv3+. Maintainers will not accept that.
 
 **Operative rule: inspiration, not transcription.** Protocol *facts* — offsets,
-magic numbers, procedure numbers, `/B/` and `/C/`, the UTF-16LE deviation,
-1280-byte chunks, "4 READs in flight" — are **not copyrightable**. Only the *code
-expression* is. So the restricted repos remain fully usable as **references and
-inspiration**; what we must not do is copy their code.
+magic numbers, procedure numbers, `/B/` and `/C/`, the UTF-16LE deviation — are
+**not copyrightable**. Only code expression is.
 
-This is not a limitation in practice, because the `research/` docs already did the
-extraction: they are the intended intermediary between those repos and our code.
+In practice this is now a solved problem: **`docs/PROTOCOL.md` and
+`docs/FINDINGS.md` are the extraction**, written from our own captures of our own
+hardware. Write the C++ from those, and the provenance trail is clean by
+construction.
 
-### Working discipline
+### The `.ksy` files specifically
 
-- **Write from `research/*.md`, not from a source file open in the next window.**
-  If a fact needed for the implementation is not yet in the research docs, add it
-  there first (with its citation), then implement from the doc. This keeps the
-  provenance trail honest and is the practical mechanic that makes "inspiration"
-  hold up.
-- **Structure and algorithms may be modelled on prolink-connect** (MIT) — copy it
-  outright if useful, keeping the notice. It also happens to have the cleanest NFS
-  layering of the seven.
-- **Restricted repos (Apache/EPL/unlicensed) are read-only documentation.** Consult
-  them freely to understand *what* the protocol does and to resolve ambiguity; do
-  not paste, translate line-by-line, or port their file structure verbatim.
-- **Deliberate divergences already planned** — a `selectors` reactor instead of
-  python-prodj-link's asyncio+threads, and explicit `struct` codecs instead of its
-  `construct` declarations. These are required for the C++ port anyway, and they
-  mean the resulting code does not resemble the Apache-2.0 original even where it
-  solves the same problem.
+`lib/rekordbox-metadata/rekordbox_pdb.ksy` and `rekordbox_anlz.ksy` are already
+vendored in Mixxx and are **EPL-1.0** (from Deep-Symmetry's crate-digger). That is
+a pre-existing situation upstream, not ours to fix, and we reuse them as-is.
 
-Two concrete deliverables follow:
-
-1. **License the PoC GPLv2+ from commit one**, so nothing in it can be "cleaner"
-   than what may go upstream and the boundary is enforced by construction.
-2. Keep **`PROVENANCE.md`** — one row per non-obvious constant: value, meaning, and
-   the *document* (research doc section, RFC section, or our own capture) it came
-   from. "Where did this magic number come from" is the first question a maintainer
-   asks about reverse-engineered code, and this is the answer.
+**Every new `.ksy` we add is authored by us from `docs/PROTOCOL.md`, licensed
+GPLv2+, and must not be derived from any EPL or Apache source.** Put the
+provenance in each file's `meta.doc` — the finding number for each non-obvious
+field. This is the single most scrutinised thing in a reverse-engineered
+contribution, and a `.ksy` that cites `F31` next to a byte offset answers the
+question before it is asked.
 
 ---
 
-# Phase A — Python PoC
+## Phase A — Python PoC: **done**
 
-Purpose: prove the protocol against hardware, and produce artifacts that make the
-C++ port mechanical.
+Kept here as a record; the live state is in [`STATUS.md`](../STATUS.md).
 
-## Portability rules
+Both objectives work end-to-end against two CDJ-2000NXS on firmware 1.44. The
+last serve session was **568 dbserver requests with zero errors**: 11 browse
+categories, drill-downs, ALL entries, search-as-you-type, all twelve sorts with
+the sorted field as the second column, harmonic key matching, two media at once
+as USB + SD, load and play of MP3/AAC/WAV/AIFF including 75 MB lossless, artwork,
+hot cues, both waveforms, and LOAD SETTINGS.
 
-The PoC exists to be ported. That imposes hard rules on how it is written:
+Experiments E1–E8 all have verdicts; they are folded into `docs/FINDINGS.md`
+(F1–F44, C1–C14, O1–O7) and settled into `docs/PROTOCOL.md`. 273 tests pass with
+no hardware. 31 pcaps are archived in `prolinks-captures-2026-07-30.7z`.
 
-| Rule | Why | Forbids |
+**What Phase A hands to Phase B:**
+
+| Artifact | Where | Role in the port |
 |---|---|---|
-| Explicit `struct.pack`/`unpack` at named constant offsets | 1:1 with `QDataStream`/`memcpy` | `construct`, `kaitai`, `scapy` in core, `__getattr__` tricks |
-| One single-threaded `selectors` reactor, ticked by explicit `poll(now_monotonic)` | maps to `QUdpSocket::readyRead` + `QTimer` | `asyncio`, threads (python-prodj-link uses both — deliberately not copied) |
-| Every protocol module encodes **and** decodes **both** directions from day one | the serve side becomes plumbing, not a rewrite; also gives a free dissector | client-only codecs |
-| State machines as explicit `enum State` + `step(state, event) -> (state, actions)` | directly transcribable | implicit state in coroutine position |
-| Core depends only on `socket`, `struct`, `selectors`, `enum`, `hashlib`, `time` | Mixxx cannot take Python deps; anything exotic signals a porting hazard | third-party libs below `cli.py` |
-| Zero DJ-Link transmission unless explicitly asked | experiment E1 requires provable passivity | ambient keep-alive threads |
+| The specification | `docs/PROTOCOL.md` | Implement from this |
+| The evidence | `docs/FINDINGS.md` | Cite this in comments |
+| Capture corpus | `prolinks-captures-2026-07-30.7z`, 31 pcaps | Regression input for the `.ksy` and the writers |
+| Working reference implementation | `prolinks_poc/` (~9.4k lines excl. CLI/capture) | The algorithm, in a language you can single-step |
+| Test suite | `tests/`, 273 tests | Port the assertions, not the code |
 
-## Layout
+**Still missing, and worth producing before the port** (they were listed as Phase A
+deliverables and never made):
 
-```
-prolinks_poc/
-  cli.py                    # the ONLY place third-party deps are allowed
+- **`PORTING.md`** — per-module → target Mixxx path, class name, thread, Qt
+  signals. Cheap to write and it removes a hundred small decisions from the port.
+- **Golden decode JSON** — canonical (sorted keys, hex byte strings, no floats:
+  `bpm_100` not `bpm`) for every fixture. *This is the contract for the port:
+  same bytes in → same canonical JSON out → empty diff.* It converts "did I port
+  the parser correctly" from a judgement call into a CI check, and it is what
+  makes step 2 of the build order self-verifying.
 
-  proto/                    # pure bytes <-> structs. No sockets, no timers, no state.
-    bytes.py                #   ByteReader/ByteWriter — THE portability seam
-    errors.py
-    djl.py                  #   UDP 50000: 0x0a/0x00/0x02/0x04/0x06/0x08 + mixer 0x01/0x03/0x05
-    djl_status.py           #   UDP 50002: CDJ status 0x0a, mixer 0x29, media 0x05/0x06
-    djl_beat.py             #   UDP 50001: beat 0x28, on-air 0x03 (decode-only)
-    xdr.py                  #   XDR + the Pioneer UTF-16LE length-prefixed string
-    rpc.py                  #   ONC RPC v2 (RFC 1057), AUTH_UNIX / AUTH_NULL
-    portmap.py              #   prog 100000 v2: NULL/GETPORT/DUMP
-    mountd.py               #   prog 100005 v1: MNT/UMNT/EXPORT
-    nfs2.py                 #   prog 100003 v2: NULL/GETATTR/LOOKUP/READ/READDIR/STATFS
-    piostring.py  pdb.py  pdb_rows.py  anlz.py
+---
 
-  net/                      # I/O. Thin. Everything here is Qt-replaceable.
-    iface.py  loop.py  udp.py  rpcclient.py  nfsclient.py
-    vfs.py  nfsserver.py    #   PHASE C SEAM — exercised offline at M8
+## Kaitai Struct: what it can and cannot do here
 
-  core/
-    devices.py  discovery.py  announcer.py  statusmon.py
-    slots.py  library.py  mediastore.py  cache.py
+**The constraint that shapes everything below: Kaitai Struct cannot generate C++
+serializers.** Serialization support exists only for the Java and Python targets
+([doc.kaitai.io/serialization.html](https://doc.kaitai.io/serialization.html)),
+and the runtime vendored at `lib/kaitai/` (`KAITAI_STRUCT_VERSION 11000L`,
+i.e. 0.11) is read-only — `kaitaistream.h` exposes `read_u4be()` and friends and
+has no `write_*` at all. Verified by inspection, not assumed.
 
-  capture/
-    recorder.py             #   JSONL journal of every datagram in/out
-    replay.py               #   offline regression + golden generation
-    passivity.py            #   asserts zero bytes transmitted on DJ-Link ports
+For a consume-only feature that would be a footnote. For a **two-way** feature it
+is structural: half of what we do is emit bytes, and Kaitai will not emit them.
 
-  spec/gen_spec.py          # emits spec/observed/*.md from constants + journals
+### The split
 
-tests/      fixtures/      captures/ (git-ignored)
-```
-
-Deltas from doc 08's sketch: `packets.py` split by port; `dbclient.py`/`dbserver.py`
-not created (out of scope); `vfs.py` + `nfsserver.py` added as the serve-side seam;
-`net/loop.py` replaces asyncio+threads — the single biggest structural divergence
-from python-prodj-link, and intentional.
-
-## Milestones
-
-Ordered to front-load the two questions that could invalidate the decided scope
-(M2, M4).
-
-| M | Deliverable | Hardware verification |
+| Layer | Parse | Build |
 |---|---|---|
-| **M0** | `loop.py`, `udp.py`, `iface.py`, `recorder.py`, `cli sniff` — hex dump, no decoding | ~0x36-byte datagram from two IPs every ~1.5 s starting `51 73 70 74 31 57 6d 4a 4f 4c 06 00`; journal agrees with `tcpdump` packet-for-packet |
-| **M1** | `proto/djl.py`, `core/devices.py`, `discovery.py`, `cli devices` | Two devices whose numbers/IPs/MACs match the CDJ screens. **Capture the literal 20-byte name field** — resolves the `CDJ-2000nexus` casing, currently *inferred* (doc 07 §2a) |
-| **M2** | `xdr.py`, `rpc.py`, `portmap.py`, `rpcclient.py`, `cli rpcinfo` | **GO/NO-GO GATE.** Non-zero UDP ports for mountd (100005 v1) and nfsd (100003 v2), probed across {unit A, B} × {USB, SD, both, none} × {idle, loaded, playing} |
-| **M3** | `mountd.py`, `cli exports` / `mount` | `EXPORT` enumerable; `MNT` returns status 0 and a 32-byte fhandle |
-| **M4** | `nfs2.py`, `nfsclient.py` (windowed READ), `slots.py`, `cache.py`, `cli fetch`/`pull-db` | **The anchor test:** eject the stick, `shasum -a 256` the pdb on the Mac, re-insert, fetch over NFS, compare. Byte-identical or bust. Run under `--assert-passive` |
-| **M5** | `piostring.py`, `pdb.py`, `pdb_rows.py`, `library.py`, `cli tracks`/`playlists` | Track count, titles and playlist tree match the CDJ browse screen and Rekordbox |
-| **M6** | `anlz.py` + lazy ANLZ/artwork fetch | SHA-256 vs the physical stick; beatgrid and hot cues match the CDJ display |
-| **M7** | `cli get-audio` — whole file to cache | SHA-256 vs stick; the file plays. Measure throughput across chunk {1024…8192} × window {1…8} |
-| **M8** | `vfs.py` + `nfsserver.py` on loopback, over the *same* codecs | Our client round-trips a byte-identical pdb from our server. Then point **prolink-connect** at it — independent third-party validation of every reply encoder, at zero hardware cost |
-| **M9** | `announcer.py` — keep-alive at D=7, then the full claim chain at D=3 | Both CDJs list us. Diff our keep-alive byte-for-byte against a real NXS keep-alive from M1; every differing byte must be justified. `--dry-run` mandatory |
-| **M10** | `djl_status.py`, `statusmon.py` — slot presence | Play/pause/insert/eject track the display |
-| **M11** | Freeze the port artifacts (below) | — |
+| `export.pdb` | **Kaitai** (already in tree) | never |
+| ANLZ `.DAT`/`.EXT` | **Kaitai** (already in tree) | never — but the *wire* transform is ours (§5.11) |
+| `PIONEER/*SETTING*.DAT` | **Kaitai** (new) | never |
+| DJ Link UDP 50000 | **Kaitai** (new) | hand-written |
+| Status / media / settings UDP 50002 | **Kaitai** (new) | hand-written (skeleton + poke, F23) |
+| dbserver TCP 1051 | **Kaitai** (new) | hand-written |
+| ONC RPC / portmap / mountd / NFSv2 | hand-written | hand-written |
+
+RPC is the one place Kaitai is *not* worth it. XDR is 4-byte-aligned big-endian
+primitives with no layout subtlety; the reply shape depends on the procedure,
+which lives outside the byte stream (correlated by XID), so Kaitai would need
+`params:` threaded through every type to express what a `switch` on an integer
+does in four lines. Six procedures. Hand-write it — as the previous revision of
+this plan already argued, and it is the same code the server needs in reverse.
+
+Everywhere else Kaitai earns its place, because the hard part of those formats
+*is* the layout: which byte is at `0x6f`, that the name starts at `0x0b` on 50002
+and `0x0c` on 50000, that a zero-length dbserver blob is **absent** rather than
+empty.
+
+### Why this is still a win, not a consolation prize
+
+1. **The `.ksy` becomes an executable `PROTOCOL.md`.** Every offset in the spec
+   gets a machine-checkable counterpart. Documentation that can be run against
+   31 pcaps does not rot.
+2. **The Python target does serialize.** Generate `--target python` from the same
+   `.ksy` into the PoC's test tree and you get, for free: a second independent
+   parser to diff against the hand-written PoC codecs across the whole capture
+   corpus, **and a reference encoder to diff the C++ writers against**. The
+   serialization gap becomes a testing asset instead of a loss.
+3. **Round-trip is the writer's unit test.** Every writer is tested as
+   `build(x) → kaitai parse → compare fields`, plus a golden hex vector from a
+   real capture. A writer with no generated counterpart is still fully pinned.
+
+### Layout and build integration
+
+Precedent in-tree: `rekordbox_pdb.cpp` is **generated code, checked in**, carrying
+the banner *"This is a generated file! Please edit source .ksy file and use
+kaitai-struct-compiler to rebuild"*, compiled as its own static target
+`rekordbox_metadata` with `-Wno-switch` / `/w44063`
+(`CMakeLists.txt:2685-2705`). Follow it exactly: **no JVM in the build.**
 
 ```
-M0 ─► M1 ─► M2 ══[GATE: E4]══► M3 ─[E2,E3]─► M4 ─[E1,E6,E7]─┬─► M5 ─► M6 ─► M7
-             │                                               └─► M8 (offline)
-             └─(no RPC)─► STOP: re-plan around dbserver           M9 ─► M10 ─► M11
+prolinks-compat/ksy/                      # source of truth, ours, GPLv2+
+    prolink_djl.ksy                       # UDP 50000
+    prolink_status.ksy                    # UDP 50002 — separate top-level type (C14)
+    prolink_dbserver.ksy                  # TCP 1051
+    rekordbox_mysetting.ksy               # PIONEER/*SETTING*.DAT
+    regenerate.sh                         # ksc --target cpp_stl + --target python
+    README.md                             # which finding pins which field
+
+mixxx/src/network/prolink/generated/      # checked-in ksc output, never edited
+    prolink_djl.{h,cpp}  prolink_status.{h,cpp}
+    prolink_dbserver.{h,cpp}  rekordbox_mysetting.{h,cpp}
 ```
 
-M8 is offline and cheap. Do not defer it just because "serve is later" — it turns
-Phase C from greenfield into swapping the VFS backend.
+`.ksy` sources live in **prolinks-compat**, not Mixxx, because they are research
+artifacts that the Python test suite consumes too; `regenerate.sh` writes into
+both trees. New CMake target `prolink_protocol` mirroring `rekordbox_metadata`:
+static, `EXCLUDE_FROM_ALL`, relaxed warnings, links `Kaitai`. That keeps generated
+noise out of the warnings-as-errors path our own code sits in.
 
-## Experiments
+**Kaitai parses from a fully-resident buffer.** Fine for packets, and already the
+case for the pdb, which needs random access anyway (`page_ref_t::body()` seeks,
+`rekordbox_pdb.cpp:647`).
 
-Each has a hypothesis, a procedure, a pass criterion, and a decision.
+### The one format that will fight
 
-**E1 — does passive NFS access work with no announcement?**
-*Hypothesis:* yes. dysentery `startup.adoc:468` states NFS access to mounted media
-works "allowing passive implementations to fetch track metadata directly without
-sending announcement packets"; the RPC servers have no notion of DJ-Link identity.
-*Procedure:* never instantiate the announcer; run `rpcinfo`/`exports`/`mount`/`fetch`
-against an IP learned purely by listening, wrapped in `--assert-passive` (fails on a
-single byte transmitted to 50000/50001/50002/50004), cross-checked with `tcpdump`.
-*If it fails:* run M9 stage 1 (keep-alive at D=7), retry. "NFS requires prior
-announcement" is a first-class result — it would make the announcer a hard
-dependency of the Mixxx feature rather than an optional extra, and M9 must move
-before M2.
+`prolink_dbserver.ksy` is the hard one, and worth knowing before starting:
 
-**E2 — the `NFSERR_ACCES` (13) that libcdj hit.** Its `vdj_nfs_explore.c` header
-comment reads *"Does not wrok, mount gets 13 NFSERR_ACCES."*
-*H1 (most likely):* libcdj uses glibc `clnt_create()`, which defaults the client
-credential to **`AUTH_NULL`**; both working implementations send **`AUTH_UNIX`**
-(python-prodj-link stamp `0xdeadbeef`; prolink-connect stamp `0x967b8703`, observed
-from a real CDJ). Doc 06 §2's "creds are not enforced" is *inferred* from two
-clients that both send `AUTH_UNIX` — nobody has tested `AUTH_NULL`.
-*H2:* mounting an export with no media inserted. *H3:* a reserved-source-port
-(<1024) requirement.
-*Procedure:* `mount --slot usb` four ways — `AUTH_UNIX`/`0x967b8703`,
-`AUTH_UNIX`/`0xdeadbeef`, `AUTH_NULL`, and `AUTH_UNIX` from port 1023 — each against
-a populated and an empty slot. If `AUTH_NULL` fails, doc 06 must be corrected and
-the Mixxx implementation must not skip `AUTH_UNIX`.
+- A message is a **tagged field stream**, and the header separately carries a
+  12-byte blob of *argument* tags describing the same arguments **under a
+  different numbering** (`0f`/`10`/`11`/`14`/`26` vs `02`/`03`/`06`). Both must
+  agree. Expressible: parse the tag blob first, then `switch-on` it per argument.
+- **A zero-length binary argument is omitted entirely** — not sent as an empty
+  blob. Needs `if:` keyed on the already-parsed argument tag. Expressible, but it
+  is the rule that desynchronises a naive parser, so pin it with a capture test
+  on day one.
+- Strings are **UTF-16 big-endian counted in characters including the NUL** —
+  the opposite endianness to the NFS layer. Kaitai's `encoding: UTF-16BE` with a
+  computed byte length handles it; do not let the two conventions share a type.
 
-**E3 — are `/C/`=USB and `/B/`=SD right on an NXS?** Both reference clients agree,
-but both were validated against XDJ-class hardware. Print the raw length-prefixed
-UTF-16LE export bytes verbatim under four media conditions on both units; also probe
-`/A/` and bare `/C`. *Decision:* if `EXPORT` is enumerable, drive mounts from it
-(prolink-connect's approach) rather than the hardcoded table — more robust, and the
-serve side needs the same code.
-
-**E4 — does a CDJ-2000NXS serve NFS at all?** The evidence marked "confirmed" in
-doc 06 §1 actually rests on libcdj's capture of an **XDJ**, plus dysentery text about
-XDJ-XZ/Opus Quad over USB-virtual-ethernet. Neither is an NXS, which is a 2012 unit.
-This is the M2 gate.
-*Decision tree:* registered always → proceed. Registered only with media inserted →
-proceed, but M10 becomes a *dependency* of the consume path, not an optional extra.
-Portmapper answers but nfsd/mountd absent → stop, pivot to dbserver. Nothing on
-UDP/111 in any condition on either unit → **the decided transport does not work on
-this hardware**; stop, write it up, re-plan around remotedb TCP (doc 04).
-
-**E5 — which NFSv2 procedures does the NXS implement?** Neither reference client
-calls `READDIR`, `GETATTR`, `STATFS` or `READLINK`, and libcdj's `READDIR` attempt
-returned *"RPC: Procedure unavailable"*. The serve side needs to know what a real
-CDJ will call against us; `STATFS` would give the Link-Info panel's free/total
-bytes; `READDIR` would remove the `PIONEER`-vs-`.PIONEER` guess.
-
-**E6 — `PIONEER` vs `.PIONEER`, and is `analyze_path` root-relative?** `LOOKUP` both
-from the root handle; then resolve one `analyze_path` verbatim and with the leading
-component stripped. Removes the "try both and see" branch both reference clients carry.
-
-**E7 — READ sizing and fragmentation.** The chunk × window matrix with `tcpdump`
-watching for IP fragmentation. Picks the constant the C++ port ships with, and tells
-us whether prolink-connect's 2048 (which necessarily fragments) is safe on an NXS or
-whether python-prodj-link's MTU-conservative 1280 is required.
-
-**E8 — filehandle lifetime across media change.** Mount, fetch, eject, re-insert,
-reuse the cached root handle. Expect `NFSERR_STALE` (70). Confirms the
-cache-invalidation rule for `mediastore.py` *and* what our own server must return.
-
-## CLI surface
-
-Single entry point `prolinks`. `<device>` accepts a player number resolved via
-discovery, or a bare IP (which bypasses discovery entirely — required for E1).
-
-Global flags: `--iface NAME`, `--capture-dir DIR`, `--record/--no-record`,
-`--assert-passive`, `--json`, `-v/-vv`, `--offline`.
-
-```
-prolinks sniff [--decode] [--hex]          prolinks devices [--watch]
-prolinks rpcinfo <dev>                     prolinks exports <dev>
-prolinks mount <dev> --slot usb|sd|rb      prolinks stat <dev> --slot S --path P
-prolinks ls <dev> --slot S --path P        prolinks nfsprobe <dev> --slot S
-prolinks fetch <dev> --slot S --path P [-o F] [--chunk N] [--window N]
-                                           [--auth unix|null] [--stamp HEX] [--sha256]
-prolinks pull-db <dev> [--slot S]          prolinks pdb-dump <FILE.pdb> [--table T]
-prolinks tracks <dev>                      prolinks track <dev> <ID>
-prolinks playlists <dev> [--tree]          prolinks anlz-dump <FILE> [--tag PQTZ]
-prolinks get-audio <dev> <ID> [--play] [--verify-against /Volumes/X]
-prolinks announce [--number N] [--name S] [--claim] [--dry-run] [--duration S]
-prolinks status [--watch]                  prolinks serve-loopback <dir> [--port N]
-prolinks replay <journal.jsonl>            prolinks golden <fixture-dir>
-prolinks spec [-o spec/observed/]
-```
-
-`announce` is the only command that transmits on DJ-Link ports, so passivity is a
-property of the command set rather than a runtime flag. `--auth`/`--stamp`/
-`--chunk`/`--window` exist so E2 and E7 are single invocations, not code edits.
-`--verify-against` automates the physical-stick SHA-256 comparison.
-
-## Artifacts to freeze
-
-The PoC's real output is not the Python — it is the evidence and the goldens.
-
-1. **pcaps per milestone**, each with a `NOTES.md` recording hardware state (unit,
-   firmware version from the UTILITY screen, slot, media). A pcap without that is
-   worthless in six months.
-2. **JSONL packet journal** — `{ts_mono, ts_utc, dir, local_port, peer, len, hex,
-   decoded, decode_error}`. More useful than the pcap: it carries our interpretation
-   alongside the bytes.
-3. **Committed binary fixtures** — a real `export.pdb`, 3–5 ANLZ `.DAT`/`.EXT` pairs
-   spanning easy / CJK-titled / no-`.EXT`, artwork, one small audio file, with a
-   `manifest.json` of remote path, size, SHA-256 and how it was obtained. Do not
-   commit a 40 MB FLAC — commit its first and last 64 KiB plus the hash.
-4. **Golden decode JSON** — canonical (sorted keys, lowercase-hex byte strings,
-   floats forbidden: store `bpm_100`, not `bpm`). *The contract for the C++ port:
-   same bytes in → same canonical JSON out → empty diff.* This turns "did I port the
-   parser correctly" from a judgement call into a CI check. Highest-value artifact.
-5. **`spec/observed/*.md`** — byte tables with a provenance column per field:
-   `observed` (seen on the wire, with the distinct values), `derived` (RFC-mandated),
-   or `assumed` (we send it but never verified). The `assumed` rows are the Phase C
-   risk register.
-6. **`MODEL.md`** — the three state machines (discovery TTL, the device-number claim
-   FSM, the NFS download window) as state/event/action tables; **`PORTING.md`** —
-   per-module target Mixxx path, class name, thread, and Qt signals, plus measured
-   timing constants; **`PROVENANCE.md`**; **`docs/FINDINGS.md`** — the E1–E8 verdicts and
-   the resulting corrections to docs 06, 07 and 09.
+If the tag-blob correlation turns out to fight Kaitai harder than expected, the
+fallback is a hand-written parser for *this format only* — it is one file, the
+PoC's `proto/dbserver.py` is 689 lines including docstrings, and nothing else in
+the design depends on it being generated. Decide after the first `.ksy` spike;
+do not let it block the other three.
 
 ---
 
@@ -325,9 +286,9 @@ The PoC's real output is not the Python — it is the evidence and the goldens.
 ## B0. Prerequisite: two pre-existing Rekordbox bugs
 
 Land as a standalone, separately-reviewable change to
-`src/library/rekordbox/rekordboxfeature.cpp`. Both are latent in Rekordbox today and
-are hard blockers for ProLink, where devices vanish asynchronously as a matter of
-routine rather than as an exotic case.
+`src/library/rekordbox/rekordboxfeature.cpp`. Both are latent in Rekordbox today
+and are hard blockers for ProLink, where devices vanish asynchronously as a matter
+of routine rather than as an exotic case.
 
 1. **`buildPlaylistTree()` (`:677`)** calls `parent->appendChild()` on a `TreeItem`
    already owned by the live `TreeItemModel`, from a `QtConcurrent` worker thread,
@@ -344,91 +305,321 @@ routine rather than as an exotic case.
    *Fix:* plain `location TEXT` + `UNIQUE(device, rb_id)` + `INSERT OR REPLACE`. The
    lookup is already keyed on `(rb_id, device)`, so nothing else changes.
 
-Bug 2 bites the two-CDJ rig directly (two players, cloned USBs), so neither is optional.
+Bug 2 bites the two-CDJ rig directly (two players, cloned USBs), so neither is
+optional.
 
 ## B1. Module layout
 
-Hard boundary: **`src/network/prolink/` must not `#include` anything from
-`src/library/`.** That is what makes the future server side and the future dbserver
-client droppable in without rework, and the protocol code unit-testable without a
-`Library`.
+Two hard boundaries:
+
+- **`src/network/prolink/` must not `#include` anything from `src/library/`.**
+  This is what keeps the protocol code unit-testable without a `Library`, and it
+  is now load-bearing rather than aspirational: the serve side lives entirely
+  below it and must never reach into Mixxx's collection.
+- **The serve side must not reach into the consume side, or vice versa.** They
+  share the codecs, the discovery table and the virtual CDJ. Nothing else.
 
 ```
 src/network/prolink/
-  prolinkdefs.h                 ports, magic "Qspt1WmJOL", packet types, slots, timeouts
-  prolinkdevice.{h,cpp}         value struct, keyed on MAC (stable across DHCP)
-  prolinkpacket.{h,cpp}         UDP-50000 parse/build (0x06 now; 0x0a/00/02/04/08 later)
-  prolinkdiscovery.{h,cpp}      QUdpSocket on 50000, passive peer table + reaper
-  prolinkstatuslistener.{h,cpp} QUdpSocket on 50002. NOT passive: status is
-                                unicast to announced peers only (FINDINGS F21),
-                                so this only works in announced mode. The
-                                passive path polls MOUNT EXPORT instead.
-  prolinkvirtualcdj.{h,cpp}     announcer + claim chain (stub in v1)
-  prolinknetworkservice.{h,cpp} the ONE object the library layer talks to; owns the net thread
-  rpc/xdrbuffer.{h,cpp}         XDR incl. the Pioneer UTF-16LE strings
-  rpc/rpcclient.{h,cpp}         ONC RPC v2/UDP: XID correlation, AUTH_UNIX, retry
-  rpc/portmapclient.{h,cpp}     GETPORT
-  nfs/nfsv2defs.h  nfs/nfsv2client.{h,cpp}  nfs/nfsfiletransfer.{h,cpp}
+  prolinkdefs.h                  ports, magic "Qspt1WmJOL", packet types, slots, timeouts
+  prolinkdevice.{h,cpp}          value struct, keyed on MAC (stable across DHCP)
+  prolinkdiscovery.{h,cpp}       QUdpSocket on 50000, peer table + reaper
+  prolinkvirtualcdj.{h,cpp}      claim chain, AUTO/manual numbering, keep-alive, defence
+  prolinkstatus.{h,cpp}          UDP 50002 both ways: emit ours, read theirs
+  prolinknetworkservice.{h,cpp}  the ONE object the rest of Mixxx talks to; owns both threads
+  generated/                     checked-in Kaitai readers (see above)
+  wire/prolinkwriter.{h,cpp}     the hand-written build side: QByteArray + endian helpers
+  wire/djlbuild.{h,cpp}          0x0a/00/02/04/05/06/08
+  wire/statusbuild.{h,cpp}       0x0a status from a captured skeleton (F23), 0x06, 0x36
+  wire/dbserverbuild.{h,cpp}     messages, menu items, the five analysis blobs (§5.11)
+  rpc/xdrbuffer.{h,cpp}          XDR incl. the Pioneer UTF-16LE strings
+  rpc/rpcclient.{h,cpp}          ONC RPC v2/UDP client: XID correlation, AUTH_UNIX, retry
+  rpc/rpcserver.{h,cpp}          ONC RPC v2/UDP dispatch, shared by the three services
+  rpc/portmapclient.{h,cpp}      GETPORT
+  nfs/nfsv2defs.h
+  nfs/nfsv2client.{h,cpp}        LOOKUP / READ / GETATTR, windowed
+  nfs/nfsfiletransfer.{h,cpp}    "fetch this whole file", progress + cancel
 
-src/library/prolink/
-  prolinkconstants.h            table names, config keys, cache dir
-  prolinkfeature.{h,cpp}        ProLinkFeature : BaseExternalLibraryFeature
-  prolinkplaylistmodel.{h,cpp}  ProLinkPlaylistModel : BaseExternalPlaylistModel
-  prolinkmedia.{h,cpp}          per-(device,slot) state machine, TreeItem ownership
-  prolinkpdbimport.{h,cpp}      pdb→sqlite + ANLZ reader (duplicated from Rekordbox — B6)
-  prolinkcachemanager.{h,cpp}   cache root, LRU eviction, startup purge
-  prolinktrackfetcher.{h,cpp}   "make this track playable locally", progress + cancel
-  dlgprolinkfetch.{h,cpp,ui}    modal progress dialog
+  server/                        --- objective 2, all of it ---
+    prolinkmediawatcher.{h,cpp}  mounted volumes -> slots; insert/eject signals
+    prolinkservedmedium.{h,cpp}  slot + volume + parsed pdb + settings blob
+    prolinkpdbindex.{h,cpp}      in-memory index: artists, albums, genres, keys, sorts
+    prolinkvfs.{h,cpp}           path -> 12-byte filehandle, NFC+casefold matching (O6)
+    prolinknfsserver.{h,cpp}     portmap + mountd + nfsd over rpcserver
+    prolinkmediaquery.{h,cpp}    0x05 -> 0x06 with true counts (F24); 0x35 -> 0x36 (F38)
+    dbserver/
+      prolinkdbserver.{h,cpp}    QTcpServer 1051 + the 12523 port query
+      prolinkdbsession.{h,cpp}   one connection: preamble, TxIDs, concurrent menus
+      prolinkdbmenus.{h,cpp}     root categories, drill grid, sorts, search, ALL entries
+      prolinkanalysiswire.{h,cpp} ANLZ -> wire form: VBR index, beat grid, waveforms, cues
+
+src/library/prolink/             --- objective 1, all of it ---
+  prolinkconstants.h             table names, config keys, cache dir
+  prolinkfeature.{h,cpp}         ProLinkFeature : BaseExternalLibraryFeature
+  prolinkplaylistmodel.{h,cpp}   ProLinkPlaylistModel : BaseExternalPlaylistModel
+  prolinkmedia.{h,cpp}           per-(device,slot) state machine, TreeItem ownership
+  prolinkpdbimport.{h,cpp}       pdb -> sqlite + ANLZ reader (duplicated from Rekordbox — B9)
+  prolinkcachemanager.{h,cpp}    cache root, boot purge, session pinning
+  prolinktrackfetcher.{h,cpp}    "make this track playable locally", progress + cancel
+  dlgprolinkfetch.{h,cpp,ui}     modal progress dialog
 ```
 
-Reserved, not created now: `src/network/prolink/server/`, `.../dbserver/`.
+The PoC maps onto this almost one-to-one, which is the point of having written it
+the way it was written:
+
+| PoC | Mixxx |
+|---|---|
+| `proto/djl.py`, `djl_status.py` | `generated/prolink_djl` + `wire/djlbuild`, `generated/prolink_status` + `wire/statusbuild` |
+| `proto/dbserver.py` | `generated/prolink_dbserver` + `wire/dbserverbuild` |
+| `proto/xdr.py`, `rpc.py`, `portmap.py`, `mountd.py`, `nfs2.py` | `rpc/*`, `nfs/*` |
+| `proto/pdb.py`, `piostring.py`, `anlz.py` | `lib/rekordbox-metadata` (already there) |
+| `proto/mysetting.py` | `generated/rekordbox_mysetting` |
+| `proto/analysis_wire.py` | `server/dbserver/prolinkanalysiswire` |
+| `net/loop.py`, `udp.py` | Qt event loop + `QUdpSocket` — deleted, not ported |
+| `net/rpcclient.py`, `nfsclient.py` | `rpc/rpcclient`, `nfs/nfsv2client` |
+| `net/vfs.py`, `nfsserver.py` | `server/prolinkvfs`, `server/prolinknfsserver` |
+| `net/dbserverd.py` | `server/dbserver/*` — the biggest single chunk |
+| `core/discovery.py`, `devices.py` | `prolinkdiscovery`, `prolinkdevice` |
+| `core/announcer.py` | `prolinkvirtualcdj` |
+| `core/library.py`, `medium.py`, `slots.py` | `server/prolinkpdbindex`, `prolinkservedmedium`, `prolinkdefs.h` |
+| `capture/*`, `cli.py` | not ported |
+
+`net/loop.py` existing at all was the deliberate bet that paid off here: it was
+written as an explicit `poll(now)` reactor precisely so it would evaporate against
+`QUdpSocket::readyRead` + `QTimer` instead of having to be unwound from asyncio.
 
 ## B2. Threading
 
 | Resource | Thread | Enforcement |
 |---|---|---|
-| All `QUdpSocket`s | **net thread** (`QThread`, "ProLink Net") | Sockets `new`'d inside a slot running on that thread, never in a ctor |
+| Discovery, virtual CDJ, status, media query, consume-side RPC | **"ProLink Net"** (`QThread`) | Sockets `new`'d inside a slot running on that thread, never in a ctor |
+| NFS server, dbserver, all served file I/O | **"ProLink Serve"** (`QThread`) | Same |
 | `TreeItem` / `TreeItemModel` / `SidebarModel` | **GUI only** | Worker builds *detached* trees; GUI splices |
-| sqlite writes (pdb import) | QtConcurrent pool | `mixxx::DbConnectionPooler` + `DbConnectionPooled` (`rekordboxfeature.cpp:457`) |
+| sqlite writes (consume-side pdb import) | QtConcurrent pool | `mixxx::DbConnectionPooler` + `DbConnectionPooled` (`rekordboxfeature.cpp:457`) |
 | `getOrAddTrack` / `GlobalTrackCache` | **GUI only** | `DEBUG_ASSERT_QOBJECT_THREAD_AFFINITY`, `trackcollectionmanager.cpp:474` |
 | Audio playback | engine thread | Reads a plain local file; no ProLink code involved |
 
-The net thread is fully event-driven — no blocking recv, no sleeps. `RpcClient`
+**Why two net threads and not one.** The serve side does blocking `pread()` on a
+USB stick to answer NFS READs. On the same thread as the heartbeat, a cold read
+from a slow stick delays the 2.0 s keep-alive and the 200 ms status tick — and
+five missed keep-alives make us **vanish from every deck on the network**, mid-set.
+The heartbeat must be isolated from disk. Conversely a dbserver render of a
+692-item menu is real CPU work that must not delay a discovery packet.
+
+Within the serve thread, NFS and dbserver share one event loop, as they did in the
+PoC through 568 requests and 75 MB lossless scrubbing with zero errors. Revisit
+only with evidence.
+
+Both threads are fully event-driven — no blocking recv, no sleeps. `RpcClient`
 retries on a 250 ms `QTimer` tick, so a dead peer costs a few wakeups. In-tree
 precedent for a dedicated worker thread with an event loop:
 `src/library/scanner/libraryscanner.cpp:109-140`.
 
-**Why not reuse `src/network/`'s `NetworkTask`/`WebTask`:** they are
-`QNetworkAccessManager`-based HTTP request/response, with no notion of a UDP socket,
-an XID, or a windowed multi-datagram transfer. **Why not `QtConcurrent`:** an NFS
-download is a long-lived socket conversation, not a CPU job; parking a pool thread on
-a socket for 30 s would starve the analyzer.
+**Why not `src/network/`'s `NetworkTask`/`WebTask`:** they are
+`QNetworkAccessManager`-based HTTP request/response, with no notion of a UDP
+socket, an XID, or a windowed multi-datagram transfer. **Why not `QtConcurrent`:**
+an NFS download is a long-lived socket conversation, not a CPU job; parking a pool
+thread on a socket for 30 s would starve the analyzer.
 
-## B3. Sidebar tree
+## B3. Identity: the virtual CDJ
+
+Serving is impossible without a device number, so `ProLinkVirtualCdj` is now core
+rather than the stub the previous revision described.
+
+**AUTO (default).** Byte `0x31` of CLAIM_IP is `0x01` for automatic and `0x02` for
+a specific number (F36). Setting the flag is not the same as choosing the number —
+we still pick one:
+
+1. Listen for **≥ 2.5 s** (one keep-alive interval plus margin) to populate the
+   peer table. Silence is not evidence a number is free; only having watched is,
+   and XDJ-XZ / Opus Quad do not defend their numbers at all.
+2. Choose the lowest free number **in 1–4**.
+3. Run the chain: `3× HELLO → 3× CLAIM_MAC → 3× CLAIM_IP → N× CLAIM_NUMBER`,
+   ~300 ms apart, all broadcast. **N is 3 into an empty network, 1 into a
+   populated one** (C13).
+4. On `0x08` NUMBER_CONFLICT or a `0x05` NUMBER_IN_USE naming our candidate, drop
+   it and restart at the next candidate.
+5. Then keep-alive every **2.0026 s** forever, and **defend**: answer anyone
+   claiming our number with `0x08`. A device that takes a number and does not
+   defend it loses it to the next player that boots.
+
+**Why 1–4.** Real players occupy 1–4 and that is the range a CDJ's LINK screen
+enumerates. Our serve sessions ran as **device 3** and worked. Numbers ≥ 5 are
+untested for serving; treat "all of 1–4 taken" as *serving unavailable* — degrade
+to the observer number **7**, which announces without contending and keeps the
+consume side fully functional. Surface that in the feature's status view; do not
+fail silently, and do not steal a number from a player mid-set.
+
+**Manual.** `[ProLink]/PlayerNumber` = 1–4 sets `0x31 = 0x02` and claims that
+number specifically. On conflict, report it and fall back to observer — the user
+asked for a specific number, so silently taking a different one is worse than not
+serving.
+
+**Consume-only mode.** Passive NFS access works with no announcement at all (F11,
+F12): the export's access list is the whole link-local subnet. So when serving is
+off or unavailable, we can still browse. But status is **unicast to announced
+peers only** (F21) — 1507 status packets in one session, not one to an
+unannounced host — so passive mode cannot see slot state and must probe both
+slots with `MNT` speculatively. Announced mode is strictly better and is the
+default whenever the feature is on.
+
+## B4. Serving: media detection and slots
+
+`ProLinkMediaWatcher` decides what exists. Everything else in `server/` follows
+from it.
+
+**Detection.** A volume qualifies if `PIONEER/rekordbox/export.pdb` exists and
+parses. Enumerate with `QStorageInfo::mountedVolumes()` filtered to
+`isReady() && isValid()`, plus a `QFileSystemWatcher` on the mount parents
+(`/media/$USER`, `/run/media/$USER`, `/Volumes`) and a 2 s poll as backstop —
+`QFileSystemWatcher` misses some mount events on Linux and gives nothing useful on
+macOS. Reuse the platform paths from `rekordboxfeature.cpp:177-234` rather than
+inventing a second list.
+
+**Slot assignment.** First qualifying volume → **USB (slot 3)**, second → **SD
+(slot 2)**, by mount order. On eject the slot frees; the next insert takes the
+lowest free slot, USB first. A third volume is ignored and named in the status
+view — silently dropping a stick the DJ just plugged in is the kind of thing that
+gets discovered during a set.
+
+USB-first because a single medium is what the hardware sessions exercised
+(F24 asked `target=3, slot=3`), and because `/C/` is the export both reference
+clients hardcode.
+
+**Reporting insert and eject.** Three things change together, and all three
+matter:
+
+| | On insert | On eject |
+|---|---|---|
+| Status `0x6f`/`0x73` | set present | set empty — **this is the only place media presence is advertised** (F20) |
+| Media query `0x05` | answer `0x06` with true track and playlist counts (F24) | answer with the slot empty |
+| NFS handles | mint from the new tree | **invalidate — every stale handle is `NFSERR_STALE`** (E8) |
+
+Also drop that slot's dbserver menu cache and any open result sets. A deck asks
+the media query **once, when it first browses a slot** (F37) — it does not poll —
+so the status byte flipping is the entire trigger for a re-query. Get that wrong
+and the deck shows a medium that is no longer there, or refuses one that is.
+
+**The Mixxx library is never served.** The served content is the volume's own
+`export.pdb`, its own ANLZ files and its own audio, read straight off the stick.
+No Mixxx collection code is involved, which is why `server/` can honour the
+"no `src/library/` include" boundary without contortion.
+
+## B5. Serving: the four servers
+
+What a device must do to be browsable, in the order a deck exercises it — the
+complete list, learned in Phase A by getting each one wrong in turn
+(`PROTOCOL.md` §6):
+
+1. **Announce** on 50000 — B3.
+2. **Emit status** on 50002, unicast per peer every ~200 ms, slot bytes set.
+   Built from a **captured 284-byte skeleton** with only understood fields
+   substituted (F23): across 749 consecutive packets from an idle deck only six
+   bytes ever changed, so reproducing the ~270 unknown ones exactly is the
+   difference between plausible and indistinguishable. Ship the skeleton as a
+   `constexpr uint8_t[284]` with a comment citing the capture it came from.
+3. **Answer media queries** `0x05` → `0x06` with true counts (F24).
+4. **Answer the port query** on TCP 12523 — fixed 19-byte query, 2-byte reply.
+5. **Serve dbserver** on TCP 1051. **Never answer an unknown request with
+   `0x4003`** (F25) — a deck that gets an error fetches the root menu and
+   disconnects without opening anything. `0x3e03`, `0x3100` and `0x3d03` must all
+   be acknowledged; `0x0001` MENU_CLOSE draws no reply at all and must not
+   discard state.
+6. **Serve NFS** — portmap + mountd + nfsd, keying filehandles on their **first
+   12 bytes** (F28).
+7. **Answer `0x35` → `0x36`** for LOAD SETTINGS from `PIONEER/MYSETTING.DAT`
+   (F38). Not a file read: the deck mounts the export, reads nothing, and asks
+   here instead.
+
+An error and an empty folder are indistinguishable on a CDJ's screen, so the set
+of menu types implemented is a **user-visible surface**, not an internal detail.
+
+### The privileged-port problem
+
+**A real CDJ calls portmap `GETPORT` against us** for both mountd and nfsd
+(F24) — so **UDP/111 must be bound**, and 111 is a privileged port. mountd and
+nfsd can sit on any ephemeral port, because we report them through portmap; 111
+is the only fixed one. The PoC ran under `sudo`; Mixxx will not.
+
+| Platform | Approach |
+|---|---|
+| **Linux (the Pi — the actual target)** | `sysctl net.ipv4.ip_unprivileged_port_start=111`, set in TriMiXxX's provisioning. Least invasive: no capabilities on the binary, survives package upgrades. Alternative: `setcap cap_net_bind_service=+ep` on the mixxx binary — but that is lost on every reinstall and disables `LD_LIBRARY_PATH`, which breaks some builds |
+| **macOS** | Ports < 1024 need root and there are no capabilities. Serving is **not supported**; consume works fully. Also note macOS may already run `rpcbind` on 111 |
+| **Windows** | No privileged-port restriction; untested, not a target |
+
+**Bind 111 last, and degrade cleanly.** If it fails, keep discovery, the virtual
+CDJ, status and the whole consume side running, and put a specific explanatory
+message in the feature's root view naming the sysctl. **Never a `QMessageBox`**
+(see the comment at `library.cpp:170-172`). A feature that refuses to start
+because of one socket is worse than one that starts degraded and says so.
+
+### The dbserver surface
+
+The largest single piece of the port — `net/dbserverd.py` is 1199 lines. What it
+must implement, all confirmed working in Phase A:
+
+- **Root menu: eleven of twelve categories**, with ids listed explicitly and
+  **not derived**. Two different derivations were tried in Phase A and each was
+  wrong for a different category (F26, F40, F43). `FOLDER` is deliberately not
+  served (unanalysed files by directory, track type 2).
+- **Drill-down as a grid**: `0x1000 | depth << 8 | category`, thirteen observed
+  types from one formula (F42). Chains differ per category.
+- **`ALL` entries** — id `0xffffffff`, type `0xa0` — but only when there is more
+  than one entry.
+- **KEY has an extra level**: three harmonic tolerances, same key id, differing
+  only in argument 0 (F44).
+- **All twelve sorts**, and the sort **selects the item's second column**: item
+  type is `(column field type << 8) | 0x04`. Numeric columns send an *empty*
+  label and put the raw number in argument 0.
+- **Search** — `[descriptor, sort, byte length, text, 0]`, argument **3** is the
+  text; one request per keystroke.
+- **Concurrent menus keyed on `(descriptor, item count)`** — the count alone
+  collides (F27/F41).
+- **Metadata: thirteen items**, each carrying the id of the row it *references*,
+  with the artwork id on the title item.
+- **Track info: six items**, where argument 0 of the path item is the **file
+  size** and item 1 is the **container** from pdb offset `0x5a` (F31/F34/F35).
+- **Analysis blobs are transformed, never forwarded** (F30): file is big-endian,
+  wire is little-endian, and three of five change layout too. `0x2504`, the MP3
+  VBR seek index, **gates playback** — without it a deck resolves the path
+  perfectly and then issues no READ at all.
+- **The opaque fifth prefix word must be non-zero** (F33) or the main waveform
+  does not draw. Emit a monotonic counter of the same shape. We do not know what
+  it means; that is recorded, not resolved.
+- **Camelot keys sorted numerically** (`1A 2A … 12A`), the one deliberate
+  divergence from the hardware, which text-sorts them into nonsense. Server-side
+  only, so there is no interoperability cost.
+
+## B6. Consuming: the sidebar
 
 ```
-Pro DJ Link
-├─ 2 · CDJ-2000nexus
+ProLink
+├─ 1 · CDJ-2000nexus
 │  ├─ USB → All Tracks, Friday Warmup, Techno ▸ Peak Time
 │  └─ SD  → All Tracks
-└─ 3 · CDJ-2000nexus  (offline)
+└─ 2 · CDJ-2000nexus  (offline)
 ```
 
-Device→slot rather than flattened, because SD and USB are genuinely different
+Device → slot rather than flattened, because SD and USB are genuinely different
 libraries. Keep the slot level even when only one slot is populated — consistency
 beats cleverness in a tree navigated under time pressure.
+
+**Our own served media never appear here.** We are in our own discovery table;
+filter ourselves out by device number.
 
 `TreeItem` payload follows the Rekordbox `QList<QString>` convention
 (`rekordboxfeature.cpp:196`) but with an explicit kind tag (`device`/`slot`/
 `playlist`) instead of the two magic `IS_RECORDBOX_DEVICE` sentinels. Unlike
 `RekordboxFeature::activateChild` (`:1563`) we do **not** mutate node data to flip
 device→playlist after the first parse — `ProLinkMedia::state` carries that, which
-keeps the tree data immutable and kills the "re-activating a re-mounted device does
+keeps tree data immutable and kills the "re-activating a re-mounted device does
 nothing" bug class.
 
 **Two-tier timeout** — the critical difference from a USB mount. A CDJ can blip off
-the network for 2 s (cable jiggle, switch STP re-convergence) and come straight back;
-tearing down the tree, the DB rows and the cache on every blip would be infuriating.
+the network for 2 s (cable jiggle, switch STP re-convergence) and come straight
+back; tearing down the tree, the DB rows and the cache on every blip would be
+infuriating. Note the timeout arithmetic changed with C12: keep-alive is 2.0026 s,
+not 1.5 s, so 10 s is **five** missed keep-alives, not six or seven.
 
 | Event | At | Action |
 |---|---|---|
@@ -438,12 +629,17 @@ tearing down the tree, the DB rows and the cache on every blip would be infuriat
 | `[ProLink],refresh` | — | Remove offline devices immediately |
 
 Append new devices at `pRoot->childRows()` rather than inserting at 0, so a user
-browsing player 2 is not yanked when player 3 powers on. Call
+browsing player 1 is not yanked when player 2 powers on. Call
 `clearLastRightClickedIndex()` before **every** structural change:
 `BaseExternalLibraryFeature` holds a raw `QModelIndex` whose `internalPointer()` Qt
 cannot fix up (`baseexternallibraryfeature.h:57-58`).
 
-## B4. Track load and cache
+**Slot presence.** In announced mode, read it from the peer's status packets at
+`0x6f`/`0x73` — the only place it is published (F20). Announced mode is the
+default, so this is the normal path; the passive fallback speculatively `MNT`s
+both slots.
+
+## B7. Consuming: track load and the boot-scoped cache
 
 1. Double-click → `WTrackTableView::slotMouseDoubleClicked` (`wtracktableview.cpp:407`)
    → `getTrack(index)` (`:429`).
@@ -451,9 +647,10 @@ cannot fix up (`baseexternallibraryfeature.h:57-58`).
    `QFile::exists(location)`.
 3. Miss → `ProLinkTrackFetcher::fetchBlocking({audio, .DAT, .EXT})`: a modal
    `DlgProLinkFetch` with progress and Cancel, spinning a nested `QEventLoop`. The
-   ANLZ requests are `required = false` — a missing one costs the beatgrid, not the load.
+   ANLZ requests are `required = false` — a missing one costs the beatgrid, not the
+   load.
 4. Net thread: cached root fhandle → `LOOKUP` → `NfsFileTransfer` with 4 in-flight
-   1280-byte READs, out-of-order reassembly by offset, writing `<local>.part`, then
+   READs, out-of-order reassembly by offset, writing `<local>.part`, then
    **atomic rename**. Atomicity is mandatory: `SoundSource::getTypeFromFile`
    (`soundsource.cpp:56`) uses `QMimeDatabase::MatchContent` — it *reads bytes*, so a
    half-written file would be classified as unsupported.
@@ -463,237 +660,380 @@ cannot fix up (`baseexternallibraryfeature.h:57-58`).
    `rekordboxfeature.cpp:1288-1301`), tagged with the rekordbox beats subversion so
    the analyzer will not overwrite the grid.
 
+**READ size.** Real CDJs use 8192-byte reads, the NFSv2 maximum, relying on IP
+fragmentation (F19). Our PoC client defaults to 1280 to stay under the MTU —
+safe, measured at 1459 KiB/s, but 6.4× the round trips the hardware uses. Ship
+1280 as the default with `[ProLink]/ReadSizeBytes` to raise it; a switched
+100 Mbit link shared with the CDJs' own linked playback is the environment, and
+being modest there is deliberate.
+
 **Cache layout** — mirror the CDJ's tree 1:1, so pdb-relative paths concatenate
-verbatim exactly as `insertTrack` already does (`rekordboxfeature.cpp:371`), with zero
-path-translation logic:
+verbatim exactly as `insertTrack` already does (`rekordboxfeature.cpp:371`), with
+zero path-translation logic:
 
 ```
-<settingsPath>/prolink_cache/<mediaKey>/
-    .meta.json                      { lastUsed, sizeBytes, label, originMac, pdbSha1 }
+<cacheRoot>/<mediaKey>/
+    .meta.json                      { label, originMac, slot, pdbSha1 }
     PIONEER/rekordbox/export.pdb
     PIONEER/USBANLZ/P016/0000875E/ANLZ0000.{DAT,EXT}
     Contents/Artist/Album/Track.mp3
 ```
 
-`mediaKey = sha1(export.pdb)[0:16]` — **content-addressed, not keyed on
-`(mac, slot)`** — but hashed over a *stabilised* copy of the file, not the raw
-bytes. A player rewrites its own bookkeeping in the pdb header as it operates
-(`unknown1` at `0x10` and the write counter `sequence` at `0x14`), so a raw
-digest changes whenever a play count is written and would invalidate the cache
-for a library that has not changed by one track. Zero `0x10..0x18` before
-hashing; see FINDINGS F13 and `prolinks_poc.proto.pdb.stable_digest`. Two CDJs playing off clones of the same USB then share one cache
-entry, halving traffic and disk on exactly this two-deck rig; swapping media yields a
-new key naturally, with no stale-media bug class; and the key survives DHCP
-renumbering and player-number changes. The chicken-and-egg (we can only hash after
-downloading) resolves by fetching to `.incoming/<uuid>.pdb`, hashing, then renaming —
-and if the target dir already exists, discarding the download, which *is* the
-two-CDJs-one-USB fast path.
+**`cacheRoot` is boot-scoped and purged at startup**, per the requirement. Use
+`QStandardPaths::CacheLocation` + `/prolink/`, not the settings dir — it is the
+directory the platform already understands to be disposable, and it keeps a
+multi-gigabyte scratch area out of the user's Mixxx profile.
 
-Eviction: at startup, delete every `*.part` and every media dir older than 30 days;
-after each completed audio fetch, LRU by **whole media dir** (never individual files,
-so we never half-gut a medium) down to a 4 GB budget; never evict a pinned dir.
-Prefetch ANLZ for the first ~100 rows on playlist activation (~5 MB, makes waveforms
-instant); **never prefetch audio by default** — a 10 MB pull per arrow-key press would
-saturate a 100 Mbit link shared with the CDJs' own linked playback.
+This removes a lot of machinery the previous revision needed: no LRU, no 4 GB
+budget, no 30-day sweep, no pinning across sessions. What replaces it is one
+startup step and one in-session rule:
+
+- **At startup, before anything else:** delete `cacheRoot` recursively, then call
+  `TrackCollection::purgeAllTracks(QDir(cacheRoot))` (`trackcollection.h:159`).
+  This is not optional. `getOrAddTrack` writes cache files into `library` and
+  `track_locations` for real, so without the purge **every ProLink track ever
+  loaded becomes a Missing Track on the next boot**, and the count grows without
+  bound. One call, at a point where nothing holds those tracks, and the problem
+  does not exist. This is a strict improvement on the previous plan's
+  "never auto-evict a medium that produced rows this session and document it",
+  which merely deferred the mess.
+- **Within a session, nothing is evicted.** A DJ who loaded a track twenty
+  minutes ago can still reload it after the source CDJ has left the network,
+  which is the real advantage of copy-then-play over streaming.
+
+`mediaKey = stable_digest(export.pdb)[0:16]` — **content-addressed, not keyed on
+`(mac, slot)`** — hashed over a *stabilised* copy. A player rewrites its own
+bookkeeping in the pdb header as it operates (`unknown1` at `0x10`, the write
+counter `sequence` at `0x14`), so a raw digest changes whenever a play count is
+written; zero `0x10..0x18` before hashing (F13, `prolinks_poc.proto.pdb.stable_digest`).
+Two CDJs playing off clones of the same USB then share one cache entry — exactly
+this two-deck rig — and swapping media yields a new key naturally. The
+chicken-and-egg (we can only hash after downloading) resolves by fetching to
+`.incoming/<uuid>.pdb`, hashing, then renaming; if the target dir already exists,
+discard the download, which *is* the two-CDJs-one-USB fast path.
+
+Prefetch ANLZ for the first ~100 rows on playlist activation (~5 MB, makes
+waveforms instant); **never prefetch audio by default** — a 10 MB pull per
+arrow-key press would saturate the link the CDJs are themselves playing over.
 
 | Failure | Behaviour |
 |---|---|
 | CDJ vanishes mid-fetch | 5 × 2 s retries → `fileFailed`, `.part` deleted, `getTrack` returns null, node goes offline |
 | User cancels | `abort()`, `.part` deleted, nothing loads |
 | Media swapped mid-session | `NFSERR_STALE` → `invalidate(slot)` → re-`MNT` → retry once; then treat as `mediaGone` |
-| **CDJ vanishes *after* load** | **Playback continues from the cache file** — a real advantage of copy-then-play over streaming |
-| Disk full | short write → `fileFailed("disk full")`; `enforceBudget()` runs immediately |
+| **CDJ vanishes *after* load** | **Playback continues from the cache file** |
+| Disk full | short write → `fileFailed("disk full")` |
 | ANLZ missing/corrupt | Track loads without a beatgrid; Mixxx analyzes it normally |
 
-## B5. Registration touchpoints
+## B8. Registration and settings
 
 - **`CMakeLists.txt`** — `option(PROLINK ... ON)` + `__PROLINK__`, mirroring
-  `ENGINEPRIME` (`:2438`, `:2549`); a guarded `target_sources` block; test files.
+  `ENGINEPRIME` (`:2438`, `:2549`); a guarded `target_sources` block; the new
+  `prolink_protocol` static target for generated Kaitai output; test files.
   **No dependency changes:** `Network` is already in `QT_COMPONENTS` (`:2799`) and
   PUBLIC-linked to `mixxx-lib` (`:2850`); `rekordbox_metadata` and `Kaitai` are
   already linked (`:2690`, `:2705`).
 - **`src/library/library.cpp`** — `#ifdef __PROLINK__` +
   `addFeature(new ProLinkFeature(this, m_pConfig))` guarded on
   `ConfigKey("[Library]", "ShowProLinkLibrary")`, after the Serato block (~`:208`).
-- **`res/images/library/ic_library_prolink.svg`** + a `res/mixxx.qrc` entry. The name
-  is load-bearing: `LibraryFeature`'s ctor builds
+- **`res/images/library/ic_library_prolink.svg`** + a `res/mixxx.qrc` entry. The
+  name is load-bearing: `LibraryFeature`'s ctor builds
   `":/images/library/ic_library_%1.svg"` (`libraryfeature.cpp:18`).
-  **Do not use Pioneer's Pro DJ Link logo — trademark.** A generic linked-players glyph.
-- **Preferences** — `dlgpreflibrarydlg.ui` row 6 checkbox (bump the
-  "write protected" label to row 7) + `dlgpreflibrary.cpp` `slotResetToDefaults`,
-  `slotUpdate` (`:303`), `slotApply` (`:545`). Drive-by: `checkBox_show_serato` is
-  missing from `slotResetToDefaults` today.
+  **Do not use Pioneer's Pro DJ Link logo — trademark.** A generic linked-players
+  glyph.
+- **Preferences.** The previous revision argued for no preferences page. That no
+  longer holds: "act as a CDJ on the network" and "which player number" are
+  decisions a user must be able to make deliberately and see the result of, and
+  burying them in `mixxx.cfg` for a feature that *transmits on a network shared
+  with live equipment* is the wrong default. Add a small **ProLink page** with
+  exactly four controls plus a status area:
+
+  | Control | Default |
+  |---|---|
+  | ☐ Enable Pro DJ Link | off |
+  | ☐ Act as a player (share mounted rekordbox media) | off |
+  | Player number: `AUTO ▾ / 1 / 2 / 3 / 4` | AUTO |
+  | Network interface: `Auto ▾` | Auto |
+  | *Status:* number held, peers seen, media served, and any degradation (port 111, no free number) | — |
+
+  The status area is the part that earns the page. Everything in this feature
+  that goes wrong goes wrong silently — a taken number, an unbindable socket, a
+  third USB ignored — and a DJ needs to see that before the set, not during it.
+
+- **Remaining `[ProLink]` config keys**, no UI: `CacheDir`, `ReadSizeBytes`=1280,
+  `DeviceTimeoutMs`=10000, `DeviceRemovalGraceMs`=60000, `PrefetchAnalysis`=1,
+  `PrefetchAudioOnSelect`=0, `PortmapPort`=111, `DeviceName`="TriMiXxX".
 - **Controls**, matching this fork's own `[Rekordbox],refresh` precedent
-  (`rekordboxfeature.cpp:1339`): `[ProLink],refresh` and a read-only
-  `[ProLink],device_count`.
-- **No new preferences page in v1.** Ship the `[Library]/ShowProLinkLibrary` checkbox
-  only, and expose the rest as `[ProLink]` config keys documented in the feature's
-  root HTML view: `NetworkInterface` (empty = auto), `CacheDir`, `CacheSizeMb`=4096,
-  `CacheMaxAgeDays`=30, `DeviceTimeoutMs`=10000, `DeviceRemovalGraceMs`=60000,
-  `PrefetchAnalysis`=1, `PrefetchAudioOnSelect`=0, `EnableVirtualCdj`=0,
-  `VirtualCdjDeviceNumber`=7. A page is a lot of surface (ui file, dialog class,
-  `addPageWidget`, light+dark icons, translations) for settings a normal user never
-  touches, and would balloon the first PR.
+  (`rekordboxfeature.cpp:1339`): `[ProLink],refresh`, and read-only
+  `[ProLink],device_count`, `[ProLink],player_number`, `[ProLink],serving`.
+  A read-only `serving` control is what lets the TriMiXxX skin show a link
+  indicator without any new plumbing.
+- Drive-by while in `dlgpreflibrary.cpp`: `checkBox_show_serato` is missing from
+  `slotResetToDefaults` today.
 
-**Hand-roll the XDR; do not link libnfs or libtirpc.** libnfs is NFSv3/v4-centric and
-encodes `LOOKUP` names and mount paths as ASCII, but Pioneer uses **length-prefixed
-UTF-16LE** (doc 06 §5) — using it means patching its wire encoder, which is worse than
-writing our own. libtirpc is effectively Linux-only with a blocking API that fits a Qt
-event loop badly. Both would add a `find_package` plus packaging changes on five
-platforms for **six procedures**: `GETPORT`, `MNT`, `LOOKUP`, `READ`, `GETATTR`,
-`NULL`. Hand-rolled estimate: ~850 lines of straightforward, fully unit-testable
-big-endian struct work on `QByteArray` + `QDataStream` + `QUdpSocket` — and it is the
-same code the objective-2 *server* needs in reverse.
+**Hand-roll the XDR; do not link libnfs or libtirpc.** libnfs is NFSv3/v4-centric
+and encodes `LOOKUP` names and mount paths as ASCII, but Pioneer uses
+**length-prefixed UTF-16LE** — using it means patching its wire encoder. libtirpc
+is effectively Linux-only with a blocking API that fits a Qt event loop badly.
+Both would add a `find_package` plus packaging changes on five platforms for a
+handful of procedures. And neither helps at all on the side that matters most
+here: **we are also an RPC *server*, which is not what either library is for.**
 
-## B6. Duplicated Rekordbox glue
+## B9. Duplicated Rekordbox glue
 
 Per the decision to duplicate now and extract later, copy into
 `src/library/prolink/prolinkpdbimport.{h,cpp}`, written correctly from the start
 (detached trees, `UNIQUE(device, rb_id)`): the pdb table walk
 (`rekordboxfeature.cpp:502-651`), `insertTrack` (`:353`), `buildPlaylistTree`
 (`:656`), `readAnalyze` (`:874`), `setHotCue` (`:839`), `colorFromID` (`:331`),
-`getText` and the UTF-16 helpers (`:254-295`), and the MP3 timing-offset table (`:1248`).
+`getText` and the UTF-16 helpers (`:254-295`), and the MP3 timing-offset table
+(`:1248`).
 
-Reused without copying: the Kaitai types in `lib/rekordbox-metadata/`, already a shared
-static library. `kaitai::kstream(const std::string&)` exists
-(`lib/kaitai/kaitai/kaitaistream.h:52`), so an in-memory parse is possible — but the
-pdb requires **random access** (`page_ref_t::body()` seeks,
-`rekordbox_pdb.cpp:647`), so it must be fully resident; streaming is impossible. We
-write `export.pdb` into the cache dir anyway, so parse from that path: one code path,
-no 2× memory spike, and free crash-recovery on restart.
+Reused without copying: the Kaitai types in `lib/rekordbox-metadata/`, already a
+shared static library, used by **both** sides — the consume side parses a
+downloaded pdb, the serve side parses the mounted stick's.
 
-The `analyze_path` column plumbing is reusable as-is — `ColumnCache` keys on the plain
-column name (`trackschema.h:76`, `columncache.h:66`), so a `prolink_library` table with
-an `analyze_path` column gets it for free. **No `columncache` changes.**
+The `analyze_path` column plumbing is reusable as-is — `ColumnCache` keys on the
+plain column name (`trackschema.h:76`, `columncache.h:66`), so a `prolink_library`
+table with an `analyze_path` column gets it for free. **No `columncache` changes.**
 
 Leave a `TODO(prolink)` at the top of `prolinkpdbimport.cpp` naming the eventual
 extraction (`rekordboxanlz.*` + `rekordboxpdbimporter.*`, parameterised by table
 names), so the deferred refactor is discoverable rather than folklore.
 
-## B7. Build order
+**`getText` is one to port carefully, not copy.** The PioString UTF-16 form is
+little-endian from `offset + 4`, not big-endian from `offset + 3` (O6). Our own
+code had the latter, and the two errors **cancel exactly for ASCII** — a
+692-track library parsed cleanly and only non-ASCII names came out as mojibake.
+Round-trip tests cannot catch this class of bug; the test must pin literal bytes
+from a real pdb against the filesystem's own spelling of the same name.
 
-| Step | Deliverable | Independently testable? |
+## B10. Build order
+
+Each step is independently testable, and the two directions are interleaved so
+that neither sits unverified for long.
+
+| Step | Deliverable | Verified by |
 |---|---|---|
-| 1 | B0 Rekordbox bug fixes | Yes — the existing USB flow is unchanged |
-| 2 | `xdrbuffer` + `rpcclient` + `portmapclient` + golden-vector tests | Yes |
-| 3 | `nfsv2client` + `nfsfiletransfer` + tests | Yes — pull `export.pdb` off a real NXS |
-| 4 | `prolinkpacket` + `prolinkdiscovery` + `prolinknetworkservice` | Yes — log discovered peers |
-| 5 | `prolinkcachemanager` + `prolinkfeature` skeleton (tree only, no tracks) | Yes — **CDJs appear/disappear in the sidebar** |
-| 6 | pdb pipeline: fetch → parse → playlist tree → `ProLinkPlaylistModel` | Yes — **browse a CDJ's playlists** |
-| 7 | `prolinktrackfetcher` + `dlgprolinkfetch` + `getTrack()` | Yes — **load a CDJ's track to a deck** |
-| 8 | `prolinkstatuslistener`, eviction, `[ProLink],refresh` | Polish |
-| 9 | Registration: CMake option, `library.cpp`, qrc, icon, prefs | Ship |
-| 10 | `prolinkvirtualcdj` behind `[ProLink]/EnableVirtualCdj` | Phase C prep |
+| 1 | B0 Rekordbox bug fixes | Existing USB flow unchanged |
+| 2 | **`.ksy` × 4 + generated readers + `wire/*` writers + golden vectors** | Offline, against the 31-pcap corpus. No Mixxx integration at all — the biggest de-risking step and the one that pays for Kaitai |
+| 3 | `xdrbuffer`, `rpcclient`, `portmapclient`, `nfsv2client`, `nfsfiletransfer` | Pull `export.pdb` off a real NXS, SHA-256 against the ejected stick |
+| 4 | `prolinkdiscovery`, `prolinkdevice`, `prolinknetworkservice` | Log discovered peers with numbers, names, MACs |
+| 5 | `prolinkvirtualcdj` + `prolinkstatus` emit | **Both CDJs list us on their LINK screen.** Diff our keep-alive byte-for-byte against a real one |
+| 6 | `prolinkcachemanager` + `prolinkfeature` skeleton (tree only) | **CDJs appear and disappear in the sidebar** |
+| 7 | Consume pdb pipeline → `ProLinkPlaylistModel` | **Browse a CDJ's playlists** |
+| 8 | `prolinktrackfetcher` + `dlgprolinkfetch` + `getTrack()` | **Load a CDJ's track to a deck**, with beatgrid and hot cues |
+| 9 | `prolinkmediawatcher` + `prolinkmediaquery` | **A deck offers our USB as a LINK source** (it will not open yet) |
+| 10 | `prolinkvfs` + `prolinknfsserver` (incl. the port-111 degradation path) | A deck `MNT`s us; `pull-db` from the PoC round-trips our own export |
+| 11 | `dbserver/` — sessions, root menu, drills, sorts, search | **A deck browses our library**: 11 categories, all 12 sorts |
+| 12 | `prolinkanalysiswire` + track info + metadata | **A deck loads and plays a track from us**, with cues and both waveforms |
+| 13 | `prolinkmediaquery` settings `0x35`/`0x36` | LOAD SETTINGS from our medium |
+| 14 | Registration: CMake, `library.cpp`, qrc, icon, prefs page, controls | Ship |
+| 15 | Polish: eject/insert edge cases, `[ProLink],refresh`, shutdown ordering | — |
 
----
-
-# Phase C — serving our library (designed for, not built)
-
-`src/network/prolink/server/` + `dbserver/`. Enabled by three things: the protocol
-layer having no `src/library/` dependency; every codec doing both directions; and the
-PoC's `vfs.py`/`nfsserver.py` having proved the reply encoders against two independent
-third-party clients.
-
-**No reference implementation exists for the server side in any of the seven repos** —
-verified by grepping all of them for TCP listeners and RPC service registration. The
-transferable assets are doc 04 §6 and doc 06 §6, plus python-prodj-link's
-`data/pdbprovider.py` read *in reverse* (as documentation only — Apache-2.0).
+Steps 9–13 have a natural incremental signal that is worth exploiting: **run the
+PoC's own client against the C++ server** at each one. `prolinks db-browse` and
+`prolinks pull-db` already exercise every request a deck makes, over the same
+codecs, with a passivity guard — so most serve-side bugs can be found on a laptop
+before a CDJ is switched on.
 
 ---
 
 # Verification
 
-**Phase A:** the per-milestone hardware checks above. The anchor is M4 — the
-NFS-fetched `export.pdb` SHA-256 must equal the same file read off the physically
-mounted stick. M8 additionally validates our encoders against prolink-connect with no
-hardware at all.
+## Offline (no hardware)
 
-**Phase B:**
+- **Golden vectors from the Phase A corpus**, checked in as hex literals:
+  `prolink_djl_test.cpp` (a real `0x06` keep-alive → number, name, MAC, IP, and
+  the byte-`0x25` "was I first" latch), `prolink_status_test.cpp` (the 284-byte
+  skeleton and the six bytes that move), `prolink_dbserver_test.cpp` (the omitted
+  empty blob, the two tag numberings, UTF-16BE character counts),
+  `prolink_xdr_test.cpp` (UTF-16LE `MNT("/C/")` byte-for-byte; a length field of
+  `0xFFFFFFFF` must be rejected **without allocating**).
+- **Round-trip per writer:** `build(x) → Kaitai parse → compare fields`, over
+  every message in the corpus.
+- **Cross-implementation diff:** the same `.ksy` compiled `--target python`,
+  parsing the same corpus in `prolinks-compat/tests/`, must agree with the
+  hand-written PoC codecs field-for-field. Any disagreement is a bug in exactly
+  one of three places and the other two localise it.
+- **The PoC client against the C++ server** on loopback: `db-browse`, `pull-db`,
+  `tracks`, all under `--assert-passive`.
+- `cmake -DPROLINK=OFF` still builds and links. Mounted Rekordbox USB browsing
+  still works after B0.
 
-- Unit tests with golden vectors captured from the two NXS units, checked in as hex
-  literals: `prolink_packet_test.cpp` (a real 0x06 keep-alive → number, name, MAC, IP);
-  `prolink_xdr_test.cpp` (UTF-16LE `MNT("/C/")` byte-for-byte, and a length field of
-  `0xFFFFFFFF` must be rejected **without allocating**); `prolink_nfsclient_test.cpp`
-  (a loopback stub replaying captured replies, including out-of-order arrival).
-- End-to-end on hardware: CDJ powers on → appears in the sidebar within ~2 s; expand →
-  USB slot → playlists; double-click → progress dialog → the track loads with the
-  correct beatgrid and hot cues; **pull the Ethernet cable mid-fetch** → clean failure,
-  no crash; pull it *after* load → playback continues.
-- Regression: mounted Rekordbox USB browsing still works after B0.
-- `cmake -DPROLINK=OFF` still builds and links.
+## On hardware
+
+The two CDJ-2000NXS, per `docs/HARDWARE.md`.
+
+**Consume:** CDJ powers on → appears in the sidebar within ~2 s; expand → USB
+slot → playlists; double-click → progress dialog → the track loads with the
+correct beatgrid and hot cues; **pull the Ethernet cable mid-fetch** → clean
+failure, no crash; pull it *after* load → playback continues.
+
+**Serve:** the Phase A checklist, re-run against the C++ implementation — deck
+lists us; 11 categories open; drill-downs; ALL entries; search filters as you
+type; all twelve sorts with the sorted field as column two; harmonic key
+matching; two media as USB + SD; load and play MP3/AAC/WAV/AIFF including a 75 MB
+lossless; artwork; hot cues; both waveforms; LOAD SETTINGS. Capture every run and
+diff the dbserver request/response stream against the Phase A pcaps —
+**the S23 capture is the acceptance criterion: 568 requests, zero errors.**
+
+**Both at once**, which Phase A never tested: Mixxx serving its stick to deck B
+while browsing deck A's. This is the configuration TriMiXxX actually ships in and
+the one where the two-thread split earns its keep. Watch specifically for
+keep-alive jitter under NFS load — a missed heartbeat here is a disappearance
+from the network mid-set.
+
+**Eject/insert**, also new: eject while a deck is browsing us (expect the menu to
+empty, not the deck to hang); re-insert (expect it to reappear without a restart);
+plug a third stick (expect it ignored and named in the status view).
+
+---
 
 ## Risks
 
 **R1 (highest) — the nested event loop in `getTrack()`.** `TrackModel::getTrack` is
 `const` and called synchronously from the view; there is no asynchronous path
-(returning null and loading later would bypass the `loadTrack`/`PlayerManager` chain
-and break Auto DJ, samplers, preview decks and controller mappings alike). Re-entering
-the Qt event loop from inside a const model method the view is mid-call on is
-inherently hazardous: during the loop the user can click another feature, the device
-can vanish, and `index` becomes dangling. Mitigation is threefold and non-optional:
-(a) snapshot every field before spinning; (b) pin the medium so removal is deferred;
-(c) never touch `index` after the loop — which means deliberately inlining
-`BaseExternalPlaylistModel::getTrack`'s body (`:35-73`) against the snapshot rather
-than calling it, with a comment explaining why. *Test:* pull the cable during a fetch.
+(returning null and loading later would bypass the `loadTrack`/`PlayerManager`
+chain and break Auto DJ, samplers, preview decks and controller mappings alike).
+Re-entering the Qt event loop from inside a const model method the view is
+mid-call on is inherently hazardous: during the loop the user can click another
+feature, the device can vanish, and `index` becomes dangling. Mitigation is
+threefold and non-optional: (a) snapshot every field before spinning; (b) pin the
+medium so removal is deferred; (c) never touch `index` after the loop — which
+means deliberately inlining `BaseExternalPlaylistModel::getTrack`'s body (`:35-73`)
+against the snapshot rather than calling it, with a comment explaining why.
+*Test:* pull the cable during a fetch.
 
-**R2 — cache files enter the real Mixxx library.** `getOrAddTrack` writes them into
-`library`/`track_locations` for real. Two consequences: with metadata sync on, Mixxx
-may write ID3 tags into the cache copy (harmless — it is a copy); and after eviction
-those rows become **Missing Tracks**, cluttering that feature. Start with: never
-auto-evict a medium that produced rows this session, and document it. This is a
-user-visible side effect the Rekordbox feature does not have and must be called out in
-any upstream PR.
+**R2 (new, serve-side) — we now transmit on a network carrying a live set.** This
+is a categorically different risk from anything in the consume-only plan. A bug in
+the claim chain can take a number a playing deck is using; a malformed keep-alive
+can confuse a peer; a status packet with the wrong device number can make a deck
+show the wrong source. Mitigations: default **off**; watch ≥ 2.5 s before
+claiming; never claim a number seen in use; back off immediately on `0x08` or
+`0x05`; refuse to serve rather than contend when 1–4 are full; and a `--dry-run`
+equivalent (`[ProLink]/EnableTransmit`=0) that runs the full state machine and
+logs what it *would* send. Phase A's discipline of diffing every emitted packet
+byte-for-byte against a real one applies unchanged.
 
-**R3 — binding UDP 50000 may fail** (rekordbox, prolink-tools, or another Mixxx
+**R3 — port 111 cannot be bound.** Covered in B5. Serving degrades to unavailable
+with a specific message; everything else keeps working. The failure must be
+*visible*, because the symptom otherwise is "the deck sees us but nothing opens",
+which looks like a dozen other bugs.
+
+**R4 — binding UDP 50000 may fail** (rekordbox, prolink-tools, or another Mixxx
 instance already holds it). Use `QUdpSocket::ShareAddress | ReuseAddressHint`;
-semantics differ across macOS (`SO_REUSEPORT`) and Windows (`SO_REUSEADDR`). On failure
-the feature must degrade to an explanatory HTML root view — **never a `QMessageBox`**
-(see the comment at `library.cpp:170-172`). Test on all three platforms.
+semantics differ across macOS (`SO_REUSEPORT`) and Windows (`SO_REUSEADDR`).
+Degrade to the explanatory root view.
 
-**R4 — multi-homed hosts.** The Pi has `eth0` (CDJ network, 169.254/16 link-local) and
-`wlan0`. A broadcast keep-alive can arrive on either; the NFS socket must bind a source
-address on the *same* subnet as the peer, or link-local routing will silently pick the
-wrong NIC and every RPC will time out. Record the receiving interface per device in
-`ProLinkDiscovery` and pass it as `RpcClient`'s local bind;
-`[ProLink]/NetworkInterface` is the manual override.
+**R5 — multi-homed hosts.** The Pi has `eth0` (CDJ network, 169.254/16 link-local)
+and `wlan0`. A broadcast keep-alive can arrive on either; every socket must bind a
+source address on the *same* subnet as the peer, or link-local routing silently
+picks the wrong NIC and every RPC times out. Record the receiving interface per
+device in `ProLinkDiscovery`; `[ProLink]/NetworkInterface` is the manual override.
+This bit us in Phase A on macOS (`IP_BOUND_IF`) and it will bite again.
 
-**R5 — shutdown ordering.** `~ProLinkFeature` must, in order: (1)
-`m_pNetwork->shutdown()` — quit and wait the net thread, so no queued signal lands on a
-half-destroyed feature; (2) `waitForFinished()` the parse future (the Rekordbox
-precedent, `:1417`); (3) drop the temp tables. Backwards produces a shutdown crash that
-only reproduces with a CDJ on the network.
+**R6 — shutdown ordering.** `~ProLinkFeature` must, in order: (1) stop serving and
+send nothing further; (2) `m_pNetwork->shutdown()` — quit and wait **both** threads,
+so no queued signal lands on a half-destroyed feature; (3) `waitForFinished()` the
+parse future (the Rekordbox precedent, `:1417`); (4) drop the temp tables.
+Backwards produces a shutdown crash that only reproduces with a CDJ on the network.
+With two threads there is now also a **join order**: serve thread first (it holds
+file handles into a volume that may be unmounting), then net thread.
 
-**R6 — NFSv2 32-bit offsets.** `READ` offset and `fattr.size` are `uint32`, a hard
-4 GiB ceiling. Fine for audio; assert and fail cleanly rather than wrapping.
+**R7 — NFSv2 32-bit offsets.** `READ` offset and `fattr.size` are `uint32`, a hard
+4 GiB ceiling, in both directions. Fine for audio; assert and fail cleanly rather
+than wrapping.
 
-**R7 — macOS sandbox.** The default cache under `getSettingsPath()` needs no
-`Sandbox::askForAccess`. If the user relocates it to an external volume via
-`[ProLink]/CacheDir`, apply the same guard Rekordbox uses at `rekordboxfeature.cpp:495`.
+**R8 — macOS sandbox.** The boot-scoped cache under `QStandardPaths::CacheLocation`
+needs no `Sandbox::askForAccess`. Serving a mounted volume does — apply the same
+guard Rekordbox uses at `rekordboxfeature.cpp:495` before reading a stick.
 
-**Open, for hardware.** Does an NXS *broadcast* status on 50002, or only unicast to
-announced vCDJs? This gates passive slot detection; the fallback (speculatively
-probing both slots with `MNT` + a `LOOKUP` of the pdb path) is already designed in, so
-it is a quality-of-life question, not a blocker. And does an NXS serve NFS acceptably
-*while it is itself playing*? The 4 × 1280 B window caps us near 1 MB/s, deliberately
-modest; make it a config key if it matters.
+**R9 — scale of the port.** The PoC is ~9.4k lines of Python excluding the CLI and
+capture tooling, heavily commented; `net/dbserverd.py` alone is 1199. Expect the
+same order in C++, dominated by the dbserver serve path and the NFS server. This
+is not a weekend. Sequence it so that steps 1–8 (consume, complete) is a shippable
+milestone on its own, with 9–13 (serve) following as a second.
+
+**R10 — unknowns we ship.** Seven values in `PROTOCOL.md §9` are reproduced
+without being understood, including one (the fifth prefix word) that must be
+non-zero for the waveform to draw. Port them **as constants with their finding
+number in a comment**, never "cleaned up" to a plausible zero. Sending a plausible
+zero broke playback twice in Phase A. A reviewer will want to delete these; the
+comment is what stops them.
+
+---
+
+## Upstreaming reality check
+
+The previous revision assumed a consume-only first PR. Two-way changes that.
+
+A feature that impersonates a CDJ, claims a device number on a network of
+professional equipment, and runs an NFS server on a privileged port is a much
+larger thing to ask a maintainer to own than "read a rekordbox USB over the
+network". It is also, unavoidably, a reverse-engineered implementation of a
+vendor protocol — with the trademark care that implies (no Pioneer logo, no
+"Pro DJ Link" branding in the UI beyond the plain-language name).
+
+The honest sequence:
+
+1. **B0 upstream first**, standalone. Two real bug fixes in existing code, no new
+   surface, useful to Mixxx regardless of anything else here. This also establishes
+   the working relationship before the large thing arrives.
+2. **Build everything in the fork.** TriMiXxX is the customer; it ships from the
+   fork either way.
+3. **Offer the consume side upstream** when it is proven — it is the half with a
+   clear user story ("browse the CDJ's USB from Mixxx"), no transmission by
+   default, and no privileged sockets.
+4. **Serve last, if at all**, default-off, behind its own CMake option, with the
+   provenance trail (`docs/PROTOCOL.md`, `docs/FINDINGS.md`, the `.ksy` files with
+   per-field finding citations) as the argument that it was built cleanly.
+
+Nothing in the build order depends on any of this being accepted.
 
 ---
 
 ## Decision log
 
-- **Python PoC before C++** — chosen over going straight to C++, for a much faster
-  protocol iteration loop against real hardware. The C++ port then becomes largely
-  mechanical, gated by the golden-decode contract.
-- **NFS + pdb, not dbserver** — reuses Mixxx's existing Kaitai pdb parser, works
-  passively with no device number (so zero risk of disrupting a live set), and is the
-  only path to the actual audio bytes. dbserver (doc 04) is added later, if the pdb
-  turns out to be missing something.
-- **Cache to disk, not a streaming `SoundSource`** — a streaming provider would require
-  changing `SoundSourceProxy`'s extension-based dispatch and `Track`'s `FileInfo`
-  assumption, i.e. core changes that will not land upstream. Copy-then-play also means
-  playback survives the source CDJ leaving the network.
+- **Serve in v1, not a later phase** *(changed)* — Phase A proved both directions
+  against hardware, so the risk that justified deferring is gone. Keeping the
+  split would mean designing seams for a thing already known to work.
+- **Kaitai for parsing, hand-written writers** *(new)* — forced: the C++ target
+  cannot serialize. Taken as an opportunity to make the `.ksy` an executable
+  spec and to generate a Python reference encoder for cross-checking, rather
+  than as a workaround.
+- **`.ksy` sources live in prolinks-compat, generated output checked into Mixxx**
+  *(new)* — follows the `rekordbox_metadata` precedent exactly and keeps the JVM
+  out of the build; the Python test suite consumes the same sources.
+- **Boot-scoped cache with a startup `purgeAllTracks`** *(changed)* — the
+  requirement asks for clearing at reboot, which deletes the LRU/budget/sweep
+  machinery outright and, with the purge call, *solves* the Missing-Tracks
+  side-effect the previous plan could only document.
+- **No dbserver client** — the consume side parses `export.pdb` itself, reusing
+  Mixxx's Kaitai parser, and NFS is the only path to the audio bytes anyway.
+  A dbserver client would be a second way to read the same data.
+- **Two net threads** *(new)* — a blocking read off a USB stick must never delay a
+  keep-alive; five missed keep-alives is a disappearance from the network.
+- **A preferences page after all** *(changed)* — the previous "config keys only"
+  call was right for a passive reader and wrong for something that transmits.
+  The status area is the real content.
+- **AUTO numbering restricted to 1–4** — that is the range real players occupy and
+  the LINK screen enumerates; serving as 3 is confirmed working. Above 4, degrade
+  to consume-only at 7 rather than guess.
+- **Cache to disk, not a streaming `SoundSource`** — a streaming provider would
+  require changing `SoundSourceProxy`'s extension-based dispatch and `Track`'s
+  `FileInfo` assumption, i.e. core changes that will not land upstream. Copy-then-play
+  also means playback survives the source CDJ leaving the network.
+- **Serve by streaming, not by copying** — the opposite call, for the opposite
+  reason: a deck expects random-access reads with low latency and touches ~38% of
+  a file during a load (F18). Copying would add latency to the one path where a
+  stall is an audio dropout on someone else's deck.
 - **Duplicate the Rekordbox glue now, extract later** — keeps the working Rekordbox
   feature untouched and avoids rebase friction with the local commits `7ce93c7` and
   `e5063fc`. Accepted cost: pdb fixes must be applied twice until the extraction lands.
-- **Fix both Rekordbox bugs anyway** — they are real bugs today, and bug 2 breaks this
-  specific two-CDJ rig.
+- **Fix both Rekordbox bugs anyway** — they are real bugs today, and bug 2 breaks
+  this specific two-CDJ rig.
+- **Python PoC before C++** — vindicated. Five separate protocol facts were got
+  wrong and corrected against hardware during Phase A (F26/F40, F27/F41,
+  F31/F34/F35, F29/F30, O6); every one of those iterations would have been a
+  rebuild-and-redeploy cycle in C++ on a Pi.

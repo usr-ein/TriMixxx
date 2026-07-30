@@ -97,10 +97,28 @@ two media sharing a root would be indistinguishable afterwards.
 
 ## Not started
 
-- **Phase B — Mixxx C++ integration** (`research/10`, Phase B). Including **B0**,
-  the two pre-existing Rekordbox bugs the user approved fixing upstream:
-  the `buildPlaylistTree()` cross-thread `appendChild()`, and
-  `location TEXT UNIQUE` colliding for two devices holding cloned media.
+**Phase B — Mixxx C++ integration**, both directions. The plan is
+[`research/10`](research/10-mixxx-prolink-implementation-plan.md), revised
+2026-07-30 for two-way scope and Kaitai; build order in its §B10.
+
+The three things from that revision worth knowing before starting:
+
+- **Kaitai cannot generate C++ serializers** — Java and Python only, and the
+  runtime vendored in Mixxx (`lib/kaitai/`, 0.11) has no `write_*` at all. So
+  `.ksy` gives us the readers and the writers are hand-written, round-tripped
+  through the generated readers and cross-checked against a Python encoder built
+  from the same `.ksy`.
+- **Serving needs UDP/111.** A real deck calls portmap `GETPORT` for mountd and
+  nfsd (F24), and 111 is privileged. The Pi sets
+  `net.ipv4.ip_unprivileged_port_start=111`; macOS cannot serve at all. Binding
+  it must be the last thing tried and must degrade visibly.
+- **B0 first** — the two pre-existing Rekordbox bugs: the `buildPlaylistTree()`
+  cross-thread `appendChild()`, and `location TEXT UNIQUE` colliding for two
+  devices holding cloned media.
+
+Two Phase A deliverables were never made and are worth making before the port:
+`PORTING.md`, and the golden decode JSON that turns "did I port the parser
+correctly" into a diff.
 
 ---
 
