@@ -1,31 +1,51 @@
 # TriMixxx S3 — Mixxx controller mapping
 
-Mixxx mapping for the TriMixxx deck. The S3 firmware sends raw MIDI over UART →
-`ttymidi` on the Pi → ALSA → Mixxx sees a standard MIDI device. These files map
-that device to Mixxx controls. Addresses match the firmware's
+Everything that lives under `~/.mixxx` on the deck. The S3 firmware sends raw MIDI
+over UART → `ttymidi` on the Pi → ALSA → Mixxx sees a standard MIDI device. These
+files map that device to Mixxx controls. Addresses match the firmware's
 [`lib/PiLink/MidiMap.hpp`](../firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp) exactly — **change both together.**
 
+The system side (systemd units, udev, USB automount) is in
+[`../pi_config`](../pi_config); `upload.sh` here touches only `~/.mixxx` and
+restarts Mixxx, so a mapping tweak can never disturb the deck's system config.
+
 ## Files
-- `TriMixxx.midi.xml` — the mapping (inputs, LED outputs).
+- `TriMixxx.midi.xml` — the deck mapping (inputs, LED outputs).
 - `TriMixxx.scripts.js` — scripting for the jog (scratch/bend), the browse
-  encoder, play toggle, and the ring position indicator.
+  encoder, play toggle, the ring buttons and their RGB LED indicators, and the
+  startup rainbow-wave animation.
+- `PiMidiDaemon.midi.xml` / `PiMidiDaemon.scripts.js` — the mapping for
+  [`../pi-midi-daemon`](../pi-midi-daemon), a second MIDI device. Turns the skin's
+  POWER menu into a shutdown SysEx, and turns the daemon's USB-mount events into
+  a Rekordbox device rescan.
+- `TriMixxx_skin/` — single-deck CDJ-style skin for the 1024×600 touchscreen.
 - `soundconfig.xml` — audio device + buffer size. Mixxx keeps sound hardware in
   its own file, *not* `mixxx.cfg`. Deployed by `upload.sh`; see the buffer note
   below.
+- `mixxx.cfg` — the rest of the Mixxx preferences as deployed.
+- `upload.sh` — deploy all of the above to the deck. **Validates every XML before
+  anything leaves this machine**: Qt rejects a malformed skin silently and boots
+  the default one instead, with nothing in the log.
+- `serial_midi_bridge.py` — bridge/monitor the S3's UART on a Mac (or over SSH on
+  the Pi) without ttymidi. `led_test.py` — send the LED feedback Mixxx would send,
+  straight down the serial line, to test the return path with Mixxx out of the way.
+- `ttymidi/` — our ttymidi fork (submodule); the binary `trimixxx-bridge.service`
+  runs.
 
 ## Install
-Copy both files into Mixxx's controller mapping folder, then pick **TriMixxx S3**
-under Preferences → Controllers for the MIDI device.
+Copy the mappings into Mixxx's controller mapping folder, then pick **TriMixxx S3**
+under Preferences → Controllers for the MIDI device (and `pi-midi-daemon` for its
+own port, if that daemon is running).
 - Linux: `~/.mixxx/controllers/`
 - macOS: `~/Library/Containers/org.mixxx.mixxx/Data/Library/Application Support/Mixxx/controllers/`
 - Windows: `%USERPROFILE%\Mixxx\controllers\`
 
-Requires Mixxx **2.4+**. One deck = `[Channel1]`.
+On the deck itself, `./upload.sh` does all of this. Requires Mixxx **2.4+** (the
+deck runs [our 2.5.6 fork](../mixxx)). One deck = `[Channel1]`.
 
 ## Control map
 | Control | MIDI | Mixxx |
 |---|---|---|
-| Ring pads (0..49) | note `0x00`..`0x31` | **LED = play-position indicator** (script). Presses unmapped by default (see below). |
 | Play | note `0x3C` | `play` (toggle); LED ← `play_indicator` |
 | Cue | note `0x3D` | `cue_default` (momentary); LED ← `cue_indicator` |
 | Loop in / out | notes `0x3E` / `0x3F` | `loop_in` / `loop_out`; both LEDs ← `loop_enabled` |
@@ -34,14 +54,43 @@ Requires Mixxx **2.4+**. One deck = `[Channel1]`.
 | Jog | CC `0x11` + note `0x42` | scratch when touched, pitch bend otherwise |
 | Tempo | CC `0x12`/`0x32` (14-bit) | `rate` |
 
+### Ring A (notes `0x00`…, 7 buttons populated)
+| # | Note | Mixxx |
+|---|---|---|
+| A1 | `0x00` | `TriMixxx.tempoRange` — cycle ±6 / ±10 / ±16 / Wide; LED colour keyed to the range |
+| A2 | `0x01` | `TriMixxx.keylock` — master tempo |
+| A3 | `0x02` | `beatloop_8_toggle` |
+| A4 | `0x03` | `beatloop_4_toggle` |
+| A5 | `0x04` | `loop_double` |
+| A6 | `0x05` | `loop_halve` |
+| A7 | `0x06` | `TriMixxx.back` — library view / focus |
+
+### Ring B (notes `0x43`…, 6 buttons populated)
+| # | Note | Mixxx |
+|---|---|---|
+| B1–B4 | `0x43`–`0x46` | `hotcue_1..4_activate`, on both edges (release ends the preview when paused) |
+| B5 | `0x47` | `TriMixxx.slip` — flashes while slip is on |
+| B6 | `0x48` | key sync — **output-only indicator**, no input mapping yet (to be driven over the CDJ LAN link) |
+
+Both pad ranges reserve 50 notes in `MidiMap.hpp` even though fewer nodes are
+populated, so adding a board never renumbers anything. `TriMixxx.RING_A_N` /
+`RING_B_N` at the top of the script are the counts actually wired today.
+
+### Ring LEDs are SysEx, not `<output>`
+A Mixxx `<output>` can only emit a 3-byte message, and a Note-On velocity sets
+white brightness only. Colour therefore goes out as SysEx from the script —
+`F0 7D <cmd> <node> <colour nibbles> F7`, `0x01` for ring A and `0x03` for ring B,
+each 8-bit channel split into two data bytes so a 7-bit payload still carries
+0..255. `TriMixxx.ringLed()` is the one place that formats it; `TriMixxx.led()` /
+`dim()` normalise the palette so entries only need correct hue *ratios*.
+
 ## Decisions you may want to change
-- **Ring pads are a position indicator, presses do nothing.** `MidiMap.hpp`
-  defines the pads mainly as LEDs (velocity = brightness). To make pad *i*
-  needle-drop to its position, uncomment/add the 50 note entries shown in the XML
-  (they call `TriMixxx.padPress`). Or repurpose the pads (hotcues, beatjump, …).
+- **Ring button assignments** are just the tables above — repurpose freely
+  (hotcues, beatjump, …); the pads are physically identical.
 - **Tempo direction:** the fader is inverted in firmware; if pitch runs the wrong
   way, flip `[Channel1] rate_dir` in Mixxx (or `invert` in the firmware ctor).
-- **Jog feel:** `JOG_TICKS_REV` (12960) mirrors `JogWheel::TICKS_PER_REV`; the
+- **Jog feel:** `JOG_TICKS_REV` (12960) mirrors `JogWheel::TICKS_PER_REV`;
+  `JOG_BEND_SENSITIVITY` (0.3) damps pitch bend only — scratch stays 1:1. The
   scratch `alpha`/`beta`/`rpm` in `jogTouch()` are the usual starting values.
 - **Audio buffer — `latency="3"` in `soundconfig.xml` can cause crackling.**
   It's set low on purpose, for responsiveness. **If crackling is really a

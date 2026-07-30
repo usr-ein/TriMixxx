@@ -9,7 +9,9 @@ A custom CDJ (Compact Disc Jockey) unit built from scratch around a Raspberry Pi
 
 TriMixxx replaces the internals of a CDJ with modern, open-source-friendly hardware while keeping the physical controls that DJs know and love. Plug in a Rekordbox-formatted USB stick, and you're ready to mix.
 
-Where the CDJ's original main board did everything, TriMixxx today is a **small distributed system**: a Raspberry Pi runs Mixxx, an ESP32-S3 acts as the controller brain that reads every physical control and speaks MIDI, and a swarm of tiny satellite boards handle the buttons and the LED ring. They all talk over plain TTL UART.
+Where the CDJ's original main board did everything, TriMixxx today is a **small distributed system**: a Raspberry Pi runs a patched Mixxx behind a custom CDJ-style skin, an ESP32-S3 acts as the controller brain that reads every physical control and speaks MIDI, and a swarm of tiny satellite boards handle the buttons and the LED rings. They all talk over plain TTL UART.
+
+It is a working deck, not a plan: the Pi boots straight into Mixxx, the USB stick automounts, the S3's controls drive it, and Mixxx's feedback drives the LEDs back. Alongside that, `prolinks-compat/` has reverse-engineered Pioneer's ProLink protocol far enough that a real CDJ-2000NXS browses and plays tracks served by this project.
 
 ## How we got here (a short history)
 
@@ -29,25 +31,38 @@ The old monolithic design is preserved in this README's history and in `screensh
 
 ```mermaid
 flowchart LR
-    Pi["Raspberry Pi 4B (4GB)<br/>(Mixxx + ttymidi, planned)"]
+    subgraph PiBox["Raspberry Pi (deck)"]
+        Mixxx["Mixxx (patched fork)<br/>+ TriMixxx skin"]
+        Tty["ttymidi<br/>trimixxx-bridge.service"]
+        Daemon["pi-midi-daemon<br/>(SysEx to the OS)"]
+        Usb["dj-usb automount<br/>/media/DJ_USB_*"]
+    end
+
     S3["midi_s3_mini<br/>LOLIN S3 Mini / ESP32-S3<br/>(controller brain)"]
-    Ring["one_button ring<br/>50x CH32V003 nodes<br/>button + 2xWS2812 each"]
+    RingA["OneButton ring A<br/>CH32V003 nodes<br/>button + 2xWS2812 each"]
+    RingB["OneButton ring B<br/>CH32V003 nodes"]
     PlayCue["play_cue_btn<br/>Play / Cue + LEDs"]
     Loop["loop_btn<br/>Loop In/Out/Reloop + LEDs"]
     Jog["Jog wheel<br/>quadrature + touch"]
+    CDJ["Real CDJs<br/>(ProLink, Ethernet)"]
 
-    Pi <-->|"UART - raw MIDI - 3.3V"| S3
-    S3 <-->|"UART - OneButton ring - 5V"| Ring
+    Mixxx <--> Tty
+    Mixxx <-->|SysEx| Daemon
+    Usb --> Daemon
+    Tty <-->|"UART - raw MIDI - 3.3V"| S3
+    S3 <-->|"UART1 - OneButton ring - 5V"| RingA
+    S3 <-->|"UART2 - OneButton ring - 5V"| RingB
     S3 --> PlayCue
     S3 --> Loop
     Jog --> S3
+    Mixxx -.->|"prolinks-compat (research)"| CDJ
 ```
 
-- **Raspberry Pi 4B (4 GB)** runs Mixxx. The plan is for [`ttymidi`](https://github.com/cjbarnes18/ttymidi) on the Pi to turn the UART link into an ALSA MIDI device, so Mixxx sees TriMixxx as a standard MIDI controller (not yet set up on the Pi). This link is 3.3 V on both ends (Pi GPIO ↔ S3), so no level shifting is needed.
+- **Raspberry Pi 4B (4 GB)** runs Mixxx — specifically [our own fork](https://github.com/usr-ein/mixxx) (the `mixxx/` submodule), branched off the 2.5.6 tag and carrying deck-specific patches. [`ttymidi`](https://github.com/usr-ein/ttymidi) turns the UART link into an ALSA MIDI device, so Mixxx sees TriMixxx as a standard MIDI controller. That link is 3.3 V on both ends (Pi GPIO ↔ S3), so no level shifting is needed.
 - **midi_s3_mini (ESP32-S3)** is the controller brain. It reads every physical control, translates it to MIDI for the Pi, and drives LEDs from the MIDI feedback Mixxx sends back. It runs `firmwares/trimixxx-midi`.
-- **one_button ring** is a daisy-chained ring of up to 50 CH32V003 nodes, each with one button and two WS2812 LEDs, connected to the S3 over a single UART ring. See [The OneButton Protocol](#the-onebutton-protocol) below.
+- **Two OneButton rings** hang off the S3, one per UART (A on UART1, B on UART2). Each is a daisy chain of up to 50 CH32V003 nodes, every node carrying one button and two WS2812 LEDs. Nodes enumerate themselves at boot, so a ring self-sizes to however many boards are actually populated (7 and 6 today). See [The OneButton Protocol](#the-onebutton-protocol) below.
 - **play_cue_btn** and **loop_btn** are dumb button+LED satellite boards (no MCU) wired to the S3.
-- The **jog wheel** (quadrature encoder + capacitive touch) wires directly into the S3, decoded by the ESP32's hardware pulse counter (PCNT).
+- The **jog wheel** (optical quadrature encoder + capacitive touch) wires directly into the S3, decoded by the ESP32's hardware pulse counter (PCNT).
 
 ### Signal chain: pressing Play
 
@@ -61,20 +76,23 @@ A worked example of what happens end-to-end, from copper to Mixxx. Every other b
 
 ### MIDI map
 
-All MIDI addresses live in one place — `firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp` — and the Mixxx mapping matches them exactly. One deck (v1) → MIDI channel 1.
+All MIDI addresses live in one place — `firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp` — and the Mixxx mapping (`mixxx_config/TriMixxx.midi.xml`) matches them exactly. One deck (v1) → MIDI channel 1.
 
-| Control | MIDI |
-|---|---|
-| Ring pads (node *i*) | Note `0x00 + i` (0..49), velocity = white LED brightness |
-| Play / Cue | Notes `0x3C` / `0x3D` |
-| Loop In / Out / Reloop | Notes `0x3E` / `0x3F` / `0x40` |
-| Track encoder | Note `0x41` (press) + CC `0x10` (relative: 1=up, 127=down) |
-| Jog wheel | Note `0x42` (touch/scratch) + CC `0x11` (relative ticks) |
-| Tempo fader | CC `0x12` MSB + CC `0x32` LSB (14-bit absolute 0..16383, 8192 = center) |
+| Control | MIDI | Mixxx |
+|---|---|---|
+| Ring A pads (node *i*) | Note `0x00 + i` | Tempo range, keylock, 8/4-beat loops, loop double/halve, back |
+| Ring B pads (node *i*) | Note `0x43 + i` | Hotcues 1–4, slip, key-sync indicator |
+| Play / Cue | Notes `0x3C` / `0x3D` | `play` (toggle) / `cue_default` |
+| Loop In / Out / Reloop | Notes `0x3E` / `0x3F` / `0x40` | `loop_in` / `loop_out` / `reloop_toggle` |
+| Track encoder | Note `0x41` (press) + CC `0x10` (relative: 1=up, 127=down) | Browse + load |
+| Jog wheel | Note `0x42` (touch/scratch) + CC `0x11` (relative ticks) | Scratch when touched, pitch bend otherwise |
+| Tempo fader | CC `0x12` MSB + CC `0x32` LSB (14-bit absolute 0..16383, 8192 = center) | `rate` |
+
+Both pad ranges reserve 50 notes even though fewer nodes are populated today, so growing a ring never renumbers anything.
 
 The tempo fader follows the standard MIDI 14-bit convention — the LSB rides on `MSB + 32` (18 + 32 = 50 = `0x32`) — and Mixxx binds the pair to `[Channel1] rate` with `<fourteen-bit-msb/>` / `<fourteen-bit-lsb/>`. The extra resolution is worth the second CC: a single 7-bit CC would quantise the whole pitch range to 128 steps. The fader is read ratiometrically (wiper minus a live center-tap reference) so the center detent lands on 8192 without calibration.
 
-> Status: ring pads and the jog wheel are implemented and live. The encoder, tempo fader, and the play/cue and loop boards have reserved MIDI addresses and Mixxx bindings — their S3 driver modules are still being built.
+LED feedback comes back on the same notes. A Note-On velocity only sets *white* brightness, so full RGB travels as SysEx instead — `F0 7D <cmd> <node> <colour nibbles> F7`, with each 8-bit channel split into two data bytes so a 7-bit SysEx payload can still express 0..255 per channel (`0x01` = ring A, `0x03` = ring B). `0x02` reboots the S3, and requires the magic `"RST"` so a stray SysEx can't reset the deck mid-set.
 
 ## Boards
 
@@ -92,24 +110,42 @@ All KiCad projects live under `boards/`. Every board below has been fabricated.
 
 | Firmware | Runs on | What it is |
 |---|---|---|
-| `trimixxx-midi` | midi_s3_mini (ESP32-S3) | The master. PlatformIO/Arduino. Reads the OneButton ring + jog wheel + deck controls and bridges them to the Pi as MIDI. Master of the OneButton ring. |
+| `trimixxx-midi` | midi_s3_mini (ESP32-S3) | The master. PlatformIO/Arduino. Reads both OneButton rings + jog wheel + deck controls and bridges them to the Pi as MIDI. Master of both rings. |
 | `onebutton` | one_button ring nodes (CH32V003) | Bare-metal [ch32fun](https://github.com/cnlohr/ch32fun). `onebutton_node` (the identical binary every ring node runs) and `onebutton_selftest` (single-board bring-up). |
 | `swio-adapter` | A spare Pro Micro | Turns an Arduino into a `minichlink` SWIO programmer for flashing the CH32V003 nodes — no dedicated programmer needed. Git submodule. |
 | `ArduinoMIDI` | (historical) | Early ATmega-based MIDI + jog-wheel test sketches from the monolithic-board era. |
 
+Every driver in `trimixxx-midi` is written and live: both rings, jog wheel, tempo fader, track encoder, play/cue board and loop board. A single `DECK_DEBUG` switch at the top of `main.cpp` swaps the MIDI loop for each module's own self-test.
+
 ## The OneButton Protocol
 
-The button ring runs a purpose-built **cut-through UART ring protocol**. A single fixed-length frame, authored by the S3 master, circulates once around the ring and returns carrying every node's button state; LED colours travel outward on the same frame. Each node forwards bytes as they arrive, editing only the bytes in its own slot, so latency scales as `frame_time + N·byte_time` rather than `N·frame_time`. Node addresses are assigned positionally at boot, so all nodes run an identical binary with no per-unit configuration.
+The button rings run a purpose-built **cut-through UART ring protocol**. A single fixed-length frame, authored by the S3 master, circulates once around the ring and returns carrying every node's button state; LED colours travel outward on the same frame. Each node forwards bytes as they arrive, editing only the bytes in its own slot, so latency scales as `frame_time + N·byte_time` rather than `N·frame_time`. Node addresses are assigned positionally at boot, so all nodes run an identical binary with no per-unit configuration.
 
 Full wire format, timing, and failure model: **[`firmwares/onebutton/onebutton-protocol.md`](firmwares/onebutton/onebutton-protocol.md)**.
 
-## Related work: ProLink compatibility
+## The Pi side
 
-`prolinks-compat/` researches Pioneer's proprietary **CDJ ProLink** Ethernet protocol, with the goal of letting TriMixxx discover and share libraries with real CDJs on the same network (linked playback). See `prolinks-compat/CLAUDE.md`.
+The deck's software is split into four pieces, each with its own README:
+
+| Piece | What it is |
+|---|---|
+| `mixxx/` (submodule) | **Our Mixxx fork.** Forked at 2.5.6, carrying deck patches: downbeat highlighting in the waveform (`DownbeatColor` skin node), Rekordbox beat-grid phase preserved via the intro cue, and a `[Rekordbox], refresh` control so a stick mounted mid-set can be picked up from a script. Built for arm64 in Docker and installed over SSH. |
+| `mixxx_config/` | Everything under `~/.mixxx`: the controller mapping (`TriMixxx.midi.xml` + `.scripts.js`), the `PiMidiDaemon` mapping, `soundconfig.xml`, and `TriMixxx_skin/` — a single-deck CDJ-style skin for the 1024×600 touchscreen. `upload.sh` validates every XML *before* anything leaves the machine, because Qt silently falls back to the default skin on a malformed one. |
+| `pi_config/` | The system side: `trimixxx-bridge.service` (ttymidi, ordered before Mixxx so the MIDI port exists when Mixxx enumerates devices), `cpu-governor.service` (the `performance` governor — `ondemand` was the measured cause of xruns while scratching), and `dj-usb/` (udev + systemd read-only automount of DJ sticks). |
+| `pi-midi-daemon/` | A small Go daemon for the things Mixxx cannot do. Mixxx's script engine has no file, process or network access, so **MIDI is the only channel out** — the daemon takes SysEx commands (shutdown, reboot) and reports events back (a DJ stick was mounted or removed). Ships as a fully static musl binary, so there is nothing to install on the Pi. |
+
+## ProLink compatibility
+
+`prolinks-compat/` reverse-engineers Pioneer's proprietary **CDJ ProLink** Ethernet protocol so TriMixxx can share libraries with real CDJs on the same network. It is a substantial subproject in its own right — a Python proof-of-concept plus a written specification — and both directions now work against real hardware (two CDJ-2000NXS):
+
+- **Consume:** discover players passively, then pull a deck's `export.pdb` over NFS and list its tracks. The fetched database is byte-identical to the same file read off the physically ejected stick.
+- **Serve:** a real CDJ-2000NXS sees us on its LINK screen, browses all eleven categories with drill-downs, sorting, search and harmonic key matching, and **loads and plays tracks** (MP3, AAC, WAV, AIFF) with artwork, hot cues and both waveforms. The last browse session was 568 requests with zero errors.
+
+The protocol as observed is written up in [`prolinks-compat/docs/PROTOCOL.md`](prolinks-compat/docs/PROTOCOL.md), with the evidence behind every claim in `docs/FINDINGS.md` and current state in `STATUS.md`. The end goal is to port the validated approach into Mixxx (C++/Qt) and upstream it.
 
 ## Chassis
 
-Designed in Fusion 360 to fit the original CDJ form factor — a custom top panel with cutouts for the jog wheel, buttons, and connectors, plus a bottom tray.
+Designed in Fusion 360 to fit the original CDJ form factor — a custom top panel with cutouts for the jog wheel, buttons, and connectors, plus a bottom tray. `ref_sizes/` holds the measured references (CDJ-1000MK3 / 2000NXS2 / 3000 dimensions, jog wheel, screen) the design is built from.
 
 ![Top case 3D render](screenshots/top_case_3d_2026-02-17.png)
 
@@ -129,9 +165,16 @@ firmwares/                  Embedded firmware
 ├── swio-adapter/               CH32V003 SWIO programmer (submodule)
 └── ArduinoMIDI/                Historical ATmega sketches
 
+mixxx/                      Our Mixxx fork -- the build the deck runs (submodule)
+mixxx_config/               ~/.mixxx: mapping, scripts, skin, sound config
+pi_config/                  Pi system config: systemd units, udev, USB automount
+pi-midi-daemon/             Go daemon: SysEx <-> OS actions and USB events
+
+prolinks-compat/            Pioneer ProLink protocol research + Python PoC
 ch32fun/                    ch32fun toolkit (submodule)
-prolinks-compat/            Pioneer ProLink protocol research
 handmade_pcb/               Hand-etched PCB experiments
+datasheet/                  Datasheets for the parts used
+ref_sizes/                  Measured CDJ dimensions the chassis is built from
 screenshots/                Renders + schematics (incl. the monolithic-board history)
 ```
 
@@ -142,10 +185,16 @@ screenshots/                Renders + schematics (incl. the monolithic-board his
 - **ch32fun** — bare-metal CH32V003 firmware and `minichlink` flashing
 - **Fusion 360** — mechanical design
 - **JLCPCB** — PCB fabrication and assembly
+- **Go**, **Python** (`uv`) — Pi daemon and ProLink proof-of-concept
 
 ## License
 
-This is a personal hardware project. Feel free to use it as reference for your own builds.
+Copyright (C) 2026 Samuel Prevost and contributors.
+
+TriMixxx is free software: you can redistribute it and/or modify it under the terms of the **GNU General Public License version 3** or (at your option) any later version. The full text is in [`LICENSE`](LICENSE). This covers everything in the repository — firmware, host software, hardware sources and documentation alike — except:
+
+- **`prolinks-compat/`**, which is **GPLv2-or-later** on purpose, so it stays compatible with Mixxx and can be upstreamed. GPLv2-or-later code may be used under GPLv3, so this is compatible with the rest of the project; see `prolinks-compat/LICENSE`.
+- **Submodules** (`mixxx/`, `ch32fun/`, `firmwares/swio-adapter/`, `mixxx_config/ttymidi/`, the Keebio libraries), which keep their own upstream licenses.
 
 ---
 

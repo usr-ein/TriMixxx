@@ -2,7 +2,7 @@
 
 Firmware for the **LOLIN S3 Mini (ESP32-S3)** master board of a custom DJ deck. It
 reads the deck's controls, bridges them to Mixxx on a Raspberry Pi as MIDI, and
-drives the ring's RGB LEDs from Mixxx feedback.
+drives the rings' RGB LEDs from Mixxx feedback.
 
 ## Setup
 
@@ -41,9 +41,12 @@ echoes incoming Note-On velocity to ring LEDs (see `onMidiFromMixxx` in `main.cp
 |------|------|---------|----------------|
 | UART0 `Serial0` (IO43 TX / IO44 RX) | Raspberry Pi (MIDI @115200) | 3.3V both ends | **No** |
 | UART1 `Serial1` (IO17 TX / IO15 RX) | OneButton ring A @500 kbaud | 5V ring | **Yes** |
-| UART2 (IO13 TX / IO12 RX) | reserved for a 2nd OneButton ring (not built) | 5V ring | **Yes** |
+| UART2 `Serial2` (IO13 TX / IO12 RX) | OneButton ring B @500 kbaud | 5V ring | **Yes** |
 
-Jog wheel: PCNT on IO6/IO7 (A/B), touch on IO14. The optical (GP1A038RBK OPIC)
+Both rings run one `OneButtonRing` instance each, pinned to core 0 — they share
+it because each blocks on UART and yields.
+
+Jog wheel: PCNT on IO6/IO7 (A/B), touch on IO11. The optical (GP1A038RBK OPIC)
 encoder is comparator-clean → raw edge-counted, **no debounce**. The KY-040 track
 encoder (IO33 CLK / IO37 DT / IO38 SW) is the opposite — mechanical, so its module
 debounces via a state-table decoder. Tempo fader: ADC1 on IO8 (ADCT center tap) /
@@ -53,7 +56,10 @@ IO9 (ADIN wiper), bare 3.3V pot, no external filtering.
 One deck = MIDI channel 1 (0-based `0`). `MidiMap.hpp` is the authority; the Mixxx
 controller mapping (`mixxx_config/TriMixxx.midi.xml` + `TriMixxx.scripts.js`) matches it —
 change both together, no address overlaps.
-- Ring pads: node `i` ↔ note `PAD_BASE + i` (0..49), velocity = white LED brightness.
+- Ring A pads: node `i` ↔ note `PAD_A_BASE + i` (0..49), velocity = white LED brightness.
+- Ring B pads: node `i` ↔ note `PAD_B_BASE + i` (67..116), same semantics. The
+  50-wide reservation matches ring A even though fewer nodes are populated, so
+  growing a ring never renumbers anything.
 - Jog: `CC_JOG` relative 7-bit two's-complement ticks; `NOTE_JOG_TOUCH` = scratch enable.
 - Tempo: 14-bit CC pair — `CC_TEMPO` (MSB) + `CC_TEMPO_LSB` (= MSB+32); Mixxx must bind both as `<fourteen-bit-msb>`/`<lsb>`.
 - Track encoder: `CC_ENCODER` relative (1=up, 127=down) + `NOTE_ENC_SW` press.
@@ -66,13 +72,15 @@ payload byte must be 7-bit — that is a SysEx rule, not a convention. `ttymidi`
 carries the payload opaquely (its README: *"System Exclusive — carried opaquely"*),
 so this layout is purely between the Mixxx mapping and `main.cpp`'s `onSysExFromMixxx`.
 
-- **`0x01` ring LEDs** — `F0 7D 01 <node> <colour bytes> F7`. Each 8-bit channel is
+- **`0x01` ring A LEDs** — `F0 7D 01 <node> <colour bytes> F7`. Each 8-bit channel is
   sent as **two data bytes, high nibble first** (`v>>4`, `v&0x0F`); that is what keeps
   the full 0..255 per channel, since one 7-bit byte would cap it at 127. Channel order
   R,G,B matches the OneButton wire slot, so nothing is reordered.
   - 12 colour bytes (`R1 G1 B1 R2 G2 B2`) → LED0 and LED1 set independently.
   - 6 colour bytes (`R1 G1 B1`) → one colour **mirrored onto both LEDs**.
   - Wrong length or `node >= RING_A_NODES` → ignored.
+- **`0x03` ring B LEDs** — identical layout and semantics, targeting ring B
+  (`node >= RING_B_NODES` → ignored).
 - **`0x02` reset** — `F0 7D 02 52 53 54 F7` ("RST") reboots the S3 via `esp_restart()`,
   equivalent to the physical RESET button. The magic is **required**: it stops a stray
   or corrupt SysEx from rebooting the deck mid-set, so a bare `F0 7D 02 F7` does nothing.
@@ -81,11 +89,12 @@ Note-On velocity → white pad brightness still works and is unchanged; SysEx is
 way to get an actual colour, which a 7-bit velocity cannot express.
 
 ## Status
-All deck controls have drivers: **ring A pads**, **jog wheel**, **tempo fader**,
-**track encoder**, **play/cue board**, and **loop board**. The Mixxx controller
-mapping lives at the monorepo root in **`mixxx_config/`** (`TriMixxx.midi.xml` +
-`TriMixxx.scripts.js`, see `mixxx_config/README.md`). A 2nd ring (UART2) is
-reserved but not built.
+All deck controls have drivers: **ring A pads**, **ring B pads**, **jog wheel**,
+**tempo fader**, **track encoder**, **play/cue board**, and **loop board**. Both
+rings are wired to the MIDI bus (pads out, LEDs in) and self-test under
+`DECK_DEBUG`. The Mixxx controller mapping lives at the monorepo root in
+**`mixxx_config/`** (`TriMixxx.midi.xml` + `TriMixxx.scripts.js`, see
+`mixxx_config/README.md`).
 
 `main.cpp` has a single **`DECK_DEBUG`** switch (top of the file): set to `1`,
 `loop()` calls each module's own `debug()` self-test instead of sending MIDI —
