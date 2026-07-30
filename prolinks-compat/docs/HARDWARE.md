@@ -449,6 +449,75 @@ The log names the stage, which is the point of resolving both ports up front:
 | `LOOKUP PIONEER: NFSERR_NOENT` | HFS-formatted media puts the tree under `.PIONEER` |
 | `timed out` on everything | Almost always the wrong source interface — check the Interface column in §11 says `eth0` |
 
+## 13. Cover art over dbserver  *(phase B — the NFS artwork path replaced)*
+
+Covers used to be fetched over NFS alongside the audio, and it never worked
+properly: about one in ten arrived and the rest came back `NFSERR_STALE`,
+deterministically the same ones each time. F49 explains why — a real CDJ **never
+asks NFS for an image**, and walking `PIONEER/Artwork/000NN` per cover mints four
+filehandles a time until the player's table churns and it starts refusing handles
+a millisecond old. Artwork now goes over dbserver, by id, where no handle exists
+to go stale.
+
+### Power both decks on
+
+This is new and it is load-bearing. Every dbserver request carries a device
+number in its descriptor, and the player validates it: 1–4, **belonging to a
+device actually on the network**, and not the deck being asked. We do not
+announce, so we have no number of our own and have to borrow the *other* deck's.
+With one deck on the network there is nobody to borrow from; Mixxx falls back to
+the lowest number in range that is not the target's and tries anyway, which is
+untested — see the experiment below.
+
+### The test
+
+```sh
+ssh trimixxx-pi 'sudo tcpdump -i eth0 -w /tmp/dbserver.pcap "tcp port 1051 or tcp port 12523"' &
+```
+
+In Mixxx: **ProLink → the deck → USB → All tracks**, then scroll the whole list.
+Expect the Cover column to fill in progressively, over a few seconds, for every
+track that has art — not the ~10% it used to.
+
+Stop the capture, then read the log:
+
+```sh
+ssh trimixxx-pi 'grep -E "ProLinkDbServer|cover images" ~/.mixxx/mixxx.log'
+```
+
+| Line | Means |
+|---|---|
+| `queued N cover images for <mac>|3 over dbserver` | The prefetch started. N is distinct images, not tracks |
+| `connected to <ip> port 1051 as device 2; peer reports device 1` | Handshake done. The two numbers must differ |
+| `Introduce rejected (reply 0x4003)` | The borrowed number was refused — see the experiment |
+| `no other player to borrow a device number from; claiming N` | Only one deck is up |
+| `gave up after 3 dbserver failures` | Three connection attempts failed; nothing further is tried this session |
+
+### The experiment worth running while you are there
+
+Power the second deck **off** and reload the medium (`[ProLink],refresh`, then
+re-expand the slot). Mixxx will claim a number that belongs to nothing.
+
+- **Covers still load** → the "must be present on the network" half of the rule
+  is wrong, or at least not enforced by 1.44 firmware, and single-deck operation
+  is fine. Record it as a finding and simplify `pickRequesterNumber`.
+- **`Introduce rejected`** → the rule holds, artwork genuinely needs a second
+  player until we announce, and that is an argument for bringing the virtual CDJ
+  forward in the plan.
+
+Either answer is worth having; right now we are guessing.
+
+### Reading the capture
+
+```sh
+uv run prolinks pcap /tmp/dbserver.pcap
+```
+
+Every `0x2003 GetArtwork` should draw exactly one `0x4002 Artwork`, and the blob
+sizes should look like JPEGs (tens of kilobytes). A `0x4003` is a refusal; a
+request with no reply means the connection died mid-conversation and the log will
+say so.
+
 ## What to bring back
 
 - `captures/` from the whole session, with `--notes` filled in

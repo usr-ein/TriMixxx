@@ -19,20 +19,25 @@ regression cannot hide behind an empty corpus.
 from __future__ import annotations
 
 import glob
+import io
 import json
 import socket
 from pathlib import Path
 
 import pytest
 
-from prolinks_poc.capture.pcap import read_capture
+from prolinks_poc.capture.pcap import read_capture, tcp_streams
 from prolinks_poc.proto import djl
+from prolinks_poc.proto import dbserver as db
+from prolinks_poc.proto.bytes import ByteReader
 
 generated = pytest.importorskip(
     "tests.generated.prolink_djl",
     reason="run ksy/regenerate.sh to build the Kaitai parsers",
 )
 ProlinkDjl = generated.ProlinkDjl
+ProlinkDbserver = pytest.importorskip("tests.generated.prolink_dbserver").ProlinkDbserver
+KaitaiStream = pytest.importorskip("kaitaistruct").KaitaiStream
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -119,6 +124,81 @@ def test_ksy_agrees_with_the_hand_written_decoder_across_the_corpus():
 
     assert not disagreements, f"{len(disagreements)} field disagreements: {disagreements[:8]}"
     assert seen >= 1, "no UDP-50000 payloads found at all -- is the corpus present?"
+
+
+def _dbserver_streams():
+    """Every reassembled TCP-1051 byte stream in the corpus, both directions."""
+    patterns = (
+        "research/ref-repos/dysentery/doc/assets/LinkInfo*.pcapng",
+        "captures/S*/run.pcap",
+    )
+    for pattern in patterns:
+        for path in sorted(glob.glob(str(ROOT / pattern))):
+            try:
+                packets = list(read_capture(path))
+            except Exception:  # a truncated or unreadable capture costs that file
+                continue
+            yield from tcp_streams(packets, ports={db.DEFAULT_DBSERVER_PORT}).values()
+
+
+def test_dbserver_ksy_agrees_with_the_hand_written_decoder():
+    """The dbserver schema against every captured message, field by field.
+
+    Worth more here than for the discovery packets, because this is the format
+    ``research/10`` predicted would fight: two independent tag numberings that
+    must agree, and a zero-length binary argument that is **omitted from the wire
+    entirely**. Both are silent when wrong -- a parser that mishandles the second
+    reads the next message's magic as a field and every argument after that is one
+    position out, with nothing to show for it.
+
+    Framing is checked as well as content: ``pos()`` after the parse must equal
+    what the hand-written decoder consumed, which is the only way a desynchronised
+    reader would show up.
+    """
+    seen, disagreements = 0, []
+
+    for data in _dbserver_streams():
+        start = len(db.PREAMBLE) if data.startswith(db.PREAMBLE) else 0
+        reader = ByteReader(data, start)
+        while not reader.at_end():
+            before = reader.pos
+            try:
+                reference = db.decode_message(reader)
+            except Exception:
+                break  # a partial trailing message; normal at a capture boundary
+
+            stream = KaitaiStream(io.BytesIO(data[before:]))
+            parsed = ProlinkDbserver(stream)  # must not raise, for any capture
+            seen += 1
+
+            checks = (
+                ("consumed", stream.pos(), reader.pos - before),
+                ("transaction_id", parsed.transaction_id, reference.transaction_id),
+                ("type", parsed.message_type, reference.type),
+                ("num_args", len(parsed.args), len(reference.args)),
+            )
+            for name, mine, theirs in checks:
+                if mine != theirs:
+                    disagreements.append((name, mine, theirs, reference.type_name))
+
+            for index, argument in enumerate(parsed.args):
+                theirs = reference.args[index]
+                if not argument.is_present:
+                    mine = b""
+                elif argument.field.field_type == db.FieldType.BINARY:
+                    mine = argument.field.blob
+                elif argument.field.field_type == db.FieldType.STRING:
+                    mine = argument.field.text_raw.decode("utf-16-be").rstrip("\x00")
+                else:
+                    mine = argument.field.num_value
+                if mine != theirs:
+                    disagreements.append((f"arg{index}", mine, theirs, reference.type_name))
+
+    assert not disagreements, f"{len(disagreements)} disagreements: {disagreements[:8]}"
+    if seen == 0:
+        pytest.skip("no dbserver traffic in the corpus on this machine")
+    # The dysentery LinkInfo captures alone hold well over ten thousand.
+    assert seen > 200
 
 
 def test_every_packet_type_we_have_ever_seen_is_covered():

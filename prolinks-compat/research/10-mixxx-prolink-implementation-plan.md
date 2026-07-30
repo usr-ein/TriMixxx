@@ -81,7 +81,7 @@ The feature as specified, in the order a user meets it.
 |---|---|
 | Phasing | Python PoC first (done — validated against two real CDJ-2000NXS), then port to C++/Qt |
 | Scope | **Both directions in v1** |
-| Consume transport | NFSv2-over-UDP + `export.pdb`. **No dbserver client** — we parse the database ourselves |
+| Consume transport | NFSv2-over-UDP + `export.pdb` for the database and the audio; **a dbserver client for artwork only** (F49 — a real CDJ never asks NFS for an image, and doing it anyway exhausts the player's filehandle table) |
 | Serve transport | The full stack: 50000 + 50002 + 12523 + dbserver 1051 + portmap/mountd/nfsd |
 | Discovery | Active. The virtual CDJ is required for serving, and the consume side reuses it |
 | Numbering | AUTO by default, from 1–4; explicit override; observer number 7 when consume-only |
@@ -257,9 +257,14 @@ noise out of the warnings-as-errors path our own code sits in.
 case for the pdb, which needs random access anyway (`page_ref_t::body()` seeks,
 `rekordbox_pdb.cpp:647`).
 
-### The one format that will fight
+### The one format that was going to fight — and did not
 
-`prolink_dbserver.ksy` is the hard one, and worth knowing before starting:
+`prolink_dbserver.ksy` was expected to be the hard one. **Written, and it holds:**
+11809 real messages from the capture corpus parse with zero disagreements against
+`prolinks_poc.proto.dbserver`, including the number of bytes each consumed — so
+the framing is checked and not only the contents. All three predicted problems
+below turned out to be expressible. Notes kept because they are what a reader of
+the schema needs to know:
 
 - A message is a **tagged field stream**, and the header separately carries a
   12-byte blob of *argument* tags describing the same arguments **under a
@@ -270,14 +275,25 @@ case for the pdb, which needs random access anyway (`page_ref_t::body()` seeks,
   is the rule that desynchronises a naive parser, so pin it with a capture test
   on day one.
 - Strings are **UTF-16 big-endian counted in characters including the NUL** —
-  the opposite endianness to the NFS layer. Kaitai's `encoding: UTF-16BE` with a
-  computed byte length handles it; do not let the two conventions share a type.
+  the opposite endianness to the NFS layer. *Not* `encoding: UTF-16BE`: Mixxx
+  compiles the runtime with `KS_STR_ENCODING_NONE`, which would ignore it
+  silently. Declared as a byte array and decoded in the caller, per `ksy/README`.
 
-If the tag-blob correlation turns out to fight Kaitai harder than expected, the
-fallback is a hand-written parser for *this format only* — it is one file, the
-PoC's `proto/dbserver.py` is 689 lines including docstrings, and nothing else in
-the design depends on it being generated. Decide after the first `.ksy` spike;
-do not let it block the other three.
+How the first two are expressed, since neither is obvious:
+
+```yaml
+- id: args
+  type: 'argument(arg_tags[_index], _index == 0 ? 1 : args[_index - 1].num_value)'
+  repeat: expr
+  repeat-expr: num_args
+```
+
+Each argument is parameterised on its own entry in the header's tag blob **and on
+its predecessor's numeric value**, which is the only thing that says whether an
+empty binary argument was omitted. Kaitai permits the self-reference because the
+generated C++ fills the vector in order, so `args()->at(i - 1)` is already there.
+`num_args` is `valid: {max: 12}` and `len_arg_tags` `valid: 12`, which is what
+keeps the generated `arg_tags().at(i)` in bounds.
 
 ---
 

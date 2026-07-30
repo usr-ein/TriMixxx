@@ -15,7 +15,7 @@ These are the source of truth for the **parse** direction in Mixxx. Run
 |---|---|---|
 | `prolink_djl.ksy` | UDP 50000 — discovery, claim chain, keep-alive | **7833 packets / 38 capture files**, all 8 observed types, zero field disagreements with `prolinks_poc.proto.djl` |
 | `prolink_status.ksy` | UDP 50002 — status, media query, settings | *not written yet* |
-| `prolink_dbserver.ksy` | TCP 1051 — the metadata protocol | *not written yet* |
+| `prolink_dbserver.ksy` | TCP 1051 — the metadata protocol | **11809 messages**, both directions, zero disagreements with `prolinks_poc.proto.dbserver` — including the byte count consumed, so the framing is checked and not just the contents |
 | `rekordbox_mysetting.ksy` | `PIONEER/*SETTING*.DAT` | *not written yet* |
 
 `export.pdb` and the ANLZ files are **not** here: Mixxx already vendors
