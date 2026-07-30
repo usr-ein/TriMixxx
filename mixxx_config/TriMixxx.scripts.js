@@ -181,7 +181,7 @@ TriMixxx.init = function(id, debugging) {
     // features rebuilds the track model and the sort goes with it, so without
     // this the light would claim a sort that is no longer in effect.
     TriMixxx.conns.push(engine.makeConnection("[Master]", "show_library", function(v) {
-        if (v && TriMixxx.sortStep >= 0) { TriMixxx.sortApply(); }
+        if (!v) { TriMixxx.sortForget(); }
         TriMixxx.ledSort();
     }));
     TriMixxx.ledConnect("loop_enabled", TriMixxx.ledLoopMods);
@@ -290,10 +290,25 @@ TriMixxx.sortApply = function() {
     if (TriMixxx.sortStep < 0) { TriMixxx.ledSort(); return; }
     var column = TriMixxx.SORT_COLUMNS[Math.floor(TriMixxx.sortStep / 2)];
     var descending = (TriMixxx.sortStep % 2) === 1;
-    // Order first: sort_column is what triggers the re-sort, so setting the
-    // direction afterwards would sort twice and show the wrong one in between.
-    engine.setValue("[Library]", "sort_order", descending ? 1 : 0);
-    engine.setValue("[Library]", "sort_column", column.id);
+
+    // **sort_column is not a setter.** It forwards straight to
+    // sort_column_toggle, which flips the direction when the id matches the
+    // column already sorted on and forces *ascending* when it does not. Setting
+    // sort_order alongside it therefore never survived: a new column reset it
+    // and the same column ignored it. Rekordbox showed this up because its view
+    // already had an Artist sort running, so the ids collided differently there
+    // than on a freshly opened list.
+    //
+    // So drive the toggle and let Mixxx own the direction. Ascending means
+    // "select this column", which the toggle does on the first hit; descending
+    // means "hit it again". Reading sort_order back is what keeps the LED
+    // honest rather than assuming the write landed.
+    engine.setValue("[Library]", "sort_column_toggle", column.id);
+    if (descending && engine.getValue("[Library]", "sort_order") === 0) {
+        engine.setValue("[Library]", "sort_column_toggle", column.id);
+    } else if (!descending && engine.getValue("[Library]", "sort_order") !== 0) {
+        engine.setValue("[Library]", "sort_column_toggle", column.id);
+    }
     TriMixxx.ledSort();
 };
 
@@ -302,8 +317,20 @@ TriMixxx.sortClear = function() {
     TriMixxx.sortStep = -1;
     // SortColumnId::CurrentIndex (0) is the model's own order, which is what
     // "no sort" means for a playlist: the order somebody put the tracks in.
-    engine.setValue("[Library]", "sort_order", 0);
-    engine.setValue("[Library]", "sort_column", 0);
+    engine.setValue("[Library]", "sort_column_toggle", 0);
+    TriMixxx.ledSort();
+};
+
+// Moving to another part of the library drops the sort.
+//
+// It has to: changing section rebuilds the track model and the new list arrives
+// in its own order, so a lit button would be claiming a sort that is not in
+// effect. The *preference* is kept, so one press picks up where the cycle left
+// off rather than starting again at BPM.
+TriMixxx.sortForget = function() {
+    if (TriMixxx.sortStep < 0) { return; }
+    TriMixxx.sortLastStep = TriMixxx.sortStep;
+    TriMixxx.sortStep = -1;
     TriMixxx.ledSort();
 };
 
@@ -516,6 +543,10 @@ TriMixxx.encoderPush = function(channel, control, value, status, group) {
         // encoder walks into the children. A leaf -- or a root that owns a track
         // table, i.e. Tracks -- hands focus to the track list instead, which is
         // what the old unconditional jump did for everything.
+        // Entering a section: whatever was sorted is about to be replaced by a
+        // fresh model in its own order, so let go of the sort now rather than
+        // leaving the button lit over a list that is not sorted.
+        TriMixxx.sortForget();
         engine.setValue("[Library]", "GoToItem", 1);
         return;
     }
