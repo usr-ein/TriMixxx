@@ -343,14 +343,32 @@
             </Connection>
             <Children>
 
+              <!-- Pro DJ Link phase meter: where the network's tempo master is
+                   in its bar, over where this deck is in its own. Sits directly
+                   above the waveform because that is where the eye already is
+                   while beatmatching.
+
+                   The 58 px it takes come out of the waveform below (465 -> 407),
+                   so the total height of the deck view is unchanged. -->
+              <ProLinkPhaseMeter>
+                <ObjectName>ProLinkPhase</ObjectName>
+                <Group>[Channel1]</Group>
+                <MinimumSize>1024,58</MinimumSize>
+                <MaximumSize>1024,58</MaximumSize>
+                <MasterColor>#ff6600</MasterColor>
+                <DeckColor>#44ccff</DeckColor>
+                <InSyncColor>#44ff88</InSyncColor>
+              </ProLinkPhaseMeter>
+
               <!-- Scrolling waveform -->
               <Visual>
                 <ObjectName>ScrollingWaveform</ObjectName>
                 <Group>[Channel1]</Group>
-                <!-- 465 + 55 (Overview) = 520: the waveform absorbs every row of
-                     buttons that used to sit under it, rather than leaving a hole. -->
-                <MinimumSize>1024,465</MinimumSize>
-                <MaximumSize>1024,465</MaximumSize>
+                <!-- 407 + 58 (phase meter) + 55 (Overview) = 520: the waveform
+                     absorbs every row of buttons that used to sit under it,
+                     rather than leaving a hole. -->
+                <MinimumSize>1024,407</MinimumSize>
+                <MaximumSize>1024,407</MaximumSize>
                 <SignalHighColor>#ff5544</SignalHighColor>
                 <SignalMidColor>#88ff00</SignalMidColor>
                 <SignalLowColor>#2266ff</SignalLowColor>
