@@ -52,7 +52,10 @@ ssh "$HOST" '
     rm -f /tmp/99-prolink-ports.conf
     sudo sysctl --system >/dev/null
     # Confirm it took (prints "111"). A kernel older than 4.11 has no such knob.
-    sysctl -n net.ipv4.ip_unprivileged_port_start
+    # Read /proc rather than `sysctl -n`: sysctl lives in /usr/sbin, which is not
+    # on the PATH of a non-login ssh shell (the sudo above only works because
+    # sudo has its own secure_path).
+    cat /proc/sys/net/ipv4/ip_unprivileged_port_start
 '
 
 # ---- DJ USB auto-mount -------------------------------------------------------
