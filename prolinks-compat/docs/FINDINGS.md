@@ -73,6 +73,7 @@ and analysis files · **METH** capture methodology.
 | [F45](#f45) | Serve | A server **must hold a number in 1-4**; at 5 a deck accepts it and never asks for its media |
 | [F46](#f46) | Serve | **E9 fails:** UDP/111 is mandatory — no fallback to 48276/2049. And NFS precedes dbserver |
 | [F47](#f47) | pdb | The row-group **presence bitmask is authoritative**, not the page header's entry count |
+| [F48](#f48) | NFS | **`NFSERR_ACCES` on `MNT` means the slot is empty**, not that we were refused — resolves E2 |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1907,6 +1908,43 @@ clear. Mixxx's parser needed no change — it was already correct.
 
 *Evidence:* `~/Downloads/SAM1-export.pdb`, page 18. 651 tracks, 329 artists,
 273 albums, one playlist of 40.
+
+<a id="f48"></a>
+
+### F48 — `NFSERR_ACCES` on `MNT` means an empty slot  *(confirmed)*
+
+Experiment E2 asked why libcdj's mount attempt failed; its `vdj_nfs_explore.c`
+header comment reads *"Does not wrok, mount gets 13 NFSERR_ACCES."* Three
+hypotheses were on the table: **H1** the wrong auth flavour (libcdj uses glibc
+`clnt_create()`, which defaults to `AUTH_NULL`), **H2** mounting a slot with no
+media, **H3** a reserved-source-port requirement.
+
+**H2.** From one Mixxx session against a deck with a USB in and nothing in the SD
+slot, seconds apart, same client, same `AUTH_UNIX` credentials, same source port:
+
+```
+16:56:38  MNT /C/  -> ok, 675840 bytes fetched in 528 reads
+16:56:41  MNT /B/  -> NFSERR_ACCES
+16:57:39  MNT /B/  -> NFSERR_ACCES   (retry, same answer)
+```
+
+Nothing about the client differed between the two calls, so the error is a
+property of the *slot*, not of us. A player refuses to export a slot it has no
+media in, and reports it as a permission failure rather than as `NFSERR_NOENT`
+or a mount-specific status.
+
+**Consequences.** `NFSERR_ACCES` should be surfaced as "no media in that slot",
+not "access denied" — the latter sends anyone debugging it towards credentials,
+which is exactly the trap libcdj fell into. It also means H1 and H3 remain
+untested rather than disproven: nobody has yet demonstrated `AUTH_NULL` failing,
+and our own client has never needed a reserved port.
+
+It also makes speculatively mounting both slots a *usable* way to discover
+occupancy without announcing: `/C/` succeeds and `/B/` returns ACCES, which is
+the same information status packets carry at offsets 0x6f and 0x73 (F20) but
+without needing to be an announced peer (F21).
+
+*Evidence:* Mixxx deck session 2026-07-30 16:56–16:57, `mixxx.log`.
 
 ---
 
