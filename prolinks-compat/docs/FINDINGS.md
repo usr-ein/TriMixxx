@@ -74,6 +74,7 @@ and analysis files · **METH** capture methodology.
 | [F46](#f46) | Serve | **E9 fails:** UDP/111 is mandatory — no fallback to 48276/2049. And NFS precedes dbserver |
 | [F47](#f47) | pdb | The row-group **presence bitmask is authoritative**, not the page header's entry count |
 | [F48](#f48) | NFS | **`NFSERR_ACCES` on `MNT` means the slot is empty**, not that we were refused — resolves E2 |
+| [F49](#f49) | NFS | Filehandles are **allocator pointers**, `[self][parent][root]`, and go stale under churn. A real CDJ never fetches artwork over NFS |
 
 **Corrections to `research/`** — C1 stage-2 byte `30` is a role · C2 stage-3 is
 38 bytes · C3 nexus keep-alive byte `35` is `00` · C4 byte `25` is not a role
@@ -1945,6 +1946,62 @@ the same information status packets carry at offsets 0x6f and 0x73 (F20) but
 without needing to be an announced peer (F21).
 
 *Evidence:* Mixxx deck session 2026-07-30 16:56–16:57, `mixxx.log`.
+
+<a id="f49"></a>
+
+### F49 — Filehandles are allocator pointers, and artwork does not travel over NFS  *(confirmed)*
+
+Fetching a medium's 576 cover images over NFS fails about three quarters of the
+time with `NFSERR_STALE`, and no amount of client-side care fixes it. Two
+findings, from a capture taken on the deck while Mixxx did exactly that.
+
+**A handle is three little words.** Every filehandle a CDJ issues has the shape
+`[self][parent][root]` followed by zeros:
+
+```
+LOOKUP 'PIONEER'  dir=012538a8 012538a8 012538a8  -> 01253b64 012538a8 012538a8
+LOOKUP 'a463.jpg' dir=012552cc 01253cdc 012538a8  -> 012557c8 012552cc 012538a8
+LOOKUP 'a177.jpg' dir=01254c28 01253cdc 012538a8  -> NFSERR_STALE
+```
+
+The root repeats its own address three times, which is what
+`docs/PROTOCOL.md` §4.5 already recorded for a player's own handles
+(`01c1cec8` ×3). The values are in a tight range and behave exactly like heap
+addresses: they are **pointers into the player's own structures**, and they stop
+resolving as soon as it reuses that memory.
+
+**Age is not what kills them.** Measured over 3969 lookups (3081 ok, 888 stale):
+a stale handle had a median age of **1 ms** and typically zero other handles
+issued in between, while a successful one was sometimes **15 s** old. So this is
+not an expiry, a TTL or an LRU — it is a pointer whose target has been freed.
+Nothing a client does to a handle can make it valid again; only re-deriving it
+from a live parent can.
+
+**And a real player never asks.** In two captures of CDJs loading and playing
+from each other's media, the `LOOKUP` names are:
+
+```
+S06-load-and-play        <dir> 36, mp3 12
+S13-format-ground-truth  <dir> 204, mp3 30, m4a 14, wav 12, aiff 12
+```
+
+**Not one image.** Album art travels over dbserver instead —
+`GET_ARTWORK 0x2003` → `ARTWORK 0x4002`, the image bytes in a single message,
+addressed by the artwork id the metadata reply already carries (§5.9). A player
+walks the filesystem only for audio, holds four directory handles across
+forty-eight lookups, and reads one file at a time.
+
+So an NFS artwork prefetch is not merely slower than the intended path, it is a
+usage pattern the firmware is not built for: ~2300 handles minted for something
+that should generate none. The player is not misbehaving; we are asking the
+wrong service.
+
+*Consequence:* covers should come from a dbserver client, not from NFS. Until
+there is one, an NFS prefetch has to be paced and must re-derive handles from
+the root on `STALE` rather than re-mounting — the mount is not what expired, and
+446 re-mounts bought 20 extra covers out of 576.
+
+*Evidence:* deck capture 2026-07-30 19:04, `captures/S25-artwork-stale/`.
 
 ---
 
