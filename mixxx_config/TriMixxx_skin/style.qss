@@ -364,9 +364,41 @@ WTrackTableView QScrollBar::sub-page:horizontal {
      * the glyph box needs a good deal more height than the digits themselves
      * suggest. The bottom row was widened to 76px for this; at 55px the bottom
      * of every digit was clipped by the edge of the screen. */
-    font-size: 42px;
+    font-size: 50px;
     color: #ff6600;
     background: transparent;
     qproperty-alignment: 'AlignRight | AlignVCenter';
-    padding-right: 12px;
+    /* Real breathing room from the corner. Hard against the edge the digits
+     * read as an artefact of the panel rather than as a number. */
+    padding-right: 26px;
+}
+
+/*
+ * Pitch column, immediately left of the tempo: how far the fader is from the
+ * track's own tempo, over the range that fader spans. Smaller than the tempo on
+ * purpose -- it is the qualifier, not the headline.
+ */
+#PitchPercent, #PitchRange, #PitchRangeUnit {
+    font-family: "MesloLGL Nerd Font", "Noto Sans", monospace;
+    background: transparent;
+    qproperty-alignment: 'AlignRight | AlignVCenter';
+    padding-right: 8px;
+}
+#PitchPercent {
+    font-size: 19px;
+    color: #cccccc;
+}
+#PitchRange, #PitchRangeUnit {
+    font-size: 15px;
+    color: #777777;
+}
+#PitchRange {
+    /* The per cent sign is the sibling label to its right, so this one keeps no
+     * padding of its own or a gap opens between the number and the sign. */
+    padding-right: 0px;
+}
+#PitchRangeUnit {
+    qproperty-alignment: 'AlignLeft | AlignVCenter';
+    padding-right: 8px;
+    padding-left: 1px;
 }

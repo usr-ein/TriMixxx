@@ -337,7 +337,7 @@
                    above the waveform because that is where the eye already is
                    while beatmatching.
 
-                   The 58 px it takes come out of the waveform below (465 -> 386),
+                   The 58 px it takes come out of the waveform below (465 -> 360),
                    so the total height of the deck view is unchanged. -->
               <WidgetGroup>
                 <ObjectName>ProLinkPhaseRow</ObjectName>
@@ -351,12 +351,11 @@
                   <ProLinkPhaseMeter>
                     <ObjectName>ProLinkPhase</ObjectName>
                     <Group>[Channel1]</Group>
-                    <!-- 20% of the 1024 px panel. Narrow on purpose: the two
-                         rows are read against each other, and stretching them
-                         across the whole screen puts the thing being compared
-                         a foot apart. -->
-                    <MinimumSize>205,58</MinimumSize>
-                    <MaximumSize>205,58</MaximumSize>
+                    <!-- 40% of the 1024 px panel. Wide enough to read the
+                         offset between the two rows, narrow enough that they
+                         stay side by side rather than a foot apart. -->
+                    <MinimumSize>410,58</MinimumSize>
+                    <MaximumSize>410,58</MaximumSize>
                     <MasterColor>#ff6600</MasterColor>
                     <DeckColor>#44ccff</DeckColor>
                     <InSyncColor>#44ff88</InSyncColor>
@@ -369,11 +368,14 @@
               <Visual>
                 <ObjectName>ScrollingWaveform</ObjectName>
                 <Group>[Channel1]</Group>
-                <!-- 386 + 58 (phase meter) + 76 (bottom row) = 520: the waveform
+                <!-- 360 + 58 (phase meter) + 76 (bottom row) = 494. Not 520: the
+                     window's menu bar takes about 22 px off the top that the old
+                     budget never counted, and the last row in the column is the
+                     one that gets squeezed for it. The waveform
                      absorbs every row of buttons that used to sit under it,
                      rather than leaving a hole. -->
-                <MinimumSize>1024,386</MinimumSize>
-                <MaximumSize>1024,386</MaximumSize>
+                <MinimumSize>1024,360</MinimumSize>
+                <MaximumSize>1024,360</MaximumSize>
                 <SignalHighColor>#ff5544</SignalHighColor>
                 <SignalMidColor>#88ff00</SignalMidColor>
                 <SignalLowColor>#2266ff</SignalLowColor>
@@ -443,8 +445,8 @@
               <Overview>
                 <ObjectName>TrackOverview</ObjectName>
                 <Group>[Channel1]</Group>
-                <MinimumSize>844,76</MinimumSize>
-                <MaximumSize>844,76</MaximumSize>
+                <MinimumSize>728,76</MinimumSize>
+                <MaximumSize>728,76</MaximumSize>
                 <Connection>
                   <ConfigKey>[Channel1],playposition</ConfigKey>
                 </Connection>
@@ -487,13 +489,60 @@
                        implicit binding, so without the Connection it renders
                        nothing at all. (No double hyphens in an XML comment;
                        they are illegal and reject the whole file.) -->
+                  <!-- Pitch column: how far the fader is from the track's own
+                       tempo, over the range that fader spans. Both are stock
+                       Mixxx widgets ; NumberRate already does (rate_ratio-1)
+                       x100 with a sign, and RateRange already formats the
+                       range as a percentage, so neither needs a Transform (the
+                       skin has Add but no Multiply, which is why doing this by
+                       hand would not have worked). -->
+                  <WidgetGroup>
+                    <ObjectName>PitchColumn</ObjectName>
+                    <Layout>vertical</Layout>
+                    <MinimumSize>86,76</MinimumSize>
+                    <MaximumSize>86,76</MaximumSize>
+                    <Children>
+                      <NumberRate>
+                        <ObjectName>PitchPercent</ObjectName>
+                        <Group>[Channel1]</Group>
+                        <NumberOfDigits>2</NumberOfDigits>
+                        <Size>86,38f</Size>
+                      </NumberRate>
+                      <!-- The range the pitch fader spans, as "16%".
+                           RateRange writes its own text and ignores any Text
+                           format, so the per cent sign is a sibling label
+                           rather than part of it; Display=range drops the +/-
+                           prefix the default adds, which belongs on the pitch
+                           value above and not on the range. -->
+                      <WidgetGroup>
+                        <ObjectName>PitchRangeRow</ObjectName>
+                        <Layout>horizontal</Layout>
+                        <Size>86,38f</Size>
+                        <Children>
+                          <WidgetGroup><Size>0me,0me</Size><Children/></WidgetGroup>
+                          <RateRange>
+                            <ObjectName>PitchRange</ObjectName>
+                            <Group>[Channel1]</Group>
+                            <Display>range</Display>
+                            <Size>34,38f</Size>
+                          </RateRange>
+                          <Text>
+                            <ObjectName>PitchRangeUnit</ObjectName>
+                            <Text>%</Text>
+                            <Size>14,38f</Size>
+                          </Text>
+                        </Children>
+                      </WidgetGroup>
+                    </Children>
+                  </WidgetGroup>
+
                   <Number>
                     <ObjectName>TempoDisplay</ObjectName>
                     <Group>[Channel1]</Group>
                     <NumberOfDigits>2</NumberOfDigits>
                     <Text>%1</Text>
-                    <MinimumSize>180,76</MinimumSize>
-                    <MaximumSize>180,76</MaximumSize>
+                    <MinimumSize>210,76</MinimumSize>
+                    <MaximumSize>210,76</MaximumSize>
                     <Connection>
                       <ConfigKey>[Channel1],bpm</ConfigKey>
                     </Connection>
