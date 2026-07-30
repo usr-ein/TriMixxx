@@ -283,13 +283,64 @@ only matters for serving.
 | Set `[ProLink],refresh` to 1 | Offline rows go immediately, without waiting out the 60 s |
 | Quit Mixxx with a CDJ on the network | Clean exit, no crash. This is the shutdown-ordering test and it only fails when a device is actually present |
 
-Check the log for the interface column: on the Pi it must say `eth0`, not
-`wlan0`. A device attributed to the wrong interface is the multi-homing failure
-(R5), and it is silent until something tries to open a socket towards it.
+**Check the Interface column on the status page**: on the deck it must say
+`eth0`, not `wlan0`. A device attributed to the wrong interface is the
+multi-homing failure (R5), and it is otherwise silent right up until something
+opens a socket towards it and every RPC times out with nothing to point at.
+
+The status page is the primary test surface — it re-renders on every change, so
+no log reading is needed for any of the table above.
+
+### Logs
+
+**Mixxx does not log to journald.** It is launched from `~/.xinitrc` on the deck,
+not as a systemd unit, so `journalctl` shows nothing useful. It writes its own
+file:
+
+```
+~/.mixxx/mixxx.log          current run
+~/.mixxx/mixxx.log.1        previous run  (rotated on every start, up to .10)
+```
+
+The rotation matters: after a restart, the run you just did is `mixxx.log.1`.
+
+**The default log level hides everything this feature emits.** Mixxx defaults to
+`Warning` (`kLogLevelDefault`, `src/util/logging.h:24`), and discovery logs at
+`info` — "listening on UDP 50000", "found 1 · CDJ-2000nexus", "went offline",
+"removing". Note that `--developer` does *not* raise the level, despite what its
+name suggests. So on the deck, add the flag to the Mixxx line in `~/.xinitrc`:
 
 ```sh
-ssh trimixxx-pi 'journalctl --user -n 200 | grep -i prolink'
+ssh trimixxx-pi 'grep mixxx ~/.xinitrc'          # see what is there now
+# ...append --log-level info to that line...
 ```
+
+Then:
+
+```sh
+# follow live while power-cycling a CDJ
+ssh trimixxx-pi 'tail -f ~/.mixxx/mixxx.log | grep -i prolink'
+
+# pull the whole thing back for a proper look
+scp trimixxx-pi:.mixxx/mixxx.log /tmp/deck-mixxx.log
+
+# previous run, e.g. after testing a clean quit
+scp trimixxx-pi:.mixxx/mixxx.log.1 /tmp/deck-mixxx-prev.log
+```
+
+Expect lines like:
+
+```
+ProLinkDiscovery - listening on UDP 50000
+ProLinkDiscovery - found 1 · CDJ-2000nexus at 169.254.202.84 on eth0
+ProLinkDiscovery - 1 · CDJ-2000nexus went offline
+ProLinkDiscovery - removing 1 · CDJ-2000nexus
+```
+
+`--log-level debug` additionally reports datagrams that failed to decode, which
+is what to reach for if a device on the network never appears — a mixer or a
+CDJ-3000 emitting a packet type our schema does not cover would show up there.
+Take the flag back off afterwards: debug logging is not free on a Pi mid-set.
 
 ### If no players appear
 
