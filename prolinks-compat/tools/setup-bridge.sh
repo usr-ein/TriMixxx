@@ -6,8 +6,12 @@
 # Mac were a switch, and every frame between them crosses our interfaces where
 # tcpdump can see it.
 #
-#   sudo tools/setup-bridge.sh              # detect, confirm, bridge
+#   sudo tools/setup-bridge.sh              # offer the rig's two adapters, confirm
 #   sudo tools/setup-bridge.sh en5 en9      # skip detection, use these two
+#
+# With no arguments it proposes the "USB 10/100/1000 LAN" and "Dell Universal
+# Dock D6000" adapters, which are the two this rig is built from -- see
+# PREFERRED_PORTS below for why that is a list of names and not a detection.
 #
 # Undo it with tools/setup-cdj-node.sh, which also turns one port back into a
 # working link-local interface.
@@ -101,25 +105,78 @@ show_table() {
 
 # -- choose the two ports ---------------------------------------------------
 
+# The two adapters this rig is actually built from, by hardware port name.
+#
+# Named rather than detected because the alternative does not work: with both
+# decks powered off nothing has a live link, and this Mac reports three virtual
+# ports called "Ethernet Adapter (enN)" with locally-administered MACs and no
+# socket behind them. Picking by link status alone therefore prompts every time
+# you set up before switching the decks on, which is most of the time, and
+# picking the first two candidates would quietly bridge two virtual ports.
+#
+# The BSD names (en9, en12, ...) are deliberately not what we match on: macOS
+# renumbers them when adapters are plugged in in a different order, and en12 in
+# docs/CAPTURE-PLAN.md is not the en12 of today. The hardware port name is
+# stable per adapter.
+#
+# Override for a different rig with two arguments: setup-bridge.sh en5 en9
+PREFERRED_PORTS=(
+    "USB 10/100/1000 LAN"
+    "Dell Universal Dock D6000"
+)
+
+# The device for a hardware port name, if it is among the candidates.
+device_for_port() {
+    local want="$1" dev
+    for dev in "${candidates[@]}"; do
+        if [ "$(port_name_of "$dev")" = "$want" ]; then
+            printf '%s\n' "$dev"
+            return 0
+        fi
+    done
+    return 1
+}
+
 if [ "$#" -eq 2 ]; then
     A="$1"; B="$2"
 elif [ "$#" -ne 0 ]; then
     die "usage: $0 [<interface-a> <interface-b>]"
 else
     show_table
+
+    preferred=()
+    for want in "${PREFERRED_PORTS[@]}"; do
+        if dev="$(device_for_port "$want")"; then
+            preferred+=("$dev")
+        fi
+    done
+
     active=()
     for dev in "${candidates[@]}"; do
-        [ "$(status_of "$dev")" = "active" ] && active+=("$dev")
+        if [ "$(status_of "$dev")" = "active" ]; then
+            active+=("$dev")
+        fi
     done
-    if [ "${#active[@]}" -eq 2 ]; then
+
+    if [ "${#preferred[@]}" -eq 2 ]; then
+        A="${preferred[0]}"; B="${preferred[1]}"
+        echo "Using the rig's two adapters:"
+        echo "  $A  ${PREFERRED_PORTS[0]}"
+        echo "  $B  ${PREFERRED_PORTS[1]}"
+    elif [ "${#active[@]}" -eq 2 ]; then
         A="${active[0]}"; B="${active[1]}"
         echo "Two ports have a live link: $A and $B."
     else
-        # Deliberately not guessing. "Inactive" here usually means the cable is
-        # not in yet, and bridging the wrong pair silently produces a tap that
-        # captures nothing -- which is indistinguishable from decks that are not
-        # talking.
-        echo "${#active[@]} port(s) have a live link, so I will not guess which pair you mean."
+        # Deliberately not guessing. Bridging the wrong pair silently produces a
+        # tap that captures nothing, which is indistinguishable from decks that
+        # are not talking to each other.
+        if [ "${#preferred[@]}" -eq 1 ]; then
+            echo "Only one of the rig's usual adapters is present (${preferred[0]});"
+            echo "plug the other in, or name both ports now."
+        else
+            echo "Neither of the rig's usual adapters is present, and ${#active[@]} port(s)"
+            echo "have a live link -- so I will not guess which pair you mean."
+        fi
         read -r -p "Interface A: " A
         read -r -p "Interface B: " B
     fi
