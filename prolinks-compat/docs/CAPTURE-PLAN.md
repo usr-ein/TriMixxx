@@ -11,6 +11,18 @@ matter most**; everything else can be re-run another evening.
 
 ## 0. Prerequisite: bridge the two NICs
 
+> **Scripted:** [`tools/setup-bridge.sh`](../tools/setup-bridge.sh) does
+> everything in this section — detects the Ethernet ports, shows them for
+> confirmation, disables their network services, builds the bridge on the first
+> free number, and prints the `pktap` capture command. Its counterpart
+> [`tools/setup-cdj-node.sh`](../tools/setup-cdj-node.sh) tears the bridge down
+> and puts one port back on the segment with a link-local address, then proves
+> it by listening for a keep-alive.
+>
+> The manual commands below remain the reference for *why* each step is what it
+> is; the scripts follow them exactly, including `ipconfig set` over
+> `ifconfig inet` and never touching `bridge0`.
+
 With one CDJ per NIC and no bridge, the two players are on separate L2
 segments and **cannot see each other at all** — there is no CDJ↔CDJ traffic to
 capture, and the LINK button will find nothing. Bridging the interfaces puts
