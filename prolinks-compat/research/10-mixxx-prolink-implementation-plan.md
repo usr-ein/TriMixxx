@@ -19,6 +19,15 @@ references are to that tree.
 > and not from `research/00`–`09`. This document says *how to build it in Mixxx*;
 > PROTOCOL.md says *what the bytes are*. Where they disagree, PROTOCOL.md wins.
 
+**Status, 2026-07-31 — the serve side is built and verified on hardware.** Two
+CDJ-2000NXS browse and play from sticks in the deck's own USB ports: media query
+answered, portmapper and mountd and nfsd bound, dbserver on 1051, both slots
+advertised (`/C/` USB and `/B/` SD) with their real labels and counts. Yanking a
+stick mid-play stops the playing deck cleanly and clears the slot within ~2 s;
+re-inserting restores it to the same slot. What that leaves untested is the
+long tail rather than the mechanism: mixers, CDJ-3000s, more than two peers, and
+a set's worth of uptime. Findings from the exercise are `F52` onward.
+
 ## Working-directory conventions
 
 - `prolinks-compat/` — research docs, the Python PoC (`prolinks_poc/`, `tests/`),
