@@ -2371,3 +2371,57 @@ this rig.
 *Consequence:* the sidebar names slots after the media in them, marks empty ones
 empty, and falls back to "USB"/"SD" for an unlabelled volume.
 
+
+### F52 — A category menu lists only the rows a **track** references  *(confirmed)*
+
+*Session S25, two CDJ-2000NXS on firmware 1.44, plus `captures/S06-load-and-play`.*
+
+Serving our own USB, some entries in a deck's ARTIST menu opened onto nothing.
+The medium's `export.pdb` holds **329 artist rows**, of which **290 are
+referenced by a track**. The other 39 are real names — `Various Artists`,
+`Modeselektor`, `fordjonly.com` — that no track's `artist_id` points at.
+
+They are not corruption. A row survives the deletion of the last track that used
+it, and `original_artist_id`, `remixer_id` and `composer_id` reference the same
+table without ever appearing in a track list. So the ARTIST table is a superset
+of the artists a *browse* can reach, and serving it verbatim manufactures dead
+ends.
+
+**A real player agrees, and the number is exact.** In `captures/S06` one deck
+asks another for the ARTIST menu of a medium with 329 artist rows:
+
+```
+MENU_ARTIST desc=0x2020301  ->  SUCCESS, 290 items
+```
+
+290, not 329. This is the first thing we have measured about *which* rows a
+category menu contains rather than how one is encoded, and it was hiding in a
+capture taken for another purpose entirely.
+
+The other four tables on this medium have no orphans at all — albums 273/273,
+genres 22/22, labels 50/50, keys 24/24 — so the effect is invisible unless a
+medium happens to have accumulated them, which is presumably why it took until
+now to notice.
+
+#### The same symptom has a second, rarer cause
+
+**Twelve of 651 tracks carry no album** (`album_id` 0), and for **seven artists
+every track is like that**. Those artists *are* referenced, so they legitimately
+appear in the menu — and then `ARTIST -> albums` comes back empty and their
+music is unreachable by any route.
+
+No capture shows a real player in this position, so the handling is ours: skip a
+drill level that would be empty and answer with the tracks directly, which is the
+fall-through the KEY drill already takes for a key it cannot place on the wheel.
+
+Related, and the reason it is filed here rather than as a separate note: F42
+recorded that a real reply heads a filtered list with `ALL` "only when there is a
+choice to make". That was read off levels where **every** track had the
+attribute. A track with no album belongs to no album entry, so `ALL` is the only
+entry that includes it — and on a level with exactly one named album, the
+observed rule would omit `ALL` and strand it.
+
+*Consequence:* `referencedRows()` in `prolinkdbserverd.cpp` builds every category
+menu from the tracks rather than from the table, an empty drill level falls
+through to its tracks, and `ALL` is offered whenever some track at a level lacks
+the attribute.
