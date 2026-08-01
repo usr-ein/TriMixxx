@@ -1,0 +1,47 @@
+# ~/.bash_profile -- what the deck's autologin session does.
+#
+# getty@tty1 logs the deck user in automatically; bash then reads THIS file and
+# it decides between the two kinds of session:
+#
+#     debug  ->  a text console on tty1, with NO X at all
+#     else   ->  startx, and ~/.xinitrc picks Mixxx or Doom inside it
+#
+# The debug console skipping X is the whole point of it: it is the screen you
+# want when the graphical stack is what is broken, and it is driven from the
+# deck's own buttons through trimixxx-deckkeys --map console, because this unit
+# has no keyboard port.
+#
+# THE FAILSAFE IS THE DEFAULT: no mode file, an unreadable one, or a mode this
+# does not recognise all end up at startx -- i.e. the deck is a deck.
+#
+# NOTE ON ~/.profile: bash reads ~/.bash_profile for a login shell and then
+# ignores ~/.profile ENTIRELY -- which on this machine would silently drop
+# ~/bin and ~/.local/bin off PATH and skip ~/.local/bin/env (so no `uv` over
+# ssh, among other things). So source it explicitly, exactly as the
+# pre-TriMixxx ~/.bash_profile did; it also sources ~/.bashrc itself.
+#
+# This is why upload.sh greps ~/.profile for `startx` and complains: with the
+# line below, a startx in ~/.profile would run BEFORE the mode is looked at and
+# the boot gesture would silently do nothing.
+if [ -f ~/.profile ]; then
+    . ~/.profile
+elif [ -f ~/.bashrc ]; then
+    . ~/.bashrc
+fi
+
+# Only on the deck's own console, and only if X is not already running.
+if [ -z "${DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
+    mode="$(cat /run/trimixxx/mode 2>/dev/null || true)"
+
+    if [ "$mode" = "debug" ]; then
+        # One-shot, exactly like Doom: run it, hand the mode back, and carry on
+        # into a normal session. Leaving the console when you are done with it
+        # gives you the deck back instead of looping into the console again.
+        trimixxx-debug || true
+        printf 'mixxx\n' > /run/trimixxx/mode 2>/dev/null || true
+    fi
+
+    # `--` separates client args from X server args; nothing after it today,
+    # but it is where -nocursor and friends go, so it is kept.
+    exec startx -- #-nocursor
+fi

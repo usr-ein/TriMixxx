@@ -17,6 +17,34 @@ picom --vsync --backend glx --unredir-if-possible --glx-no-stencil --glx-no-rebi
 sleep 1
 matchbox-window-manager -use_titlebar no &
 
+# ---- which app is this session? ---------------------------------------------
+# trimixxx-launchd decides at boot (holding PLAY picks Doom) and writes the
+# answer here. See ../trimixxx-launcher/README.md.
+#
+# THE FAILSAFE IS THE DEFAULT: no file, an unreadable file, or a mode this does
+# not know all fall through to Mixxx below. A launch manager that failed to
+# start must never be able to stop the deck from being a deck.
+MODE_FILE=/run/trimixxx/mode
+mode="$(cat "$MODE_FILE" 2>/dev/null || true)"
+
+case "$mode" in
+doom)
+    # Doom is a ONE-SHOT. The mode is handed back before this session ends, so
+    # a Doom that dies instantly falls through to Mixxx right here rather than
+    # exiting the session into a getty respawn loop -- which is what a
+    # missing WAD would otherwise cause, on a deck with no keyboard to stop it.
+    #
+    # trimixxx-launchd notices the file change and stops the key bridge, so the
+    # deck stops typing before Mixxx takes over.
+    # Logged to a file, not the console: if Doom fails to start (a missing WAD,
+    # say) the session moves straight on to Mixxx and the message would be gone
+    # before anyone could read it.
+    trimixxx-doom >>/tmp/trimixxx-doom.log 2>&1 ||
+        echo "trimixxx-doom exited $? -- see /tmp/trimixxx-doom.log; starting Mixxx" >&2
+    printf 'mixxx\n' > "$MODE_FILE" 2>/dev/null || true
+    ;;
+esac
+
 # Auto-restart Mixxx if it crashes; sleep prevents tight loops
 #
 # To log audio underruns, add --developer to the mixxx line below. Without it

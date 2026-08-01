@@ -42,7 +42,23 @@ config — and a system change here never has to go through the Mixxx-restart pa
   waits for it *before* systemd tears the session down. Mixxx handles the
   termination signal itself, but X is in the same scope and dies in the same
   instant, so without this the shutdown aborts on `The X11 connection broke`
-  with settings unwritten and threads unjoined.
+  with settings unwritten and threads unjoined. Also asks a running Doom to quit,
+  since a mode switch restarts this same unit.
+- `bash_profile` — installed as `~/.bash_profile`: what the autologin session
+  does. It reads `/run/trimixxx/mode` (written by
+  [`../trimixxx-launcher`](../trimixxx-launcher)) and picks between a text
+  console on the bare tty and `startx`; `xinitrc` then picks Mixxx or Doom
+  *inside* X. The debug console skipping X is the point of it — it is the screen
+  you want when the graphical stack is what broke. **No mode file, an unreadable
+  one, or an unknown mode all fall through to Mixxx**, so a launch manager that
+  failed to start cannot stop the deck from being a deck. Note that bash reads
+  `~/.bash_profile` *instead of* `~/.profile`, so `upload.sh` backs up whatever
+  was there and warns if the old `startx` line is still in `.profile`.
+- `trimixxx-debug` — the rescue console. **A placeholder on purpose**: the hook
+  and the boot gesture (hold CUE) are wired up, the screen itself is not. Its
+  header records what it should become and, more usefully, what it cannot be —
+  the deck has no keyboard, so the real thing has to be a menu driven by a
+  cursor, a confirm and a cancel, not a shell prompt.
 - `trimixxx-splash.service` + `trimixxx-splash.sh` + `splash-render.py` +
   `splash-install.sh` — the boot splash: `trimixxx_logo_crt.svg` on the panel
   for the first ~8 s of boot, then the boot log as normal. The usual way to do

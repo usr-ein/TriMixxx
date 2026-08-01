@@ -1,0 +1,53 @@
+#!/bin/sh
+# TriMixxx debug console -- PLACEHOLDER. The door, not the room.
+#
+# Boot into it by holding CUE from power-on and letting go when the play/cue
+# LEDs blink. ~/.bash_profile runs it on tty1 with NO X, so it is still there
+# when the graphical stack is what is broken. Leaving it (exit) hands the deck
+# back to Mixxx.
+#
+# WHAT THIS IS FOR: getting the unit back when you have lost contact with it --
+# wifi that did not come up, a route that went missing, a service that failed --
+# from the deck itself, with nothing plugged in.
+#
+# WHAT IT MUST NOT BE: a shell prompt. There is no keyboard on this unit and
+# nowhere to plug one in that helps, so the real thing has to be a MENU, driven
+# by a cursor, a confirm and a cancel. That is exactly what the deck can send:
+# `trimixxx-deckkeys --map console` maps ring B to the cursor keys, play/cue to
+# enter/escape, the track encoder to up/down and ring A to F1..F7.
+#
+# So when this gets built, it wants to be a small full-screen TUI offering
+# something like:
+#
+#     - what wlan0/eth0 currently are, and the default route
+#     - rejoin the known wifi / forget and rejoin
+#     - restart NetworkManager, sshd, trimixxx-bridge, trimixxx-launchd
+#     - show the last failures (systemctl --failed, and the launcher's journal)
+#     - the deck's IP, big enough to read across a room
+#     - reboot / power off
+#
+# with every action a confirm-then-do, and no free text anywhere.
+set -eu
+
+echo
+echo "  TriMixxx debug console"
+echo "  ----------------------"
+echo "  Not built yet -- this is the placeholder. See $0."
+echo
+
+# The one thing worth showing even from a stub, since "I cannot reach the deck"
+# is the reason anyone is looking at this screen.
+if command -v ip >/dev/null 2>&1; then
+    echo "  Interfaces:"
+    ip -brief address show 2>/dev/null | sed 's/^/    /'
+    echo
+    echo "  Default route:"
+    ip route show default 2>/dev/null | sed 's/^/    /'
+    echo
+fi
+
+echo "  Exit this shell to go back to Mixxx."
+echo
+
+# NOT exec: returning is what lets ~/.bash_profile hand the deck back.
+bash --login || true

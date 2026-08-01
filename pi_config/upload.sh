@@ -111,6 +111,43 @@ ssh "$HOST" '
 scp "$HERE/xinitrc" "$HOST":'~/.xinitrc'
 ssh "$HOST" 'chmod 0755 ~/.xinitrc'
 
+# ---- session entry point: which KIND of session ------------------------------
+# ~/.bash_profile is what the autologin shell runs. It reads /run/trimixxx/mode
+# and either starts X (Mixxx or Doom, ~/.xinitrc picks) or runs the debug
+# console on the bare tty. See the file's own header, and
+# ../trimixxx-launcher/README.md for who writes that mode file.
+#
+# Backed up rather than overwritten, and ~/.profile is checked out loud. Bash
+# reads ~/.bash_profile INSTEAD of ~/.profile for a login shell, so the new file
+# sources ~/.profile itself to keep PATH and ~/.local/bin/env working -- which
+# means a `startx` line left in ~/.profile would now run BEFORE the mode is
+# looked at, and the boot gesture would silently do nothing.
+scp "$HERE/bash_profile" "$HOST":/tmp/bash_profile
+scp "$HERE/trimixxx-debug" "$HOST":/tmp/
+ssh "$HOST" '
+    set -eu
+    if [ -f ~/.bash_profile ] && ! grep -q "TriMixxx" ~/.bash_profile; then
+        cp ~/.bash_profile ~/.bash_profile.pre-trimixxx
+        echo "backed up the previous ~/.bash_profile to ~/.bash_profile.pre-trimixxx"
+    fi
+    install -m 0644 /tmp/bash_profile ~/.bash_profile
+    rm -f /tmp/bash_profile
+
+    if grep -qs startx ~/.profile; then
+        echo
+        echo "WARNING: ~/.profile contains a startx line. ~/.bash_profile sources"
+        echo "         ~/.profile, so X would start from there BEFORE the boot mode"
+        echo "         is read -- and holding PLAY at boot would do nothing."
+        echo "         Remove it: starting X is ~/.bash_profile's job now."
+        grep -n startx ~/.profile || true
+        echo
+    fi
+
+    # The rescue console. A placeholder on purpose -- see the script.
+    sudo install -m 0755 /tmp/trimixxx-debug /usr/local/bin/trimixxx-debug
+    rm -f /tmp/trimixxx-debug
+'
+
 # ---- clean Mixxx shutdown on `systemctl stop getty@tty1` ---------------------
 # Mixxx handles the termination signal itself, but X lives in the same session
 # scope and dies in the same instant, aborting the shutdown part-way. This
