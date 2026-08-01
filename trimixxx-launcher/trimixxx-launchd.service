@@ -1,0 +1,63 @@
+[Unit]
+Description=TriMixxx launch manager - picks the boot mode, and does the OS things Mixxx cannot
+
+# ---- NETWORKING AND SSH COME UP FIRST. NON-NEGOTIABLE. ---------------------
+# wlan0 carries ssh and is the only way back into this machine when the screen
+# is showing something that will not quit -- the same rule prolink-eth0.sh is
+# written around. So the launch manager is ordered AFTER the network stack and
+# AFTER sshd: by the time anything here can go wrong, the deck is already
+# reachable, and it stays reachable whatever this unit then does.
+#
+# ORDERING ONLY -- deliberately no Requires=/BindsTo= and no
+# Wants=network-online.target. A failed or absent network must never stop the
+# deck from booting into Mixxx: at a gig there is no wifi, and a deck that will
+# not boot without one is a deck that does not boot.
+#
+# Nothing here BLOCKS on the network either. Measured on the deck:
+# NetworkManager-wait-online is enabled and reaches network-online.target in
+# ~8s, and ssh.service is listening in ~213ms -- both long before this unit's
+# own dependencies (ttymidi, sound) are done. So the ordering below costs
+# nothing and there is no point waiting on top of it.
+Wants=NetworkManager.service ssh.service
+After=network.target network-online.target NetworkManager.service ssh.service
+
+# The deck's MIDI has to exist before the boot gesture can be heard, so this
+# starts after ttymidi. And Mixxx is launched from the tty1 autologin session,
+# which must not start until the mode has been chosen -- hence Before=, plus the
+# readiness gates at the bottom.
+After=trimixxx-bridge.service sound.target
+Before=getty@tty1.service
+
+[Service]
+Type=exec
+# Runs as root deliberately: performing privileged system actions IS this
+# daemon's job, and doing it directly avoids a sudoers rule. Safety comes from
+# the fixed tables in sysex.go -- a SysEx opcode only *selects* a hardcoded
+# argv, nothing from the wire is interpolated and no shell is used.
+User=root
+
+ExecStart=/usr/local/bin/trimixxx-launchd
+
+# TWO readiness gates, both of which hold getty@tty1 (hence the app) back:
+#
+#  1. the ALSA port really exists -- Mixxx enumerates MIDI devices exactly once,
+#     at startup, so a port that appears late is a port Mixxx never lists;
+#  2. the mode has been chosen -- otherwise the session would start Mixxx while
+#     the boot gesture was still being watched for, and holding PLAY would do
+#     nothing.
+#
+# Both are bounded (30s, 25s) and then give up rather than hang: a launch
+# manager that cannot answer must not be able to stop the deck from booting.
+# With no mode file at all, the session falls back to Mixxx -- see
+# pi_config/xinitrc, which treats "no mode" and "unknown mode" as mixxx.
+ExecStartPost=/bin/sh -c 'for i in $(seq 1 150); do grep -q pi-midi-daemon /proc/asound/seq/clients 2>/dev/null && exit 0; sleep 0.2; done'
+ExecStartPost=/bin/sh -c 'for i in $(seq 1 125); do [ -s /run/trimixxx/mode ] && exit 0; sleep 0.2; done'
+
+# Nothing in the start path may wedge the boot indefinitely.
+TimeoutStartSec=120
+
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

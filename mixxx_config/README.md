@@ -16,9 +16,11 @@ tweak can never disturb the deck's system config.
   encoder, play toggle, the ring buttons and their RGB LED indicators, and the
   startup rainbow-wave animation.
 - `PiMidiDaemon.midi.xml` / `PiMidiDaemon.scripts.js` — the mapping for
-  [`../pi-midi-daemon`](../pi-midi-daemon), a second MIDI device. Turns the skin's
-  POWER menu into a shutdown SysEx, and turns the daemon's USB-mount events into
-  a Rekordbox device rescan.
+  [`../trimixxx-launcher`](../trimixxx-launcher), a second MIDI device. Turns the
+  skin's POWER menu into a shutdown SysEx, and turns the daemon's USB-mount
+  events into a Rekordbox device rescan. The **device is still named
+  `pi-midi-daemon`** even though the daemon behind it was renamed: `mixxx.cfg`
+  binds mappings by device name, so renaming the port would orphan this one.
 - `TriMixxx_skin/` — single-deck CDJ-style skin for the 1024×600 touchscreen.
 - `fonts/` — MesloLGL Nerd Font (Regular + Bold), installed to the deck's
   `~/.local/share/fonts` by `upload.sh`. Both `mixxx.cfg` (`[Library] Font`) and

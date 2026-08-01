@@ -1,0 +1,5 @@
+# native dev builds (see Makefile: `all`)
+/trimixxx-launchd
+/trimixxx-deckkeys
+# static ARM binaries from `make docker-arm`
+/dist/

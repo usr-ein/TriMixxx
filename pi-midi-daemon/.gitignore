@@ -1,4 +1,0 @@
-# native dev build (see Makefile: `all`)
-/pi-midi-daemon
-# static ARM binary from `make docker-arm`
-/dist/

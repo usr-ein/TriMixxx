@@ -1,16 +1,17 @@
-# Builds a fully static pi-midi-daemon for ARM Linux (e.g. Raspberry Pi OS).
+# Builds fully static TriMixxx launcher binaries for ARM Linux (e.g. Raspberry
+# Pi OS): trimixxx-launchd and trimixxx-deckkeys.
 #
 # Same trick as the ttymidi fork's Dockerfile: Alpine/musl gives a tiny
-# toolchain, but the binary is linked fully static (musl + ALSA + libstdc++), so
-# it runs on ANY ARM Linux of the target architecture -- including glibc-based
-# Raspberry Pi OS -- with nothing to install on the device.
+# toolchain, but the binaries are linked fully static (musl + ALSA + libstdc++),
+# so they run on ANY ARM Linux of the target architecture -- including
+# glibc-based Raspberry Pi OS -- with nothing to install on the device.
 #
 # Two things differ from ttymidi's C build:
 #   - cgo must be told to link statically (-linkmode external -extldflags -static).
 #   - rtmidi (vendored inside gomidi) is C++, hence g++ and a static libstdc++.
 #
 # ALSA ships no static archive on Alpine, so libasound.a is built from source --
-# exactly as ttymidi does.
+# exactly as ttymidi does. uinput needs nothing: it is raw ioctls, no library.
 #
 # Build with: make docker-arm   (see Makefile / README).
 
@@ -33,15 +34,22 @@ WORKDIR /build
 # Dependencies first, so the module cache survives source-only changes.
 COPY go.mod go.sum ./
 RUN go mod download
-COPY *.go ./
+COPY internal/ ./internal/
+COPY cmd/ ./cmd/
 
 ENV CGO_ENABLED=1
-RUN go build -trimpath \
-        -ldflags '-s -w -linkmode external -extldflags "-static"' \
-        -o /pi-midi-daemon . \
-    # Fail the build rather than ship something that needs a runtime loader.
-    && ! readelf -d /pi-midi-daemon | grep -q NEEDED
+ENV GOFLAGS=-trimpath
+ENV LDFLAGS='-s -w -linkmode external -extldflags "-static"'
 
-# Export stage: `--output` copies just the binary out to the host.
+# The `! readelf -d | grep NEEDED` on each: fail the build rather than ship
+# something that needs a runtime loader on the device.
+RUN go build -ldflags "$LDFLAGS" -o /trimixxx-launchd ./cmd/launchd \
+    && ! readelf -d /trimixxx-launchd | grep -q NEEDED
+
+RUN go build -ldflags "$LDFLAGS" -o /trimixxx-deckkeys ./cmd/deckkeys \
+    && ! readelf -d /trimixxx-deckkeys | grep -q NEEDED
+
+# Export stage: `--output` copies just the binaries out to the host.
 FROM scratch AS export
-COPY --from=build /pi-midi-daemon /pi-midi-daemon
+COPY --from=build /trimixxx-launchd /trimixxx-launchd
+COPY --from=build /trimixxx-deckkeys /trimixxx-deckkeys

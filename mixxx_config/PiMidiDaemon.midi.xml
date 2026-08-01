@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Mapping for the pi-midi-daemon virtual MIDI port (see ../pi-midi-daemon/).
+<!-- Mapping for the pi-midi-daemon virtual MIDI port (see ../trimixxx-launcher/).
      This is NOT the deck: it is the escape hatch Mixxx uses to ask the Pi to do
      system things it cannot do itself. The daemon is a MIDI device like any
      other, so Mixxx talks to it with an ordinary controller mapping.

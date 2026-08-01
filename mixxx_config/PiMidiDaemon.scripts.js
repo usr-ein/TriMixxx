@@ -5,7 +5,7 @@
 //  whole API is control values, timers and MIDI I/O, and skins are XML/QSS. So
 //  the skin's POWER menu only sets [TriMixxx],shutdown_now, and this script
 //  forwards that to the pi-midi-daemon service as SysEx, which runs the actual
-//  `systemctl poweroff`. Protocol: F0 7D <opcode> F7 (pi-midi-daemon/README.md).
+//  `systemctl poweroff`. Protocol: F0 7D <opcode> F7 (trimixxx-launcher/README.md).
 //
 //  Why this is its own mapping rather than part of TriMixxx.scripts.js: a
 //  controller script's `midi` object is hard-bound to its OWN controller's port

@@ -1,4 +1,4 @@
-module github.com/usr-ein/TriMixxx/pi-midi-daemon
+module github.com/usr-ein/TriMixxx/trimixxx-launcher
 
 go 1.26.2
 
