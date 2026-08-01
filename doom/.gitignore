@@ -1,0 +1,4 @@
+# The WAD is 4 MB of id Software's game, not ours to commit. `./fetch-wad.sh`
+# puts it here; the shareware episode is freely redistributable, the full
+# doom.wad is not.
+/wad/

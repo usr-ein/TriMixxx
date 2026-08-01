@@ -1,0 +1,49 @@
+#!/bin/sh
+# Run Doom on the deck.
+#
+# Started by ~/.xinitrc when /run/trimixxx/mode says "doom", inside the X session
+# that would otherwise be running Mixxx (picom + matchbox are already up). Also
+# runnable by hand over ssh for a quick look:
+#
+#     DISPLAY=:0 trimixxx-doom
+#
+# The controls come from `trimixxx-deckkeys`, which the launch manager starts for
+# this mode -- it turns the deck's MIDI into a virtual keyboard and mouse, so
+# from Doom's point of view somebody is playing on ordinary hardware. Nothing
+# here knows about MIDI, and Doom is a stock build.
+#
+#     trimixxx-deckkeys --map doom --print-map     # the control chart
+set -eu
+
+DOOM_BIN="${TRIMIXXX_DOOM_BIN:-chocolate-doom}"
+WAD="${TRIMIXXX_DOOM_WAD:-/usr/local/share/games/doom/doom1.wad}"
+CFG_DIR="${TRIMIXXX_DOOM_CFG:-$HOME/.local/share/chocolate-doom}"
+
+# SDL2 to ALSA. The deck's output is a UCA222 (hw:0,0 -- see
+# mixxx_config/soundconfig.xml), and in this mode Mixxx is NOT running, so the
+# card is free and nothing has to be shared. `default` normally resolves to it;
+# override if this Pi ever enumerates its cards differently:
+#
+#     AUDIODEV=plughw:0,0 trimixxx-doom
+export SDL_AUDIODRIVER="${SDL_AUDIODRIVER:-alsa}"
+
+if ! command -v "$DOOM_BIN" >/dev/null 2>&1; then
+    echo "trimixxx-doom: $DOOM_BIN is not installed -- run doom/install.sh" >&2
+    exit 1
+fi
+
+if [ ! -f "$WAD" ]; then
+    echo "trimixxx-doom: no WAD at $WAD -- run doom/fetch-wad.sh then doom/install.sh" >&2
+    exit 1
+fi
+
+# -config / -extraconfig point at the two files install.sh wrote. They are also
+# the DEFAULT locations, so this works even on a build that does not know the
+# flags; passing them explicitly just removes the doubt (Chocolate Doom moved
+# this directory between 2.x and 3.x). They must stay user-writable: the game
+# rewrites both on exit.
+exec "$DOOM_BIN" \
+    -iwad "$WAD" \
+    -config "$CFG_DIR/default.cfg" \
+    -extraconfig "$CFG_DIR/chocolate-doom.cfg" \
+    "$@"
