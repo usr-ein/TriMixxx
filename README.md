@@ -47,8 +47,10 @@ flowchart LR
     subgraph PiBox["Raspberry Pi (deck)"]
         Mixxx["Mixxx (patched fork)<br/>+ TriMixxx skin"]
         Tty["ttymidi<br/>trimixxx-bridge.service"]
-        Daemon["pi-midi-daemon<br/>(SysEx to the OS)"]
+        Daemon["trimixxx-launchd<br/>(launch manager +<br/>SysEx to the OS)"]
         Usb["dj-usb automount<br/>/media/DJ_USB_*"]
+        Doom["Doom (1993)<br/>hold PLAY at boot"]
+        Keys["trimixxx-deckkeys<br/>MIDI -> /dev/uinput"]
     end
 
     S3["midi_s3_mini<br/>LOLIN S3 Mini / ESP32-S3<br/>(controller brain)"]
@@ -62,6 +64,12 @@ flowchart LR
     Mixxx <--> Tty
     Mixxx <-->|SysEx| Daemon
     Usb --> Daemon
+    Daemon -->|"picks the boot mode"| Mixxx
+    Daemon -->|"picks the boot mode"| Doom
+    Daemon --> Keys
+    Tty -->|"deck buttons"| Daemon
+    Tty -->|"deck buttons"| Keys
+    Keys -->|"virtual keyboard + mouse"| Doom
     Tty <-->|"UART - raw MIDI - 3.3V"| S3
     S3 <-->|"UART1 - OneButton ring - 5V"| RingA
     S3 <-->|"UART2 - OneButton ring - 5V"| RingB
@@ -144,8 +152,9 @@ The deck's software is split into four pieces, each with its own README:
 |---|---|
 | `mixxx/` (submodule) | **Our Mixxx fork.** Forked at 2.5.6, carrying deck patches: downbeat highlighting in the waveform (`DownbeatColor` skin node), Rekordbox beat-grid phase preserved via the intro cue, and a `[Rekordbox], refresh` control so a stick mounted mid-set can be picked up from a script. Built for arm64 in Docker and installed over SSH. |
 | `mixxx_config/` | Everything under `~/.mixxx`: the controller mapping (`TriMixxx.midi.xml` + `.scripts.js`), the `PiMidiDaemon` mapping, `soundconfig.xml`, and `TriMixxx_skin/` — a single-deck CDJ-style skin for the 1024×600 touchscreen. `upload.sh` validates every XML *before* anything leaves the machine, because Qt silently falls back to the default skin on a malformed one. |
-| `pi_config/` | The system side: `trimixxx-bridge.service` (ttymidi, ordered before Mixxx so the MIDI port exists when Mixxx enumerates devices), `cpu-governor.service` (the `performance` governor — `ondemand` was the measured cause of xruns while scratching), and `dj-usb/` (udev + systemd read-only automount of DJ sticks). |
-| `pi-midi-daemon/` | A small Go daemon for the things Mixxx cannot do. Mixxx's script engine has no file, process or network access, so **MIDI is the only channel out** — the daemon takes SysEx commands (shutdown, reboot) and reports events back (a DJ stick was mounted or removed). Ships as a fully static musl binary, so there is nothing to install on the Pi. |
+| `pi_config/` | The system side: `trimixxx-bridge.service` (ttymidi, ordered before Mixxx so the MIDI port exists when Mixxx enumerates devices), `cpu-governor.service` (the `performance` governor — `ondemand` was the measured cause of xruns while scratching), the session entry points (`bash_profile`, `xinitrc`) that start whichever app the launch manager chose, and `dj-usb/` (udev + systemd read-only automount of DJ sticks). |
+| `trimixxx-launcher/` | Two small Go daemons. **`trimixxx-launchd`** does the things Mixxx cannot — its script engine has no file, process or network access, so **MIDI is the only channel out**, and the daemon takes SysEx commands (shutdown, reboot, switch mode) and reports events back (a DJ stick was mounted). It is also the **launch manager**: it reads the deck's own buttons at boot and decides what the deck becomes. **`trimixxx-deckkeys`** replays the deck's MIDI into `/dev/uinput` as a virtual keyboard and mouse. Both ship as fully static musl binaries, so there is nothing to install on the Pi. |
+| `doom/` | **The deck plays DOOM (1993).** Hold PLAY while it boots. The jog wheel turns, the tempo fader is the throttle, ring A is the seven weapons. Doom itself is a stock `chocolate-doom` — the controls arrive as a virtual keyboard and mouse, so there is no engine fork here to maintain. |
 
 ## ProLink compatibility
 
@@ -181,7 +190,9 @@ firmwares/                  Embedded firmware
 mixxx/                      Our Mixxx fork -- the build the deck runs (submodule)
 mixxx_config/               ~/.mixxx: mapping, scripts, skin, sound config
 pi_config/                  Pi system config: systemd units, udev, USB automount
-pi-midi-daemon/             Go daemon: SysEx <-> OS actions and USB events
+trimixxx-launcher/          Go daemons: boot-mode launch manager, SysEx <-> OS,
+                            and the MIDI -> virtual keyboard/mouse bridge
+doom/                       DOOM (1993) on the deck: WAD, engine config, wrapper
 
 prolinks-compat/            Pioneer ProLink protocol research + Python PoC
 ch32fun/                    ch32fun toolkit (submodule)
