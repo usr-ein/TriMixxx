@@ -12,6 +12,19 @@ config — and a system change here never has to go through the Mixxx-restart pa
 ## Files
 - `upload.sh` — installs everything below onto the Pi (idempotent; `sudo` on the
   far side). Override the host with `HOST=other ./upload.sh`.
+- `deck-shot` / `deck-poke` — **look at the deck, and touch it, from your desk.**
+  Neither is installed on the Pi; both run over ssh from here. `deck-shot` grabs
+  the screen with `scrot`; `deck-poke` sends taps, long presses, swipes and
+  flicks with `xdotool` (`sudo apt install xdotool`), and sends the deck's *own*
+  controls — browse, push, back, sort — as MIDI, so they run the real
+  `TriMixxx.midi.xml` and `TriMixxx.scripts.js` as if the S3 had sent them.
+
+  The MIDI injection is not obvious: Mixxx's ALSA port has `WRITE` but not
+  `SUBS_WRITE`, so `aconnect` into it fails with "Operation not permitted" while
+  `aseqsend -p <client:port>` addressed straight at it works. The port is
+  resolved from the sequencer graph on every call, by following ttymidi's own
+  output to whoever is listening — matching on Mixxx's pid does *not* work,
+  because ALSA records the thread that created the port rather than the process.
 - `cpu-governor.service` — pins all cores to the `performance` cpufreq governor.
   `ondemand` polls load every 100 ms and only ramps past 50 % of *total* CPU, so
   a single saturated audio core can sit at the 600 MHz floor and starve a scratch

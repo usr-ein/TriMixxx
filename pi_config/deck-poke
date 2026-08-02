@@ -1,0 +1,198 @@
+#!/usr/bin/env bash
+# deck-poke <verb> ...  --  drive the deck from here, over ssh.
+#
+# Pairs with deck-shot: one sees, this one touches. Between them the whole UI
+# can be exercised end to end without standing over the deck.
+#
+#   TOUCH (xdotool)
+#     deck-poke tap 130 331             a fingertip on that pixel
+#     deck-poke longpress 500 300 [ms]  hold (default 800 ms -- past LONG_PRESS_MS)
+#     deck-poke swipe 100 300 700 300   left-to-right drag, i.e. BACK
+#     deck-poke flick 500 500 500 200   fast vertical drag, i.e. kinetic scroll
+#     deck-poke where                   current pointer position
+#
+#   THE DECK'S OWN CONTROLS (MIDI, as if the S3 had sent them)
+#     deck-poke browse down [n]         n encoder detents (default 1)
+#     deck-poke browse up [n]
+#     deck-poke push                    encoder press
+#     deck-poke back                    ring A7
+#     deck-poke sort [hold_ms]          ring B6; hold past 600 ms for its second meaning
+#     deck-poke play / cue
+#     deck-poke midi "B0 10 7F"         anything else, raw
+#
+#   deck-poke key Down Return           X key events, if a keyboard path exists
+#
+# HOW THE MIDI GETS IN, because it is not obvious and the obvious way fails.
+# Mixxx's ALSA sequencer port has WRITE but not SUBS_WRITE: it accepts events
+# ADDRESSED to it, and refuses to be subscribed to. So `aconnect <src> <mixxx>`
+# returns "Operation not permitted" -- while `aseqsend -p <mixxx>` delivers
+# straight into it. That port is the one Mixxx opened for the TriMixxx
+# controller, so everything sent this way arrives as if ttymidi had carried it
+# up from the S3, and runs the real TriMixxx.midi.xml and TriMixxx.scripts.js.
+# It tests the whole chain bar the copper.
+#
+# The client number is NOT stable -- it changes every time Mixxx restarts -- so
+# it is resolved from Mixxx's pid on each call rather than written down.
+#
+# WHY xdotool CLICKS ARE A FAITHFUL TOUCH TEST: the panel is an X11 touch device
+# and Qt gets its taps as synthesised pointer events, which is exactly what
+# xdotool generates. What it cannot reproduce is a real HOVER -- and that is the
+# point, because the menu bar's reveal (browser-prd.md 4.4) is deliberately
+# gated on hovering, which a finger cannot do. So `deck-poke` must never be able
+# to pop the menu bar out; if it ever does, that gate is broken.
+set -euo pipefail
+
+HOST="${HOST:-trimixxx-pi}"
+
+# MIDI addresses, mirroring firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp.
+# One deck = channel 1, so note-on is 0x90 and control change is 0xB0.
+NOTE_ENCODER=41   # track encoder push
+NOTE_BACK=06      # ring A pad 7  (0x00 + 6)
+NOTE_SORT=48      # ring B pad 6  (0x43 + 5)
+NOTE_PLAY=3C
+NOTE_CUE=3D
+CC_BROWSE=10      # relative: 01 = up, 7F = down
+
+verb="${1:?usage: deck-poke tap|longpress|swipe|flick|key|where ...}"
+shift
+
+# Every invocation needs the display and its cookie; see deck-shot for why the
+# cookie has to be dug out of /tmp rather than inherited.
+remote() {
+    ssh "$HOST" "
+        set -eu
+        export DISPLAY=:0
+        auth=\$(ls -t /tmp/serverauth.* 2>/dev/null | head -1)
+        [ -n \"\${auth:-}\" ] && export XAUTHORITY=\"\$auth\"
+        command -v xdotool >/dev/null || { echo 'xdotool is not installed: sudo apt install xdotool' >&2; exit 1; }
+        $1
+    "
+}
+
+# Send raw MIDI bytes to the port Mixxx opened for the deck's controller.
+#
+# Finding that port is the fiddly part, and the obvious route does not work:
+# matching on Mixxx's pid fails because ALSA records the *thread* that created
+# the port, not the process, so `pgrep -x mixxx` and the pid in `aconnect -l`
+# disagree. What is reliable is the graph itself -- follow ttymidi's own output
+# to whoever is listening to it, and discard the listeners we know are not
+# Mixxx. Resolved per call: client numbers change with every restart.
+RESOLVER='
+import re, subprocess, sys
+
+graph = subprocess.run(["aconnect", "-l"], capture_output=True, text=True).stdout
+names, targets, client, port = {}, [], None, None
+# Everything except Mixxx that is known to listen to the deck controller.
+skip = ("trimixxx-launchd", "pi-midi-daemon", "Midi Through")
+
+for line in graph.splitlines():
+    m = re.match(r"^client (\d+): (\S.*?) \[", line)
+    if m:
+        client, name = m.group(1), m.group(2).strip("\x27")
+        names[client] = name
+        continue
+    m = re.match(r"^\s+(\d+) ", line)
+    if m:
+        port = m.group(1)
+        continue
+    # ttymidi presents the S3 as a client called TriMixxx; its port 0 output is
+    # what Mixxx subscribes to, so its subscriber list is the candidate set.
+    if "Connecting To:" in line and names.get(client) == "TriMixxx" and port == "0":
+        targets = re.findall(r"(\d+):(\d+)", line.split("Connecting To:")[1])
+
+for c, p in targets:
+    if names.get(c, "") not in skip:
+        print(f"{c}:{p}")
+        sys.exit(0)
+sys.exit(1)
+'
+midi() {
+    local bytes="$1"
+    ssh "$HOST" "
+        set -eu
+        port=\$(python3 -c '$RESOLVER') || {
+            echo 'could not find Mixxx on the sequencer graph (is it running?)' >&2
+            exit 1
+        }
+        aseqsend -p \"\$port\" '$bytes'
+    "
+}
+
+# A button: note-on then note-off, held for as long as asked. The firmware pairs
+# every press with a release, and the mapping's long-press handling only works
+# if both edges arrive.
+button() {
+    local note="$1" hold_ms="${2:-60}"
+    midi "90 $note 7F"
+    sleep "$(awk "BEGIN{print $hold_ms/1000}")"
+    midi "90 $note 00"
+}
+
+case "$verb" in
+browse)
+    dir="${1:?up or down}"; n="${2:-1}"
+    case "$dir" in
+    up) value=01 ;;
+    down) value=7F ;;
+    *) echo "browse takes up or down" >&2; exit 2 ;;
+    esac
+    for _ in $(seq 1 "$n"); do
+        midi "B0 $CC_BROWSE $value"
+        sleep 0.12
+    done
+    ;;
+push)
+    button "$NOTE_ENCODER"
+    ;;
+back)
+    button "$NOTE_BACK"
+    ;;
+sort)
+    button "$NOTE_SORT" "${1:-60}"
+    ;;
+play)
+    button "$NOTE_PLAY"
+    ;;
+cue)
+    button "$NOTE_CUE"
+    ;;
+midi)
+    midi "${1:?hex bytes, e.g. \"B0 10 7F\"}"
+    ;;
+tap)
+    x="${1:?x}"; y="${2:?y}"
+    remote "xdotool mousemove $x $y click 1"
+    ;;
+longpress)
+    x="${1:?x}"; y="${2:?y}"; ms="${3:-800}"
+    # mousedown/up rather than `click --delay`, which delays *between* clicks
+    # and not between press and release, so it never produces a long press.
+    remote "xdotool mousemove $x $y mousedown 1; sleep $(awk "BEGIN{print $ms/1000}"); xdotool mouseup 1"
+    ;;
+swipe | flick)
+    x1="${1:?x1}"; y1="${2:?y1}"; x2="${3:?x2}"; y2="${4:?y2}"; ms="${5:-250}"
+    # Stepped, not a single jump: a gesture recogniser watching for movement
+    # sees nothing in one teleporting motion event, and a kinetic scroller has
+    # no velocity to work with.
+    steps=12
+    step_delay=$(awk "BEGIN{print $ms/1000/$steps}")
+    cmd="xdotool mousemove $x1 $y1 mousedown 1"
+    for i in $(seq 1 $steps); do
+        xi=$(awk "BEGIN{print int($x1 + ($x2-$x1)*$i/$steps)}")
+        yi=$(awk "BEGIN{print int($y1 + ($y2-$y1)*$i/$steps)}")
+        cmd="$cmd; xdotool mousemove $xi $yi; sleep $step_delay"
+    done
+    remote "$cmd; xdotool mouseup 1"
+    ;;
+key)
+    [ $# -gt 0 ] || { echo "usage: deck-poke key <keysym> [keysym ...]" >&2; exit 2; }
+    remote "xdotool key --delay 120 $*"
+    ;;
+where)
+    remote "xdotool getmouselocation"
+    ;;
+*)
+    echo "unknown verb: $verb" >&2
+    exit 2
+    ;;
+esac

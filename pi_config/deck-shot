@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# deck-shot [output.png]  --  grab whatever is on the deck's screen, right now.
+#
+# The deck has no mouse and no second display, so the only way to check what a
+# skin or widget change actually looks like used to be to walk over and look at
+# it. It runs an X server with scrot on it, which means a screenshot is one ssh
+# away, and a UI change can be reviewed from the machine that made it.
+#
+#   ./deck-shot                 -> /tmp/deck-<timestamp>.png, opened
+#   ./deck-shot shots/before.png
+#   HOST=other ./deck-shot      -> a different deck
+#
+# Two things about the X side are load-bearing:
+#
+#   DISPLAY=:0 is not enough on its own. The session is started by the tty1
+#   autologin (see xinitrc), so its X authority cookie lives in a file only that
+#   session knows about, and an ssh login has neither the variable nor a default
+#   ~/.Xauthority to fall back on. Xorg writes the cookie to /tmp/serverauth.*,
+#   so that is where this looks for it -- without XAUTHORITY, scrot fails with
+#   "Can't open X display" even though the display is plainly there.
+#
+#   scrot -o overwrites. Without it a second shot to the same path silently
+#   fails and you end up comparing a change against itself.
+set -euo pipefail
+
+HOST="${HOST:-trimixxx-pi}"
+OUT="${1:-/tmp/deck-$(date +%Y%m%d-%H%M%S).png}"
+
+ssh "$HOST" '
+    set -eu
+    export DISPLAY=:0
+    auth=$(ls -t /tmp/serverauth.* 2>/dev/null | head -1)
+    [ -n "${auth:-}" ] && export XAUTHORITY="$auth"
+    command -v scrot >/dev/null || { echo "scrot is not installed on the deck: sudo apt install scrot" >&2; exit 1; }
+    scrot -o /tmp/deck-shot.png
+' || { echo "==> could not grab the screen on $HOST" >&2; exit 1; }
+
+mkdir -p "$(dirname "$OUT")"
+scp -q "$HOST":/tmp/deck-shot.png "$OUT"
+echo "==> $OUT"
+
+# Open it only when there is something to open it with, so this stays usable
+# over ssh and from a script.
+if [ -t 1 ] && command -v open >/dev/null 2>&1; then
+    open "$OUT"
+fi
