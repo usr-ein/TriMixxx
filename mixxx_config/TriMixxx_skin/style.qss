@@ -539,3 +539,10 @@ WTrackTableView QScrollBar::sub-page:horizontal {
     font-family: "MesloLGL Nerd Font";
     font-size: 18px;
 }
+
+/* The diagnostics page: one long scroll, no frame, no scrollbar. */
+#DeckDiagnostics {
+    background-color: #0c0c0c;
+    border: none;
+    padding: 12px 20px;
+}
