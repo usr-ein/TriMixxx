@@ -170,7 +170,21 @@ QMenu::separator {
    There are none under the waveform any more. Transport, hotcues, loop sizing
    and the tempo-fader range are all hardware, and LIBRARY/DECK is the browse
    encoder's push, so every button those rules styled has been deleted from
-   skin.xml. POWER, in the header, is the only on-screen button left. */
+   skin.xml. POWER and the two Pro DJ Link buttons, in the header, are the only
+   on-screen buttons left. */
+
+/* SYNC and MASTER. The whole face is an SVG, one per state, so there is
+   nothing to style but the spacing -- and no border here, because a QSS border
+   would draw a second rounded rectangle a pixel outside the one in the SVG. */
+#ProLinkButtons {
+    background-color: transparent;
+    padding: 4px 0px;
+}
+#ProLinkSync, #ProLinkMaster {
+    background-color: transparent;
+    border: none;
+    margin: 2px 3px;
+}
 
 /* ============== SHUTDOWN MENU ============== */
 /* POWER must not read as a normal deck control, so it is red rather than the

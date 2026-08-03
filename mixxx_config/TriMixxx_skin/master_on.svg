@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TEMPO MASTER, held. Solid orange, the same #ff6600 the phase meter draws
+     the master's row in, so "the orange row is me" is legible without a
+     label. Which is the only way it fits in this bar. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" width="52" height="52">
+  <rect x="1.5" y="1.5" width="49" height="49" rx="7"
+        fill="#ff6600" stroke="#ff8c33" stroke-width="2"/>
+  <path d="M15 36 V17 l11 13 11 -13 V36"
+        fill="none" stroke="#141414" stroke-width="4.5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

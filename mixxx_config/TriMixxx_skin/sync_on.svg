@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- BEAT SYNC, engaged. The skin's accent green, which is the same colour the
+     browser uses for "this is the selected thing". Here it means the deck is
+     no longer flying its own tempo. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52" width="52" height="52">
+  <rect x="1.5" y="1.5" width="49" height="49" rx="7"
+        fill="#1d2a05" stroke="#88ff00" stroke-width="2"/>
+  <g fill="none" stroke="#88ff00" stroke-width="3.4"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 20 h18"/>
+    <path d="M27 15 l5 5 -5 5"/>
+    <path d="M38 32 h-18"/>
+    <path d="M25 27 l-5 5 5 5"/>
+  </g>
+</svg>

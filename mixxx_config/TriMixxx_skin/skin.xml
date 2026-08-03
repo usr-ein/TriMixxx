@@ -308,6 +308,71 @@
                 </Children>
               </WidgetGroup>
 
+              <!-- SYNC and MASTER, the two Pro DJ Link buttons a CDJ has.
+                   Beside the clock rather than beside the phase meter they
+                   act on, because the meter is deliberately allowed to expand
+                   into whatever width is spare and anything to its right would
+                   be pushed around as track titles change length. -->
+              <WidgetGroup>
+                <ObjectName>ProLinkButtons</ObjectName>
+                <Layout>horizontal</Layout>
+                <MinimumSize>116,72</MinimumSize>
+                <MaximumSize>116,72</MaximumSize>
+                <Children>
+                  <PushButton>
+                    <ObjectName>ProLinkSync</ObjectName>
+                    <Size>52,52f</Size>
+                    <NumberStates>2</NumberStates>
+                    <State>
+                      <Number>0</Number>
+                      <Unpressed scalemode="STRETCH_ASPECT">sync_off.svg</Unpressed>
+                      <Pressed scalemode="STRETCH_ASPECT">sync_on.svg</Pressed>
+                    </State>
+                    <State>
+                      <Number>1</Number>
+                      <Unpressed scalemode="STRETCH_ASPECT">sync_on.svg</Unpressed>
+                      <Pressed scalemode="STRETCH_ASPECT">sync_off.svg</Pressed>
+                    </State>
+                    <Connection>
+                      <ConfigKey>[ProLink],sync_enabled</ConfigKey>
+                      <ButtonState>LeftButton</ButtonState>
+                    </Connection>
+                  </PushButton>
+
+                  <!-- Two controls, on purpose. The button LIGHTS from
+                       `is_master`, which is what the network settled, and it
+                       CLICKS into `take_master`, which is only a request: the
+                       deck that holds mastership has to hand it over first, and
+                       that takes a packet or two. Lighting it from the click
+                       would show us as master before we were, which is the one
+                       thing a master indicator must never do. -->
+                  <PushButton>
+                    <ObjectName>ProLinkMaster</ObjectName>
+                    <Size>52,52f</Size>
+                    <NumberStates>2</NumberStates>
+                    <State>
+                      <Number>0</Number>
+                      <Unpressed scalemode="STRETCH_ASPECT">master_off.svg</Unpressed>
+                      <Pressed scalemode="STRETCH_ASPECT">master_on.svg</Pressed>
+                    </State>
+                    <State>
+                      <Number>1</Number>
+                      <Unpressed scalemode="STRETCH_ASPECT">master_on.svg</Unpressed>
+                      <Pressed scalemode="STRETCH_ASPECT">master_off.svg</Pressed>
+                    </State>
+                    <Connection>
+                      <ConfigKey>[ProLink],is_master</ConfigKey>
+                      <ConnectValueFromWidget>false</ConnectValueFromWidget>
+                    </Connection>
+                    <Connection>
+                      <ConfigKey>[ProLink],take_master</ConfigKey>
+                      <ButtonState>LeftButton</ButtonState>
+                      <ConnectValueToWidget>false</ConnectValueToWidget>
+                    </Connection>
+                  </PushButton>
+                </Children>
+              </WidgetGroup>
+
               <!-- TIME column -->
               <WidgetGroup>
                 <ObjectName>TimeColumn</ObjectName>
