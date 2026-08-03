@@ -250,10 +250,13 @@ check, in the order most likely to catch a mistake:
   with a widget that hit-tests properly.
 - **The info panel's width against the list.** 464 + 560 = 1024 exactly, so the
   list has no margin for error; if titles look cramped, take it off the panel.
-- **`Plays` instead of `Last played`** in the panel. The deck has no
-  last-played timestamp for an external medium yet — `deck_play_log` is never
-  written and the stick's own rekordbox history still needs a bridge change —
-  so the panel shows the pdb's play count instead. That gap is unchanged.
+- **Last played** is now real and completely untested. The medium's half comes
+  from its rekordbox history playlists (bridged through `lib/prolink`, written
+  to `deck_history`); ours comes from a play logged when the loaded track passes
+  half way. Check the log line `DeckIngest - wrote … N history entries`: a
+  well-travelled stick should contribute far more entries than it has tracks,
+  and a stick that has only ever been in a laptop will contribute **zero**,
+  which is correct and looks identical to a bug.
 - **The house glyph** (see 8).
 
 ### Not touched, still absent
@@ -261,3 +264,19 @@ check, in the order most likely to catch a mistake:
 Toasts, diagnostics, the track cache, the hover-only menu bar, and anything
 ProLink. The cache remains the one omission with a live failure mode: pulling a
 stick mid-track will still stop it after about fifteen seconds.
+
+### On WAL, deliberately not done
+
+`journal_mode=WAL` would stop readers and writers blocking each other outright,
+which is exactly this deck's pattern, and it usually *reduces* card writes. It
+was left out of the transaction fix on purpose, not rejected:
+
+- It is a property of **Mixxx's whole database**, not the browser's, and it
+  persists in the file header — so a regression would present as "Mixxx is
+  broken" and reverting needs an explicit `journal_mode=DELETE`.
+- The transaction fix already removes almost all of the contention: the writer
+  now holds the lock for a fraction of a second rather than fifteen.
+
+So: measure the transaction fix first. If inserting a stick mid-set still
+hitches, add WAL as **its own one-line commit**, so whichever one helped is
+attributable.
