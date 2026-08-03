@@ -223,3 +223,41 @@ confusion this prevents.
 
 §1 and §2 both touch the schema and the ingest, so build them together and
 re-read both sticks once.
+
+---
+
+## Status — all nine implemented, none tested on hardware
+
+Written blind: it compiles, it is deployed to neither deck nor eye. What to
+check, in the order most likely to catch a mistake:
+
+| # | Change | How to know it worked |
+|---|---|---|
+| 1 | One transaction around the ingest | A stick should read in **well under a second**, and the source list should stay scrollable while the second one reads. Watch for `DeckIngest - wrote N tracks` in `~/.mixxx/mixxx.log`. |
+| 2 | `camelot_order` column, Key sorts on it | Sort by Key: 1A, 1B, 2A … 12B. **This is a schema change, so both sticks must be re-read** — they are, on every boot. |
+| 3 | The info panel | Long-press SORT, or tap an already-selected track. Panel on the right, following the selection as you turn the encoder. |
+| 4 | BPM re-buckets live | Open BPM, press ring A1. Ranges should widen without the menu closing. |
+| 5 | Key colour follows the deck | Load a track, then browse: compatible keys go green **without** re-entering the list. |
+| 6 | Matching keys bold | Same test as 5. |
+| 7 | Long-press BACK | Hold BACK anywhere: straight to the waveform. Press BACK again: back in the *same* menu, not at SOURCES. |
+| 8 | Clickable breadcrumb, home glyph | Tap any segment to jump back to it. The root is a house. **If the house renders as a box, the Nerd Font is not resolving that codepoint** — swap `` for a word. |
+| 9 | Slot number beside the mark | `1` beside SAM2 and `2` beside SAM1, dimmer than the name. |
+
+### Most likely to be wrong, since none of it was run
+
+- **The breadcrumb link hit area.** Anchors are padded with `&nbsp;`, which is
+  a guess at a fingertip. If segments are hard to hit, the label wants replacing
+  with a widget that hit-tests properly.
+- **The info panel's width against the list.** 464 + 560 = 1024 exactly, so the
+  list has no margin for error; if titles look cramped, take it off the panel.
+- **`Plays` instead of `Last played`** in the panel. The deck has no
+  last-played timestamp for an external medium yet — `deck_play_log` is never
+  written and the stick's own rekordbox history still needs a bridge change —
+  so the panel shows the pdb's play count instead. That gap is unchanged.
+- **The house glyph** (see 8).
+
+### Not touched, still absent
+
+Toasts, diagnostics, the track cache, the hover-only menu bar, and anything
+ProLink. The cache remains the one omission with a live failure mode: pulling a
+stick mid-track will still stop it after about fifteen seconds.
