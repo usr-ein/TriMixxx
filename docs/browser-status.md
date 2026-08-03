@@ -169,6 +169,45 @@ Still not exercised, and honestly so:
 | **BPM re-bucketing on a tempo-range change** | The list opens centred on the playing tempo, which is verified; changing the range while it is open needs the ring, which `deck-poke` cannot send. |
 | **A real hover** | The menu bar is hidden and stays hidden, but `xdotool` cannot generate a hover, so the *reveal* is unproven. |
 
+## 2b. The CDJ round — what a live player settled
+
+A CDJ-2000NXS on eth0 with SAM1 in its USB slot.
+
+**The serve side works.** The deck claimed player 4, mounted its own stick as
+`/C/` (5444 files, 692 tracks), the CDJ queried our media and opened a dbserver
+connection from 169.254.202.84. It can see and browse our stick.
+
+**Remote media now appear**, after one fix: nothing arrives unasked. A player
+publishes its volume name and counts *only* in answer to a media query, answers
+each once and never repeats it (F37) — and the only thing that sends one lived
+in the CLI. With a five-second survey the CDJ's stick appears in SOURCES with
+its chevron and player number, and its `export.pdb` is fetched and ingested over
+the wire: 651 tracks, 290 artists, 94 history entries. **Its cover art arrives
+too**, fetched over dbserver from the row being drawn.
+
+**Playing a remote track does not work yet**, and this is the one open fault:
+
+```
+SoundSourceProLink  - claiming ".../<hash>.mp3" -- still streaming
+SoundSourceFFmpeg   - AVStream { ... codec_id 86017 | sample_rate 44100 | bit_rate 320000 }
+SoundSourceFFmpeg   - av_seek_frame() failed: Operation not permitted
+SoundSourceProxy    - Failed to read file ... with provider "Pro DJ Link streaming"
+MediaRegistry       - download complete: ".../<hash>.mp3" -- 0 waits / 0 ms
+```
+
+Everything around it is right. The provider claims the file, FFmpeg probes it
+through our `AVIOContext` and parses the stream correctly — the `AVStream` line
+is a real 320 kbps 44.1 kHz MP3 — and the transfer completes without a single
+blocked read. Only the seek fails, with `EPERM`.
+
+`AVSEEK_FORCE` was masked off, which was a genuine defect in the callback, and
+the failure survives it. So the next step is not another guess: print
+`m_pAvioContext->seekable` after `avio_alloc_context`, and log every `(offset,
+whence)` the callback is handed. `EPERM` out of `av_seek_frame` points at
+libavformat deciding the stream is not seekable, which would mean `seekable` is
+not what `avio_alloc_context` is assumed to set it to — and that is one printf
+to confirm rather than an afternoon of reasoning.
+
 ## 3. Not implemented
 
 Nothing in the PRD. One thing found while finishing it and deliberately left
