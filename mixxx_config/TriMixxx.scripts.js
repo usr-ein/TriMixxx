@@ -352,15 +352,37 @@ TriMixxx.slip = function(channel, control, value, status, group) {
 // A7 Back: reverse of the browse-encoder push. Library hidden -> open it on the
 // sidebar; on the track list -> step back to the left sidebar columns; already on
 // the sidebar -> close the library back to the deck.
+TriMixxx.backHoldTimer = 0;
+
+// A7 BACK. Short: up one level. Long: back to the deck, keeping your place.
+//
+// The long press is the one a DJ actually reaches for mid-set -- you are four
+// levels into a stick, the track is running out, and you want the waveform
+// without losing where you were. Nothing tells the browser to unwind, so the
+// menu stack survives and re-opening lands exactly where you left.
+//
+// As with SORT, the distinction can only be made on the RELEASE: a long press
+// is knowable only by nothing having happened yet.
 TriMixxx.back = function(channel, control, value, status, group) {
-    if (!value) { return; } // press only
-    if (!engine.getValue("[Master]", "show_library")) {
-        engine.setValue("[Master]", "show_library", 1);
+    if (value) {
+        if (!engine.getValue("[Master]", "show_library")) {
+            // Opening is unambiguous -- there is no second meaning to wait for,
+            // and making the DJ hold the button to see the library would be
+            // absurd. Acts on the press.
+            engine.setValue("[Master]", "show_library", 1);
+            return;
+        }
+        TriMixxx.backHoldTimer = engine.beginTimer(TriMixxx.LONG_PRESS_MS, function() {
+            TriMixxx.backHoldTimer = 0;
+            engine.setValue("[Master]", "show_library", 0);
+        }, true);
         return;
     }
-    // Pop one level. At level 0 the browser closes itself back to the deck, so
-    // this script does not have to know how deep the stack is -- which is just
-    // as well, because it cannot.
+    if (!TriMixxx.backHoldTimer) {
+        return;  // The hold already fired; this release is just the end of it.
+    }
+    engine.stopTimer(TriMixxx.backHoldTimer);
+    TriMixxx.backHoldTimer = 0;
     engine.setValue("[Browser]", "back", 1);
 };
 

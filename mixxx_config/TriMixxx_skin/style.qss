@@ -521,3 +521,9 @@ WTrackTableView QScrollBar::sub-page:horizontal {
     font-size: 22px;
 }
 #DeckKey:pressed { background-color: #88ff00; color: #0c0c0c; }
+
+/* The info panel, beside the track list in the info layout. */
+#DeckInfoPanel {
+    background-color: #141414;
+    border-left: 1px solid #222222;
+}
