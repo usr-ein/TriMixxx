@@ -10,10 +10,9 @@ Sources → a medium's categories → a track list, driven by the encoder, the
 deck's buttons and a finger. The sort menu and the search keyboard are in. The
 sidebar-and-table is gone.
 
-**Everything in the PRD is now built except the serve-side phantom medium**
-(§12.5). The info panel, toasts, diagnostics, the track cache, the hover-only
-menu bar and ProLink media all landed after this report was first written; §3
-below has what is left. Remote tracks now **stream** — they start playing before
+**Everything in the PRD is now built.** The info panel, toasts, diagnostics, the
+track cache, the hover-only menu bar, ProLink media and the serve-side phantom
+medium all landed after this report was first written. Remote tracks now **stream** — they start playing before
 they have arrived — which has its own document,
 [`browser-streaming.md`](browser-streaming.md).
 
@@ -87,34 +86,50 @@ fingers.
 24. Pulling a stick should remove it from SOURCES and, if you were inside it,
     drop you back to SOURCES.
 
+### The serve side — needs a CDJ loading a track off *us*
+25. **A CDJ sees our sticks** as LINK sources and can browse them.
+26. **Load one of our tracks on the CDJ**, then watch our log: `a player loaded
+    one of our tracks; holding on to it` should appear within two seconds, with a
+    file count. Diagnostics → Serving should list the player.
+27. **Now pull that stick out while the CDJ plays.** The behaviour that matters:
+    **the CDJ finishes the track.** It should not stop, stutter or go silent.
+28. A toast should say `SAM2 removed — player 2 is still being fed from cache`,
+    and Diagnostics → Serving should show the slot as `gone — feeding a player
+    from cache`.
+29. **Browsing that medium on the CDJ should now show nothing** — every menu
+    empty — while the track it is playing keeps its title, artist and artwork on
+    the CDJ's display.
+30. **When the CDJ loads something else**, the medium should disappear from its
+    screen properly, the way an ejected stick does.
+
 ### Remote media — needs a CDJ on the network
-25. **A player's slot appears in SOURCES** within a second or two of the player
+31. **A player's slot appears in SOURCES** within a second or two of the player
     joining, already showing `N tracks · M playlists` — those come off the status
     packet, so the row is complete before anything is fetched. Entering it should
     be instant, because the database was read on detection.
-26. **Long-press a remote track.** It should start playing in **a second or
+32. **Long-press a remote track.** It should start playing in **a second or
     two**, not forty. Watch the log for `playable after N ms` — that is the size
     wait and it should be well under a second.
-27. **Let it play through.** No stutter, no silence, no early end. Silence is the
+33. **Let it play through.** No stutter, no silence, no early end. Silence is the
     failure this design exists to prevent, so a single silent gap is a real bug
     and worth the log around it.
-28. **`download complete:` appears in the log** part-way through the track, with
+34. **`download complete:` appears in the log** part-way through the track, with
     a wait count after it. A healthy load waits a handful of times at the start
     and then never again.
-29. **An M4A/AAC track specifically.** It is the one that needs the tail, and if
+35. **An M4A/AAC track specifically.** It is the one that needs the tail, and if
      the tail ordering ever broke it is the only format that would fail.
-30. **The beat grid is rekordbox's**, not Mixxx's: the grid should be there
+36. **The beat grid is rekordbox's**, not Mixxx's: the grid should be there
     immediately rather than after an analysis pass, and hot cues and memory cues
     should be on the waveform. Check the same for a track on a **local stick** —
     that path is new too.
-31. **Scrub to the end of a track that is still downloading.** It should wait and
+37. **Scrub to the end of a track that is still downloading.** It should wait and
     then play, not error out and not go silent.
-32. **Load a second remote track while the first is still downloading**, then a
+38. **Load a second remote track while the first is still downloading**, then a
     third. Nothing should hang, and the first track should keep playing.
-33. **Pull the player off the network mid-download.** The deck should report a
+39. **Pull the player off the network mid-download.** The deck should report a
     failure and stay responsive; the track that is already playing keeps playing
     only if the whole file arrived — the diagnostics page says which.
-34. **Diagnostics → Streaming** shows each in-flight track with its size, whether
+40. **Diagnostics → Streaming** shows each in-flight track with its size, whether
     it is complete, and its wait counters. **Written to card** should read `none`
     for the whole session.
 
@@ -145,13 +160,20 @@ All of it compiles for arm64 and its unit tests pass:
 | **Toasts** (§13) | Needs a stick inserted and ejected. |
 | **Hover-only menu bar** (§4.4) | Needs the deck. |
 | **ProLink media in SOURCES** (§11.3) | **Needs a CDJ on the network.** |
-| **Streaming a remote track** | Needs a CDJ. This is the largest untested piece: `browser-streaming.md` describes it, and §1 has the list to run. |
+| **Streaming a remote track** | Needs a CDJ. The largest untested piece: `browser-streaming.md` describes it, and §1 has the list to run. |
+| **Cover art for remote media** | Needs a CDJ. Fetched over dbserver from the row being drawn, once per path. |
+| **The phantom medium** (§12.5) | Needs a CDJ *loading a track off us*, and then the stick pulled. The behaviour that matters is the player finishing its track. |
 | **Beat grids from ANLZ** | Applies to local sticks too, and was never checked there — a loaded track should arrive with rekordbox's grid and cues rather than being analysed from scratch. |
 
 ## 3. Not implemented
 
-- **Serve-side phantom medium** (§12.5) — offering our own library to the
-  players on the network. Unblocked by the cache; not started.
+Nothing in the PRD. One thing found while finishing it and deliberately left
+out, because it is a separate piece with its own design question:
+
+- **Cover art on a remote medium's *album* rows** works, because it is fetched
+  from the row being drawn. There is no bulk prefetch, so the first paint of a
+  list shows grey squares that fill in over a second or two. Whether that wants
+  a look-ahead is a judgement to make on hardware, not in advance.
 
 ## 4. Known bugs and open threads
 
@@ -187,22 +209,22 @@ All of it compiles for arm64 and its unit tests pass:
 
 ## 6. Traps, so they cost the next person nothing
 
-1. **`BaseSqlTableModel::setTable()` does not select**, and `setSearch()` only
+41. **`BaseSqlTableModel::setTable()` does not select**, and `setSearch()` only
    records the text. `WTrackTableView::loadTrackModel()` is what normally calls
    `select()`. Miss it and the model is correctly configured, reports zero rows,
    and logs nothing.
-2. **Every `Q_OBJECT` class must `#include "moc_<file>.cpp"`.** The failure is
+42. **Every `Q_OBJECT` class must `#include "moc_<file>.cpp"`.** The failure is
    `"mocs_compilation.cpp not empty"`, which names neither your file nor your
    class.
-3. **A plain `QWidget` ignores its stylesheet background** without
+43. **A plain `QWidget` ignores its stylesheet background** without
    `WA_StyledBackground`. Overlays you can see through.
-4. **`/dev/disk/by-label` holds symlinks to block devices**, which `QDir::Files`
+44. **`/dev/disk/by-label` holds symlinks to block devices**, which `QDir::Files`
    does not match.
-5. **`qBound` asserts when its bounds cross** — `qBound(0, n, rowCount()-1)` on
+45. **`qBound` asserts when its bounds cross** — `qBound(0, n, rowCount()-1)` on
    an empty list.
-6. **A backgrounded `docker build` with redirected output reports the wrapper's
+46. **A backgrounded `docker build` with redirected output reports the wrapper's
    exit code.** Grep the log for `error:`; do not trust the notification.
-7. **Delegate column indices must be re-resolved on every model change.** A
+47. **Delegate column indices must be re-resolved on every model change.** A
    stale set draws correctly-sized blank rows, which looks like an empty query.
-8. **The build loop is fast** — a compile error surfaces ~20 s in. Iterate
+48. **The build loop is fast** — a compile error surfaces ~20 s in. Iterate
    freely.
