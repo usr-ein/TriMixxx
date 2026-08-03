@@ -257,7 +257,8 @@ TriMixxx.sortButton = function(value) {
         // immediately meant every hold cycled first and cleared afterwards.
         TriMixxx.sortHoldTimer = engine.beginTimer(TriMixxx.LONG_PRESS_MS, function() {
             TriMixxx.sortHoldTimer = 0;
-            TriMixxx.sortClear();
+            // Held: the other track-list layout (browser-prd.md 8.2).
+            engine.setValue("[Browser]", "info_toggle", 1);
         }, true);
         return;
     }
@@ -266,7 +267,9 @@ TriMixxx.sortButton = function(value) {
     }
     engine.stopTimer(TriMixxx.sortHoldTimer);
     TriMixxx.sortHoldTimer = 0;
-    TriMixxx.sortAdvance();
+    // Short: raise the sort menu. The browser ignores it unless a track list is
+    // on screen, so this needs no condition of its own.
+    engine.setValue("[Browser]", "sort_menu", 1);
 };
 
 // Step to the next (column, direction) pair and apply it.
@@ -352,16 +355,13 @@ TriMixxx.slip = function(channel, control, value, status, group) {
 TriMixxx.back = function(channel, control, value, status, group) {
     if (!value) { return; } // press only
     if (!engine.getValue("[Master]", "show_library")) {
-        // No explicit focus: WLibrary::showEvent puts it on the track list when
-        // there is one, which is where a DJ coming back from loading a track
-        // wants to be -- picking the next one. Forcing the sidebar here undid
-        // that and dropped them back in the tree every time.
         engine.setValue("[Master]", "show_library", 1);
-    } else if (engine.getValue("[Library]", "focused_widget") === TriMixxx.FOCUS_TRACKS) {
-        engine.setValue("[Library]", "focused_widget", TriMixxx.FOCUS_SIDEBAR);
-    } else {
-        engine.setValue("[Master]", "show_library", 0);
+        return;
     }
+    // Pop one level. At level 0 the browser closes itself back to the deck, so
+    // this script does not have to know how deep the stack is -- which is just
+    // as well, because it cannot.
+    engine.setValue("[Browser]", "back", 1);
 };
 
 // ==== Ring button LED indicators (coloured, via SysEx cmd 0x01=A / 0x03=B) ====
@@ -493,8 +493,9 @@ TriMixxx.play = function(channel, control, value, status, group) {
 //      is what lets one encoder scroll the sidebar and then the track list. ----
 TriMixxx.browse = function(channel, control, value, status, group) {
     if (engine.getValue("[Master]", "show_library")) {
-        // Library open: scroll whichever pane has focus.
-        engine.setValue("[Library]", "MoveVertical", (value === 1) ? -1 : 1);
+        // Browsing: one encoder, one selection. There is no pane to pick any
+        // more -- the browser has a single focus (browser-prd.md 4.3).
+        engine.setValue("[Browser]", "move", (value === 1) ? -1 : 1);
     } else {
         // Playing view: zoom the waveform. (up = zoom in; swap the two control
         // names if the direction feels inverted.)
@@ -537,25 +538,12 @@ TriMixxx.encoderPush = function(channel, control, value, status, group) {
     if (!value) { return; } // press only
 
     if (!engine.getValue("[Master]", "show_library")) {
-        // Focus is left to WLibrary::showEvent, which lands on the track list
-        // when the pane has one. Back steps out to the tree from there.
         engine.setValue("[Master]", "show_library", 1);
         return;
     }
-
-    if (engine.getValue("[Library]", "focused_widget") === TriMixxx.FOCUS_SIDEBAR) {
-        // GoToItem, not a straight focus jump: LibraryControl::slotGoToItem does
-        // exactly the branch we want. A menu entry with children (Rekordbox and
-        // its USB drives, Players and the CDJs on the network, Playlists) toggles
-        // expanded and KEEPS focus in the sidebar, so the next turn of the
-        // encoder walks into the children. A leaf -- or a root that owns a track
-        // table, i.e. Tracks -- hands focus to the track list instead, which is
-        // what the old unconditional jump did for everything.
-        engine.setValue("[Library]", "GoToItem", 1);
-        return;
-    }
-
-    engine.setValue(TriMixxx.DECK, "LoadSelectedTrack", 1);
+    // One control for every level: the browser knows whether the selection is
+    // a source, a category, a playlist or a track, and what each means.
+    engine.setValue("[Browser]", "select", 1);
 };
 
 // ---- Jog touch: enable scratch while held, pitch-bend when released ----

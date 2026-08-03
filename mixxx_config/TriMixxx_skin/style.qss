@@ -458,3 +458,66 @@ WTrackTableView QScrollBar::sub-page:horizontal {
     qproperty-alignment: 'AlignRight | AlignVCenter';
     padding-right: 6px;
 }
+
+/* ============ The browser ============================================
+   The lists paint themselves in deckdelegates.cpp -- a QStyledItemDelegate
+   draws raw, so the palette lives there and not here. What is left for the
+   stylesheet is the chrome around them. */
+
+#DeckBrowser {
+    background-color: #0c0c0c;
+}
+
+/* The breadcrumb: where you are, and what the list is sorted by. */
+#DeckBreadcrumb {
+    background-color: #141414;
+    color: #88ff00;
+    font-family: "MesloLGL Nerd Font";
+    font-size: 19px;
+    font-weight: bold;
+    padding-left: 16px;
+    border-bottom: 1px solid #222222;
+}
+
+/* Dead strip along the bottom edge. The panel's last rows sit under a lip,
+   so a row drawn there cannot be touched and barely seen. Empty on purpose:
+   it exists to be unreachable. */
+#DeckBezelPad {
+    background-color: #0c0c0c;
+}
+
+/* No frame and no scrollbars on the lists: the encoder scrolls them, and a
+   scrollbar on a touchscreen is a target nobody can hit. */
+#DeckBrowser QListView {
+    background-color: #0c0c0c;
+    border: none;
+    outline: none;
+}
+
+/* The sort menu: an overlay, so it needs an opaque background and an edge of
+   its own or the list shows through it. */
+#DeckSortMenu {
+    background-color: #141414;
+    border: 2px solid #88ff00;
+}
+
+/* The search screen. */
+#DeckSearchPage { background-color: #0c0c0c; }
+#DeckSearchQuery {
+    background-color: #141414;
+    color: #88ff00;
+    font-family: "MesloLGL Nerd Font";
+    font-size: 22px;
+    padding-left: 16px;
+    border-bottom: 1px solid #222222;
+}
+#DeckKeyboard { background-color: #141414; }
+#DeckKey {
+    background-color: #202020;
+    color: #eeeeee;
+    border: 1px solid #333333;
+    border-radius: 4px;
+    font-family: "MesloLGL Nerd Font";
+    font-size: 22px;
+}
+#DeckKey:pressed { background-color: #88ff00; color: #0c0c0c; }

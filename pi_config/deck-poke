@@ -161,7 +161,13 @@ midi)
     ;;
 tap)
     x="${1:?x}"; y="${2:?y}"
-    remote "xdotool mousemove $x $y click 1"
+    # A tap IS a short press: same three events as longpress, 120 ms apart.
+    # `xdotool click 1` does not work here at all -- it puts press and release
+    # ~12 ms apart and Qt's QPushButton ignores it -- and neither does any
+    # shorter hand-rolled variant, verified against the on-screen keyboard.
+    # 120 ms is comfortably under DeckListView's 600 ms long-press threshold,
+    # so this is still semantically a tap.
+    remote "xdotool mousemove $x $y mousedown 1; sleep 0.12; xdotool mouseup 1"
     ;;
 longpress)
     x="${1:?x}"; y="${2:?y}"; ms="${3:-800}"

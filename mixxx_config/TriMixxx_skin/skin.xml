@@ -191,6 +191,14 @@
             <Layout>horizontal</Layout>
             <MinimumSize>1024,80</MinimumSize>
             <MaximumSize>1024,80</MaximumSize>
+            <!-- Gone while browsing. A standalone deck has one screen, and a
+                 track list is worth more than a header repeating what the
+                 waveform already says. -->
+            <Connection>
+              <ConfigKey persist="true">[Master],show_library</ConfigKey>
+              <Transform><Not/></Transform>
+              <BindProperty>visible</BindProperty>
+            </Connection>
             <Children>
 
               <!-- Cover art -->
@@ -302,38 +310,6 @@
                       <ConfigKey>[Channel1],playposition</ConfigKey>
                     </Connection>
                   </NumberPos>
-                </Children>
-              </WidgetGroup>
-
-              <!-- POWER: raises the shutdown confirm overlay. It lives in the
-                   header because nothing sits below the waveform any more, and
-                   this is the ONLY way to shut the deck down from the UI (there
-                   is no hardware shutdown button). Far right, away from the
-                   transport, for the same reason it was far right in the old bar.
-
-                   Deliberately a 2-state toggle, not a 1-state momentary button:
-                   a momentary one writes 1 on press and 0 on release, so the
-                   overlay would flash up and vanish again. -->
-              <WidgetGroup>
-                <ObjectName>PowerColumn</ObjectName>
-                <Layout>vertical</Layout>
-                <MinimumSize>84,72</MinimumSize>
-                <MaximumSize>84,72</MaximumSize>
-                <Children>
-                  <WidgetGroup><SizePolicy>f,e</SizePolicy><Children/></WidgetGroup>
-                  <PushButton>
-                    <ObjectName>PowerButton</ObjectName>
-                    <MinimumSize>78,56</MinimumSize>
-                    <MaximumSize>78,56</MaximumSize>
-                    <NumberStates>2</NumberStates>
-                    <State><Number>0</Number><Unpressed>power.svg</Unpressed><Pressed>power.svg</Pressed></State>
-                    <State><Number>1</Number><Unpressed>power.svg</Unpressed><Pressed>power.svg</Pressed></State>
-                    <Connection>
-                      <ConfigKey persist="false">[TriMixxx],shutdown_confirm</ConfigKey>
-                      <ButtonState>LeftButton</ButtonState>
-                    </Connection>
-                  </PushButton>
-                  <WidgetGroup><SizePolicy>f,e</SizePolicy><Children/></WidgetGroup>
                 </Children>
               </WidgetGroup>
 
@@ -528,85 +504,24 @@
             <!-- Vertical, not horizontal: the two panes live in a nested row so
                  that LibraryBottomPad can sit UNDER both of them. -->
             <Layout>vertical</Layout>
-            <!-- 600 total - 80 header. Nothing shares the space now. -->
-            <MinimumSize>1024,520</MinimumSize>
-            <MaximumSize>1024,520</MaximumSize>
+            <!-- The whole panel: the header is hidden while this is up. -->
+            <MinimumSize>1024,600</MinimumSize>
+            <MaximumSize>1024,600</MaximumSize>
             <Connection>
               <ConfigKey persist="true">[Master],show_library</ConfigKey>
               <BindProperty>visible</BindProperty>
             </Connection>
             <Children>
-              <WidgetGroup>
-                <ObjectName>LibraryPanes</ObjectName>
-                <Layout>horizontal</Layout>
-                <!-- Width stated explicitly. A horizontally Fixed group with no
-                     MinimumSize takes its size HINT instead, which here is only
-                     as wide as the two panes ask to be, so the row would sit
-                     narrower than the screen. -->
-                <MinimumSize>1024,200</MinimumSize>
-                <MaximumSize>1024,520</MaximumSize>
-                <SizePolicy>f,e</SizePolicy>
-                <Children>
-                  <!-- Width is CONTENT DRIVEN, not the old flat 240. `p` is
-                       Preferred, so the column asks for its sizeHint and the
-                       track table (Expanding) takes whatever is left. The hint
-                       comes from WLibrarySidebar::sizeHint() in our fork, which
-                       reports the widest row on show, indentation included, so
-                       expanding Rekordbox widens the column and collapsing it
-                       gives the width back.
-
-                       341 = 1024 / 3. Past that the column would be eating the
-                       track list to show folder names, so it stops and the
-                       sidebar scrolls sideways instead, following the selection
-                       (ensureCurrentItemVisible). 200 keeps it from collapsing
-                       to a sliver while a feature is still populating. -->
-                  <WidgetGroup>
-                    <ObjectName>LibrarySidebarCol</ObjectName>
-                    <Layout>vertical</Layout>
-                    <MinimumSize>200,200</MinimumSize>
-                    <MaximumSize>341,520</MaximumSize>
-                    <SizePolicy>p,e</SizePolicy>
-                    <Children>
-                      <!-- `i` is Ignored: the search box's own sizeHint is left
-                           out of the column's width, so a wide-ish line edit
-                           cannot be what decides how wide the MENU is. It still
-                           stretches to fill whatever width the tree settles on,
-                           and MinimumSize keeps it usable. -->
-                      <SearchBox>
-                        <ObjectName>LibrarySearch</ObjectName>
-                        <MinimumSize>120,40</MinimumSize>
-                        <MaximumSize>-1,40</MaximumSize>
-                        <SizePolicy>i,f</SizePolicy>
-                      </SearchBox>
-                      <LibrarySidebar>
-                        <ObjectName>LibrarySidebar</ObjectName>
-                        <SizePolicy>p,e</SizePolicy>
-                      </LibrarySidebar>
-                    </Children>
-                  </WidgetGroup>
-                  <Library>
-                    <ObjectName>LibraryTable</ObjectName>
-                    <SizePolicy>e,e</SizePolicy>
-                  </Library>
-                </Children>
-              </WidgetGroup>
-
-              <!-- Dead strip along the bottom edge. The last row of the panel is
-                   physically hard to hit (the bezel gets your fingertip before
-                   the glass does), so the last menu entry and the last track row
-                   were effectively untappable. This pushes both up out of that
-                   band. Empty on purpose: it exists to be unreachable.
-
-                   Note for editors: no double hyphen anywhere in this comment.
-                   XML forbids it inside comments and Qt's parser rejects the
-                   whole skin, which boots Mixxx to a default one. -->
-              <WidgetGroup>
-                <ObjectName>LibraryBottomPad</ObjectName>
-                <MinimumSize>1024,56</MinimumSize>
-                <MaximumSize>1024,56</MaximumSize>
-                <SizePolicy>f,f</SizePolicy>
-                <Children/>
-              </WidgetGroup>
+              <!-- The whole library, as one widget. It owns its own
+                   breadcrumb, its own lists and its own bezel strip, because
+                   the levels want different row heights and a skin cannot
+                   express a menu stack. -->
+              <DeckBrowser>
+                <ObjectName>DeckBrowser</ObjectName>
+                <MinimumSize>1024,600</MinimumSize>
+                <MaximumSize>1024,600</MaximumSize>
+                <SizePolicy>e,e</SizePolicy>
+              </DeckBrowser>
             </Children>
           </WidgetGroup>
 

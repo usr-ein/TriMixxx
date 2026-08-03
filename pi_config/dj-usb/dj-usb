@@ -63,6 +63,19 @@ do_mount() {
 
         mkdir -p "$mp"
         if mount -t "$fstype" -o "$opts" "$dev" "$mp"; then
+            # What the stick calls itself, written where Mixxx can read it.
+            # The slot is handed out in plug order, so DJ_USB_1 says nothing
+            # about which stick this is -- and the browser shows the label.
+            # blkid is already loaded and has the answer; the alternative is
+            # Mixxx resolving the mount back to a device and hunting through
+            # /dev/disk/by-label for it, which it can only do on Linux and only
+            # if it can read both.
+            #
+            # Written even when empty: an empty file means "asked, no label",
+            # which is different from no file at all, i.e. "not mounted by us".
+            mkdir -p /run/dj-usb
+            blkid -o value -s LABEL "$dev" 2>/dev/null >"/run/dj-usb/DJ_USB_$i.label" ||
+                : >"/run/dj-usb/DJ_USB_$i.label"
             log "mounted $dev ($fstype) read-only at $mp"
             exit 0
         fi
@@ -91,6 +104,7 @@ do_unmount() {
         # when the last handle closes, instead of failing with EBUSY.
         umount -l "$mp" 2>/dev/null || log "umount -l $mp failed"
         rmdir "$mp" 2>/dev/null || true
+        rm -f "/run/dj-usb/DJ_USB_$i.label"
         log "unmounted $mp ($kname)"
     done
 }
