@@ -16,8 +16,10 @@ medium all landed after this report was first written. Remote tracks now **strea
 they have arrived — which has its own document,
 [`browser-streaming.md`](browser-streaming.md).
 
-Nothing added since the first hardware round has been run on hardware. The
-streaming path in particular has never seen a CDJ.
+**A second hardware round has now happened** and found ten faults, all fixed
+and re-verified on the deck; §5 has the ones worth remembering. What is still
+untested is everything that needs a CDJ on the network — the streaming path and
+the serve side — because there is no CDJ here.
 
 ---
 
@@ -135,35 +137,37 @@ fingers.
 
 ---
 
-## 2. Implemented but never exercised
+## 2. What the second hardware round settled
 
-Compiles and ships; I could not drive it.
+Driven end to end on the deck with `deck-shot` and `deck-poke`, and now
+believed to work:
+
+- **Loading and playing a track**, off a stick, from the cached copy.
+- **Beat grids, hot cues and the rekordbox waveform**, which are imported rather
+  than analysed — 41 504 waveform points on the first track tried.
+- **The track cache**: a stick pulled mid-track left the music playing past
+  1:12, where an uncached track dies at about fifteen seconds.
+- **Keys in Camelot order**, both as a category (1A, 1B, 2A, 2B…) and as a sort.
+- **Harmonic key colouring**: with a 1A track playing, 1A and 2A rows go green.
+- **The info panel**, the clickable breadcrumb, the playing stripe, the slot
+  numbers, the alphabetical search keyboard and its live hit count.
+- **BPM buckets**, which opened on the bucket holding the playing tempo.
+- **Last played**, which merges our play log with the stick's own rekordbox
+  history — 94 entries off one stick, so the type-19 ingest works.
+- **Toasts**, both directions, and the eject-while-playing variant.
+- **Nothing written to the SD card** for a whole session.
+- **The `Shut down` overlay**, reached by accident and cancelled.
+
+Still not exercised, and honestly so:
 
 | Piece | Why untested |
 |---|---|
-| **Last played** | Needs play history. `deck_play_log` is never written yet, and the stick's own rekordbox history needs a `prolink-cxx` bridge change that is not made — so this list is empty by construction. |
-| **Harmonic key colouring** | Implemented (exact match + relative + ±1 on the Camelot wheel) but needs a track *playing* to have a reference. Nothing was loaded during testing, so no key ever went green. |
-| **`Shut down` root row** | Wired to the existing confirmation overlay; never clicked. |
-| **Medium eject while browsing it** | The unwind-to-SOURCES path is written and never triggered. |
-| **A second read of a changed stick** | Re-ingest replaces by `UNIQUE(medium, rb_id)`; only ever seen on first insert. |
-| **BPM re-bucketing on tempo-range change** | The query re-runs on `rateRange`; never poked A1 while the list was open. |
-| **`—` rows** for empty values, and the empty-root state | Both are code paths no stick here triggered. |
-
-Since that round, a second body of work landed and **none of it has been run on
-hardware either** — the deck was unreachable, then had no CDJ on the network.
-All of it compiles for arm64 and its unit tests pass:
-
-| Piece | Why untested |
-|---|---|
-| **Track cache** (§12) | Needs a stick pulled mid-track. |
-| **Diagnostics page** (§14) | Needs the deck. |
-| **Toasts** (§13) | Needs a stick inserted and ejected. |
-| **Hover-only menu bar** (§4.4) | Needs the deck. |
 | **ProLink media in SOURCES** (§11.3) | **Needs a CDJ on the network.** |
 | **Streaming a remote track** | Needs a CDJ. The largest untested piece: `browser-streaming.md` describes it, and §1 has the list to run. |
 | **Cover art for remote media** | Needs a CDJ. Fetched over dbserver from the row being drawn, once per path. |
 | **The phantom medium** (§12.5) | Needs a CDJ *loading a track off us*, and then the stick pulled. The behaviour that matters is the player finishing its track. |
-| **Beat grids from ANLZ** | Applies to local sticks too, and was never checked there — a loaded track should arrive with rekordbox's grid and cues rather than being analysed from scratch. |
+| **BPM re-bucketing on a tempo-range change** | The list opens centred on the playing tempo, which is verified; changing the range while it is open needs the ring, which `deck-poke` cannot send. |
+| **A real hover** | The menu bar is hidden and stays hidden, but `xdotool` cannot generate a hover, so the *reveal* is unproven. |
 
 ## 3. Not implemented
 
@@ -191,6 +195,35 @@ out, because it is a separate piece with its own design question:
   too many — `setSort` may already re-select. Harmless, possibly wasteful.
 
 ## 5. Things the hardware told us
+
+### From the second round — ten faults, all fixed
+
+Four of these were invisible from a desk, and the pattern is worth naming:
+**every one failed silently.** Nothing crashed, nothing logged an error, and
+each looked like a different feature simply not being finished.
+
+1. **A tmpfs is not sized from RAM.** The track cache was capped at a flat
+   gigabyte, reasoned from the Pi's 3796 MB — but it lands on `/run`, which
+   systemd sized at **760 MB**. The cap could never be reached; the filesystem
+   would fill first, and a full `/run` takes systemd with it. `/tmp` on the same
+   machine is 1.9 GB. Measure the filesystem, never the machine.
+2. **Two Pro DJ Link sessions were running**, one from the browser's registry
+   and one from the old sidebar feature, competing for a player number — the
+   deck announced "no player number was free" *against itself*.
+3. **Toasts had never once appeared.** The skin builds `<DeckToast>` before the
+   `<DeckBrowser>` that creates the registry it subscribes to. Widget creation
+   order in a file skin authors edit is not something to depend on.
+4. **A stick leaving was only noticed if its directory left too.**
+   `directoryChanged` says nothing about an unmount, and `dj-usb`'s `rmdir` is
+   best-effort.
+5. **The diagnostics page did not scroll**, by encoder or by finger — and a
+   press on it activated a row of the list hidden behind it.
+6. **Every track load logged four warnings**, because a provider declining is
+   not a provider failing and the proxy could not tell them apart.
+7. **Sorting by BPM printed the BPM twice**, and **a sort dropped the
+   selection** — the list came back with nothing highlighted.
+
+### From the first round
 
 - **USB port 2 intermittently will not enumerate.** Before a replug, `usb2-port2`
   cycled `"Cannot enable. Maybe the USB cable is bad?"` → `"unable to enumerate
