@@ -207,11 +207,28 @@
         <midino>0x05</midino>
         <options><normal/></options>
       </control>
-      <!-- A7 back: library view / focus (script) -->
+      <!-- A7 back: library view / focus (script).
+
+           BOTH EDGES, and that is the whole feature. A7 has two meanings:
+           short goes up one level, long returns to the deck. A long press is
+           knowable only by nothing having happened yet, so the script starts a
+           timer on the press and cancels it on the release.
+
+           With only the press mapped the release never arrived, the timer
+           always expired, and every BACK closed the browser outright however
+           briefly it was tapped. Four levels into a stick, one tap put you back
+           at the deck. -->
       <control>
         <group>[Channel1]</group>
         <key>TriMixxx.back</key>
         <status>0x90</status>
+        <midino>0x06</midino>
+        <options><script-binding/></options>
+      </control>
+      <control>
+        <group>[Channel1]</group>
+        <key>TriMixxx.back</key>
+        <status>0x80</status>
         <midino>0x06</midino>
         <options><script-binding/></options>
       </control>

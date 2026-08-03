@@ -195,6 +195,26 @@
         <MaximumSize>1024,600</MaximumSize>
         <Children>
 
+          <!-- The panel is recessed behind a lip on every edge, and the top
+               one eats the first rows of whatever is drawn there. The browser
+               insets itself; this is the same strip for the deck view.
+
+               Hidden while browsing, on the same condition as the header below
+               it, because the browser already has its own and two would stack
+               to seventy-two pixels of nothing. -->
+          <WidgetGroup>
+            <ObjectName>DeckBezelPad</ObjectName>
+            <Layout>horizontal</Layout>
+            <MinimumSize>1024,36</MinimumSize>
+            <MaximumSize>1024,36</MaximumSize>
+            <Connection>
+              <ConfigKey persist="true">[Master],show_library</ConfigKey>
+              <Transform><Not/></Transform>
+              <BindProperty>visible</BindProperty>
+            </Connection>
+            <Children/>
+          </WidgetGroup>
+
           <!-- =========== TOP HEADER (always visible) =========== -->
           <WidgetGroup>
             <ObjectName>TopHeader</ObjectName>
