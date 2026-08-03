@@ -265,18 +265,31 @@ Toasts, diagnostics, the track cache, the hover-only menu bar, and anything
 ProLink. The cache remains the one omission with a live failure mode: pulling a
 stick mid-track will still stop it after about fifteen seconds.
 
-### On WAL, deliberately not done
+### On WAL — done, and why
 
-`journal_mode=WAL` would stop readers and writers blocking each other outright,
-which is exactly this deck's pattern, and it usually *reduces* card writes. It
-was left out of the transaction fix on purpose, not rejected:
+Landed as its own commit, after the transaction fix, so the two are
+attributable separately.
 
-- It is a property of **Mixxx's whole database**, not the browser's, and it
-  persists in the file header — so a regression would present as "Mixxx is
-  broken" and reverting needs an explicit `journal_mode=DELETE`.
-- The transaction fix already removes almost all of the contention: the writer
-  now holds the lock for a fraction of a second rather than fifteen.
+**It is not a card-wear measure**, and an earlier draft of this document said
+otherwise. Both journal modes write the data twice — rollback copies the
+original pages aside then writes the new ones, WAL appends to the log then
+copies it into the database at the next checkpoint. A 651-track stick is about
+half a megabyte of rows either way, so roughly a megabyte of card writes per
+read. Twenty stick swaps a night is ~20 MB: a rounding error beside the
+journald traffic `log2ram` already exists to absorb. Wear is not the axis this
+turns on.
 
-So: measure the transaction fix first. If inserting a stick mid-set still
-hitches, add WAL as **its own one-line commit**, so whichever one helped is
-attributable.
+What it buys is the last of the interface hitch. One transaction took the block
+from fifteen seconds to a fraction of one; WAL takes it to nothing, which
+matters because plugging a stick in is exactly when you are also scrolling.
+
+Two things to know: the mode lives in the **database file header**, so it
+survives the line being deleted and reverting needs an explicit
+`PRAGMA journal_mode = DELETE`; and it applies to Mixxx's whole collection
+database, not just the browse tables.
+
+**Considered and rejected:** a second database on tmpfs for the deck's tables,
+ATTACHed. Zero card writes, no locks shared with Mixxx's library — but it buys
+that with a second schema, a second connection lifetime, and schema-qualified
+names threaded through `BaseSqlTableModel` and `BaseTrackCache`. One database
+is the simpler thing; the megabyte per stick is not worth the machinery.
