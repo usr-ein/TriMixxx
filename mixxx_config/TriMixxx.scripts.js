@@ -430,14 +430,29 @@ TriMixxx.ledHotcue = function(idx) {
 };
 
 // Register a deck-control -> LED updater (tracked so shutdown can disconnect).
+//
+// A connection that could not be made is NOT stored. makeConnection returns
+// undefined for a control that does not exist, and one undefined in this list
+// threw out of paintAll -- which Mixxx reports as "the mapping is not working
+// properly" and then stops running the script. One missing LED is worth one
+// missing LED; it is not worth every button on the deck going dead mid-set.
 TriMixxx.ledConnect = function(control, cb) {
-    TriMixxx.conns.push(engine.makeConnection(TriMixxx.DECK, control, cb));
+    var conn = engine.makeConnection(TriMixxx.DECK, control, cb);
+    if (conn) {
+        TriMixxx.conns.push(conn);
+    } else {
+        print("TriMixxx: no such control, LED not connected: " + control);
+    }
 };
 
 // Paint every button to its current state: trigger all connections, then the two
 // static buttons. Called once after the intro, and re-usable any time.
 TriMixxx.paintAll = function() {
-    for (var i = 0; i < TriMixxx.conns.length; i++) { TriMixxx.conns[i].trigger(); }
+    // Guarded as well as filtered at insert: this runs from a timer callback,
+    // and an exception here is one the script cannot recover from.
+    for (var i = 0; i < TriMixxx.conns.length; i++) {
+        if (TriMixxx.conns[i]) { TriMixxx.conns[i].trigger(); }
+    }
     TriMixxx.led(0x01, 6, TriMixxx.C_DIM_W); // A7 back: dim white (static)
     TriMixxx.led(0x03, 5, TriMixxx.C_OFF);   // B6 key sync: off until the LAN link drives it
 };
