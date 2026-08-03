@@ -57,7 +57,21 @@ esac
 # worse", i.e. this flag can itself cause the dropouts it reports. It is a
 # measuring tool, not a setting. The live counter in Preferences -> Sound Hardware
 # ([App],audio_latency_overload_count) needs no flag and costs nothing.
+# Keep one previous run and no more.
+#
+# --log-level debug writes tens of megabytes an hour, and both logs are on the
+# SD card: stderr.log had reached 200 MB before anyone looked. Rotating on start
+# rather than trimming on a timer means the log covering a crash is still whole
+# when the auto-restart below brings Mixxx back, which is exactly when it is
+# worth reading.
+rotate_log() {
+    [ -s "$1" ] || return 0
+    mv -f "$1" "$1.1" 2>/dev/null || true
+}
+
 while true; do
+    rotate_log ~/.mixxx/stderr.log
+    rotate_log ~/.mixxx/mixxx.log
     mixxx --fullScreen --developer --log-level debug --log-flush-level info 2>>~/.mixxx/stderr.log
     sleep 2
 done
