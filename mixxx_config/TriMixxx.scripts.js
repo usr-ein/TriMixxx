@@ -17,24 +17,33 @@ TriMixxx.RATE_RANGE    = 0.06;  // tempo fader span at boot = +/-6%
 TriMixxx.RATE_RANGES   = [0.06, 0.10, 0.16, 1.0]; // A1 cycles these: +/-6, 10, 16, Wide (100%)
 TriMixxx.LONG_PRESS_MS = 600;   // hold past this and a button takes its second meaning
 
-// ---- Library sort (A2 doubles as SORT while the library is open) --------
-// TrackModel::SortColumnId, from src/library/trackmodel.h. Each column is
-// visited twice, ascending then descending, before moving on; a long press
-// clears the sort and a later short press resumes from where the cycle was.
-// The order is the order a DJ actually reaches for: tempo, then feel, then who
-// made it, then what it will mix with.
-TriMixxx.SORT_COLUMNS = [
-    {id: 15, name: "BPM",    colour: [0, 90, 255]},   // blue
-    {id: 6,  name: "Genre",  colour: [0, 200, 0]},    // green
-    {id: 1,  name: "Artist", colour: [255, 110, 0]},  // amber
-    {id: 20, name: "Key",    colour: [150, 0, 255]}   // purple
+// ---- SORT LED ----------------------------------------------------------
+// The pad's colour says which field the browser is sorting by and its
+// brightness says which direction. Both come from the browser rather than from
+// state kept here: [Browser],sort_column is an INDEX into WDeckSortMenu's field
+// list and sort_order is 0 or 1, so this table only has to agree with that
+// list's order -- and nothing here has to know a column name.
+//
+// This replaced a cycling state machine that lived in this script and drove the
+// sort itself. The sort is the browser's now; a script that also kept its own
+// idea of it could only ever disagree.
+TriMixxx.SORT_COLOURS = [
+    null,                 // 0 Default -- no sort, pad dark
+    [0, 90, 255],         // 1 BPM        blue
+    [150, 0, 255],        // 2 Key        purple
+    [200, 200, 200],      // 3 Title      white
+    [255, 110, 0],        // 4 Artist     amber
+    [0, 200, 0],          // 5 Genre      green
+    [0, 180, 180],        // 6 Album      teal
+    [255, 60, 120],       // 7 Date added pink
+    [180, 180, 0],        // 8 Label      olive
+    [120, 120, 255],      // 9 Year       periwinkle
+    [255, 160, 0],        // 10 Duration  orange
+    [255, 0, 0]           // 11 Rating    red
 ];
-// Ascending is the dim half of each pair, descending the bright one, so the
-// colour says which field and the brightness says which direction.
+// Ascending is the dim half of each pair, descending the bright one.
 TriMixxx.SORT_DIM      = 0.28;
 TriMixxx.SORT_BRIGHT   = 1.0;
-TriMixxx.sortStep      = -1;    // -1 = no sort; otherwise index into the cycle
-TriMixxx.sortLastStep  = 0;     // where to resume after a long-press clear
 TriMixxx.sortHoldTimer = 0;
 
 // ---- Ring button LED palette. Entries only need correct hue RATIOS -- dim()
@@ -180,16 +189,11 @@ TriMixxx.init = function(id, debugging) {
     // Re-applying the sort on entry is not belt and braces: moving between
     // features rebuilds the track model and the sort goes with it, so without
     // this the light would claim a sort that is no longer in effect.
-    TriMixxx.conns.push(engine.makeConnection("[Master]", "show_library", function(v) {
-        if (!v) { TriMixxx.sortForget(); }
-        TriMixxx.ledSort();
-    }));
-    // Focus moving back to the tree ends the sort there and then. Waiting until
-    // a section was actually chosen left the button lit while the DJ scrolled
-    // the sidebar, claiming a sort over a list they had already left.
-    TriMixxx.conns.push(engine.makeConnection("[Library]", "focused_widget", function(v) {
-        if (v === TriMixxx.FOCUS_SIDEBAR) { TriMixxx.sortForget(); }
-    }));
+    // The pad follows the browser: what it is sorting by, which way, and
+    // whether a track list is even on screen.
+    TriMixxx.conns.push(engine.makeConnection("[Browser]", "sort_column", TriMixxx.ledSort));
+    TriMixxx.conns.push(engine.makeConnection("[Browser]", "sort_order", TriMixxx.ledSort));
+    TriMixxx.conns.push(engine.makeConnection("[Browser]", "in_track_list", TriMixxx.ledSort));
     TriMixxx.ledConnect("loop_enabled", TriMixxx.ledLoopMods);
     TriMixxx.ledConnect("beatloop_8_enabled", function() { TriMixxx.ledBeatloop(8, 2); });
     TriMixxx.ledConnect("beatloop_4_enabled", function() { TriMixxx.ledBeatloop(4, 3); });
@@ -270,77 +274,6 @@ TriMixxx.sortButton = function(value) {
     // Short: raise the sort menu. The browser ignores it unless a track list is
     // on screen, so this needs no condition of its own.
     engine.setValue("[Browser]", "sort_menu", 1);
-};
-
-// Step to the next (column, direction) pair and apply it.
-TriMixxx.sortAdvance = function() {
-    var steps = TriMixxx.SORT_COLUMNS.length * 2;
-    // Coming back from cleared, resume where the cycle was rather than
-    // restarting at BPM: the DJ cleared the sort, they did not forget it.
-    TriMixxx.sortStep = TriMixxx.sortStep < 0
-        ? TriMixxx.sortLastStep
-        : (TriMixxx.sortStep + 1) % steps;
-    TriMixxx.sortLastStep = TriMixxx.sortStep;
-    TriMixxx.sortApply();
-};
-
-TriMixxx.sortApply = function() {
-    if (TriMixxx.sortStep < 0) { TriMixxx.ledSort(); return; }
-    var column = TriMixxx.SORT_COLUMNS[Math.floor(TriMixxx.sortStep / 2)];
-    var descending = (TriMixxx.sortStep % 2) === 1;
-
-    // **Column first, direction second.**
-    //
-    // sort_column is not a setter: it forwards to sort_column_toggle, which
-    // flips the direction when the id matches the column already sorted on and
-    // forces ascending when it does not. So whatever it decides about direction
-    // has to be overwritten afterwards, never before.
-    //
-    // Writing sort_order last works because WTrackTableView watches that
-    // control in its own right and re-sorts on any change; it is not merely a
-    // flag the toggle reads. Driving the toggle twice instead -- once to pick
-    // the column, once to flip it -- depends on the *global* sort_column
-    // matching what the visible model is actually sorted by, and it does not
-    // after switching between two lists with different sorts. That is why
-    // direction worked on the Rekordbox list and not on the local one.
-    engine.setValue("[Library]", "sort_column", column.id);
-    engine.setValue("[Library]", "sort_order", descending ? 1 : 0);
-    TriMixxx.ledSort();
-};
-
-// Long press: back to the order the list came in.
-TriMixxx.sortClear = function() {
-    TriMixxx.sortStep = -1;
-    TriMixxx.sortReset();
-    TriMixxx.ledSort();
-};
-
-// Moving to another part of the library drops the sort.
-//
-// It has to: changing section rebuilds the track model and the new list arrives
-// in its own order, so a lit button would be claiming a sort that is not in
-// effect. The *preference* is kept, so one press picks up where the cycle left
-// off rather than starting again at BPM.
-TriMixxx.sortForget = function() {
-    if (TriMixxx.sortStep < 0) { return; }
-    TriMixxx.sortLastStep = TriMixxx.sortStep;
-    TriMixxx.sortStep = -1;
-    // Actually unsort, do not just stop tracking it. Mixxx remembers a model's
-    // sort, so a pane opened later would otherwise arrive already sorted with
-    // the button dark -- the state saying one thing and the list another.
-    TriMixxx.sortReset();
-    TriMixxx.ledSort();
-};
-
-// Back to the order the list came in.
-//
-// sort_reset asks the model to drop its sort history and re-select, which is
-// the only thing that means "unsorted": there is no column id for it, and no
-// natural column to fall back on either. Sorting by Position came close for
-// playlists but the local library has no such column, so it silently kept
-// whatever sort was already running while the button went dark.
-TriMixxx.sortReset = function() {
-    engine.setValue("[Library]", "sort_reset", 1);
 };
 
 // B5 Slip mode: toggle on press.
@@ -431,18 +364,24 @@ TriMixxx.ledKeylock = function() {
     TriMixxx.led(0x01, 1, engine.getValue(TriMixxx.DECK, "keylock") ? TriMixxx.C_RED : TriMixxx.C_OFF);
 };
 
-// A2 sort: the column's colour, dim ascending and bright descending, off when
-// nothing is sorted.
+// SORT pad: the sort field's colour, dim ascending and bright descending, and
+// dark whenever there is no track list for the button to act on.
 TriMixxx.ledSort = function() {
-    // Ring B node 5 -- the pad that carries the sort. Off over the deck, where
-    // the button does nothing.
-    if (!engine.getValue("[Master]", "show_library") || TriMixxx.sortStep < 0) {
+    if (!engine.getValue("[Browser]", "in_track_list")) {
         TriMixxx.led(0x03, 5, TriMixxx.C_OFF);
         return;
     }
-    var column = TriMixxx.SORT_COLUMNS[Math.floor(TriMixxx.sortStep / 2)];
-    var descending = (TriMixxx.sortStep % 2) === 1;
-    TriMixxx.led(0x03, 5, column.colour,
+    var index = Math.round(engine.getValue("[Browser]", "sort_column"));
+    var colour = (index >= 0 && index < TriMixxx.SORT_COLOURS.length)
+        ? TriMixxx.SORT_COLOURS[index]
+        : null;
+    if (!colour) {
+        // Default: sorted by nothing, so the pad says nothing.
+        TriMixxx.led(0x03, 5, TriMixxx.C_OFF);
+        return;
+    }
+    var descending = engine.getValue("[Browser]", "sort_order") > 0;
+    TriMixxx.led(0x03, 5, colour,
         descending ? TriMixxx.SORT_BRIGHT : TriMixxx.SORT_DIM);
 };
 
@@ -543,19 +482,12 @@ TriMixxx.hotcue = function(channel, control, value, status, group) {
     }
 };
 
-// ---- Track encoder push: one button, three jobs, depending on where you are.
-//        deck view -> open the library, focused on the sidebar
-//        sidebar   -> expand the selected menu entry if it has children,
-//                     otherwise step right into the track list
-//        track list-> load the selected track (the track_loaded connection in
-//                     init() then drops us back on the waveform)
-//
-//      Focus is both read and written through [Library],focused_widget, whose
-//      values are Mixxx's FocusWidget enum (library_decl.h). Setting it calls
-//      LibraryControl::setLibraryFocus(), i.e. it really does move focus. ----
-TriMixxx.FOCUS_SIDEBAR = 2; // FocusWidget::Sidebar
-TriMixxx.FOCUS_TRACKS  = 3; // FocusWidget::TracksTable
-
+// ---- Track encoder push -------------------------------------------------
+// Deck view: open the browser. Browsing: activate whatever is selected, and
+// what that means -- enter a medium, open a category, load a track -- is the
+// browser's to decide. There used to be a focus dance here, reading and writing
+// [Library],focused_widget to tell a sidebar from a track table; the browser
+// has one focus and one selection, so there is nothing left to disambiguate.
 TriMixxx.encoderPush = function(channel, control, value, status, group) {
     if (!value) { return; } // press only
 
