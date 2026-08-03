@@ -79,6 +79,16 @@
     <MaximumSize>1024,600</MaximumSize>
     <Children>
 
+      <!-- Media notifications. FIRST child on purpose: RootStack renders in
+           reverse (see the note above), so this is the only position that puts
+           it over both the deck and the browser. It is transparent to the
+           mouse, so covering the panel costs nothing. -->
+      <DeckToast>
+        <ObjectName>DeckToast</ObjectName>
+        <MinimumSize>1024,600</MinimumSize>
+        <MaximumSize>1024,600</MaximumSize>
+      </DeckToast>
+
       <!-- Shutdown confirm. Covers everything, so the deck is unreachable while
            it is up; visible only while shutdown_confirm = 1. Mixxx cannot power
            the Pi off itself: SHUT DOWN pulses shutdown_now, the PiMidiDaemon

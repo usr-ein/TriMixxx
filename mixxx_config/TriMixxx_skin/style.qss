@@ -527,3 +527,15 @@ WTrackTableView QScrollBar::sub-page:horizontal {
     background-color: #141414;
     border-left: 1px solid #222222;
 }
+
+/* Media notifications. The container is transparent to the mouse and paints
+   nothing; only the individual toasts are visible. */
+#DeckToast { background: transparent; }
+#DeckToastItem {
+    background-color: #1c1c1c;
+    border: 1px solid #88ff00;
+    border-radius: 6px;
+    color: #eeeeee;
+    font-family: "MesloLGL Nerd Font";
+    font-size: 18px;
+}
