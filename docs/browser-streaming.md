@@ -193,7 +193,7 @@ up, and it is invisible everywhere else.
 
 ## Testing it
 
-Without hardware — 25 in Rust, 24 in gtest:
+Without hardware — 20 in `progressive.rs`, 25 in gtest, all green on arm64:
 
 ```
 cd mixxx/lib/prolink && cargo test --locked
