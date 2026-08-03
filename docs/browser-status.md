@@ -1,138 +1,165 @@
 # The Browser — where this got to
 
-Written at the end of an autonomous session. Read this before the plan.
+Progress report against [`browser-prd.md`](browser-prd.md) and
+[`browser-implementation.md`](browser-implementation.md). Read this first.
 
-## The headline, unvarnished
+## The headline
 
-**The browser is not built. There is nothing new to look at on the deck.**
+**The browser is built, running on the deck, and replaces the old library view.**
+Sources → a medium's categories → a track list, driven by the encoder, the
+deck's buttons and a finger. The sort menu and the search keyboard are in. The
+sidebar-and-table is gone.
 
-What exists is the layer underneath it — the schema, the single ingest, the
-model, the query catalogue, the label resolver — compiling and committed. What
-does not exist is any of the UI: no source list, no medium menu, no track list,
-no sort menu, no keyboard, no toasts, no diagnostics page, no track cache.
+**It is not the whole PRD.** The info panel, toasts, diagnostics, the track
+cache, the hover-only menu bar and everything ProLink are not built. Details
+below.
 
-I did not get through the PRD. Stage 1 of ten is done and Stages 2–10 are not
-started. The estimate in the plan was four weeks of focused work; this session
-was a few hours, and the ordering was deliberate — the foundation first, so the
-UI has something true to stand on — but the result is that the visible half is
-still ahead.
+---
 
-I stopped writing code while the tree still **builds**, rather than leaving a
-few thousand lines of never-compiled UI behind. A broken tree would mean the
-deck could not be deployed to at all, and you could test nothing.
+## 1. What to user-test
 
-## What you can test
+Everything here was exercised on the deck and screenshotted, but only by me and
+only through `deck-poke` — so it wants a human with a real encoder and real
+fingers.
 
-Short list, because the browser is not in it.
+### Navigation
+1. **BACK from the deck view** opens the browser at **SOURCES**.
+2. **SOURCES** lists both sticks by their own names — `SAM1`, `SAM2` — with
+   `N tracks · M playlists`, then `Diagnostics`, then `Shut down`.
+   - Check the names track the *sticks*, not the slots: swap which port each is
+     in and the names should follow the stick.
+   - A stick still being read is dimmed, says `reading…`, and cannot be entered.
+3. **Encoder** moves the selection and does not wrap at either end.
+4. **Encoder push** enters. **BACK** pops one level. At SOURCES, BACK returns to
+   the deck.
+5. **BACK should return you to the row you were on**, not the top of the list.
+6. **Swipe left→right** anywhere in a list = BACK.
 
-1. **`pi_config/deck-shot`** — grabs the deck's screen over ssh. Run it; a PNG
-   should open.
-2. **`pi_config/deck-poke`** — drives the deck from your desk.
-   - `deck-poke tap 130 331` — a fingertip on a pixel.
-   - `deck-poke browse down 3` / `browse up 3` — three encoder detents.
-   - `deck-poke push`, `back`, `sort`, `play`, `cue`.
-   - `deck-poke swipe 100 300 700 300`, `flick`, `longpress`.
+### The medium menu
+7. Search, All tracks, Playlists, Genre, Artists, Last played, Date added, BPM,
+   Key, Album, Label — each with a count. **A category with 0 is dimmed and
+   cannot be entered.**
+8. Every level below this should open **instantly** — the medium was read when
+   it was plugged in, not when you entered it.
 
-   All of it verified working against the current library view during the
-   session. The MIDI verbs go in through Mixxx's own controller port and run the
-   real `TriMixxx.midi.xml` and `TriMixxx.scripts.js`, so they exercise the whole
-   chain bar the copper.
+### Track lists
+9. **All tracks** shows cover, title, artist, BPM, key. Check CJK/accented
+   titles render (they did here).
+10. **Playlists** — folders drill in, playlists open. Playlist rows show a 2×2
+    cover stitch and `N tracks · H h MM min`.
+11. **Artists → Albums → Tracks** is three levels, and the album level has
+    covers.
+12. **Genre / Album / Label / Key / Date added** each list values with counts.
+    Album and Label rows carry a cover. Keys should be in **Camelot wheel
+    order** — 1A, 1B, 2A … 12B — *not* alphabetical.
+13. **BPM** buckets are sized by the tempo range. **Press ring A1 to change the
+    range while the BPM list is open — it should re-bucket.** With a track
+    playing, the list should open centred on that tempo.
 
-   **One property worth checking deliberately:** `deck-poke` must never be able
-   to make the Qt menu bar appear. It cannot hover, only press, and the menu
-   bar's reveal is gated on hovering precisely so a fingertip cannot trigger it
-   (PRD §4.4). If a tap ever pops the bar out, that gate is broken.
+### Loading, sorting, info
+14. **Long-press a track row** loads it. **A short tap does not** — that
+    asymmetry is deliberate and worth trying to break.
+15. **Encoder push** on a track also loads it.
+16. **Short-press SORT** over a track list opens the sort menu; over anything
+    else it does nothing. Twelve fields, `Default` first. Choosing a field asks
+    Ascending/Descending; `Default` applies immediately.
+17. **The sort persists** when you leave the list and open another one, until
+    you choose `Default`.
+18. **Long-press SORT** toggles the one-line track layout.
+19. **Tap an already-selected track row** also toggles that layout.
 
-3. **The deck itself is unchanged and still works.** The binary now on it is the
-   one that was there before; the data-layer commit compiles but has not been
-   deployed, because nothing calls it yet.
+### Search
+20. `Search` at the top of a medium menu opens an **alphabetical** keyboard.
+    Typing filters live; the header shows the hit count.
+21. `123` swaps to digits, `⌫` deletes, `CLEAR` empties, `DONE` folds the
+    keyboard away.
+22. **The encoder scrolls the results**; the keyboard is touch-only by design.
 
-## Implemented but not tested
+### Things that should be true everywhere
+23. The Qt menu bar is **still visible** — the hover-only behaviour is not built.
+24. Pulling a stick should remove it from SOURCES and, if you were inside it,
+    drop you back to SOURCES.
 
-Everything in `mixxx/src/library/deck/`. It compiles, and nothing executes it —
-there is no call site yet, so **none of the following has ever run**:
+---
 
-| Piece | What is untested about it |
+## 2. Implemented but never exercised
+
+Compiles and ships; I could not drive it.
+
+| Piece | Why untested |
 |---|---|
-| `pdbingest` — schema + the single writer | Never ingested a real pdb. The SQL is modelled closely on `prolinkdbwriter`, which works, but the column list changed. |
-| `deckqueries` — the whole browse hierarchy | Every query is unexecuted. The riskiest are the two using window functions (`search`, `lastPlayed`) and the playlist query's three correlated subqueries. |
-| `decktrackmodel` | The temporary-view mechanism is copied from `BaseExternalPlaylistModel`, which works, but `setQuery()` has never been called. |
-| `bpm::buckets` / `densityPeak` | Pure functions, hand-checked only. The tiling maths is the part I would test first. |
-| `key::isCompatible` | Camelot conversion (`openKey + 6 mod 12 + 1`) is derived, not verified against a real key list. |
-| `volumelabel` | Both paths unexercised. The sidecar it prefers **is not written yet** — the `dj-usb` change is not made — so today it would always fall through to `/dev/disk/by-label`. |
-| `deck_history` / `deck_play_log` tables | Created but never written. History needs a `prolink-cxx` bridge change that is not done. |
+| **Last played** | Needs play history. `deck_play_log` is never written yet, and the stick's own rekordbox history needs a `prolink-cxx` bridge change that is not made — so this list is empty by construction. |
+| **Harmonic key colouring** | Implemented (exact match + relative + ±1 on the Camelot wheel) but needs a track *playing* to have a reference. Nothing was loaded during testing, so no key ever went green. |
+| **`Shut down` root row** | Wired to the existing confirmation overlay; never clicked. |
+| **Medium eject while browsing it** | The unwind-to-SOURCES path is written and never triggered. |
+| **A second read of a changed stick** | Re-ingest replaces by `UNIQUE(medium, rb_id)`; only ever seen on first insert. |
+| **BPM re-bucketing on tempo-range change** | The query re-runs on `rateRange`; never poked A1 while the list was open. |
+| **`—` rows** for empty values, and the empty-root state | Both are code paths no stick here triggered. |
 
-Nothing ProLink-specific was written this session, so there is no blind remote
-work for you to test. The remote path still runs the old code.
+Nothing ProLink-specific was written, so there is **no blind remote work** to
+test. Remote media still run the old code path and will not appear in the new
+SOURCES list.
 
-## Not implemented at all
+## 3. Not implemented
 
-Stages 2–10 of the plan, in full: the media registry and read-on-detection, the
-browser widget and every level of it, categories, sort menu, info layout, search
-keyboard, toasts, the hover-only menu bar, the `Shut down` root row, the track
-cache, the serve-side phantom medium, and diagnostics.
+- **Info panel** (§8.2) — the layout toggles to one line per row, but the
+  right-hand panel of fields does not exist.
+- **Toasts** (§13) — no insert/eject notifications at all.
+- **Diagnostics** (§14) — the root row exists and does nothing.
+- **Track cache** (§12) — the deck still plays straight off the stick, so a
+  pull mid-track will still stop it after ~15 seconds. **This is the one
+  omission with a live failure mode.**
+- **Hover-only menu bar** (§4.4).
+- **Serve-side phantom medium** (§12.5).
+- **ProLink media in the browser** (§11.3) — remote sources do not appear.
 
-The PRD and plan are unchanged and still accurate; this is a progress report
-against them, not a revision of them.
+## 4. Known bugs and open threads
 
-## Findings from the hardware
+- **`deck-poke tap` is unreliable.** It works, then stops working, then works
+  again after an unrelated command. `longpress` never fails. The UI is fine —
+  the keyboard typed `AAAB` and `D` through the same path, and MIDI navigation
+  is rock solid throughout. Best hypothesis: `unclutter -idle 0 -root` in
+  `xinitrc` interfering with synthetic pointer events. This affects **testing
+  only**; real touch generates its own events. Worth confirming by killing
+  `unclutter` and retrying.
+- **The search page's result rows** were verified to populate (200 hits on `D`),
+  but I never got a clean screenshot of them *rendering* with the column fix in.
+  First thing to eyeball.
+- **`applySort()` calls `select()` after `setSort()`**, which may be one select
+  too many — `setSort` may already re-select. Harmless, possibly wasteful.
 
-Three things worth knowing, all discovered rather than assumed.
+## 5. Things the hardware told us
 
-**Your second USB port could not enumerate a device.** Before you replugged it,
-`usb2-port2` was cycling `"Cannot enable. Maybe the USB cable is bad?"` →
-`"unable to enumerate USB device"` → power cycle, every four seconds, forever.
-The device was electrically present and never came up. It worked after a
-replug, so it is intermittent rather than dead — which on a USB 3 port usually
-means signal integrity on the differential pairs, i.e. the internal cabling or
-the connector, not the stick. Worth watching, because it fails silently: the
-stick simply never appears.
+- **USB port 2 intermittently will not enumerate.** Before a replug, `usb2-port2`
+  cycled `"Cannot enable. Maybe the USB cable is bad?"` → `"unable to enumerate
+  USB device"` → power cycle, every 4 s, forever. It fails *silently*: the stick
+  simply never appears. On USB 3 that usually means signal integrity on the
+  differential pairs — internal cabling or connector.
+- **Mount slots and volume labels are unrelated.** Slots go in plug order. This
+  is why the browser shows labels, and why `dj-usb` now writes one at mount.
+- **Mixxx uses 421 MB RSS** with a track loaded, of 3796 MB, 3288 MB available.
+  `/tmp` is already tmpfs at 1.9 GB. Swap is 2 GB of zram, untouched.
+- **The ProLink download cache writes to the SD card** (`~/.cache/mixxx/prolink`
+  is on `/dev/mmcblk0p2`). Every remote track fetched today is a card write.
 
-**The mount slot is not the name, and on this deck they are crossed.**
-`/media/DJ_USB_1` is the stick labelled `SAM2`; `/media/DJ_USB_2` is `SAM1`.
-Slots are handed out in plug order. The old view showed the mount point, so it
-was showing the wrong name about half the time — which is the concrete case
-behind PRD §11.2.
+## 6. Traps, so they cost the next person nothing
 
-**Mixxx's memory, measured with a track loaded:** 421 MB RSS of 3796 MB total,
-508 MB used system-wide, 3288 MB available. `/tmp` is already tmpfs at 1.9 GB.
-Swap is 2 GB of zram (`rpi-swap`, zram + writeback file), untouched. The
-ProLink download cache currently resolves to `~/.cache/mixxx/prolink`, **on the
-SD card** — so every remote track fetched today is a card write. These are the
-numbers behind the cache budget in PRD §12.3.
-
-## Notes for whoever picks this up
-
-**The build loop is fast — much faster than the plan assumed.** Your Mac is
-arm64 and Docker's server is arm64, so `mixxx/upload.sh` builds natively, and
-the Dockerfile already cache-mounts `/build`, `/ccache` and the cargo registry.
-An incremental compile error surfaced **19 seconds** in. Iterate freely.
-
-**Every `Q_OBJECT` class must `#include "moc_<file>.cpp"` at the end of its
-.cpp.** Mixxx keeps `mocs_compilation.cpp` empty and asserts it in
-`src/util/moc_included_test.cpp`. Forgetting it fails the build with
-`"mocs_compilation.cpp not empty"`, which names neither your file nor your
-class. This cost one build cycle and will cost one per new widget.
-
-**Watch the background-task exit code.** A backgrounded `docker build` whose
-output is redirected reports the *wrapper's* status, not the build's. The first
-data-layer build looked green and had actually failed; the truth was in the log
-file. Grep the log for `error:`, do not trust the notification.
-
-## The continuation point
-
-In order, smallest first:
-
-1. **Make the ingest run.** Call `createTables()` at startup and
-   `writeMedium(read_pdb(mountPoint + "/PIONEER/rekordbox/export.pdb"), ...)`
-   for each `/media/DJ_USB_*`. This is the first moment any of the new code
-   executes, and it can be proved with `sqlite3` on the deck's database before a
-   single pixel is drawn — which is the cheapest possible verification of the
-   schema, the ingest and half the query catalogue.
-2. **Then the registry** (`MediaRegistry`, `MediumReader`) and the `dj-usb`
-   sidecar, so labels and counts are real.
-3. **Then the browser widget**, which is where the plan's Stage 3 begins and
-   where `deck-shot` starts earning its keep.
-
-The `deck-poke`/`deck-shot` pair is the thing to lean on from step 3 onward: it
-turns "does this look right" from a walk across the room into a shell command.
+1. **`BaseSqlTableModel::setTable()` does not select**, and `setSearch()` only
+   records the text. `WTrackTableView::loadTrackModel()` is what normally calls
+   `select()`. Miss it and the model is correctly configured, reports zero rows,
+   and logs nothing.
+2. **Every `Q_OBJECT` class must `#include "moc_<file>.cpp"`.** The failure is
+   `"mocs_compilation.cpp not empty"`, which names neither your file nor your
+   class.
+3. **A plain `QWidget` ignores its stylesheet background** without
+   `WA_StyledBackground`. Overlays you can see through.
+4. **`/dev/disk/by-label` holds symlinks to block devices**, which `QDir::Files`
+   does not match.
+5. **`qBound` asserts when its bounds cross** — `qBound(0, n, rowCount()-1)` on
+   an empty list.
+6. **A backgrounded `docker build` with redirected output reports the wrapper's
+   exit code.** Grep the log for `error:`; do not trust the notification.
+7. **Delegate column indices must be re-resolved on every model change.** A
+   stale set draws correctly-sized blank rows, which looks like an empty query.
+8. **The build loop is fast** — a compile error surfaces ~20 s in. Iterate
+   freely.
