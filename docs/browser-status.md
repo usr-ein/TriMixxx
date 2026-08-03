@@ -10,9 +10,15 @@ Sources → a medium's categories → a track list, driven by the encoder, the
 deck's buttons and a finger. The sort menu and the search keyboard are in. The
 sidebar-and-table is gone.
 
-**It is not the whole PRD.** The info panel, toasts, diagnostics, the track
-cache, the hover-only menu bar and everything ProLink are not built. Details
-below.
+**Everything in the PRD is now built except the serve-side phantom medium**
+(§12.5). The info panel, toasts, diagnostics, the track cache, the hover-only
+menu bar and ProLink media all landed after this report was first written; §3
+below has what is left. Remote tracks now **stream** — they start playing before
+they have arrived — which has its own document,
+[`browser-streaming.md`](browser-streaming.md).
+
+Nothing added since the first hardware round has been run on hardware. The
+streaming path in particular has never seen a CDJ.
 
 ---
 
@@ -76,9 +82,41 @@ fingers.
 22. **The encoder scrolls the results**; the keyboard is touch-only by design.
 
 ### Things that should be true everywhere
-23. The Qt menu bar is **still visible** — the hover-only behaviour is not built.
+23. The Qt menu bar **hides until you reach for it** — move the pointer to the
+    top edge and it should appear.
 24. Pulling a stick should remove it from SOURCES and, if you were inside it,
     drop you back to SOURCES.
+
+### Remote media — needs a CDJ on the network
+25. **A player's slot appears in SOURCES** within a second or two of the player
+    joining, already showing `N tracks · M playlists` — those come off the status
+    packet, so the row is complete before anything is fetched. Entering it should
+    be instant, because the database was read on detection.
+26. **Long-press a remote track.** It should start playing in **a second or
+    two**, not forty. Watch the log for `playable after N ms` — that is the size
+    wait and it should be well under a second.
+27. **Let it play through.** No stutter, no silence, no early end. Silence is the
+    failure this design exists to prevent, so a single silent gap is a real bug
+    and worth the log around it.
+28. **`download complete:` appears in the log** part-way through the track, with
+    a wait count after it. A healthy load waits a handful of times at the start
+    and then never again.
+29. **An M4A/AAC track specifically.** It is the one that needs the tail, and if
+     the tail ordering ever broke it is the only format that would fail.
+30. **The beat grid is rekordbox's**, not Mixxx's: the grid should be there
+    immediately rather than after an analysis pass, and hot cues and memory cues
+    should be on the waveform. Check the same for a track on a **local stick** —
+    that path is new too.
+31. **Scrub to the end of a track that is still downloading.** It should wait and
+    then play, not error out and not go silent.
+32. **Load a second remote track while the first is still downloading**, then a
+    third. Nothing should hang, and the first track should keep playing.
+33. **Pull the player off the network mid-download.** The deck should report a
+    failure and stay responsive; the track that is already playing keeps playing
+    only if the whole file arrived — the diagnostics page says which.
+34. **Diagnostics → Streaming** shows each in-flight track with its size, whether
+    it is complete, and its wait counters. **Written to card** should read `none`
+    for the whole session.
 
 ---
 
@@ -96,22 +134,24 @@ Compiles and ships; I could not drive it.
 | **BPM re-bucketing on tempo-range change** | The query re-runs on `rateRange`; never poked A1 while the list was open. |
 | **`—` rows** for empty values, and the empty-root state | Both are code paths no stick here triggered. |
 
-Nothing ProLink-specific was written, so there is **no blind remote work** to
-test. Remote media still run the old code path and will not appear in the new
-SOURCES list.
+Since that round, a second body of work landed and **none of it has been run on
+hardware either** — the deck was unreachable, then had no CDJ on the network.
+All of it compiles for arm64 and its unit tests pass:
+
+| Piece | Why untested |
+|---|---|
+| **Track cache** (§12) | Needs a stick pulled mid-track. |
+| **Diagnostics page** (§14) | Needs the deck. |
+| **Toasts** (§13) | Needs a stick inserted and ejected. |
+| **Hover-only menu bar** (§4.4) | Needs the deck. |
+| **ProLink media in SOURCES** (§11.3) | **Needs a CDJ on the network.** |
+| **Streaming a remote track** | Needs a CDJ. This is the largest untested piece: `browser-streaming.md` describes it, and §1 has the list to run. |
+| **Beat grids from ANLZ** | Applies to local sticks too, and was never checked there — a loaded track should arrive with rekordbox's grid and cues rather than being analysed from scratch. |
 
 ## 3. Not implemented
 
-- **Info panel** (§8.2) — the layout toggles to one line per row, but the
-  right-hand panel of fields does not exist.
-- **Toasts** (§13) — no insert/eject notifications at all.
-- **Diagnostics** (§14) — the root row exists and does nothing.
-- **Track cache** (§12) — the deck still plays straight off the stick, so a
-  pull mid-track will still stop it after ~15 seconds. **This is the one
-  omission with a live failure mode.**
-- **Hover-only menu bar** (§4.4).
-- **Serve-side phantom medium** (§12.5).
-- **ProLink media in the browser** (§11.3) — remote sources do not appear.
+- **Serve-side phantom medium** (§12.5) — offering our own library to the
+  players on the network. Unblocked by the cache; not started.
 
 ## 4. Known bugs and open threads
 
@@ -139,8 +179,11 @@ SOURCES list.
   is why the browser shows labels, and why `dj-usb` now writes one at mount.
 - **Mixxx uses 421 MB RSS** with a track loaded, of 3796 MB, 3288 MB available.
   `/tmp` is already tmpfs at 1.9 GB. Swap is 2 GB of zram, untouched.
-- **The ProLink download cache writes to the SD card** (`~/.cache/mixxx/prolink`
-  is on `/dev/mmcblk0p2`). Every remote track fetched today is a card write.
+- **The ProLink download cache used to write to the SD card**
+  (`~/.cache/mixxx/prolink` is on `/dev/mmcblk0p2`), and nothing ever cleaned it
+  up. Both roots are now under `/run` — tmpfs — so a night of remote loads
+  writes nothing to the card. Worth re-checking with the diagnostics page's
+  "Written to card", which should read `none`.
 
 ## 6. Traps, so they cost the next person nothing
 
