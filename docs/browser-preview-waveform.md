@@ -684,16 +684,43 @@ the comments are corrected upstream.
 
 ### 13.6 What has and has not been checked
 
+Built for arm64 and running on the deck. The build found exactly one fault — a
+third reference to the preferences checkbox, in `setDefaults()`, where neither
+of the two obvious call sites is.
+
 | | |
 |---|---|
 | `prolink-cxx` unit tests for `read_anlz` | **6, passing** — beats, both cue lists, a point's leftover loop time, the colour bit layout, the packed preview |
 | The whole `lib/prolink` workspace | **passing**, clippy clean |
-| `prolinkanlz.cpp` against the real generated bridge header | **compiles** |
-| `rekordboxanalysis.cpp`, `rekordboxwaveform.cpp` | **not compiled** — the Mixxx TU pulls in taglib and GSL, which are not on this machine |
-| Anything on the deck | **no** |
+| arm64 build, `--target export` | **clean** |
+| Media read on the deck | **SAM2, 692 tracks, 35 playlists** |
+| Beat grid | **imported** — `beats true`, grid lines drawn, no analyser pass |
+| Waveform | **imported** — 51 472 and 49 975 `PWV5` columns on two tracks, peak band 254/255 |
+| Hot cues | **imported, with their rekordbox colours** — 1 and 5 drawn on the waveform of a track carrying eight |
+| Cue comments | **decoded** — the labels read as text, which is the UTF-16BE path that replaced `fromUtf16BeString` |
+| Main cue | **placed** |
+| A track with **no `.EXT`** | **not tested** — every track on this stick has one |
+| The Pro DJ Link paths | **not tested** — needs a CDJ |
 
-So the first thing to do is build it, and the second is to load a track off a
-stick and check three things in order: the grid is rekordbox's and not analysed,
-the hot cues are on the waveform with their colours, and the waveform is
-imported rather than decoded — `imported rekordbox waveform: N points` in the
-log, with a non-zero peak.
+### 13.7 The waveform that looked wrong and was not
+
+The first track loaded after the port drew almost entirely red, against a
+reference screenshot from before it full of red, yellow and green. That is
+exactly what a swapped band mapping would look like, and it is the failure this
+whole area has produced once already.
+
+It was the track. Three independent decodes of the same `.EXT` off the deck —
+Python straight from the bytes, the Rust reader, and the picture on screen —
+agree: **bass 6.60, mid 2.51, treble 1.52** out of 7. With `kBandContrast` at
+2.2 that puts green at `(2.51/6.60)^2.2` = 12 % of red, which is a deep red
+waveform and always was.
+
+Across nine tracks on that one stick the mid-to-bass ratio runs from **0.23 to
+1.52** — 4 % green to saturated — so "mostly red" and "yellow and green" are
+both ordinary outputs of the same unchanged code, decided by the music. Loading
+a track at the other end of that range drew red, green, cyan and magenta.
+
+Worth writing down because the wrong conclusion was one step away and would have
+sent someone rewriting a decode that was correct. **Three decodes of the same
+bytes settled it in a few minutes; reasoning about the screenshot would not
+have settled it at all.**
