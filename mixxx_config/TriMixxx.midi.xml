@@ -349,7 +349,8 @@
         <midino>0x47</midino>
         <options><script-binding/></options>
       </control>
-      <!-- B6 (note 0x48): SORT while the library is open.
+      <!-- B6 (note 0x48): SORT while the library is open, KEY SYNC over the
+           deck (script picks by view, as A2 does).
            Was output-only, which is why pressing it did nothing at all: the
            button sends on every press and the mapping simply had nowhere for
            it to go. Both edges, because a short press is only distinguishable

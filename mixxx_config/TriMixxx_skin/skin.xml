@@ -273,13 +273,97 @@
                     <Size>0me,42f</Size>
                     <Elide>right</Elide>
                   </TrackProperty>
-                  <TrackProperty>
-                    <ObjectName>ArtistText</ObjectName>
-                    <Group>[Channel1]</Group>
-                    <Property>artist</Property>
+                  <!-- The key, then the artist. In that order because the
+                       artist elides and the key must not: it is three
+                       characters that decide whether the next track fits, and
+                       a long title pushing them off the row would be exactly
+                       the wrong thing to lose. -->
+                  <WidgetGroup>
+                    <ObjectName>ArtistRow</ObjectName>
+                    <Layout>horizontal</Layout>
                     <Size>0me,28f</Size>
-                    <Elide>right</Elide>
-                  </TrackProperty>
+                    <Children>
+                      <!-- Camelot, always, whatever the preferences say: the
+                           row is sized for three characters and "G# minor" is
+                           eight. `Lancelot` is Mixxx's name for the Camelot
+                           wheel: the same 1A..12B, spelled after the other of
+                           the two products that popularised it.
+
+                           Bound to `key` and not `file_key`: with KEY SYNC
+                           engaged the deck is not playing in the key the file
+                           was written in, and the number worth reading off a
+                           deck is the one coming out of it. -->
+                      <!-- The SAME key, twice, one lime and one purple, and
+                           exactly one of them visible: purple while KEY SYNC
+                           is holding this deck at that key, lime otherwise.
+
+                           Two widgets rather than one, because a colour cannot
+                           be driven from a control. Qt stylesheets can select
+                           on a widget property, but BindProperty can only
+                           write properties the widget's metaobject already
+                           declares (see propertyFromWidget in
+                           controlwidgetconnection.cpp), so a made-up
+                           `keySync` property is not written at all: it logs
+                           one warning per update and nothing changes colour.
+                           `visible` is a real QWidget property, and a hidden
+                           widget takes no space in a QHBoxLayout, so the two
+                           never fight over the row.
+
+                           Camelot, always, whatever the preferences say: the
+                           row is sized for three characters and "G# minor" is
+                           eight. `Lancelot` is Mixxx's name for the Camelot
+                           wheel: the same 1A..12B, spelled after the other of
+                           the two products that popularised it.
+
+                           Bound to `key` and not `file_key`: with KEY SYNC
+                           engaged the deck is not playing in the key the file
+                           was written in, and the number worth reading off a
+                           deck is the one coming out of it. -->
+                      <Key>
+                        <ObjectName>KeyBadge</ObjectName>
+                        <Group>[Channel1]</Group>
+                        <!-- Fixed, not a minimum: without the `f` the width
+                             is only a floor and the label grows into whatever
+                             the artist beside it is not using, so the artist
+                             starts at a different place on every track. 46 px
+                             is three characters of the 16 px face plus the
+                             title's own left padding. -->
+                        <Size>46f,28f</Size>
+                        <Notation>Lancelot</Notation>
+                        <DisplayCents>false</DisplayCents>
+                        <Connection>
+                          <ConfigKey>[Channel1],key</ConfigKey>
+                        </Connection>
+                        <Connection>
+                          <ConfigKey>[ProLink],key_sync_enabled</ConfigKey>
+                          <Transform><Not/></Transform>
+                          <BindProperty>visible</BindProperty>
+                        </Connection>
+                      </Key>
+                      <Key>
+                        <ObjectName>KeyBadgeSynced</ObjectName>
+                        <Group>[Channel1]</Group>
+                        <Size>46f,28f</Size>
+                        <Notation>Lancelot</Notation>
+                        <DisplayCents>false</DisplayCents>
+                        <Connection>
+                          <ConfigKey>[Channel1],key</ConfigKey>
+                        </Connection>
+                        <Connection>
+                          <ConfigKey>[ProLink],key_sync_enabled</ConfigKey>
+                          <BindProperty>visible</BindProperty>
+                        </Connection>
+                      </Key>
+
+                      <TrackProperty>
+                        <ObjectName>ArtistText</ObjectName>
+                        <Group>[Channel1]</Group>
+                        <Property>artist</Property>
+                        <Size>0me,28f</Size>
+                        <Elide>right</Elide>
+                      </TrackProperty>
+                    </Children>
+                  </WidgetGroup>
                 </Children>
               </WidgetGroup>
 
@@ -301,23 +385,17 @@
                 <DeckColor>#44ccff</DeckColor>
               </ProLinkPhaseMeter>
 
-              <!-- BPM / KEY column -->
-              <WidgetGroup>
-                <ObjectName>BpmKeyColumn</ObjectName>
-                <Layout>vertical</Layout>
-                <MinimumSize>120,72</MinimumSize>
-                <MaximumSize>120,72</MaximumSize>
-                <Children>
-                  <!-- The tempo used to be here. It is bottom right now, in
-                       the seven-segment face, where a CDJ puts it; showing the
-                       same number twice on a 1024x600 panel is just clutter. -->
-                  <Key>
-                    <ObjectName>KeyDisplay</ObjectName>
-                    <Group>[Channel1]</Group>
-                    <DisplayType>1</DisplayType>
-                  </Key>
-                </Children>
-              </WidgetGroup>
+              <!-- The BPM/KEY column stood here. The tempo went to the
+                   seven-segment face over the waveform, where a CDJ puts it,
+                   and the key went beside the artist, where it sits under the
+                   title it belongs to rather than in a column of its own.
+                   Its 120 px go to the phase meter, which is the one widget
+                   here that is worth more the wider it is.
+
+                   The Key widget it held never drew anything: it carried a
+                   DisplayType, which WKey has no such thing as, and no
+                   Connection at all, so it was bound to nothing and rendered
+                   an empty string for as long as it existed. -->
 
               <!-- SYNC and MASTER, the two Pro DJ Link buttons a CDJ has.
                    Beside the clock rather than beside the phase meter they

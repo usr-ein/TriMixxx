@@ -88,11 +88,32 @@ deck runs [our 2.5.6 fork](../mixxx)). One deck = `[Channel1]`.
 |---|---|---|
 | B1–B4 | `0x43`–`0x46` | `hotcue_1..4_activate`, on both edges (release ends the preview when paused) |
 | B5 | `0x47` | `TriMixxx.slip` — flashes while slip is on |
-| B6 | `0x48` | key sync — **output-only indicator**, no input mapping yet (to be driven over the CDJ LAN link) |
+| B6 | `0x48` | `TriMixxx.sortKey` — SORT over the library, KEY SYNC over the deck (see below) |
 
 Both pad ranges reserve 50 notes in `MidiMap.hpp` even though fewer nodes are
 populated, so adding a board never renumbers anything. `TriMixxx.RING_A_N` /
 `RING_B_N` at the top of the script are the counts actually wired today.
+
+### KEY SYNC (B6, over the deck)
+Holds this deck in the key the CDJ that has tempo master is playing in, and the
+key it shows is `[Channel1],key` in the header, beside the artist.
+
+The rules are Mixxx's, in [`keysync.h`](../mixxx/src/network/prolink/keysync.h),
+and the pad only mirrors them:
+
+- **Dark and dead** unless another player holds tempo master *and* we can resolve
+  what key its track is in. That key is not on the wire — a status packet gives a
+  player, a slot and a rekordbox id, and the key comes from this deck's own copy
+  of that medium's database, ingested when the medium appeared.
+- **Dim purple** once both hold: pressing it now engages.
+- **Bright** while engaged. What it captured is a *key*, not a deck, so the master
+  moving, loading something else or going away changes nothing — and it never
+  releases itself, because dropping the sync under a playing track would re-pitch
+  it mid-mix. Pressing it again releases it, always. A new key needs off, then on.
+
+The shift lands on the tonic, the fourth or the fifth (`shortestStepsToCompatibleKey`,
+the same as Mixxx's own `sync_key`), so it never asks for more than two semitones,
+and it is re-applied from the new track's own key on every load.
 
 ## The screen has no buttons except POWER
 Everything the skin used to put under the waveform — LIBRARY/DECK, the ±6/±10/±16/

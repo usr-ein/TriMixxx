@@ -56,6 +56,25 @@ TriMixxx.SORT_DIM      = 0.28;
 TriMixxx.SORT_BRIGHT   = 1.0;
 TriMixxx.sortHoldTimer = 0;
 
+// ---- KEY SYNC ----------------------------------------------------------
+// The same pad over the deck. Purple, because that is the Key colour in the
+// sort table above and the pad should mean one thing whichever view it is in.
+//
+// Three states and they are not the usual on/off: dark when there is nothing to
+// sync to, dim when there is, bright while it is holding a key. The middle one
+// is the one that matters -- it is how a DJ knows the CDJ has taken master and
+// the button has become live, without looking at the screen.
+//
+// "Dim" here is dimmer than any other pad on the deck, and it is done twice
+// over: 15% intensity AND only one of the node's two LEDs. Scaling alone did
+// not get there -- these are bright parts behind a diffuser, and two of them at
+// a low duty cycle still read as a lit button rather than as a hint. Half-lit
+// is a state nothing else on the deck uses, which is exactly why it works: it
+// says "this button has become available" without competing with the buttons
+// that are actually doing something.
+TriMixxx.C_KEY_SYNC    = [150, 0, 255];
+TriMixxx.KEY_SYNC_DIM  = 0.15;
+
 // ---- Ring button LED palette. Entries only need correct hue RATIOS -- dim()
 //      normalizes each to full intensity, then scales by BRIGHTNESS. ----
 TriMixxx.BRIGHTNESS = 0.8;          // 0..1 default for indicator LEDs (per-call override below)
@@ -136,6 +155,21 @@ TriMixxx.ringLed = function(cmd, node, r, g, b) {
             (r >> 4) & 0xF, r & 0xF, (g >> 4) & 0xF, g & 0xF, (b >> 4) & 0xF, b & 0xF, 0xF7], 11);
 };
 
+// One node -> its two LEDs SEPARATELY, via the 12-nibble long form of the same
+// command. The firmware tells the two apart by length alone (MidiMap.hpp:
+// SYSEX_RING_LED_ARGS_ONE / _TWO), and a wrong length is dropped in silence, so
+// the count below is not decoration: 4 header bytes + 12 nibbles + F7 = 17.
+//
+// Half-lighting a node is the dimmest a pad on this deck can be, well below
+// what scaling one colour can reach. See KEY_SYNC_DIM.
+TriMixxx.ringLedPair = function(cmd, node, a, b) {
+    midi.sendSysexMsg(
+        [0xF0, 0x7D, cmd, node,
+            (a[0] >> 4) & 0xF, a[0] & 0xF, (a[1] >> 4) & 0xF, a[1] & 0xF, (a[2] >> 4) & 0xF, a[2] & 0xF,
+            (b[0] >> 4) & 0xF, b[0] & 0xF, (b[1] >> 4) & 0xF, b[1] & 0xF, (b[2] >> 4) & 0xF, b[2] & 0xF,
+            0xF7], 17);
+};
+
 // Sweep the comet once (~1s) with a repeating timer, then stop and leave the
 // sequence blank so Mixxx repaints the real LED state.
 TriMixxx.playIntro = function(onDone) {
@@ -195,15 +229,20 @@ TriMixxx.init = function(id, debugging) {
     // Button LED indicators: connect each deck control to its colour updater.
     TriMixxx.ledConnect("rateRange", TriMixxx.ledTempoRange);
     TriMixxx.ledConnect("keylock", TriMixxx.ledKeylock);
-    // The button changes meaning with the view, so its light has to follow.
+    // B6 is two buttons, one pad: SORT over the library, KEY SYNC over the
+    // deck. The light has to follow whichever it currently is, so every input
+    // to either meaning repaints it -- including the view itself, which is what
+    // decides which meaning is in force.
+    //
     // Re-applying the sort on entry is not belt and braces: moving between
     // features rebuilds the track model and the sort goes with it, so without
     // this the light would claim a sort that is no longer in effect.
-    // The pad follows the browser: what it is sorting by, which way, and
-    // whether a track list is even on screen.
-    TriMixxx.conns.push(engine.makeConnection("[Browser]", "sort_column", TriMixxx.ledSort));
-    TriMixxx.conns.push(engine.makeConnection("[Browser]", "sort_order", TriMixxx.ledSort));
-    TriMixxx.conns.push(engine.makeConnection("[Browser]", "in_track_list", TriMixxx.ledSort));
+    TriMixxx.watch("[Master]", "show_library", TriMixxx.ledB6);
+    TriMixxx.watch("[Browser]", "sort_column", TriMixxx.ledB6);
+    TriMixxx.watch("[Browser]", "sort_order", TriMixxx.ledB6);
+    TriMixxx.watch("[Browser]", "in_track_list", TriMixxx.ledB6);
+    TriMixxx.watch("[ProLink]", "key_sync_enabled", TriMixxx.ledB6);
+    TriMixxx.watch("[ProLink]", "key_sync_available", TriMixxx.ledB6);
     TriMixxx.ledConnect("loop_enabled", TriMixxx.ledLoopMods);
     TriMixxx.ledConnect("beatloop_8_enabled", function() { TriMixxx.ledBeatloop(8, 2); });
     TriMixxx.ledConnect("beatloop_4_enabled", function() { TriMixxx.ledBeatloop(4, 3); });
@@ -282,11 +321,40 @@ TriMixxx.keylock = function(channel, control, value, status, group) {
     engine.setValue(TriMixxx.DECK, "keylock", !engine.getValue(TriMixxx.DECK, "keylock"));
 };
 
-// B6: SORT while the library is open, and nothing over the deck -- the pad is
-// reserved there for key sync over the CDJ link, which does not exist yet.
+// B6: SORT while the library is open, KEY SYNC over the deck.
+//
+// One pad, two jobs, decided by what is on screen -- the same rule as A2. There
+// is no track list to sort over the deck, and no reason to reach for the CDJ
+// link while reading one.
 TriMixxx.sortKey = function(channel, control, value, status, group) {
-    if (!engine.getValue("[Master]", "show_library")) { return; }
-    TriMixxx.sortButton(value);
+    if (engine.getValue("[Master]", "show_library")) {
+        TriMixxx.sortButton(value);
+        return;
+    }
+    TriMixxx.keySyncButton(value);
+};
+
+// KEY SYNC: hold this deck in the key the CDJ that has master is playing in.
+//
+// A press, not a hold -- there is no second meaning to wait for, so unlike SORT
+// this acts on the way down.
+//
+// Turning it ON is refused unless the network is offering a key: another player
+// has to hold tempo master and its track's key has to be one we could resolve.
+// Turning it OFF is never refused, and that asymmetry is the whole behaviour --
+// once the deck is holding a key it goes on holding it, whatever the network
+// does next, until the DJ lets go. Mixxx enforces the same rule on its side; it
+// is repeated here so a refused press does not flash the pad on and off.
+TriMixxx.keySyncButton = function(value) {
+    if (!value) { return; } // press only
+    if (engine.getValue("[ProLink]", "key_sync_enabled")) {
+        engine.setValue("[ProLink]", "key_sync_enabled", 0);
+        return;
+    }
+    if (!engine.getValue("[ProLink]", "key_sync_available")) {
+        return;  // dark and dead: nothing to sync to
+    }
+    engine.setValue("[ProLink]", "key_sync_enabled", 1);
 };
 
 // Press cycles the sort; hold clears it.
@@ -416,6 +484,39 @@ TriMixxx.ledKeylock = function() {
     TriMixxx.led(0x01, 1, engine.getValue(TriMixxx.DECK, "keylock") ? TriMixxx.C_RED : TriMixxx.C_OFF);
 };
 
+// B6: whichever of its two meanings is in force. See TriMixxx.sortKey.
+TriMixxx.ledB6 = function() {
+    if (engine.getValue("[Master]", "show_library")) {
+        TriMixxx.ledSort();
+    } else {
+        TriMixxx.ledKeySync();
+    }
+};
+
+// KEY SYNC pad: dark with nothing to sync to, dim when a CDJ has master and we
+// know its key, bright while this deck is holding one.
+//
+// Bright wins over dark deliberately: an engaged sync that has outlived the
+// master it took its key from is still engaged, and the pad has to keep saying
+// so -- it is the only thing on the deck that does, and it is still the button
+// that lets go.
+TriMixxx.ledKeySync = function() {
+    if (engine.getValue("[ProLink]", "key_sync_enabled")) {
+        TriMixxx.led(0x03, 5, TriMixxx.C_KEY_SYNC, TriMixxx.SORT_BRIGHT);
+        return;
+    }
+    if (!engine.getValue("[ProLink]", "key_sync_available")) {
+        TriMixxx.led(0x03, 5, TriMixxx.C_OFF);
+        return;
+    }
+    // Armed: one LED of the two, at KEY_SYNC_DIM. dim() normalizes the hue
+    // first, so the half that is lit is the same purple as the engaged state
+    // and only its intensity differs.
+    TriMixxx.ringLedPair(0x03, 5,
+        TriMixxx.dim(TriMixxx.C_KEY_SYNC, TriMixxx.KEY_SYNC_DIM),
+        TriMixxx.C_OFF);
+};
+
 // SORT pad: the sort field's colour, dim ascending and bright descending, and
 // dark whenever there is no track list for the button to act on.
 TriMixxx.ledSort = function() {
@@ -481,20 +582,29 @@ TriMixxx.ledHotcue = function(idx) {
     TriMixxx.send(0x03, idx - 1, TriMixxx.bound(rgb));
 };
 
-// Register a deck-control -> LED updater (tracked so shutdown can disconnect).
+// Register a control -> LED updater (tracked so shutdown can disconnect).
 //
 // A connection that could not be made is NOT stored. makeConnection returns
 // undefined for a control that does not exist, and one undefined in this list
 // threw out of paintAll -- which Mixxx reports as "the mapping is not working
 // properly" and then stops running the script. One missing LED is worth one
 // missing LED; it is not worth every button on the deck going dead mid-set.
-TriMixxx.ledConnect = function(control, cb) {
-    var conn = engine.makeConnection(TriMixxx.DECK, control, cb);
+//
+// [ProLink] controls are the reason this takes a group at all: they are created
+// by Mixxx's core services, which run before any script, so they are there --
+// but a build without Pro DJ Link has none of them, and that must cost the KEY
+// SYNC light and nothing else.
+TriMixxx.watch = function(group, control, cb) {
+    var conn = engine.makeConnection(group, control, cb);
     if (conn) {
         TriMixxx.conns.push(conn);
     } else {
-        print("TriMixxx: no such control, LED not connected: " + control);
+        print("TriMixxx: no such control, LED not connected: " + group + "," + control);
     }
+};
+
+TriMixxx.ledConnect = function(control, cb) {
+    TriMixxx.watch(TriMixxx.DECK, control, cb);
 };
 
 // Paint every button to its current state: trigger all connections, then the two
@@ -506,7 +616,10 @@ TriMixxx.paintAll = function() {
         if (TriMixxx.conns[i]) { TriMixxx.conns[i].trigger(); }
     }
     TriMixxx.led(0x01, 6, TriMixxx.C_DIM_W); // A7 back: dim white (static)
-    TriMixxx.led(0x03, 5, TriMixxx.C_OFF);   // B6 key sync: off until the LAN link drives it
+    // B6 explicitly as well as through its connections: without Pro DJ Link
+    // those never connected, and an unpainted pad keeps whatever the intro
+    // animation left on it.
+    TriMixxx.ledB6();
 };
 
 // ---- Play/pause: toggle on press ----

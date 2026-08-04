@@ -112,11 +112,45 @@ QMenu::separator {
     padding-left: 8px;
 }
 
+#ArtistRow {
+    background-color: transparent;
+}
+
 #ArtistText {
     color: #909090;
     font-size: 16px;
     qproperty-alignment: 'AlignLeft | AlignVCenter';
+    padding-left: 6px;
+}
+
+/* The Camelot key, first on the artist row. Lime and bold against the artist's
+   grey: the two sit side by side and the eye has to be able to take one without
+   reading the other.
+
+   No box around it, on purpose. A chip would still be drawn for a track with no
+   key -- an empty rounded rectangle, which reads as a fault rather than as an
+   absence -- and WKey renders an empty string in exactly that case, so plain
+   text simply disappears instead. The padding is the title's, so the key lines
+   up under the first letter above it. */
+#KeyBadge, #KeyBadgeSynced {
+    color: #88ff00;
+    font-family: "MesloLGL Nerd Font", "Noto Sans", "DejaVu Sans Mono", monospace;
+    font-size: 16px;
+    font-weight: bold;
+    qproperty-alignment: 'AlignLeft | AlignVCenter';
     padding-left: 8px;
+}
+
+/* The same key, in the KEY SYNC pad's purple, while the deck is being held at
+   it. Lime is "this is what the track is"; purple is "this is what it has been
+   put into", which is a different statement and has to look like one.
+
+   The colour carries this alone. A glyph beside it was tried and taken out
+   again: at the size the row leaves for it, it read as a smudge and clipped
+   against the artist, and the pad on the deck is already lit purple for anyone
+   who wants a second opinion. */
+#KeyBadgeSynced {
+    color: #b06cff;
 }
 
 #BpmDisplay {
@@ -124,14 +158,6 @@ QMenu::separator {
     font-family: "MesloLGL Nerd Font", "Noto Sans", "DejaVu Sans Mono", monospace;
     font-size: 28px;
     font-weight: bold;
-    qproperty-alignment: 'AlignRight | AlignVCenter';
-    padding-right: 8px;
-}
-
-#KeyDisplay {
-    color: #cccccc;
-    font-family: "MesloLGL Nerd Font", "Noto Sans", "DejaVu Sans Mono", monospace;
-    font-size: 18px;
     qproperty-alignment: 'AlignRight | AlignVCenter';
     padding-right: 8px;
 }
