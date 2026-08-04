@@ -848,6 +848,26 @@ moment that made it rather than an average of two that never happened together.
 Only `drawNextPixmapPartRGB` is changed, because RGB is the only overview this
 deck draws.
 
+Standing it on the baseline was not enough to make it *use* the height, though,
+and two more things had to go with it:
+
+**It never reached the top, because the data does not.** The overview is drawn
+from the waveform summary, which is a heavily mean-downsampled envelope — its
+peak sits around half of full scale, so the strip was about 60 % full however it
+was aligned. `OverviewNormalized` scales a track to its own loudest point and
+was off; it is on now, which is what a CDJ does and what "fills the strip"
+means.
+
+**And normalisation could not work on a one-sided waveform**, because the zoom
+is a crop: upstream takes the same number of rows off the top *and* the bottom,
+which is right for a picture centred on the middle row and cuts the base off
+every bar of one standing on the bottom. It takes twice as much off the top
+instead, keeping the baseline, when the type is RGB.
+
+There was an off-by-one in the same place: the image is 2 × 255 rows and the
+painter is translated by 255, so drawing at +255 lands on row 510 — one past the
+last — and every bar quietly lost its bottom pixel to the clip.
+
 **The scrolling waveform stays symmetrical**, which is what it was and what it
 should be. It was briefly made one-sided on a misreading of which widget was
 meant; that is reverted, renderer and skin both.
