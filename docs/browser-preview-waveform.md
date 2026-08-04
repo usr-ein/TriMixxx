@@ -3,7 +3,7 @@
 A small waveform of the **selected** track, drawn in the info panel under the
 cover art, for both kinds of medium: a stick in this deck and a slot on a CDJ.
 
-This is a plan, not a report. Nothing in it is built yet.
+This was a plan before it was built; §14 records where the two parted company.
 
 It sits under [`browser-prd.md`](browser-prd.md), which put the waveform out of
 scope for that round (§2) and left the info panel as artwork plus a field list
@@ -11,6 +11,11 @@ scope for that round (§2) and left the info panel as artwork plus a field list
 ANLZ readers, the dbserver client, the track cache — is already there.
 
 ---
+
+**Built, and running on the deck.** §14 is what changed between this design and
+what was built — most of it because `PWV4` turned out to be affordable after
+all, so the strip is in colour rather than the blue this document argues for
+below.
 
 ## 1. Where the picture comes from
 
@@ -724,3 +729,147 @@ Worth writing down because the wrong conclusion was one step away and would have
 sent someone rewriting a decode that was correct. **Three decodes of the same
 bytes settled it in a few minutes; reasoning about the screenshot would not
 have settled it at all.**
+
+## 14. What was built, and where it departs from the above
+
+The feature is in and running. Three things came out differently, and the first
+is the one that matters.
+
+### 14.1 It is in colour, because `PWV4` turned out to be affordable
+
+§1 chose `PWAV` partly because the colour preview looked expensive: it lives in
+the `.EXT`, and a `.EXT` is **157 kB against the `.DAT`'s 8.8 kB** — measured
+over sixty files on a real stick. What that argument missed is *why* the `.EXT`
+is big. Almost all of it is `PWV3` and `PWV5`, the two full-resolution detail
+waveforms, some fifty thousand entries each. The colour preview is 1200 columns
+of six bytes: **7.2 kB**.
+
+So the cost was never the file, it was parsing the file. `read_anlz_preview()`
+walks the tag headers and **seeks past every tag it was not asked for**, which
+turns "decode two fifty-thousand-entry waveforms to reach 1200 columns" into
+about 10 kB of reads. That is cheap enough to run once per row a DJ pauses on.
+
+`PWAV` is still there and still matters — it is the fallback for a medium whose
+tracks have no `.EXT`, and it remains the only preview a CDJ will hand over
+(§5.4). Both decode into the same 400 columns of colour and height, so the panel
+draws one kind of picture and does not know which tag it came from.
+
+### 14.2 `PWV4`'s bytes are seven bits, and the layout was measured
+
+Neither of these was taken from the field names.
+
+**Which byte is which.** Across three tracks, correlating each of the six bytes
+against the `PWAV` envelope of the same track: byte 2 correlates at **0.87, 0.84
+and 0.78** — it is the envelope. Bytes 3, 4 and 5 fall in mean level (100, 56,
+29) and rise in roughness (0.05, 0.40, 0.56), which is the same bass / mid /
+treble signature `PWV5` was identified by, independently. Byte 1 correlates
+**negatively** (−0.58, −0.47, −0.07), so whatever it is, it is not an energy; it
+and byte 0 are not read.
+
+**Their range.** No byte of any column on any track measured exceeded **127**,
+and one track hit exactly 127 on the envelope and on all three bands. They are
+seven-bit. Scaling by 255 — which is what the type suggests — would have drawn
+every waveform at half the height of the strip and every colour at half its
+saturation: plausible, uniformly wrong, and with nothing on screen to say so.
+
+That is the same trap this area sprang once already on `PWV5`, and it was
+avoided the same way: by correlating against something already known rather than
+by reading a struct definition.
+
+### 14.3 Down to 400 columns by peak, not by mean
+
+1200 into 400 is three to one, and the loudest of each three is kept **whole** —
+its bands travel with its envelope. So the bar drawn is the colour of the moment
+that set its height, rather than an average of three moments that never
+happened. Three inputs per output is a narrow window, which is exactly where the
+detail waveform's resampler takes the peak too.
+
+### 14.4 Geometry, as designed
+
+16 padding + 160 cover + 12 + **44 strip** + 12 + 8 rows × 27 = 460. The field
+list keeps the eight rows it could already draw, and the strip is 400 px wide
+and centred — one column, one pixel, no resampling for `PWAV`.
+
+### 14.5 What is verified
+
+| | |
+|---|---|
+| `read_anlz_preview` unit tests | **passing** — both previews found past a tag it must seek over, a wrong entry width refused, a missing file valued rather than thrown |
+| The seeking reader on real files | `.EXT` → 1200 colour columns, `.DAT` → 400 mono, means matching an independent Python decode to two decimal places |
+| `PreviewWaveform` unit tests | 9, covering the seven-bit scale, the peak-of-three rule, and wire-equals-file |
+| On the deck | **drawn, in colour, following the selection** — a bass-heavy track renders orange, and a track with two breakdowns shows both as gaps |
+| A remote medium | **not tested** — needs a CDJ, and would draw the monochrome fallback |
+
+## 15. Two corrections after looking at it on the deck
+
+### 15.1 The height came from the wrong tag
+
+The strip drew every track as one solid block: on the track it was first judged
+by, **75 % of the columns fell between 95 % and 100 % of the strip's height**.
+Loud-ish and loud were the same picture, and a passage at 40 % read as 80 %.
+
+Two causes, one of them mine and one of them the format's.
+
+**Mine:** the peak of each three columns was kept. Each drawn column already
+covers 0.86 s of audio, so its value is a local peak before any downsampling —
+taking the peak *again* over three of them compounds it. The colour is now the
+mean of the three, which is all a hue ever needed.
+
+**The format's, and the larger of the two:** `PWV4`'s envelope byte is
+compressed. Measured across five tracks it puts the median column at 87–98 % of
+full height and the lower quartile at 58–89 %. `PWAV`'s height — an entirely
+independent encoding of the same music, and the one a CDJ draws its own preview
+from — puts the same tracks at 58–77 % and 39–74 %. It is consistently the wider
+range, on every track checked.
+
+So **the height comes from `PWAV` and the colour from `PWV4`**, each tag doing
+the thing it is good at. `PWAV` is also exactly 400 columns, so the height is
+now resampled by nothing at all. On the track above the median falls from 98 %
+to 77 % and the lower quartile from 95 % to 68 %, which is the difference
+between a block and a shape.
+
+Both files are read for every preview, and both go through the seeking reader,
+so this costs one more small read rather than a parse.
+
+### 15.2 The overview was drawing everything twice
+
+Not the preview and **not the scrolling waveform** — the overview strip under
+it, the one that shows the whole track. Upstream draws one sample of each pair
+upward from the centre line and the other downward, which looks like a mirror
+and is not quite one: it is the two channels, split. Either way half the strip
+says what the other half already said, and here the overview is 56 px of a 600
+px screen, so 28 of them went on the second copy.
+
+It is one-sided now, standing on the baseline at twice the scale, so the same
+passage is twice as tall and a break is twice as easy to see. The louder of the
+two channels sets the height and its own bands set the colour, so a bar is the
+moment that made it rather than an average of two that never happened together.
+
+Only `drawNextPixmapPartRGB` is changed, because RGB is the only overview this
+deck draws.
+
+**The scrolling waveform stays symmetrical**, which is what it was and what it
+should be. It was briefly made one-sided on a misreading of which widget was
+meant; that is reverted, renderer and skin both.
+
+### 15.3 Remote media get a preview too
+
+A remote track has no analysis file on this machine — `analyze_path` names where
+one *will* go when the track is loaded, not where it is — so the local path
+reads nothing and the strip stayed empty for anything on a CDJ's stick.
+
+They are asked for over dbserver instead: `GET_WAVEFORM_PREVIEW`, 900 bytes,
+sharing the connection cover art already uses, with nothing written to a
+filesystem at either end. `DbClient::analysis` already spoke it; what was
+missing was the way back to C++, which is `fetch_waveform_preview` plus
+`take_waveform_preview` — the bytes are stashed on the session by transfer id
+and taken when the `TransferDone` is drained, so the shared `Event` struct does
+not grow a payload field that every beat packet would carry.
+
+**Monochrome, and unavoidably.** A player answers that request with `PWAV` and
+nothing else; the colour preview is behind `ANLZ_TAG_REQ`, which nothing in
+`lib/prolink` implements. So a stick in this deck draws in colour and a CDJ's
+stick draws blue-going-white, and that is the one place local and remote differ.
+
+Verified on the deck against a CDJ in player 2: its stick's tracks now draw
+their previews in the info panel.
