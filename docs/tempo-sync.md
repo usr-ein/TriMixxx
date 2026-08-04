@@ -63,6 +63,13 @@ apart from which flag we publish.
 Pickup is **not a property of any row above**. It is a property of how the deck
 arrived there, which is why the transitions matter more than the states.
 
+It is also **not ours**: it is `soft-takeover` in `TriMixxx.midi.xml`, which is
+Mixxx's own, applied after the 14-bit fader value is assembled so it works at
+full resolution. Its threshold is 3/128 of the fader travel — about a third of a
+BPM at the ±6% range — so it is a crossing with a small tolerance rather than an
+exact one. Writing a second implementation would have meant two of them racing
+over the same fader.
+
 While this deck follows a master, its tempo comes from the wire and the fader
 under your hand is connected to nothing. The two drift apart — the master drags
 the deck from 130 to 140 while the fader still sits at 130 — and the moment this
@@ -117,40 +124,44 @@ decks agree.
 
 In **B** and **C** there is no phase to hold: nothing is being followed.
 
-## What I am unsure of — please correct
+## Decisions taken
 
-1. **Is SYNC on the master really inert?** I have assumed pressing SYNC on the
-   master deck changes nothing but the published flag. If a CDJ does something
-   else — re-aligns to the previous master, say — rows 5 and 8 are wrong.
-2. **Does releasing SYNC hold the tempo?** I have assumed the deck keeps playing
-   what it was playing and the fader must catch up. The alternative — snapping
-   back to the fader position — changes tempo under your hands, so I doubt it,
-   but it is worth confirming.
-3. **Does taking master release SYNC?** I have assumed not: the button stays lit
-   and simply stops meaning anything.
-4. **What is master at power-on**, before anyone has pressed anything? Invariant
-   1 says someone must be. Today this deck never claims mastership unless you
-   press MASTER, so if the CDJ does not claim it either, there is briefly no
-   master at all — and a deck with SYNC lit has nothing to follow. I have
-   assumed that in that state the fader simply leads, rather than the deck
-   freezing.
-5. **A master with no track loaded, or stopped.** It still holds mastership, but
-   it publishes no tempo. I have assumed a follower keeps its own tempo rather
-   than following a zero.
-6. **Bar alignment.** Beat alignment across devices is real. Bar alignment is
-   not: nothing in a Mixxx beat grid names a downbeat, so this deck matches
-   beats and does not attempt to match bars. A CDJ following us will line its
-   bars up to an arbitrary one of ours.
+Six questions the protocol does not answer and no capture settles. Each is
+decided here, with the reasoning, so that a future disagreement is with the
+choice rather than with an accident.
+
+1. **SYNC on the master is inert.** It changes the published flag and nothing
+   else. The alternative — that pressing it re-aligns the master to somebody —
+   would mean the reference chasing its own followers.
+2. **Releasing SYNC holds the tempo**, and the fader must then catch up. The
+   alternative snaps the tempo back to wherever the fader was left, changing
+   tempo under your hands, which is the one thing a sync button must never do.
+3. **Taking master does not release SYNC.** The button stays lit and simply
+   stops meaning anything, in line with decision 1. Turning it off for you would
+   also change what we publish, and a flag flipping on its own is worse than one
+   that is merely inert.
+4. **With no master at all, the fader leads.** This happens only in the seconds
+   after power-on, before anyone has claimed. A deck whose fader does nothing
+   because of a master that does not exist is the worst possible reading, so
+   SYNC with nobody to follow behaves exactly like SYNC off.
+5. **A master with no tempo is not followed.** A stopped or empty master still
+   holds mastership but publishes the no-tempo sentinel; a follower keeps
+   playing what it was playing rather than following a zero to a standstill.
+6. **Beats are matched; bars are not.** Beat alignment across devices is real.
+   Bar alignment is not — nothing in a Mixxx beat grid names a downbeat — so a
+   CDJ following us will line its bars up to an arbitrary one of ours. Chasing
+   bars would drag the track by up to two beats on the strength of a guess.
 
 ## Status
 
-The pickup rules above are implemented and tested as a pure unit
-(`src/network/prolink/synctempo.{h,cpp}`, `src/test/synctempo_test.cpp`) — that
-was written before this document, which was the wrong order.
+Built, in two halves that do not overlap:
 
-**It is not connected to the deck.** It needs the *hardware* fader position, and
-Mixxx has no such concept: writing `bpm` moves `rate`, so `rate` is where the
-tempo is, not where your hand is. The real position is visible only to the
-controller mapping, which sees the raw 14-bit CC. Wiring it up therefore means
-`TriMixxx.scripts.js` taking the tempo fader, publishing the hardware position,
-and stopping the direct binding to `rate`.
+* **Which tempo applies** — `SyncTempo::decide()` in
+  `src/network/prolink/synctempo.{h,cpp}`, called by
+  `ProLinkNetworkService::followMaster()`. Every row of the table above is a
+  test in `src/test/synctempo_test.cpp`, named by its state rather than its
+  number so a failure says which one broke.
+* **Pickup** — `soft-takeover` in the mapping, which is Mixxx's.
+
+Not writing the tempo *is* letting the fader have it, which is why the Fader
+rows are a `return` rather than a branch that does something.

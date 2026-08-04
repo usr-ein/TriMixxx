@@ -133,19 +133,35 @@
 
       <!-- ===================== Tempo fader (14-bit) ===================== -->
       <!-- MSB CC 0x12 + LSB CC 0x32 -> [Channel1] rate (0..16383, 8192 = center) -->
+      <!--
+           soft-takeover is what makes BEAT SYNC survivable. While this deck
+           follows a network master its tempo comes from the wire, and the fader
+           under your hand is connected to nothing: the master drags the deck
+           from 130 to 140 while the fader still sits at 130. Without this, the
+           first touch of the fader afterwards would drop ten BPM.
+
+           With it, the fader does nothing until it comes back to meet the tempo
+           actually playing, from below or from above, whichever side it was
+           left on, and only then leads. Mixxx applies it after assembling the
+           14-bit value, so it works on the full resolution, and its threshold
+           is 3/128 of the fader travel: about a third of a BPM at the 6 percent
+           range, which is close enough to a crossing to feel like one.
+
+           See docs/tempo-sync.md for what this is half of.
+      -->
       <control>
         <group>[Channel1]</group>
         <key>rate</key>
         <status>0xB0</status>
         <midino>0x12</midino>
-        <options><fourteen-bit-msb/></options>
+        <options><fourteen-bit-msb/><soft-takeover/></options>
       </control>
       <control>
         <group>[Channel1]</group>
         <key>rate</key>
         <status>0xB0</status>
         <midino>0x32</midino>
-        <options><fourteen-bit-lsb/></options>
+        <options><fourteen-bit-lsb/><soft-takeover/></options>
       </control>
 
       <!-- ===================== Ring A buttons (notes 0x00..0x06) ===================== -->
