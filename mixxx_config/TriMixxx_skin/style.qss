@@ -483,14 +483,32 @@ WTrackTableView QScrollBar::sub-page:horizontal {
 }
 
 /* The breadcrumb: where you are, and what the list is sorted by. */
-#DeckBreadcrumb {
+/* The breadcrumb bar. The strip and the rule under it belong to the BAR, not to
+   the path label: the label is only as wide as the path it is showing, and the
+   sort indicator is a separate widget beside it, so styling the label left the
+   strip stopping wherever the words did. */
+#DeckBreadcrumbBar {
     background-color: #141414;
+    border-bottom: 1px solid #222222;
+}
+#DeckBreadcrumb {
+    background: transparent;
     color: #88ff00;
     font-family: "MesloLGL Nerd Font";
     font-size: 19px;
     font-weight: bold;
     padding-left: 16px;
-    border-bottom: 1px solid #222222;
+}
+/* What the list is sorted by, and the control for it: tap flips the direction,
+   hold opens the field menu. Grey rather than the path's green — it is a
+   statement about the list, not a place you can go back to. */
+#DeckSortChip {
+    background: transparent;
+    color: #aaaaaa;
+    font-family: "MesloLGL Nerd Font";
+    font-size: 19px;
+    padding-left: 12px;
+    padding-right: 12px;
 }
 
 /* Dead strip along the bottom edge. The panel's last rows sit under a lip,
@@ -512,7 +530,23 @@ WTrackTableView QScrollBar::sub-page:horizontal {
    its own or the list shows through it. */
 #DeckSortMenu {
     background-color: #141414;
-    border: 2px solid #88ff00;
+}
+
+/* The edge goes on the LIST INSIDE the menu, not on the menu.
+   #DeckSortMenu is a plain QWidget whose child list fills it edge to edge, and
+   a plain QWidget neither insets its layout for a stylesheet border nor paints
+   over its children -- so a border there is drawn and then covered, which is
+   why the 2px green one this replaces was never once visible on the deck. A
+   QListView is a QFrame: it reserves the frame width and insets its own
+   viewport, so the border lands where a border is supposed to be.
+
+   White and thin, because the edge is there to separate the popup from the list
+   behind it and nothing more -- green is what this skin uses for what is
+   selected, and a green frame around a whole menu read as a selection of its
+   own. This rule must stay AFTER the #DeckBrowser QListView one above: the two
+   have equal specificity, so the later of them wins. */
+#DeckSortMenu QListView {
+    border: 1px solid #ffffff;
 }
 
 /* The search screen. */

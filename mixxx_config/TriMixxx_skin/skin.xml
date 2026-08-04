@@ -21,6 +21,17 @@
            come up mid-confirm, let alone mid-shutdown. -->
       <attribute persist="false" config_key="[TriMixxx],shutdown_confirm">0</attribute>
       <attribute persist="false" config_key="[TriMixxx],shutdown_now">0</attribute>
+      <!-- Where the tempo fader physically is, in the same -1..1 the deck's own
+           `rate` uses, so the tempo panel can show what the fader is ASKING for
+           while soft-takeover is still holding it off. Without it there is
+           nothing on screen to aim with: the fader is disconnected, the number
+           does not move, and catching the tempo is a blind hunt.
+
+           -2 means "the fader has not been heard from since boot", which is not
+           the same as centre and must not be drawn as one. Not persisted: a
+           stale position from last boot would be a lie about a physical
+           control, which is the one thing this must never be. -->
+      <attribute persist="false" config_key="[TriMixxx],tempo_fader">-2</attribute>
     </attributes>
   </manifest>
 

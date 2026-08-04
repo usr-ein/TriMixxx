@@ -13,6 +13,22 @@ to write down.
 1. **Exactly one device is tempo master at any moment.** Never none, never two.
    Mastership moves by request: a deck asks the holder to hand over, the holder
    answers and stands down.
+
+   **Enforced, not assumed** — `ProLinkNetworkService::reconcileMastership()`,
+   every poll. Our claim is ours to set and nobody else's to clear, so it used
+   to outlive every way a handover can fail to reach us: a master request lost
+   on the wire, a `0x27` reply the requester never heard, or a CDJ that asserts
+   mastership rather than asking for it. The network settles on one master, this
+   deck goes on saying it is that master, and from the booth what you see is a
+   CDJ that cannot take master back — with nothing logged and no way out but a
+   restart. So if another player is claiming it, we are not the master, whatever
+   we think, and we stand down.
+
+   The one exception is a handover in flight: both decks claim mastership for a
+   packet or two while one names the other its successor, and a deck drops its
+   claim only once the successor has picked it up. So a claim younger than
+   `kMasterSettleMs` (1.5 s) is left alone, as is a rival whose `yielding_to`
+   names us — otherwise a takeover would be abandoned one poll after winning it.
 2. **BEAT SYNC is per-deck and independent.** Neither, either or both may have
    it engaged.
 3. **A deck's tempo is its track's tempo times its pitch fader.** Both halves go
@@ -85,6 +101,19 @@ In whichever direction. Left below the playing tempo, it catches coming up; left
 above, it catches coming down. It is a crossing, not a proximity: at 139.9
 against 140 nothing happens.
 
+**And the screen says where it is.** A fader connected to nothing, aimed at a
+number that does not move, is a blind hunt: the DJ finds the catch by accident
+and overshoots it. So while soft-takeover is holding, the tempo panel draws what
+the fader is *asking for* beside what is playing — smaller and dimmer, because
+it is where the hardware is and not where the deck is — and drops it the moment
+the two are within Mixxx's own takeover threshold, which is the moment the fader
+is really in control and the one number becomes the answer again.
+
+The fader position reaches the screen through `[TriMixxx],tempo_fader`, which
+the mapping publishes from a **second** pair of bindings on the same two CCs.
+The pair that moves the deck is left exactly as it was: it is correct, and a
+script binding that had to forward as well as report could only make it worse.
+
 ### When the pickup is armed
 
 | Transition | Tempo | Fader |
@@ -107,6 +136,38 @@ The worked example from your description, as one session:
 7. CDJ takes master back at 120. Its own fader was left at 140, so from its side
    the fader is now above and must come down: 130 does nothing, 120 catches.
 
+## Handing mastership over
+
+**The grant is byte `0x9f`, not the absence of byte `0x9e`.**
+
+A deck that presses MASTER unicasts a `0x26` at the holder and then watches the
+holder's *status* for its own number to appear at byte `0x9f`. The holder keeps
+claiming mastership at `0x9e` throughout, and drops that claim only once the
+successor has picked it up.
+
+We knew this from the *taking* side — it is written into
+`Session::take_tempo_master`, because waiting for the holder's claim to go away
+first is a deadlock — and we did the opposite on the *yielding* side. Our
+handover answered the `0x26` and dropped `0x9e` on the spot, naming nobody.
+From the CDJ's side that is not a grant, and it is exactly what a refusal looks
+like: it asked, we went quiet, and **nobody ended up master**.
+
+`OFF_YIELDING_TO` had been decoded since the format work and was never once
+written. Both halves of the state now go on the wire together:
+
+| | `0x9e` claim | `0x9f` successor |
+|---|---|---|
+| Master, nothing in flight | 1 | `0xff` |
+| **Handing over** | **1** | **the requester** |
+| Not master | 0 | `0xff` |
+
+The handover completes when the requester's own status starts claiming
+mastership, and `prolink-cxx` polls for that on the same cadence it already
+polls a takeover. If the requester never picks it up, we let go anyway after
+about two seconds and log it — holding a mastership the network is not acting on
+is the worse of the two states, and is what "the CDJ cannot take master back"
+looked like from the booth.
+
 ## Phase
 
 Tempo and phase are separate problems and only the second is about beats.
@@ -115,6 +176,15 @@ While in **A**, this deck holds the master's phase for as long as SYNC is lit �
 not only at the moment the button is pressed. Pressing SYNC lands on the beat;
 after that the phase is held against drift, tempo nudges and anything else that
 pulls the two apart.
+
+**The correction is in track time, so it converts at the track's own tempo.**
+`playposition` is a fraction of the track and the beat grid is laid out in track
+time, so moving the playhead by *N* beats means moving it `N × 60 / file_bpm`
+seconds — not `N × 60 / bpm`, which is the tempo being *played*. Converting at
+the played tempo made every correction wrong by exactly the pitch fader: short
+by 6% at ±6%, and by half at the wide range. It is the same `file_bpm` the
+measurement uses to read the grid back, and the two have to agree or the deck
+chases an error it is itself creating.
 
 Correction is by moving the playhead a few tens of milliseconds, not by trimming
 the tempo. An earlier version trimmed the tempo and it worked, but it rewrote the

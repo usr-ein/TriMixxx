@@ -164,6 +164,38 @@
         <options><fourteen-bit-lsb/><soft-takeover/></options>
       </control>
 
+      <!-- The same two CCs again, read a second time and for the screen only.
+           Soft-takeover is what makes the fader survivable and it is also what
+           makes it invisible: while it holds, the fader moves and nothing on
+           screen does, so a DJ approaching the playing tempo is aiming at a
+           target with the sights removed. These publish where the fader
+           physically is, so the panel can show it beside the tempo it is
+           creeping up on.
+
+           Deliberately a SECOND pair of bindings rather than a rewrite of the
+           first. The pair above is the one that moves the deck, and it is
+           correct; a script binding that had to forward as well as report could
+           only make that worse. Mixxx dispatches a MIDI message to every
+           mapping that matches it, so these observe without being in the way.
+
+           Plain 7-bit, assembled in the script. Declaring a second 14-bit
+           control on the same CCs is what the mapping validator objects to, and
+           the assembly is four lines. -->
+      <control>
+        <group>[Channel1]</group>
+        <key>TriMixxx.tempoFaderMsb</key>
+        <status>0xB0</status>
+        <midino>0x12</midino>
+        <options><script-binding/></options>
+      </control>
+      <control>
+        <group>[Channel1]</group>
+        <key>TriMixxx.tempoFaderLsb</key>
+        <status>0xB0</status>
+        <midino>0x32</midino>
+        <options><script-binding/></options>
+      </control>
+
       <!-- ===================== Ring A buttons (notes 0x00..0x06) ===================== -->
       <!-- A1 tempo range: cycle +/-6/10/16/Wide (script) -->
       <control>

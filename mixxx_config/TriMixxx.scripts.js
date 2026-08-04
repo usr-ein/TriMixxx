@@ -16,6 +16,16 @@ TriMixxx.JOG_TICKS_REV = 12960; // JogWheel::TICKS_PER_REV (full-quad ticks / re
 TriMixxx.RATE_RANGE    = 0.06;  // tempo fader span at boot = +/-6%
 TriMixxx.RATE_RANGES   = [0.06, 0.10, 0.16, 1.0]; // A1 cycles these: +/-6, 10, 16, Wide (100%)
 TriMixxx.LONG_PRESS_MS = 600;   // hold past this and a button takes its second meaning
+// A second BACK inside this window is the switch chattering, not a DJ. The A7
+// node debounces in hardware (10k + 100nF into a Schmitt trigger) and the ring
+// protocol forbids a software debounce on top of it -- so this is not one: it
+// is a guard on the *action*, at the layer that decides what BACK means, and
+// popping two levels from one press is the thing it refuses.
+//
+// 200 ms: an order of magnitude longer than contact chatter, and short enough
+// that unwinding a deep stack by tapping still works. Raise it if a stray pop
+// still gets through; lower it if deliberate taps start being eaten.
+TriMixxx.BACK_DEBOUNCE_MS = 200;
 
 // ---- SORT LED ----------------------------------------------------------
 // The pad's colour says which field the browser is sorting by and its
@@ -218,6 +228,36 @@ TriMixxx.shutdown = function() {
     for (var b = 0; b < TriMixxx.RING_B_N; b++) { TriMixxx.ringLed(0x03, b, 0, 0, 0); }
 };
 
+// ---- Tempo fader, watched for the screen -------------------------------
+//
+// The fader's own binding to [Channel1],rate is elsewhere in the XML and this
+// does not touch it. This is the same two CCs read a second time, purely so the
+// tempo panel can draw where the fader IS while soft-takeover is holding it off
+// -- otherwise the DJ is creeping toward a number with nothing to aim at.
+//
+// Published in the same -1..1 the `rate` control uses, which is what Mixxx maps
+// the 14-bit value onto, so the panel can apply the deck's own range and
+// direction to it rather than guessing at either.
+TriMixxx.faderMsb = 0;
+TriMixxx.faderLsb = 0;
+
+TriMixxx.publishFader = function() {
+    var raw = (TriMixxx.faderMsb << 7) | TriMixxx.faderLsb;   // 0 .. 16383
+    engine.setValue("[TriMixxx]", "tempo_fader", (raw / 16383) * 2 - 1);
+};
+
+// MSB last, because it is the half that is sent last and the half a lone
+// message is most likely to be: publishing on the LSB alone would pair it with
+// a stale MSB and jump the read-out a whole coarse step.
+TriMixxx.tempoFaderLsb = function(channel, control, value, status, group) {
+    TriMixxx.faderLsb = value;
+};
+
+TriMixxx.tempoFaderMsb = function(channel, control, value, status, group) {
+    TriMixxx.faderMsb = value;
+    TriMixxx.publishFader();
+};
+
 // ---- Ring button handlers (the loops + hotcues are direct controls in the XML;
 //      these are the ones that need logic). ----
 
@@ -286,6 +326,8 @@ TriMixxx.slip = function(channel, control, value, status, group) {
 // sidebar; on the track list -> step back to the left sidebar columns; already on
 // the sidebar -> close the library back to the deck.
 TriMixxx.backHoldTimer = 0;
+// When the last BACK press was taken seriously, for BACK_DEBOUNCE_MS.
+TriMixxx.backLastAt = 0;
 
 // A7 BACK. Short: up one level. Long: back to the deck, keeping your place.
 //
@@ -298,6 +340,16 @@ TriMixxx.backHoldTimer = 0;
 // is knowable only by nothing having happened yet.
 TriMixxx.back = function(channel, control, value, status, group) {
     if (value) {
+        // The debounce goes on the PRESS, not on the action, because the press
+        // is what arms the hold timer -- and it was the second timer, armed by
+        // a bounce and stopped by the bounce's own release, that popped a
+        // second level. Reject the press and the release that follows finds
+        // nothing to fire, so one physical press means one level either way.
+        var now = Date.now();
+        if (now - TriMixxx.backLastAt < TriMixxx.BACK_DEBOUNCE_MS) {
+            return;
+        }
+        TriMixxx.backLastAt = now;
         if (!engine.getValue("[Master]", "show_library")) {
             // Opening is unambiguous -- there is no second meaning to wait for,
             // and making the DJ hold the button to see the library would be

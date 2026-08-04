@@ -107,8 +107,9 @@ The touchscreen is a peer of the encoder, not a fallback:
 | Tap a row — **above a track list** (source, category, playlist, folder, value) | **Go in.** A single tap, no select-first step. |
 | Tap an unselected row — **in a track list** | Select it. Nothing else. |
 | Tap the selected row — **in a track list** | Toggle the info layout (§8.2), with that row selected. |
+| Tap the selected row — **in search results** | **Load it.** |
 | **Long press** a row (≥ 600 ms) | Activate it — identical to encoder push. In a track list, that means **load**. |
-| Vertical drag / flick | Kinetic scroll, when the list overflows. The selection does not move. |
+| Vertical drag / flick | Kinetic scroll, when the list overflows. The row it comes to rest on in the middle becomes the selection (§4.2.1). |
 | Swipe left→right (≥ 120 px, dominant axis, ≤ 500 ms) | BACK, one level. |
 
 The asymmetry is the whole point. **Going into a menu is cheap and free to
@@ -121,12 +122,40 @@ not invited. A 600 ms hold cannot happen by brushing the panel. Mixxx's own
 `AllowTrackLoadToPlayingDeck` guard is a second net, not the first.
 
 The single-tap rule extends to every menu that is not a track list, including
-the sort menu and its direction step (§9). Search results follow the *track
-list* rules, and toggling into the info layout there closes the keyboard, since
-the info layout wants the whole screen.
+the sort menu (§9).
 
-Scrolling by flick and moving the selection by encoder are independent. Flicking
-away from the selection and then turning the encoder snaps the view back to it.
+**Search results are the exception to the hold**, and the only one. A result is
+a track somebody typed a name to find: the finding *was* the deliberate act, and
+there is nothing left for a hold to confirm. The info layout is not the
+alternative there that it is in a track list — the keyboard has the width the
+panel would need, so the panel is hidden on that page and the toggle had nothing
+to show.
+
+#### 4.2.1 One scroll position
+
+**The selection sits in the middle of the list and the list moves under it**,
+like the reel of a slot machine. A detent moves it by a row; a flick moves it by
+many. The ends are the exception and have to be: a list cannot scroll past its
+own first row, so the top few and the bottom few sit where they fit and the
+selection walks to meet them.
+
+**The highlight follows the middle for the whole of a scroll**, not just at the
+end of one. What is selected has to be legible at every moment of the gesture —
+a reel you cannot read until it stops is a reel you have to stop to read.
+
+**And while it is moving the highlight is an outline, not a fill.** A solid
+bright-green block sliding up the screen is the one thing on that screen you
+cannot read, which defeats the point of it following at all. It goes back to the
+fill the moment the list stops.
+
+**The sort menu is exempt** (§9): it is a pop-over rather than a place, so
+scrolling it is scrolling to reach a row, and the selection stays put while the
+list moves.
+
+This replaces two independent positions with one. When the flick scrolled
+without moving the selection, the next detent snapped the view back to wherever
+the selection had been left — so the scroll a DJ had just performed was undone
+by the thing they did next.
 
 ### 4.3 Focus
 
@@ -410,7 +439,7 @@ or by tapping the selected row.
 
 ### 8.1 Default layout
 
-Columns, in order, and nothing else: **Cover art · Title · Artist · BPM · Key**.
+Columns, in order: **Cover art · Title · Artist · [sorted-by] · BPM · Key**.
 
 ```
 ┌ SAM1 › Playlists › House Mix 2026                             ▲ BPM  ──────┐  48
@@ -423,10 +452,14 @@ Columns, in order, and nothing else: **Cover art · Title · Artist · BPM · Ke
 
 - No column headers. There is nothing to click them with, and 48 px is better
   spent on the breadcrumb, which also carries the current sort.
-- **Tapping the sort indicator** (`▲ BPM`, top right of the breadcrumb) opens
-  the sort menu — the touch equivalent of a short SORT press.
+- **The sorted-by field gets a column of its own**, between the artist and the
+  tempo, left-aligned because these are words and what you do with the column
+  is run an eye down the starts of them. A list read *along* one field needs
+  that field on every row; sorting by Album with no Album column gave no way to
+  watch the albums go past. It is omitted when the field is already on the row
+  — Title, Artist, BPM and Key — and for `Default`, which has no field.
 - Title and artist elide right when they overflow. The artist column is fixed
-  at roughly a third of the width; BPM and Key are fixed and right-aligned.
+  at roughly a third of what is left; BPM and Key are fixed and right-aligned.
 - BPM is shown to one decimal, matching the deck's existing `BpmColumnPrecision`.
 - Key is shown in the notation set in preferences (Camelot, on this deck), and
   is **coloured by harmonic compatibility** — §8.3.
@@ -468,12 +501,19 @@ the **column currently sorted by**, right-aligned on the same line — or the
 enough to scan while the panel does the explaining.
 
 **Right panel, top to bottom:** artwork, then Artist, Album, Year, Duration,
-Genre, Key, Rating, Date added, Last played, Comment.
+Genre, Label, **BPM**, Key, Rating, Date added, Last played, Comment.
 
 **Any field that is the current sort key is omitted from the panel**, because it
 is already on every row to the left. Sorting by BPM puts BPM beside each title
 and drops it from the panel; sorting by Genre likewise; unsorted, the artist is
 beside each title and the panel starts at Album.
+
+Tempo and key are both on that list *because* of that rule, not in spite of it.
+The default layout draws them on the row and this one does not, so the panel is
+the only place left for them — and each drops itself when it is what the list is
+sorted by. Sorting by Key leaves the BPM on the panel and sorting by BPM leaves
+the key. Leaving the tempo off the list entirely meant that sorting by Key put
+it nowhere at all.
 
 The panel follows the selection as the encoder turns, with no click needed.
 Fields with no value are omitted entirely rather than shown blank — a panel of
@@ -500,8 +540,9 @@ rather than the file's stored key.
 
 ## 9. The sort menu
 
-A pop-over, raised by a short press of SORT or by tapping the sort indicator in
-the breadcrumb, while a track list is on screen.
+A pop-over, raised by a short press of SORT while a track list is on screen.
+Thin white border, so it reads as a layer over the list rather than as something
+selected in it.
 
 ```
                         ┌───────────────────────────┐
@@ -524,20 +565,36 @@ the breadcrumb, while a track list is on screen.
 
 ### 9.1 Flow
 
-1. SORT (short), or a tap on the sort indicator, opens the menu focused, with
-   the current sort field selected.
+1. SORT (short) opens the menu focused, with the field in force selected and
+   marked with the arrow it is running in.
 2. The encoder moves through the fields; push chooses one. **Touch works
-   throughout**: the list flick-scrolls, and a single tap on a row
-   chooses it, as in every other menu.
-3. Choosing a field replaces the list with two rows — **Ascending** /
-   **Descending** — defaulting to the sensible direction for that field
-   (ascending for text, descending for BPM, Date added, Rating).
-4. Push, or a tap, applies it. The menu closes. The list re-sorts, keeping the
+   throughout**: the list flick-scrolls with the selection staying put, and a
+   **single tap on a row chooses it** with no select-first step. The asymmetry
+   everywhere else exists because loading a track is expensive to undo; picking
+   a sort field is one tap to put back.
+3. **One step.** Choosing a field applies it immediately and closes the menu,
+   in the direction that field is worth reading in — ascending for text,
+   descending for BPM, Date added and Rating. The list re-sorts, keeping the
    same *track* selected wherever it has moved to.
-5. **Default** is a single step: it applies immediately with no direction
-   question and closes.
-6. BACK, a right-swipe, or SORT again closes the menu at any step, changing
-   nothing.
+4. BACK, a right-swipe, SORT again, or **a tap anywhere outside the menu**
+   closes it, changing nothing. The tap that dismisses does not also act on
+   what is under it.
+
+### 9.1.1 The direction is a toggle, not a step
+
+**Tapping the breadcrumb's sort indicator flips it**: `▲ Album` becomes
+`▼ Album`. And the selection goes to the top — asking for the other end of a
+list is asking to be taken there, and staying put would leave the DJ in the
+middle of a list that had visibly reversed around them. Changing the *field* is
+not that, and keeps the track the DJ was looking at.
+
+Picking the field already in force does the same flip, so the direction stays
+reachable from the encoder alone with no pointer.
+
+This replaces a second menu screen that every single sort had to walk through to
+answer a question that already had a right answer. The direction now lives on
+the thing that displays the direction: there is no state to remember, nothing to
+confirm, and one tap to undo.
 
 ### 9.2 What "Default" means
 
@@ -945,10 +1002,11 @@ Within a session:
 | 14 | Menu bar | Hidden; hover-only on a real mouse at the top edge (§4.4) |
 | 15 | Stick pulled while playing | Track cache (§12): the loaded track is always cached, the toast says so, and the serve side keeps feeding a consuming CDJ |
 | 16 | Parser unification | Part of this project |
-| — | Tap the selected row | Info layout in a track list; go in, everywhere else |
+| — | Tap the selected row | Info layout in a track list; **load** in search results; go in, everywhere else |
 | — | Long press a row | Load / activate, same as encoder push |
 | — | Info layout left rows | One line: title left, sort value (or artist) right |
-| — | Sort menu by touch | Tap the breadcrumb's sort indicator to open it; scroll and select by touch |
+| — | Sort menu by touch | Scroll and select by touch; tap outside to dismiss. The breadcrumb's indicator flips the direction (§9.1.1) |
+| — | Missing cover art | Mixxx's own placeholder, in the row and in the info panel — the same square the deck's header falls back to |
 | — | Album and Label rows | Carry the first available cover under that value |
 | — | Key colouring | Green when harmonically compatible with the playing key, exact match included (§8.3) |
 | — | Tap above a track list | A single tap goes in — menus are cheap to enter and free to leave |
