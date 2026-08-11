@@ -389,10 +389,46 @@ What is established:
 - **Not a crash.** No segfault in `dmesg` or the journal. The log simply stops,
   which is consistent with buffered Debug output being lost at exit — the deck
   runs with `--log-flush-level info`.
-- So something between "delete the skin" and `EffectsManager::~EffectsManager`
-  either does not run or does not reach `saveEffectsXml()`. A leaked
-  shared_ptr keeping `EffectsManager` alive past the save point would look
-  exactly like this and is the first thing to check.
+### Root cause: Mixxx crashes on shutdown
+
+Found by logging the exit status from `xinitrc`, which is otherwise unknowable —
+Mixxx's own log just stops at whatever was last flushed, so a clean quit and a
+crash look identical from outside.
+
+```
+debug [Main] 25 ms deleting skin
+malloc_consolidate(): unaligned fastbin chunk detected
+Aborted
+--- mixxx exited 134 at 22:50:43 ---
+```
+
+`malloc_consolidate(): unaligned fastbin chunk` is **glibc's heap-corruption
+detector**, not a failed assertion. Something has written outside an allocation
+or freed twice, and glibc notices during the teardown that follows skin
+deletion. The process dies there — before `CoreServices::finalize()` reaches
+`CLEAR_AND_CHECK_DELETED(m_pEffectsManager)` (which is what writes
+`effects.xml`) and before `~CoreServices` reaches `m_pSettingsManager->save()`
+(which writes `mixxx.cfg`). Hence neither file is ever written.
+
+**Three shutdowns, three different faults: 134 (SIGABRT), 135 (SIGBUS), 139
+(SIGSEGV).** Varying with allocation layout is the signature of heap corruption
+rather than one consistently bad pointer.
+
+**It is not our skin.** Swapping `ResizableSkin` to stock `LateNight` and
+repeating gave 135 — still a crash on shutdown. So `WDeckBrowser`,
+`WDeckEffects` and the rest of the deck's widgets are not the cause, and this
+is not a regression from the effect-pedal work.
+
+Where to go next, cheapest first:
+
+1. **Reproduce off the deck.** A desktop build of the fork, same shutdown path.
+   If it reproduces, everything below is easy; if it does not, it is arm64,
+   this Qt, or the GL driver.
+2. **ASan.** `-fsanitize=address` names the offending allocation directly and
+   is the fastest route to an answer if step 1 reproduces.
+3. **Bisect the fork** against upstream 2.5.6, which is the branch point.
+4. Until then, config on the deck is `scp`-managed anyway, so the practical
+   damage is limited to state the DJ changes in the UI.
 
 **This invalidates two earlier conclusions in this document.** Both were reached
 by reading `effects.xml` after a restart and taking it for Mixxx's output:

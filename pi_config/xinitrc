@@ -113,5 +113,11 @@ while true; do
     rotate_log ~/.mixxx/stderr.log
     rotate_log ~/.mixxx/mixxx.log
     mixxx --fullScreen --developer --log-level debug --log-flush-level info 2>>~/.mixxx/stderr.log
+    # How Mixxx ended, which is otherwise unknowable: its own log stops at
+    # whatever was last flushed, so a clean quit and a crash during shutdown look
+    # identical from the outside. 0 is a normal exit; 143 is SIGTERM taking the
+    # default action, i.e. the signal handler did not turn it into a quit; 134 is
+    # SIGABRT, which on this build means a failed DEBUG_ASSERT.
+    echo "--- mixxx exited $? at $(date '+%H:%M:%S') ---" >>~/.mixxx/stderr.log
     sleep 2
 done
