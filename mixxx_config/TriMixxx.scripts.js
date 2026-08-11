@@ -197,6 +197,45 @@ TriMixxx.playIntro = function(onDone) {
     }, false);
 };
 
+// ---- The effect-pedal bus -----------------------------------------------
+// The Xone's aux send arrives at [Auxiliary1]; EffectUnit2 processes it in WET
+// mix mode and the result leaves on the deck's only output. Four things have to
+// be true for that to make a sound, none of which Mixxx does on its own, and
+// every one of which fails silently:
+//
+//   1. The aux has to be on the main mix. `main_mix` is NOT a persisted
+//      control and EngineAux's constructor calls setMainMix(false) on every
+//      start, so mixxx.cfg cannot carry it.
+//   2. The effect slot has to be enabled. StandardEffectChain -- the numbered
+//      units -- is the only chain type that does not enable its slots after
+//      loading; Output, QuickEffect and Equalizer all do. Upstream expects a
+//      skin to draw an enable button and a DJ to press it. effects.xml cannot
+//      carry it either: EffectPreset has no enabled field.
+//   3. An effect has to actually be loaded, WITH ITS PARAMETERS. A chain preset
+//      restores parameters from its own <Parameters> list, and one that leaves
+//      that list empty maps no parameters at all -- loadEffectInner clears
+//      m_loadedParameters and then fills it from the preset, so empty in is
+//      empty out. The reverb then sits with send_amount at 0, feeding nothing
+//      into the tank. `loaded_effect` avoids this: it calls
+//      loadEffectWithDefaults, which builds the parameter set from the manifest.
+//   4. Some wet has to be returned, which is the `mix` knob, and that one does
+//      persist in mixxx.cfg.
+//
+// All of it is idempotent so it can be run as often as needed -- which it is,
+// because init runs before the aux input exists and what survives that varies
+// between boots.
+TriMixxx.setupPedalBus = function() {
+    engine.setValue("[Auxiliary1]", "main_mix", 1);
+    var slot = "[EffectRack1_EffectUnit2_Effect1]";
+    // 3 is Reverb's 1-based position in the VisibleEffects list shipped in
+    // effects.xml (whitenoise, tremolo, reverb). Guarded, so a preset that did
+    // load something properly is never stamped over.
+    if (!engine.getValue(slot, "loaded")) {
+        engine.setValue(slot, "loaded_effect", 3);
+    }
+    engine.setValue(slot, "enabled", 1);
+};
+
 TriMixxx.init = function(id, debugging) {
     // Tempo fader span: the 14-bit `rate` CC is scaled by the deck's rate range,
     // which defaults to +/-8%. Widen it here so the fader covers +/-RATE_RANGE.
@@ -223,7 +262,19 @@ TriMixxx.init = function(id, debugging) {
     // constructor calls setMainMix(false) unconditionally on every start
     // (engineaux.cpp), so whatever the config says, the aux boots muted and the
     // send would arrive at a channel nobody is listening to.
-    engine.setValue("[Auxiliary1]", "main_mix", 1);
+    TriMixxx.setupPedalBus();
+    // ...and again, because once is not enough. The controller opens before
+    // SoundManager sets up devices (about 30 ms before, in the startup log), so
+    // init runs while [Auxiliary1] has no input yet, and which of these settings
+    // survives has been observed to vary between boots. Rather than work out
+    // which stage clears what, tie the setup to the event that matters -- the
+    // input becoming configured -- and re-assert once more on a timer for
+    // anything that lands later still. Every one of these is idempotent.
+    TriMixxx.pedalBusConn = engine.makeConnection(
+        "[Auxiliary1]", "input_configured", function(value) {
+            if (value) { TriMixxx.setupPedalBus(); }
+        });
+    engine.beginTimer(2000, TriMixxx.setupPedalBus, true);
 
     // Return to the waveform whenever a track is loaded (from the hardware
     // encoder push or an on-screen library tap), so the library never stays up
