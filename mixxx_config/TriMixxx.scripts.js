@@ -225,13 +225,34 @@ TriMixxx.playIntro = function(onDone) {
 // because init runs before the aux input exists and what survives that varies
 // between boots.
 TriMixxx.setupPedalBus = function() {
-    engine.setValue("[Auxiliary1]", "main_mix", 1);
     var slot = "[EffectRack1_EffectUnit2_Effect1]";
-    // 3 is Reverb's 1-based position in the VisibleEffects list shipped in
-    // effects.xml (whitenoise, tremolo, reverb). Guarded, so a preset that did
-    // load something properly is never stamped over.
-    if (!engine.getValue(slot, "loaded")) {
+    engine.setValue("[Auxiliary1]", "main_mix", 1);
+
+    // Load from the manifest every session, and do not trust `loaded` to say
+    // whether that is needed. A preset can set `loaded` while mapping no
+    // parameters at all -- ours did -- which leaves a reverb that reports
+    // itself present and healthy with send_amount at 0, feeding nothing into
+    // the tank. Worse, the slot then serialises an empty <Parameters> list on
+    // exit, because EffectPreset reads m_loadedParameters and that is what was
+    // never filled. So the bad state is self-perpetuating and cannot be fixed
+    // by capturing what the deck writes.
+    //
+    // loaded_effect calls loadEffectWithDefaults, which builds the parameter
+    // set from the manifest. 3 is Reverb's 1-based position in the
+    // VisibleEffects list shipped in effects.xml (whitenoise, tremolo, reverb).
+    //
+    // The flag is set from what the control reads back rather than from having
+    // made the call, so this keeps retrying across the init/input_configured/
+    // timer sequence until one of them lands, then stops -- which is what keeps
+    // a later re-assert from stamping over a value being adjusted by hand.
+    if (!TriMixxx.pedalBusReady) {
         engine.setValue(slot, "loaded_effect", 3);
+        // send_amount defaults to 0 in the manifest and is Linked to the
+        // effect's metaknob -- NOT the chain's super1, which is a different
+        // control. Nothing drives it on its own, so a freshly loaded reverb is
+        // silent until this moves.
+        engine.setValue(slot, "meta", 0.5);
+        TriMixxx.pedalBusReady = !!engine.getValue(slot, "loaded");
     }
     engine.setValue(slot, "enabled", 1);
 };
