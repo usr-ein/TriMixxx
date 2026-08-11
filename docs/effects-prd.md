@@ -78,31 +78,48 @@ rack is treated the same way regardless of whether its manifest declares
 Your example works out as expected: aux → HPF at 100% → filtered; → Reverb at
 100% → the reverb of the filtered signal, and nothing else.
 
-### 3.2 The consequence, stated plainly
+### 3.2 The first dry-killer is locked to 100%
 
-**The rack can output dry, and will, whenever the last unit in it is not a fully
-wet additive effect.** Two cases:
+A serial blend passes part of its input through, so an unconstrained rack would
+hand the original dry back to the mixer in proportion to how far the knobs are
+down — the +6 dB doubling this whole project removed, available again by
+accident. The rule that prevents it:
 
-- **Any unit below 100%** passes part of its input through. That input traces
-  back to the original aux, so a fraction of the untouched dry reaches the deck
-  output — and the mixer adds it to the CDJ's own channel. The doubling we
-  removed comes back, in proportion.
-- **A filter at 100% is still dry.** A high-pass produces *the same signal,
-  filtered* — it is correlated with the dry, not new material. A rack that is
-  just an HPF returns a filtered copy of the track, which sums with the CDJ's
-  channel. That is a parallel filter, not the inline filter a mixer gives you,
-  and with the bus's 32 ms round trip it will comb against the dry with notches
-  every 31 Hz.
+> **The first unit in the rack that generates new material has its wet knob
+> locked at 100%. Every unit after it blends freely.**
 
-This is **inherent to per-unit wet on a send/return**, not a defect, and it is
-worth knowing rather than discovering. The rack is dry-free only when the DJ
-leaves the final additive unit at 100%. Reverb and Echo can be; filters cannot.
+The dry dies at that unit and cannot come back, because everything downstream is
+blending two signals that are both already dry-free. A later reverb at 50% mixes
+half echo with half delay — never half of the original track.
 
-If a structural guarantee is wanted instead, the per-unit knob would have to mean
-something else — a parallel contribution to an output bus rather than a serial
-blend — and the chain would stop being a chain. That is a different instrument.
-**Assumption for now: the serial blend above, and the freedom that comes with
-it.**
+**"Generates new material" is `addDryToWet` in the effect's manifest**, and it
+needs no new classification. Reverb and Echo declare it precisely because their
+output contains none of the direct signal — a tail, a train of repeats. Filters,
+distortion, bitcrusher and pitch shift do not, because their output *is* the
+input, transformed. So the flag already means exactly "this effect removes its
+input from its output", which is the property the rule turns on.
+
+Worked through:
+
+| Rack | Locked | Result |
+|---|---|---|
+| `HPF → Reverb → Delay` | Reverb | HPF passes dry; Reverb destroys it; Delay blends dry-free signals |
+| `Reverb → HPF → Delay` | Reverb | Dry dies immediately; the filter and delay pass only dry-free material |
+| `Reverb → Delay` | Reverb | Delay is free to sit at 40% and blend reverb with delayed reverb |
+
+**Filters early are fine**, which is what makes this rule better than a blanket
+one: an HPF at the head shapes what the reverb hears, passes the dry along, and
+the reverb then throws that dry away. Exactly the useful case.
+
+**The lock moves.** It is a property of position, not of a unit, so reordering
+re-evaluates it. When a unit becomes the first dry-killer its wet jumps to 100%;
+when it stops being one, it returns to the value it had before it was locked.
+
+**The one case the rule cannot save:** a rack containing *no* dry-killer at all —
+all filters, say — returns a correlated copy of the track, which sums with the
+CDJ's channel and combs against it every 31 Hz at the bus's measured 32 ms. That
+is a parallel filter and it is what the DJ asked for by building that rack. Worth
+knowing; not worth preventing.
 
 ## 4. Engine work required
 
@@ -169,6 +186,12 @@ reached from the browser's root menu.
 ```
 
 - **WET is the largest knob** and sits top-centre. It is what gets reached for.
+- **When a unit is the first dry-killer (§3.2) its WET knob is locked** at full
+  and does not turn. It must *look* locked rather than broken: the pointer sits
+  at maximum, the cap is drawn differently — a slotted screw-head instead of a
+  grip, say — and the caption reads `WET · LOCKED`. A knob that silently refuses
+  to move is a fault report; a knob that is visibly bolted down is a design.
+  Dragging it does nothing, and double-tap does nothing.
 - **Below it, the effect's own metaknobs**, however many that effect has, minus
   any the module hides (§9).
 - **Name plate, bottom left**, in the module's own typeface treatment — engraved
@@ -266,7 +289,7 @@ should be removed once the rack manages its own chain.
 
 | # | Question | Answer |
 |---|---|---|
-| 1 | Per-unit wet | **Yes** — every unit has its own wet knob, serial blend (§3.1) |
+| 1 | Per-unit wet | **Yes** — serial blend (§3.1), except the first dry-killer, whose knob is **locked at 100%** (§3.2) |
 | 2 | Global wet | **Master module, pinned rightmost**, encoder-driven, press to mute |
 | 3 | `kNumEffectsPerUnit` | **6** |
 | 4 | HPF / LPF | **Two `filter` instances**, irrelevant knobs preset and hidden |
@@ -278,16 +301,12 @@ should be removed once the rack manages its own chain.
 
 ## 13. Remaining questions
 
-1. **§3.2 — is the dry consequence accepted?** Per-unit wet means the rack
-   returns dry in proportion whenever a unit sits below 100%, and a filter-only
-   rack returns dry by definition. I assume yes, and that it is the DJ's to
-   manage. Say if not.
-2. **Where does the rack browser live?** Proposal is a tap on the master's name
+1. **Where does the rack browser live?** Proposal is a tap on the master's name
    plate (§10). Somewhere better?
-3. **Textures procedural or PNG?** Procedural keeps the fork asset-free and
+2. **Textures procedural or PNG?** Procedural keeps the fork asset-free and
    scales to any size. **Send the reference PNGs either way** — I can match them
    procedurally from a picture.
-4. **Does the master's mute need to survive a restart?** Simplest is no: it is a
+3. **Does the master's mute need to survive a restart?** Simplest is no: it is a
    performance control, and a deck that boots muted is a support call.
-5. **Two `filter` instances cost two of the six slots.** With HPF, LPF, reverb
+4. **Two `filter` instances cost two of the six slots.** With HPF, LPF, reverb
    and echo that is four of six. Is six still right, or should it be eight?
