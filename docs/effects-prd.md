@@ -3,9 +3,9 @@
 The deck's effects UI: a 19-inch rack of effect modules, on a touchscreen,
 driving the effect-pedal bus. This document is the *what* and the *why*.
 
-Status: **revision 2.** Design decisions recorded in §12. One consequence of the
-per-unit wet knob (§3.2) needs acknowledging before implementation; the
-remaining questions in §13 do not block.
+Status: **revision 3 — signed off.** Every design question is answered and
+recorded in §12. What remains (§13) is settled by drawing it and looking at it on
+the deck, not by decision, and does not block implementation.
 
 Companion documents: `xone92-send-return.md` for the mixer side,
 `worklog/effect-pedal/TODO.md` for the engine work already landed.
