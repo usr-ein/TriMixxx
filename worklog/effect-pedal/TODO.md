@@ -48,9 +48,12 @@ CODEC", full-speed USB, card 0). Findings:
 - [ ] Levels: find the send pot position giving peaks around −6 to −10 dBFS
       with a loud track. Expect it well below the centre detent — aux out is
       nominal −2 dBu into a consumer line input, before the pot's +6 dB.
-- [ ] Hum: reconnect everything, record with all sends at zero, compare against
-      the −90.7 dBFS baseline. A rise, or a 50 Hz spike, is a ground loop from
-      the new cable.
+- [x] **Hum: measured, and it's a non-issue.** Connected and powered with all
+      sends off, the broadband floor rose 1.1 dB over the unconnected control
+      (−90.7 → −89.6 dBFS). A mains component *is* present — 100 Hz up 8.7 dB,
+      L/R correlation 0.246 → 0.400, the signature of common-mode rectifier
+      ripple — but at −105.8 dBFS it sits 16 dB below the noise floor. No
+      action. Full figures and method in `measurements.md`.
 - [ ] Sustain: duplex for 20 minutes, watch the header's underrun counter. If
       it climbs, step `latency` to 4 and re-read the jog-bend cost noted in
       `mixxx_config/upload.sh`.
