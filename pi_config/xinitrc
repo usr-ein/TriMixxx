@@ -69,6 +69,46 @@ rotate_log() {
     mv -f "$1" "$1.1" 2>/dev/null || true
 }
 
+# Rotating between runs is not enough on its own: a SINGLE session can outgrow
+# the card. Measured 2026-08-11, stderr.log reached 347 MB in under three
+# minutes -- about 2 MB/s, 7 GB an hour -- and it was one message repeated:
+#
+#   Processing QEvent::UpdateRequest for object OpenGLWindow(0x...) took 10 ms
+#
+# That comes from MixxxApplication::notify(), which times every event and logs
+# any that takes longer than its threshold. It is gated on --developer, and on
+# this hardware most UI events cross the threshold, so the flag turns it into a
+# firehose. See the note above: --developer is a measuring tool, and leaving it
+# on is what makes this necessary.
+#
+# So cap the file during the session. Truncate IN PLACE rather than rename:
+# Mixxx holds it open in append mode, and a rename would take the open
+# descriptor with it -- writes would keep landing in the renamed file while the
+# fresh one stayed empty forever. Copy the tail out first so the part worth
+# reading, whatever happened just before, survives. logrotate calls this
+# copytruncate.
+LOG_CAP_BYTES=$((128 * 1024 * 1024))
+LOG_KEEP_BYTES=$((8 * 1024 * 1024))
+
+cap_log() {
+    while sleep 60; do
+        for file in "$@"; do
+            size=$(stat -c %s "$file" 2>/dev/null) || continue
+            [ "$size" -gt "$LOG_CAP_BYTES" ] || continue
+            # Same .1 slot the between-runs rotation uses: the policy is one
+            # previous chunk either way, and the recent one is the useful one.
+            tail -c "$LOG_KEEP_BYTES" "$file" >"$file.1" 2>/dev/null || continue
+            : >"$file"
+        done
+    done
+}
+
+cap_log ~/.mixxx/stderr.log ~/.mixxx/mixxx.log &
+CAP_PID=$!
+# The watchdog must not outlive the session -- without this it survives as an
+# orphan across every X restart and they accumulate.
+trap 'kill "$CAP_PID" 2>/dev/null' EXIT INT TERM
+
 while true; do
     rotate_log ~/.mixxx/stderr.log
     rotate_log ~/.mixxx/mixxx.log
