@@ -217,6 +217,14 @@ TriMixxx.init = function(id, debugging) {
     // second one could only ever repeat it.
     engine.setValue("[Controls]", "ShowDurationRemaining", 2);
 
+    // The effect-pedal bus. [Auxiliary1] is the DAC's physical input, carrying
+    // the Xone's AUX 1 send, and it has to be forced on here rather than in
+    // mixxx.cfg because `main_mix` is NOT a persisted control: EngineAux's
+    // constructor calls setMainMix(false) unconditionally on every start
+    // (engineaux.cpp), so whatever the config says, the aux boots muted and the
+    // send would arrive at a channel nobody is listening to.
+    engine.setValue("[Auxiliary1]", "main_mix", 1);
+
     // Return to the waveform whenever a track is loaded (from the hardware
     // encoder push or an on-screen library tap), so the library never stays up
     // over the deck. [Master],show_library is the skin's deck/library toggle.
