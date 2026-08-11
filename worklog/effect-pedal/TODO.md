@@ -67,16 +67,18 @@ CODEC", full-speed USB, card 0). Findings:
 Everything downstream is written against these. None of them block Phases 1–3;
 they matter for Phase 4 and for final trim.
 
-| Quantity | Assumed | Basis |
-|---|---|---|
-| Round-trip latency | **20 ms** | Mixxx output buffer 256 frames × 2 sync buffers = 11.6 ms, + capture period ~5.8 ms, + USB full-speed 1 ms each way, + PCM2902 converter group delay ~1 ms. Range 15–25 ms. |
-| Send pot position | ~10–11 o'clock | −2 dBu nominal aux out into a consumer line input, targeting −8 dBFS peaks |
-| `[Auxiliary1] pregain` | 1.0 (unity) | Starting point; the only trim available after the fixed ADC gain |
-| Noise floor once connected | ≤ −85 dBFS | Baseline is −90.7 dBFS unconnected; anything above −80 dBFS or with 50 Hz content means a ground loop |
+| Quantity | Assumed | Measured | |
+|---|---|---|---|
+| Round-trip latency | 20 ms | **32 ms ± 3** | Estimate was 60% low — both directions cost a full buffer, not a period, and the codec is USB 1.1 full speed |
+| Send pot position | ~10–11 o'clock | **~1 o'clock → −12.8 dBFS peak** | Fully clockwise was −0.33 dBFS, no headroom at all |
+| Noise floor once connected | ≤ −85 dBFS | **−89.6 dBFS** | 1.1 dB over the unconnected control; no action |
+| `[Auxiliary1] pregain` | 1.0 (unity) | *unset* | Only trim available after the fixed-gain ADC |
 
-If the measured latency comes in far from 20 ms, the things to revisit are the
-Phase 4 delay-time compensation and the severity of comb filtering on
-transformative effects (notch spacing is `1/τ`, so 20 ms → every 50 Hz).
+Full method and figures in `measurements.md`. The latency being 32 rather than
+20 ms tightens comb-filter notch spacing to 31 Hz (worse for transformative
+effects, irrelevant to reverb and echo) and means Phase 4 cannot compensate
+delay divisions shorter than 32 ms by subtraction — a 1/16 at 128 BPM is 29 ms,
+shorter than the latency itself.
 
 ---
 

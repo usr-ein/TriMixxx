@@ -51,9 +51,37 @@ every later noise measurement is compared against.
   to both channels would read 1.000 and a dead channel near 0. The Xone's aux
   bus is stereo end to end and nothing is collapsing it.
 
-**Verdict: about 7 dB too quiet.** Target is −8 to −10 dBFS peak. With a
-fixed-gain ADC and no digital input trim, level left on the table is resolution
-that cannot be recovered later. *Not yet re-measured after adjustment.*
+### Calibration, settled
+
+Three positions of the same send pot, one CDJ playing:
+
+| Send pot | Peak | RMS | Crest |
+|---|---|---|---|
+| Middle | −15.2 dBFS | −26.1 dBFS | 10.9 dB |
+| Fully clockwise (+6 dB) | **−0.33 dBFS** | −8.9 dBFS | 8.6 dB |
+| ~1 o'clock | **−12.8 dBFS** | −21.2 dBFS | 8.5 dB |
+
+**Settled at ~1 o'clock, −12.8 dBFS peak.** Fully clockwise was 0.33 dB from
+full scale — not clipping (zero samples at FS, no flat-topped runs) but with no
+headroom whatsoever, and a track mastered a decibel louder would have clipped
+into a converter that has no gain control to save it.
+
+−12.8 dBFS looks conservative for one source and is not, because **the aux bus
+sums**. Two channels sending at this level peak near −7 dBFS and four could
+reach full scale in the worst case, so a single channel calibrated to −9 would
+leave nothing for the rest of the bus. −12.8 still gives ~77 dB SNR against the
+−89.6 dBFS floor.
+
+The crest factor briefly looked like evidence that something in the analogue
+path was squashing peaks — it fell from 10.9 to 8.6 dB as the level went up, and
+the RMS rose further than the peak did. It was not: the figure stayed at 8.5 dB
+after backing the send off by 12.4 dB, so it tracks the passage of music in the
+10-second window and nothing else. **Nothing in the path is compressing.**
+
+Note for future calibration: the **channel VU meter is no guide here**. It shows
+the pre-fader channel signal, upstream of the send pot, so it does not move when
+the send does. Meter the bus with the master section's **AUX 2 switch**, which
+puts the aux on the monitor meters.
 
 ## 3. Hum — everything connected and powered, all sends off, decks paused
 
@@ -111,14 +139,71 @@ there is a number to compare against rather than a guess.
 - Measured at one location on one mains supply. Ground loops are a property of
   the installation, not of the equipment, so this does not transfer to a club.
 
-## Still outstanding
+## 4. Round-trip latency — 32 ms
 
-- **Round-trip latency.** Still the assumed 20 ms. Measurable now: bring
-  TriMixxx's own channel AUX 2 send up temporarily to close the path, stop
-  Mixxx, drive `aplay` and `arecord` together, cross-correlate. Safe despite
-  being the forbidden setting, because `arecord` never replays what it captures,
-  so the loop never actually closes.
-- **Level re-measurement** after the send pot goes up.
+Measured with `alsabat --roundtriplatency`, which opens playback and capture
+together so the two streams share a clock — the part that makes this hard to do
+with separate `aplay`/`arecord` processes. Buffer and period set to match
+Mixxx's own (`-B 512 -E 256`, i.e. `latency="3"` = 256 frames) so the figure
+reflects the deck's real configuration:
+
+```sh
+sudo systemctl stop getty@tty1.service
+alsabat -D hw:0,0 -f S16_LE -c 2 -r 44100 -B 512 -E 256 --roundtriplatency
+sudo systemctl restart getty@tty1.service
+```
+
+Path: TriMixxx codec out → Xone CH m → AUX 2 → TriMixxx codec in, with the CDJ's
+send off so the bus carried only the deck. Safe to close that loop for this test
+because alsabat never replays what it captures.
+
+| Run | Result |
+|---|---|
+| 1 | 32 ms |
+| 2 | 33 ms |
+| 3 | 32 ms |
+
+Individual probes within each run alternated between 28 ms and 34 ms. That ±3 ms
+spread is one period (256 frames = 5.8 ms) of quantisation — it depends where
+the impulse lands inside a buffer — so the honest figure is **32 ms ± 3**, or
+about 1400 frames at 44.1 kHz.
+
+### Where it goes, and why the 20 ms estimate was wrong
+
+The estimate counted one buffer each way. The measurement says both directions
+cost a full buffer, not a period: 512 frames out (11.6 ms) plus 512 frames in
+(11.6 ms) is already 23 ms, and USB full-speed transfer plus the PCM2902's
+converter group delays plus alsabat's own onset-detection bias account for the
+rest. **The device is USB 1.1 full speed**, which sets a floor that no config
+change reaches.
+
+### What 32 ms changes
+
+- **Reverb: nothing.** 32 ms reads as pre-delay, and a pre-delay that long is a
+  deliberate choice in a studio, not a defect. Arguably flattering for dub-techno
+  space.
+- **Comb filtering is worse than estimated.** Notch spacing is `1/τ` = **31 Hz**,
+  not the 50 Hz that 20 ms implied — denser and more audibly hollow. This is
+  about transformative effects only (crush, filter, distortion, pitch), whose
+  output stays correlated with the dry. Reverb and echo decorrelate and are
+  immune.
+- **Delay compensation gets harder, and has a floor.** At 128 BPM a beat is
+  469 ms, so 32 ms is 6.8% of a beat — plainly audible as a late delay. Phase 4
+  must subtract it. But a 1/16 note at that tempo is 29 ms, *shorter than the
+  latency itself*, so short delay divisions cannot be compensated by subtraction
+  at all; they would have to wrap to the following beat.
+
+### Worth revisiting later, not now
+
+- `latency="3"` → `2` would halve Mixxx's share (~6 ms) and, per the note in
+  `mixxx_config/upload.sh`, would also cut jog-bend smear since that filter's 25
+  taps are buffers rather than milliseconds. Costs xrun headroom on USB audio.
+- This is alsabat's latency at Mixxx's buffer settings, not Mixxx's own. The
+  definitive measurement is available once the aux input is live: close the loop
+  at low gain so Mixxx regenerates, and the spacing between successive echoes in
+  a capture *is* the round trip, with no synchronisation needed.
+
+## Still outstanding
 - **Sustained duplex** — 20 minutes, watching the header's underrun counter.
 - **Thermals under load.** 71 °C at idle in a closed chassis, throttling around
   80–85 °C. Heat is the constraint here, not CPU, which sits at 18% of one core.
