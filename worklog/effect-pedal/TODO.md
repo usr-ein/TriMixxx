@@ -186,6 +186,41 @@ Mixxx cannot return wet-only today. `Reverb` and `Echo` declare
 **Exit criterion:** the original problem is solved. Everything below is
 refinement.
 
+### Done — and what actually bit us
+
+Working on the deck, audible on the CDJ, surviving a reboot with no manual step.
+None of the four things that had to be true were in the plan, and all four fail
+*silently*, which is why the Effects page states each of them outright:
+
+1. **`main_mix` cannot be configured.** Not a persisted control, and
+   `EngineAux`'s constructor calls `setMainMix(false)` on every start, so
+   `mixxx.cfg` is powerless. Forced from `TriMixxx.setupPedalBus()`.
+2. **`StandardEffectChain` does not enable its slots.** It is the only chain
+   type that doesn't — Output, QuickEffect and Equalizer all call
+   `setEnabled(true)`. Upstream expects a skin to draw an enable button. Ours
+   draws none, and `EffectPreset` has no `enabled` field to carry it either.
+3. **An empty `<Parameters>` list is worse than useless, and self-perpetuating.**
+   `loadEffectInner` clears `m_loadedParameters` then refills it *from the
+   preset*, so a hand-written preset with `<Parameters/>` maps nothing — leaving
+   an effect that reports `loaded = 1` with every parameter at 0. It then
+   serialises an empty list again on exit, because `EffectPreset` reads
+   `m_loadedParameters`. **The bad state cannot be fixed by capturing what the
+   deck writes**; the load has to come from the manifest, via `loaded_effect` →
+   `loadEffectWithDefaults`.
+4. **`send_amount` defaults to 0** and is Linked to the *effect slot's*
+   metaknob — not the chain's `super1`, which is a different control. Nothing
+   drives it on its own, so a correctly loaded reverb is still silent.
+
+Plus an ordering race worth remembering: the controller opens ~30 ms *before*
+SoundManager sets up devices, so `init` runs while `[Auxiliary1]` has no input.
+Across restarts, `main_mix` and `loaded` were observed flipping in opposite
+directions. The setup is now idempotent and asserted three times — at init, on
+`input_configured`, and on a 2 s timer — with the ready flag set from what the
+control *reads back* rather than from having made the call.
+
+**Still to do here:** the `Filter (HPF) → Reverb` chain, so the wet is
+high-passed and the perceived level holds steadier.
+
 ---
 
 ## Phase 4 — Beat sync on the aux bus
