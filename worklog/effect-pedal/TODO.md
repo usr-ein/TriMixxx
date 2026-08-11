@@ -371,6 +371,47 @@ Settle it whenever convenient by unplugging the `AUX 2 OUT` L cable: if L drops
 to the noise floor while R keeps signal, the channels are independent and it was
 the music.
 
+## Open: Mixxx never writes its settings on exit
+
+Found 2026-08-11 while checking that per-slot wet round-tripped. **It does not,
+and neither does anything else**: `~/.mixxx/effects.xml` and `mixxx.cfg` were
+last modified by an `scp`, not by Mixxx, across many restarts since.
+
+What is established:
+
+- `soundconfig.xml` **is** written, at 22:39:48, i.e. at *startup*. So Mixxx can
+  write to that directory and the permissions are fine. It is specifically the
+  **shutdown** save path that never runs — which is where both `mixxx.cfg` and
+  `effects.xml` are written.
+- The signal handler works. `PosixSignalHandler` logs `caught signal 15 -
+  shutting down` on every restart, and the shutdown proceeds far enough to close
+  the main window, process `QEvent::Quit` and spend 70 ms deleting the skin.
+- **Not a crash.** No segfault in `dmesg` or the journal. The log simply stops,
+  which is consistent with buffered Debug output being lost at exit — the deck
+  runs with `--log-flush-level info`.
+- So something between "delete the skin" and `EffectsManager::~EffectsManager`
+  either does not run or does not reach `saveEffectsXml()`. A leaked
+  shared_ptr keeping `EffectsManager` alive past the save point would look
+  exactly like this and is the first thing to check.
+
+**This invalidates two earlier conclusions in this document.** Both were reached
+by reading `effects.xml` after a restart and taking it for Mixxx's output:
+
+1. That the WET mix mode "round-tripped through the control", proving the patch
+   was live. It was my own uploaded file. The patch *is* live — the audio proves
+   that — but that verification was worthless.
+2. That an empty `<Parameters>` list "re-serialises the same broken state on
+   exit", making it self-perpetuating. Nothing was serialised at all. The
+   parameters really were zero, which the Effects page confirmed independently,
+   but the mechanism was wrong.
+
+**Consequence for the rack:** named rack presets are safe —
+`EffectChainPresetManager::savePreset()` writes immediately. The *live* rack
+would not survive a reboot until this is fixed.
+
+**Unrelated, found alongside:** `~/.mixxx/stderr.log` is **346 MB** and growing.
+Nothing rotates it.
+
 ## Open questions
 
 - Which mixer channel does TriMixxx return on? A music channel (CH 1-4) gets the
