@@ -284,14 +284,27 @@ Ordered by how much is lost if the answer is bad.
 
 ---
 
-## Open: the codec leaks its input to its output
+## Resolved: the codec leaked its input to its output — it was the MONITOR switch
 
-**Parked deliberately — to be diagnosed at the end, not now.** It does not block
-development, but it *does* compromise the finished result, because a dry path
-that bypasses Mixxx puts the dry back into the mixer's sum no matter how
-perfectly WetOnly works.
+**Fixed by setting MONITOR to OFF on the UCA222.** The dry stopped coming back.
 
-What is established:
+**The manual is wrong about this unit**, and it cost an hour, so it is worth
+stating plainly. The UCA222 user guide says of the switch:
+
+> With the MONITOR switch OFF, the headphone output receives the signal from the
+> computer over the USB port (same as the RCA output jacks). With the MONITOR
+> switch ON, the headphones receive the signal connected to the RCA INPUT jacks.
+
+Headphones, in both positions. The RCA `OUTPUT` is documented throughout as
+carrying the computer's audio and nothing else. On this unit it does not: with
+MONITOR ON, the input reaches the **RCA outputs** as well. Every measurement
+below was consistent with a hardware analog path and the reasoning was sound —
+the error was trusting the manual to describe where that path went.
+
+**Lesson for the rest of this work:** on this hardware, flip the switch and
+listen before reasoning from the documentation.
+
+What had been established, all of it still true:
 
 - With the CDJ's channel fader **fully down** and its AUX 2 send up, the CDJ is
   audible on TriMixxx's mixer channel.
@@ -311,27 +324,17 @@ What is established:
   input. The RCA `OUTPUT` is documented as carrying the computer's audio in both
   positions. Only the RCA jacks are in use here.
 
-So it is analog, and undocumented. Two candidates:
+So it was analog and undocumented — which is exactly what the MONITOR switch
+turned out to be, routed somewhere the manual does not admit to.
 
-1. **The MONITOR switch reaching the RCA outputs** on this unit, contrary to the
-   manual. Flipping it while the leak is audible settles this in one move; if
-   the leak changes, leaving it OFF is the whole fix.
-2. **Ground coupling inside the box.** Input and output RCA pairs sit inches
-   apart on one small board sharing a ground plane and a USB ground; input
-   signal current through shared ground impedance appears as a voltage on the
-   output's ground reference. This would also explain the near-mono capture
-   (correlation 0.993, side energy pinned at −24.5 dB over 30 s), because a
-   ground-coupled component lands **identically on both channels**.
-
-**The discriminator is level.** A designed monitor path is near unity; ground
-coupling is typically 30–50 dB down and only audible because that channel was
-wide open with the CDJ's own channel shut. Both Xone channel meters are
-*pre-fader*, so with Mixxx stopped the CDJ's meter and TriMixxx's meter give a
-direct A/B read of source versus leak on the same scale — no test gear needed.
-
-If it turns out to be ground coupling, the options are a ground-lift on the
-UCA222's USB power, a different return channel, or a different interface. If it
-is inaudible at sane gain, doing nothing is legitimate.
+**Still unexplained, and probably nothing:** the near-mono capture measured
+before the switch was found — L/R correlation 0.993 with side energy pinned at
+−24.5 dB across 30 s. The ground-coupling theory would have explained it, since
+a common-mode component lands identically on both channels; with that theory
+gone, the likeliest remaining explanation is simply a very mono techno loop.
+Settle it whenever convenient by unplugging the `AUX 2 OUT` L cable: if L drops
+to the noise floor while R keeps signal, the channels are independent and it was
+the music.
 
 ## Open questions
 

@@ -620,3 +620,12 @@ WTrackTableView QScrollBar::sub-page:horizontal {
     border: none;
     padding: 12px 20px;
 }
+
+/* The effects page. Same treatment as diagnostics -- it is the same kind of
+   thing, a document rather than a list -- but it is short enough to fit and
+   is driven by the encoder rather than dragged. */
+#DeckEffects {
+    background-color: #0c0c0c;
+    border: none;
+    padding: 12px 20px;
+}
