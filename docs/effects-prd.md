@@ -3,8 +3,9 @@
 The deck's effects UI: a 19-inch rack of effect modules, on a touchscreen,
 driving the effect-pedal bus. This document is the *what* and the *why*.
 
-Status: **draft — not signed off.** Open questions in §11 block implementation;
-everything above them is a proposal, not a decision.
+Status: **revision 2.** Design decisions recorded in §12. One consequence of the
+per-unit wet knob (§3.2) needs acknowledging before implementation; the
+remaining questions in §13 do not block.
 
 Companion documents: `xone92-send-return.md` for the mixer side,
 `worklog/effect-pedal/TODO.md` for the engine work already landed.
@@ -20,232 +21,273 @@ with no dry attached. What it does not have is a way to *play* it.
 Today's page is a text read-out with one selectable row and an encoder. That was
 built to make the signal path legible while it was being debugged, and it did
 that job. It is not an instrument. A DJ reaching for a filter mid-transition
-needs to see and grab the control, not turn an encoder to the fourth row and
-press it to enter adjust mode.
-
-The deck has a 1024×600 capacitive touchscreen that, outside the browser, does
-almost nothing. This is what it is for.
+needs to grab the control, not turn an encoder to the fourth row and press it to
+enter adjust mode.
 
 **The design intent is a rack of hardware.** Not a flat pane of sliders — a row
 of effect modules with screws, bezels, brushed metal and real knobs, each with
 its own identity, in the spirit of a Winamp skin: unashamedly skeuomorphic,
-readable at arm's length in a dark booth, and fun to look at. The deck already
-takes this position everywhere else — a CDJ's jog wheel and pitch fader are
-physical objects — so its effects should be too.
+readable at arm's length in a dark booth, and fun to look at.
 
 ## 2. Scope
 
 **In:** a full-screen horizontal rack; effect modules with drawn chrome and
-draggable knobs; add, remove and reorder; scrolling when the rack outgrows the
-screen; a per-effect visual identity; persistence across restarts.
+draggable knobs; a per-unit wet knob; a pinned master module driven by the
+encoder; add, reorder and delete; scrolling; save and load of whole racks;
+persistence across restarts.
 
-**Out (this round):** LV2 hosting, beat-synced delay times, a second rack for
-the deck's own audio, MIDI mapping of rack controls, effect automation.
+**Out (this round):** LV2 hosting, beat-synced delay times, a second rack for the
+deck's own audio, MIDI mapping of rack controls, effect automation.
 
 **Moved, not deleted:** everything the current effects page shows about the
 signal path — aux configured, aux to main, aux level, unit routed, unit enabled,
-mix mode, effect loaded, effect on, slot group — **moves to the Diagnostics
-page**. It is diagnostic information and it belongs with the rest of it. The
-rack shows no status text.
+mix mode, effect loaded, effect on, slot group — **moves to Diagnostics**. Plus
+the measured round-trip latency and the aux VU as a live bar. The rack shows no
+status text.
 
-## 3. The engine's shape, and what it costs us
+## 3. Signal flow
 
-The design has to fit Mixxx's effect model or pay to change it. Three places
-where it does not fit naturally, stated up front because they drive §11.
+```
+100% aux in ──> Unit 1 ──> Unit 2 ──> … ──> Unit 6 ──> MASTER ──> deck output
+                (wet% +     (wet% +          (wet% +    (level,
+                 metas)      metas)           metas)     mute)
+```
 
-**A chain has four slots.** `kNumEffectsPerUnit = 4` (`src/effects/defs.h:41`),
-and it sizes `EffectStatesMapArray`, a `std::array` of per-slot engine state. A
-rack that scrolls implies more than five modules, so this constant has to rise.
-Bounded work, but it is engine work, not skin work.
+**The input is fixed at unity.** How much of each channel reaches the rack is set
+by that channel's aux send on the Xone, which is where it belongs. There is no
+input trim in this UI.
 
-**There is one wet control per chain, not per effect.** `mix` belongs to the
-`EffectChain`. Mixxx's per-effect equivalent is the slot's **metaknob** (`meta`),
-which the manifest links to whichever parameters matter — for the reverb, that is
-`send_amount`. So a module's headline knob maps to its metaknob, and the chain's
-`mix` is a single global wet for the whole rack. Per-module wet-and-dry blending
-does not exist and would be a substantial patch.
+### 3.1 What a unit's wet knob does
 
-**Some modules do not correspond to one effect.** Mixxx's `Filter` is a single
-effect carrying `lpf`, `q` and `hpf` together; there is no separate high-pass and
-low-pass. And there is no `Delay` at all — `Echo` is the only delay line, with
-`feedback_amount` at 0 giving a single repeat. Presenting HPF, LPF, Delay and
-Echo as four distinct modules therefore means either four presets over two
-effects, or new builtins.
+Serial, per unit, standard pedal semantics:
 
-**What does fit:** per-slot `enabled` gives each module a real bypass; slot order
-is chain order and is already left-to-right; and `effects.xml` round-trips
-parameters correctly provided effects are loaded from their manifest.
+```
+out_N = in_N · (1 − w_N)  +  fx_N(in_N) · w_N
+```
 
-## 4. The rack
+where `fx_N` is that effect's **fully wet** output — the reverb's tail alone, the
+echo's repeats alone, the filter's filtered signal. `in_N` is whatever the
+previous unit produced, not the original input.
+
+For reverb and echo this needs the chain to stop re-adding the dry itself, which
+it already can: `skipAddingDry` exists and fires for any mix mode that is not
+DRY/WET. With the per-unit blend doing that job uniformly, every effect in the
+rack is treated the same way regardless of whether its manifest declares
+`addDryToWet`.
+
+Your example works out as expected: aux → HPF at 100% → filtered; → Reverb at
+100% → the reverb of the filtered signal, and nothing else.
+
+### 3.2 The consequence, stated plainly
+
+**The rack can output dry, and will, whenever the last unit in it is not a fully
+wet additive effect.** Two cases:
+
+- **Any unit below 100%** passes part of its input through. That input traces
+  back to the original aux, so a fraction of the untouched dry reaches the deck
+  output — and the mixer adds it to the CDJ's own channel. The doubling we
+  removed comes back, in proportion.
+- **A filter at 100% is still dry.** A high-pass produces *the same signal,
+  filtered* — it is correlated with the dry, not new material. A rack that is
+  just an HPF returns a filtered copy of the track, which sums with the CDJ's
+  channel. That is a parallel filter, not the inline filter a mixer gives you,
+  and with the bus's 32 ms round trip it will comb against the dry with notches
+  every 31 Hz.
+
+This is **inherent to per-unit wet on a send/return**, not a defect, and it is
+worth knowing rather than discovering. The rack is dry-free only when the DJ
+leaves the final additive unit at 100%. Reverb and Echo can be; filters cannot.
+
+If a structural guarantee is wanted instead, the per-unit knob would have to mean
+something else — a parallel contribution to an output bus rather than a serial
+blend — and the chain would stop being a chain. That is a different instrument.
+**Assumption for now: the serial blend above, and the freedom that comes with
+it.**
+
+## 4. Engine work required
+
+None of this is skin work.
+
+| Change | Where | Size |
+|---|---|---|
+| `kNumEffectsPerUnit` 4 → 6 | `src/effects/defs.h:41` | One constant; it sizes `EffectStatesMapArray`, a `std::array` of per-slot engine state |
+| **Per-slot wet control** | `EffectSlot` + `EngineEffectChain::process` | New `ControlPotmeter` per slot, shipped to the engine, blended in the chain loop |
+| Per-slot wet in presets | `EffectPreset` | So saved racks restore their blend |
+| Confine `WetOnly` to the toggle it belongs to | `EffectChain` | `kNumModes = 3` currently leaks `WET` into the mix-mode cycle of QuickEffect and EQ chains, where it is meaningless and would kill the dry |
+
+**The per-slot blend applies only in chains whose mix mode is `WET`.** That keeps
+the new behaviour inside our rack and leaves deck, QuickEffect and EQ chains
+byte-identical to upstream.
+
+## 5. The rack
 
 Full screen, no header — the same treatment the browser gets, since this is
 reached from the browser's root menu.
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐                   │
-│ │        │ │        │ │        │ │        │ │        │                   │
-│ │ REVERB │ │ DELAY  │ │  HPF   │ │  ECHO  │ │  LPF   │        (+)        │  544
-│ │        │ │        │ │        │ │        │ │        │                   │
-│ └────────┘ └────────┘ └────────┘ └────────┘ └────────┘                   │
-├──────────────────────────────────────────────────────────────────────────┤
-│                        (bezel dead strip)                                │  56
-└──────────────────────────────────────────────────────────────────────────┘
-   204        204        204        204        204
+┌────────────────────────────────────────────────┬──────────┐
+│ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐    │          │
+│ │        │ │        │ │        │ │        │    │  MASTER  │
+│ │ REVERB │ │ DELAY  │ │  HPF   │ │  ECHO  │ (+)│          │  544
+│ │        │ │        │ │        │ │        │    │  pinned  │
+│ └────────┘ └────────┘ └────────┘ └────────┘    │          │
+├────────────────────────────────────────────────┴──────────┤
+│                    (bezel dead strip)                     │  56
+└───────────────────────────────────────────────────────────┘
+  ←──────────── scrolls ────────────→              always visible
 ```
 
-- **Module size:** 204 × 544, four-pixel gutters. Five across 1024.
-- **Signal order is left to right.** The leftmost module processes first. This is
-  the same order as the chain's slots, so the mapping is identity.
-- **The bottom 56 px is dead**, as everywhere else on this deck: the panel's
-  lower edge sits under the chassis bezel and anything drawn there is invisible.
-- **The `(+)` sits at the far right of the rack**, vertically centred, and
-  scrolls with it — it is the end of the rack, not a fixed button.
-- **Empty rack:** the `(+)` alone, centred, with `Add an effect` beneath it.
+- **Module size:** 204 × 544, four-pixel gutters.
+- **The master module is pinned to the right edge** and never scrolls — it is
+  always reachable. The remaining 820 px scrolls and holds the units plus the
+  `(+)` at its right end, so four units are visible at a time and six fit with
+  scrolling.
+- **Signal order is left to right**, identical to chain slot order.
+- **The bottom 56 px is dead**, as everywhere on this deck: the panel's lower
+  edge sits under the chassis bezel.
+- **Empty rack:** the `(+)` alone, centred in the scroll area, with `Add an
+  effect` beneath it. The master stays.
 
-## 5. A module
+## 6. A unit module
 
 ```
-┌─────────────────────┐  ← 2px bezel, module-specific
+┌─────────────────────┐  ← 2 px bezel, module-specific
 │ ◉                 ◉ │  ← screws, drawn into the chrome
 │      ╭───────╮      │
-│      │  ███  │      │  ← knob 1, largest: the metaknob
+│      │  ███  │      │  ← WET: the unit's contribution
 │      ╰───────╯      │
-│        AMOUNT       │
+│         WET         │
 │    ╭─────╮ ╭─────╮  │
-│    │ ██  │ │  ██ │  │  ← knobs 2 and 3
+│    │ ██  │ │  ██ │  │  ← the effect's metaknobs
 │    ╰─────╯ ╰─────╯  │
 │     DECAY    TONE   │
-│                     │
 │  ╭─────────────╮    │
 │  │   REVERB    │    │  ← stylised name, bottom left
 │  ╰─────────────╯    │
-│ ◉              [◐]  │  ← bypass, bottom right
+│ ◉                   │
 └─────────────────────┘
 ```
 
-- **Name plate, bottom left**, in the module's own typeface treatment. Engraved
-  into metal, silkscreened onto plastic — the name is part of the skin, not a
-  label drawn over it.
-- **Knobs:** one large metaknob at the top, then up to three parameter knobs.
-  Every knob has a pointer, a value arc, and a caption underneath.
-- **Bypass, bottom right**, with a lit/unlit state. Maps to the slot's `enabled`.
-- **Screws are drawn, not images** — four per module, part of the chrome layer.
+- **WET is the largest knob** and sits top-centre. It is what gets reached for.
+- **Below it, the effect's own metaknobs**, however many that effect has, minus
+  any the module hides (§9).
+- **Name plate, bottom left**, in the module's own typeface treatment — engraved
+  into metal, silkscreened onto plastic. The name is part of the skin.
+- **No bypass.** WET at zero is the bypass, and it fades rather than cuts.
+- **Screws are drawn, not images** — part of the chrome layer.
 
 ### Rendering
 
-Each module's chrome — background texture, bezel, screws, name plate — is
-**painted once into a `QPixmap` and cached**, keyed by module type and size. Only
-knobs and the bypass lamp repaint on interaction, into that cached backdrop. The
-deck is a Pi 4 with no compositor help for widgets; re-rendering a brushed-metal
+Each module's chrome — texture, bezel, screws, name plate — is **painted once
+into a `QPixmap` and cached**, keyed by type and size. Only knobs repaint on
+interaction, into that cached backdrop, confined to the knob's own rect. The deck
+is a Pi 4 with no compositor help for widgets; regenerating a brushed-metal
 gradient on every knob movement would be visible.
 
-Knob repaint is confined to the knob's own rect.
+## 7. The master module
 
-## 6. Interaction
+Pinned right, always visible, and the only module the **encoder** touches.
 
-All touch. Every gesture below is a finger on glass.
+- **Encoder rotate** — master output level. This is the chain's `mix` control in
+  WET mode: how much of the rack reaches the deck's output.
+- **Encoder press** — mute / unmute. Unmuting returns to the level that was set,
+  not to a default.
+- Shows the level as a large knob or fader, and the mute state unmistakably —
+  this is the control that stops the effects mid-set.
+
+The encoder does nothing else on this page. Rack scrolling is touch-only.
+
+## 8. Interaction
 
 | Gesture | Effect |
 |---|---|
-| **Drag a knob up/down** | Turn it. Vertical only — horizontal drag on a knob does nothing, so a sloppy diagonal still turns cleanly. |
+| **Drag a knob up/down** | Turn it. Vertical only, so a sloppy diagonal still turns cleanly. |
 | **Double-tap a knob** | Reset to the parameter's default. |
-| **Tap the bypass** | Toggle the module in and out of circuit. |
-| **Drag anywhere else** | Scroll the rack horizontally. No scrollbar, kinetic, clamped at both ends. |
-| **Long-press a module** | Its border becomes a dashed outline: the module is now held. Drag left/right to reorder; release to drop. |
-| **Tap `(+)`** | Open the effect chooser. |
+| **Drag anywhere else** | Scroll the rack horizontally. No scrollbar, kinetic, clamped. |
+| **Long-press a module** | Border becomes a dashed outline: held. Then drag to reorder, or drag onto the bin to remove. |
+| **Tap `(+)`** | Effect chooser. Hidden entirely when the rack is full. |
+| **Encoder** | Master level; press to mute. |
 
-**Knob sensitivity:** full travel over roughly 200 px of vertical drag, which is
-about a third of the screen height — fine control without needing a modifier, and
-still reachable in one movement. Values move in *parameter* space, so a detent of
-drag is the same fraction of travel whatever the control's units.
+**Knob sensitivity:** full travel over roughly 200 px of vertical drag — fine
+control in one movement. Values move in parameter space, so a given drag is the
+same fraction of travel whatever the control's units.
 
-**Reorder is a chain reorder**, not a visual one: dropping a module writes the
-new slot order, and audio follows immediately.
+**Reordering is a chain reorder**, not a visual one: dropping writes the new slot
+order and audio follows immediately.
 
-**The encoder** keeps working while the rack is open: rotate scrolls the rack,
-press does nothing. It is not the primary input here and is not worth
-complicating the design for. BACK leaves the rack.
+**The bin** appears at bottom-centre only while a module is held, and only then.
+Dropping a module onto it removes it from the rack. Everything else is
+unreachable while dragging.
 
-## 7. The effect chooser
+## 9. The effects, and their skins
 
-Tapping `(+)` opens a chooser over the rack. It lists the available effects with
-their module chrome in miniature — you pick the thing you are going to see, not a
-row of text. Tapping one appends it to the right of the rack and closes.
+| Module | Material | Engine | Knobs shown |
+|---|---|---|---|
+| **Reverb** | Brushed metallic grey — horizontal brush grain, vertical sheen, darker at the edges | `reverb` | WET + decay, bandwidth, damping |
+| **Delay** | Yellow plastic, flat and slightly glossy | `echo` | WET + time *(feedback and the rest hidden and preset)* |
+| **Echo** | Green plastic, same treatment, different hue | `echo` | WET + time, feedback, ping-pong |
+| **HPF** | Slick shiny black, piano gloss with a strong specular | `filter` | WET + high-pass cutoff *(lpf and q hidden and preset)* |
+| **LPF** | Slick shiny black, as HPF | `filter` | WET + low-pass cutoff *(hpf and q hidden and preset)* |
 
-Full when the chain is full: the `(+)` is dimmed and not tappable.
+Knob styling follows the material: metal knobs on metal, plastic on plastic.
 
-## 8. The effects, and their skins
+**HPF and LPF are two instances of the same `filter` effect**, each with the
+irrelevant parameters pinned open and hidden. Same for **Delay and Echo**, both
+`echo`, differing in which knobs are exposed and where the hidden ones sit. A
+module is therefore a *preset plus a skin*, not necessarily a distinct effect.
 
-Five to start. Each has a distinct material, and the materials are the point —
-a DJ finds the filter by colour, not by reading.
+## 10. Saving and loading racks
 
-| Module | Material | Engine |
-|---|---|---|
-| **Reverb** | Brushed metallic grey. Horizontal brush grain, slight vertical sheen gradient, darker at the edges. | `org.mixxx.effects.reverb` |
-| **Delay** | Yellow plastic. Flat, slightly glossy, moulded. | `org.mixxx.effects.echo`, feedback low |
-| **Echo** | Green plastic. Same treatment as Delay, different hue. | `org.mixxx.effects.echo`, feedback up |
-| **HPF** | Slick shiny black. Piano-gloss, strong specular highlight. | `org.mixxx.effects.filter` |
-| **LPF** | Slick shiny black. As HPF; distinguished by name plate and knob caption. | `org.mixxx.effects.filter` |
+Mixxx already has this and the deck already stores it on the SD card. Named chain
+presets are XML files in `~/.mixxx/effects/chains/`, managed by
+`EffectChainPresetManager`, with `savePreset`, `loadChainPreset` and the
+`next_chain_preset` / `prev_chain_preset` / `chain_preset_selector` controls
+already wired.
 
-Knob styling follows the module: metal knobs on metal, plastic on plastic.
+So a saved rack is a stock Mixxx chain preset, and no new file format is needed.
+The only additions are the per-slot wet value (§4) and a way to reach it:
 
-**Latency note:** the bus has a **32 ms** round trip (measured — see
-`worklog/effect-pedal/measurements.md`). Reverb and Echo are unaffected; that
-reads as pre-delay. Filters are *correlated* with the dry and will comb against
-it with notches every 31 Hz. HPF and LPF on this bus will sound hollower than
-they do in a mixer. This is inherent to a send/return and is not a bug to fix,
-but it is a reason the filters may want to be the least-used modules.
+**Proposal:** tapping the master module's name plate opens a rack browser over
+the screen — the saved racks by name, plus `Save as…`. Loading swaps the whole
+rack, including the master level.
 
-## 9. Persistence
+## 11. Persistence
 
-Rack contents, order, and every parameter live in `effects.xml`, which
-`mixxx_config/upload.sh` already ships. This works correctly **provided effects
-are loaded from their manifest** — a preset that carries an empty `<Parameters>`
-list produces an effect that reports itself loaded with every parameter at zero,
-and then re-serialises that same broken state on exit.
+The live rack lives in `effects.xml`, which `mixxx_config/upload.sh` already
+ships. This round-trips correctly **provided effects are loaded from their
+manifest**: a preset carrying an empty `<Parameters>` list produces an effect
+that reports itself loaded with every parameter at zero, and then re-serialises
+that broken state on exit.
 
 The bootstrap in `TriMixxx.setupPedalBus()` exists because of that trap and
-should be removed once the rack writes correct presets of its own.
+should be removed once the rack manages its own chain.
 
-## 10. What moves to Diagnostics
+## 12. Decisions
 
-Verbatim from the current effects page, appended as a new section:
+| # | Question | Answer |
+|---|---|---|
+| 1 | Per-unit wet | **Yes** — every unit has its own wet knob, serial blend (§3.1) |
+| 2 | Global wet | **Master module, pinned rightmost**, encoder-driven, press to mute |
+| 3 | `kNumEffectsPerUnit` | **6** |
+| 4 | HPF / LPF | **Two `filter` instances**, irrelevant knobs preset and hidden |
+| 5 | Delay / Echo | **Both `echo`**, Delay hides the extra knobs |
+| 6 | Input trim | **None** — always 100%; the Xone's per-channel sends do this |
+| 7 | Per-module bypass | **No** |
+| 8 | Full rack | `(+)` **hidden**; removal is drag-to-bin |
+| 9 | Save/load | **Mixxx chain presets**, on the SD card, existing machinery |
 
-- Aux input configured, aux to main, aux input level
-- Unit routed, unit enabled, mix mode, effect loaded, effect on
-- The slot group string
+## 13. Remaining questions
 
-Plus, worth adding while we are there: the measured round-trip latency, and the
-aux VU as a live bar. Diagnostics is already the page that reads `/proc` once a
-second; this is the same kind of information.
-
-## 11. Open questions
-
-Numbered for answering.
-
-1. **Per-module knob = metaknob?** Mixxx has one wet per *chain*. The proposal is
-   that each module's big knob is that effect's metaknob, and there is one global
-   wet for the rack. Accepted?
-2. **Where does the global wet live?** Options: a fixed non-scrolling strip; a
-   permanent leftmost "master" module; or nowhere on this screen, because the
-   mixer's return fader already does it. Which?
-3. **Raise `kNumEffectsPerUnit` above 4?** Scrolling only means something past
-   five modules. What is the ceiling — 8, 16?
-4. **HPF and LPF: two `Filter` instances, or new single-purpose builtins?** Two
-   instances is zero engine work but each module hides two of its three knobs and
-   two filters cost two slots. New builtins are cleaner and more code.
-5. **Delay and Echo from the same `Echo` effect?** They would differ only in
-   default feedback and skin. Acceptable, or should Delay be something else?
-6. **Textures: procedural or PNG?** Procedural keeps the fork asset-free and
-   scales to any module size; PNG gets exactly the look you want. Reference PNGs
-   welcome either way — I can match them procedurally if you send them.
-7. **Does this rack drive the pedal bus only?** It is `[EffectRack1_EffectUnit2]`
-   today. Should the deck's own audio (`EffectUnit1` on `[Channel1]`) get a rack
-   too, later, or is one rack the whole story?
-8. **Per-module bypass — needed?** The metaknob at zero already silences most
-   effects. A real bypass is more rack-like and gives tails that ring out.
-9. **What happens on a full rack?** Dimmed `(+)`, or does adding replace the
-   oldest?
-10. **Is the 56 px bezel strip correct for this screen?** Taken from
-    `browser-prd.md`; worth confirming it applies here.
+1. **§3.2 — is the dry consequence accepted?** Per-unit wet means the rack
+   returns dry in proportion whenever a unit sits below 100%, and a filter-only
+   rack returns dry by definition. I assume yes, and that it is the DJ's to
+   manage. Say if not.
+2. **Where does the rack browser live?** Proposal is a tap on the master's name
+   plate (§10). Somewhere better?
+3. **Textures procedural or PNG?** Procedural keeps the fork asset-free and
+   scales to any size. **Send the reference PNGs either way** — I can match them
+   procedurally from a picture.
+4. **Does the master's mute need to survive a restart?** Simplest is no: it is a
+   performance control, and a deck that boots muted is a support call.
+5. **Two `filter` instances cost two of the six slots.** With HPF, LPF, reverb
+   and echo that is four of six. Is six still right, or should it be eight?
