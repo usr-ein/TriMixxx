@@ -419,7 +419,52 @@ repeating gave 135 — still a crash on shutdown. So `WDeckBrowser`,
 `WDeckEffects` and the rest of the deck's widgets are not the cause, and this
 is not a regression from the effect-pedal work.
 
-Where to go next, cheapest first:
+### Bisected: `TrackCache` outlives its background copies — **fixed**
+
+`git bisect` over the 85 commits between `6b272c0` (the signal handler, the
+first commit where a clean shutdown was even attempted) and `main` landed on
+**`e4cbfeb` "deck: the deck plays from a copy, never from the medium"**, which
+introduces `src/library/deck/trackcache.cpp`.
+
+`TrackCache::prefetch()` hands a lambda capturing `this` to the **global** thread
+pool, copies a track — seconds, for a big file — and then dereferences `this`
+again to invoke a continuation that touches `m_entries` and `m_ramBytes`. The
+destructor cleared a static pointer and nothing else. A copy still running when
+the cache is destroyed therefore writes into freed memory, on every shutdown.
+
+Fixed by giving it its own `QThreadPool`, drained in the destructor with
+`clear()` then `waitForDone()`. That also makes it run one copy at a time, which
+is what `prefetch`'s own comment already claimed ("the constraint is the USB
+bus, not the CPU") but the global pool did not do.
+
+**Verified: exit 0 and `mixxx.cfg` written**, where it was 135 and untouched.
+Both settings files now persist, and `effects.xml` round-trips `WET` properly
+for the first time.
+
+### Two things learned in the process
+
+**Old commits do not build against today's Debian.** `mixxx-test` links
+`GTest::gmock`, which only main's `-DBUILD_TESTING=OFF` avoids, and
+`.dockerignore` did not exist before a certain commit — without it the 9.3 GB
+Rust `target/` directory ships as build context and fills Docker's VM. Both were
+handled by pinning main's `Dockerfile` and `.dockerignore` on every bisect step;
+they are build recipe, not product code, and holding them constant is what a
+bisect wants anyway. **Keep doing that for any future bisect.**
+
+**Restoring config while Mixxx runs no longer works.** Copying `effects.xml`
+into place and then restarting lets the *running* instance write its stale
+in-memory state over the restore — the exact hazard `upload.sh`'s comment
+describes. It only bites now because the save works. Always stop first.
+
+### Still open: a second crash, later in shutdown
+
+After both saves complete, shutdown still ends in 135 (SIGBUS) — **with our skin
+only**; stock LateNight exits 0. So there is a second memory bug in the deck's
+own widgets, and unlike the first it costs nothing functional. The bisect
+harness (`worklog/effect-pedal/`, and the exit-status logging now in `xinitrc`)
+makes finding it cheap to repeat.
+
+Where to go next on that one, cheapest first:
 
 1. **Reproduce off the deck.** A desktop build of the fork, same shutdown path.
    If it reproduces, everything below is easy; if it does not, it is arm64,
