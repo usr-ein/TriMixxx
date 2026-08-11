@@ -142,10 +142,12 @@ Full screen, no header — the same treatment the browser gets, since this is
 reached from the browser's root menu.
 
 ```
-┌────────────────────────────────────────────────┬──────────┐
+┌───────────────────────────────────────────────────────────┐
+│  HPF → RVB → DLY                             2026-08-11   │  48  ← name bar
+├────────────────────────────────────────────────┬──────────┤
 │ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐    │          │
 │ │        │ │        │ │        │ │        │    │  MASTER  │
-│ │ REVERB │ │ DELAY  │ │  HPF   │ │  ECHO  │ (+)│          │  544
+│ │ REVERB │ │ DELAY  │ │  HPF   │ │  ECHO  │ (+)│          │  496
 │ │        │ │        │ │        │ │        │    │  pinned  │
 │ └────────┘ └────────┘ └────────┘ └────────┘    │          │
 ├────────────────────────────────────────────────┴──────────┤
@@ -154,7 +156,7 @@ reached from the browser's root menu.
   ←──────────── scrolls ────────────→              always visible
 ```
 
-- **Module size:** 204 × 544, four-pixel gutters.
+- **Module size:** 204 × 496, four-pixel gutters.
 - **The master module is pinned to the right edge** and never scrolls — it is
   always reachable. The remaining 820 px scrolls and holds the units plus the
   `(+)` at its right end, so four units are visible at a time and six fit with
@@ -246,18 +248,66 @@ unreachable while dragging.
 
 | Module | Material | Engine | Knobs shown |
 |---|---|---|---|
-| **Reverb** | Brushed metallic grey — horizontal brush grain, vertical sheen, darker at the edges | `reverb` | WET + decay, bandwidth, damping |
-| **Delay** | Yellow plastic, flat and slightly glossy | `echo` | WET + time *(feedback and the rest hidden and preset)* |
-| **Echo** | Green plastic, same treatment, different hue | `echo` | WET + time, feedback, ping-pong |
-| **HPF** | Slick shiny black, piano gloss with a strong specular | `filter` | WET + high-pass cutoff *(lpf and q hidden and preset)* |
-| **LPF** | Slick shiny black, as HPF | `filter` | WET + low-pass cutoff *(hpf and q hidden and preset)* |
-
-Knob styling follows the material: metal knobs on metal, plastic on plastic.
+| **Reverb** | Brushed metallic grey | `reverb` | WET + decay, bandwidth, damping |
+| **Delay** | Yellow plastic | `echo` | WET + time *(the rest hidden and preset)* |
+| **Echo** | Green plastic | `echo` | WET + time, feedback, ping-pong |
+| **HPF** | Piano-gloss black | `filter` | WET + high-pass cutoff *(lpf, q hidden)* |
+| **LPF** | Piano-gloss black | `filter` | WET + low-pass cutoff *(hpf, q hidden)* |
 
 **HPF and LPF are two instances of the same `filter` effect**, each with the
 irrelevant parameters pinned open and hidden. Same for **Delay and Echo**, both
-`echo`, differing in which knobs are exposed and where the hidden ones sit. A
-module is therefore a *preset plus a skin*, not necessarily a distinct effect.
+`echo`. A module is a *preset plus a skin*, not necessarily a distinct effect.
+
+### 9.1 Assets: procedural, from sampled palettes
+
+The reference skins were examined. **Nothing can be lifted directly**, for a
+reason that is structural rather than legal: a Winamp skin is a *whole window
+baked into one bitmap at one fixed size*. `main.bmp` is 275 × 116 with the title
+bar, LCD and every transport button flattened into it; `gen.bmp` is a window
+frame at 194 × 109. Our modules are 204 × 544. There are no tileable textures and
+no scalable components to extract, and the round buttons that come closest to a
+knob cap are 18 px where we need 60.
+
+There is also no licence on any of them, and the fork is GPL, so shipping the
+bitmaps would be a small but real problem for no gain.
+
+**So: drawn procedurally, using palettes sampled from the skins and the
+construction grammar they all share.** That gives the exact colours, works at any
+size, and keeps the fork asset-free.
+
+### 9.2 The grammar
+
+Four rules, taken from the skins, that make flat pixels read as objects:
+
+1. **A bevel is two lines.** Light on the top and left edge, dark on the bottom
+   and right, over a mid-tone face. Winamp98 uses `#FFFFFF` / `#C0C0C0` /
+   `#808080` exactly. Swap the two lines and the same shape reads as *recessed* —
+   which is how knob troughs and screw holes are drawn.
+2. **Engraved text is two passes.** The glyph in a dark tone, then the same glyph
+   offset one pixel down-right in a light tone. On metal it looks stamped; it is
+   also what keeps small text legible at arm's length.
+3. **Gloss is one specular arc.** A single bright ellipse in the upper-left third
+   of a round object, fading out. Purple Glow's near-black face at `#0B0B0B` gets
+   its depth almost entirely from this.
+4. **Panels get a vertical light gradient** — lighter at the top, darker at the
+   bottom — regardless of material. It is what stops a large flat area looking
+   like a rectangle of colour.
+
+### 9.3 The materials
+
+| Material | Base | Highlight | Shadow | Treatment |
+|---|---|---|---|---|
+| **Brushed steel** (Reverb) | `#AFB6C2` | `#CFD2DB` | `#A8AFBC` | Vertical gradient, then horizontal 1 px grain of ±4 % lightness noise. Grain is the whole trick — it is what separates brushed metal from grey. |
+| **Yellow plastic** (Delay) | `#E8C51F` | `#F7E27A` | `#8A7410` | Vertical gradient, no grain, a soft gloss band across the top third. Moulded, not machined. |
+| **Green plastic** (Echo) | `#3FA64B` | `#8FD897` | `#1E5A26` | As Delay. |
+| **Piano gloss** (HPF/LPF) | `#0B0B0B` | `#414141` | `#000000` | Near-black, one hard specular streak down the upper left, and a bevel bright enough to catch the eye against the black. |
+
+**LCD blue** `#284A89` on `#002263`, with the dot-matrix texture, is reserved for
+the rack name bar (§10) — the one place on screen that displays rather than
+controls, exactly as in the skins.
+
+Knob caps follow their module: machined aluminium on steel, moulded plastic on
+plastic, gloss on gloss.
 
 ## 10. Saving and loading racks
 
@@ -268,11 +318,32 @@ presets are XML files in `~/.mixxx/effects/chains/`, managed by
 already wired.
 
 So a saved rack is a stock Mixxx chain preset, and no new file format is needed.
-The only additions are the per-slot wet value (§4) and a way to reach it:
+The only addition is the per-slot wet value (§4).
 
-**Proposal:** tapping the master module's name plate opens a rack browser over
-the screen — the saved racks by name, plus `Save as…`. Loading swaps the whole
-rack, including the master level.
+### 10.1 The name bar
+
+A 48 px strip across the top of the screen, drawn as an LCD panel (`#284A89` on
+`#002263`, dot matrix), showing the rack's name on the left and its creation date
+on the right.
+
+**The name is generated, never typed.** It is the modules' abbreviations in
+signal order joined by arrows:
+
+```
+HPF → RVB → DLY                                          2026-08-11
+```
+
+Three letters each: `RVB` `DLY` `ECH` `HPF` `LPF`. A deck with no keyboard should
+not ask for one, and a rack's identity really is its contents — the date
+disambiguates two racks built from the same modules.
+
+An unsaved rack shows its generated name with no date, so "not yet saved" needs
+no extra indicator.
+
+**Tapping the bar opens the rack browser** over the screen: saved racks by name
+and date, plus `Save this rack`. Loading swaps the whole rack, including the
+master level. Long-pressing a row in the browser deletes it, with the same dashed
+-border confirmation idiom the modules use.
 
 ## 11. Persistence
 
@@ -298,15 +369,20 @@ should be removed once the rack manages its own chain.
 | 7 | Per-module bypass | **No** |
 | 8 | Full rack | `(+)` **hidden**; removal is drag-to-bin |
 | 9 | Save/load | **Mixxx chain presets**, on the SD card, existing machinery |
+| 10 | Rack name | **Generated**, not typed: `HPF → RVB → DLY` plus creation date, in an LCD bar across the top (§10.1) |
+| 11 | Rack browser | **Tap the name bar** |
+| 12 | Mute across restarts | **No** |
+| 13 | Assets | **Procedural**, from palettes sampled off the reference skins (§9.1) |
 
 ## 13. Remaining questions
 
-1. **Where does the rack browser live?** Proposal is a tap on the master's name
-   plate (§10). Somewhere better?
-2. **Textures procedural or PNG?** Procedural keeps the fork asset-free and
-   scales to any size. **Send the reference PNGs either way** — I can match them
-   procedurally from a picture.
-3. **Does the master's mute need to survive a restart?** Simplest is no: it is a
-   performance control, and a deck that boots muted is a support call.
-4. **Two `filter` instances cost two of the six slots.** With HPF, LPF, reverb
-   and echo that is four of six. Is six still right, or should it be eight?
+None blocking. Everything above is decided; what is left is settled by drawing it
+and looking at it on the deck:
+
+1. **Do 204 px modules hold four knobs legibly** at arm's length in a dark booth,
+   or does the count have to come down? Settled by rendering one, not by
+   argument.
+2. **Is a 200 px drag the right knob throw** for the WET knob specifically? It is
+   the one that gets grabbed mid-transition and may want to be coarser.
+3. **Does the brushed-metal grain survive** at 204 px wide without looking like
+   noise? If not, the grain gets coarser rather than the material changing.
