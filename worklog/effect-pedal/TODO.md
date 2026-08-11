@@ -284,6 +284,55 @@ Ordered by how much is lost if the answer is bad.
 
 ---
 
+## Open: the codec leaks its input to its output
+
+**Parked deliberately — to be diagnosed at the end, not now.** It does not block
+development, but it *does* compromise the finished result, because a dry path
+that bypasses Mixxx puts the dry back into the mixer's sum no matter how
+perfectly WetOnly works.
+
+What is established:
+
+- With the CDJ's channel fader **fully down** and its AUX 2 send up, the CDJ is
+  audible on TriMixxx's mixer channel.
+- It survives with **Mixxx stopped**, and appears during boot **before Mixxx
+  starts**. Powering the Pi down kills it.
+- **Nothing in software is doing it.** The capture stream reads `Status: Stop`,
+  so the ADC's data never crosses USB; only `mixxx` holds the device and only
+  its *playback* node; no PipeWire, PulseAudio, alsaloop or jackd is running;
+  no `.asoundrc` and no `/etc/asound.conf`.
+- **Nothing in the codec's declared topology is doing it either.** The USB audio
+  descriptors are two disjoint chains — `[1] USB Streaming → [3] Feature Unit →
+  [2] Speaker` and `[4] Analog In → [5] USB Streaming` — with no Mixer Unit and
+  no Selector Unit anywhere, which are the only descriptors that could route
+  capture into playback.
+- The UCA222 manual is explicit that the MONITOR switch feeds the **headphones
+  only**: OFF gives the phones the computer's signal, ON gives them the RCA
+  input. The RCA `OUTPUT` is documented as carrying the computer's audio in both
+  positions. Only the RCA jacks are in use here.
+
+So it is analog, and undocumented. Two candidates:
+
+1. **The MONITOR switch reaching the RCA outputs** on this unit, contrary to the
+   manual. Flipping it while the leak is audible settles this in one move; if
+   the leak changes, leaving it OFF is the whole fix.
+2. **Ground coupling inside the box.** Input and output RCA pairs sit inches
+   apart on one small board sharing a ground plane and a USB ground; input
+   signal current through shared ground impedance appears as a voltage on the
+   output's ground reference. This would also explain the near-mono capture
+   (correlation 0.993, side energy pinned at −24.5 dB over 30 s), because a
+   ground-coupled component lands **identically on both channels**.
+
+**The discriminator is level.** A designed monitor path is near unity; ground
+coupling is typically 30–50 dB down and only audible because that channel was
+wide open with the CDJ's own channel shut. Both Xone channel meters are
+*pre-fader*, so with Mixxx stopped the CDJ's meter and TriMixxx's meter give a
+direct A/B read of source versus leak on the same scale — no test gear needed.
+
+If it turns out to be ground coupling, the options are a ground-lift on the
+UCA222's USB power, a different return channel, or a different interface. If it
+is inaudible at sane gain, doing nothing is legitimate.
+
 ## Open questions
 
 - Which mixer channel does TriMixxx return on? A music channel (CH 1-4) gets the

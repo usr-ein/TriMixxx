@@ -22,7 +22,7 @@ import glob, os, sys, xml.dom.minidom
 
 files = sorted(set(
     glob.glob("TriMixxx_skin/**/*.xml", recursive=True)
-    + ["TriMixxx.midi.xml", "PiMidiDaemon.midi.xml", "soundconfig.xml"]
+    + ["TriMixxx.midi.xml", "PiMidiDaemon.midi.xml", "soundconfig.xml", "effects.xml"]
 ))
 bad = 0
 for f in files:
@@ -89,8 +89,20 @@ ssh "$HOST" 'mv ~/.mixxx/skins/TriMixxx_skin ~/.mixxx/skins/TriMixxx'
 # Mixxx rewrites mixxx.cfg from memory when it exits, so copying it while the
 # old instance is still running gets it clobbered the moment the restart stops
 # that instance. Stop first, then copy, and the new instance reads what we sent.
+#
+# effects.xml is the third file Mixxx keeps outside mixxx.cfg: the effect chain
+# presets, i.e. which effects are loaded in each unit, their parameters, and the
+# chain's mix mode. It carries the effect-pedal bus -- EffectUnit2 in WET mode
+# with a reverb loaded -- so without it the deck boots with an empty chain and
+# the aux return is silent. Same rewritten-on-exit caveat as mixxx.cfg, hence
+# the same stop-first ordering.
+#
+# One hazard worth knowing: the WET mix mode only exists in our Mixxx fork.
+# EffectChainMixMode::fromString falls back to DRY/WET on an unrecognised
+# string, so a stock Mixxx reading this file downgrades the pedal bus to
+# dry/wet silently -- which on a send/return puts the dry in the mix twice.
 ssh "$HOST" 'sudo systemctl stop getty@tty1.service' || true
-scp mixxx.cfg soundconfig.xml "$HOST":~/.mixxx/
+scp mixxx.cfg soundconfig.xml effects.xml "$HOST":~/.mixxx/
 scp TriMixxx.midi.xml TriMixxx.scripts.js \
     PiMidiDaemon.midi.xml PiMidiDaemon.scripts.js "$HOST":~/.mixxx/controllers/
 ssh "$HOST" 'sudo systemctl restart getty@tty1.service'
