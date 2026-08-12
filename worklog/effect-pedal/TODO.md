@@ -42,12 +42,15 @@ CODEC", full-speed USB, card 0). Findings:
 
 **Deferred — needs the mixer physically connected:**
 
-- [ ] Round-trip latency measurement. Loop the codec's output back to its own
-      input, stop Mixxx, play an impulse and record simultaneously at the
-      deck's buffer setting, cross-correlate. Assumed value below until then.
-- [ ] Levels: find the send pot position giving peaks around −6 to −10 dBFS
-      with a loud track. Expect it well below the centre detent — aux out is
-      nominal −2 dBu into a consumer line input, before the pot's +6 dB.
+- [x] **Round-trip latency: 32 ms ± 3.** `alsabat --roundtriplatency` at the
+      deck's own buffer settings, three runs. 60% above the 20 ms estimate,
+      because both directions cost a full buffer rather than a period and the
+      codec is USB 1.1 full speed. Method and consequences in
+      `measurements.md`.
+- [x] **Levels: settled at ~1 o'clock, −12.8 dBFS peak.** Fully clockwise was
+      −0.33 dBFS, no headroom at all. −12.8 looks conservative for one source
+      and is not: the aux bus sums, so two channels at this level already peak
+      near −7.
 - [x] **Hum: measured, and it's a non-issue.** Connected and powered with all
       sends off, the broadband floor rose 1.1 dB over the unconnected control
       (−90.7 → −89.6 dBFS). A mains component *is* present — 100 Hz up 8.7 dB,
@@ -62,10 +65,10 @@ CODEC", full-speed USB, card 0). Findings:
       not the constraint here; heat might be. Re-check under duplex + DSP in a
       closed chassis.
 
-## Assumed values (unverified — replace with measurements)
+## Assumed values, and what they turned out to be
 
-Everything downstream is written against these. None of them block Phases 1–3;
-they matter for Phase 4 and for final trim.
+All measured now. Kept side by side because two of the estimates were wrong in
+ways that mattered.
 
 | Quantity | Assumed | Measured | |
 |---|---|---|---|
@@ -97,8 +100,10 @@ Pure config. Proves Mixxx's input side end to end before any engine work.
       overwritten before anything reads it. Forced from `TriMixxx.init` in
       `TriMixxx.scripts.js` instead. **This is the failure mode that reads as
       "I configured the input and there is no sound".**
-- [ ] Verify `[Auxiliary1] input_configured` reads 1 at runtime.
-- [ ] Listen: the send should arrive in the main out clean and at sane level.
+- [x] Verified: `Input channels: 2`, `1 input sound devices opened`, capture
+      stream `Running`, and the Effects page reports the aux configured and on
+      the main mix.
+- [x] Listened. The send arrives clean.
 - [ ] Re-pull `soundconfig.xml` from the deck afterwards — Mixxx rewrites it at
       startup once devices are set up.
 - [ ] Confirm behaviour when the codec re-enumerates (unplug/replug): does the
@@ -129,8 +134,11 @@ Mixxx cannot return wet-only today. `Reverb` and `Echo` declare
       processing block, gated on `channelStatus.enableState != Disabled` so it
       silences a routed-but-idle chain without touching channels the unit isn't
       routed to
-- [ ] **Build it.** Not yet compiled — needs the arm64 Docker build. Nothing
-      below Phase 2 has run on hardware.
+- [x] **Built, deployed and audible.** Also since extended for the rack: six
+      slots per unit, a per-slot `wet` control blended in the chain loop
+      (WetOnly chains only), that value carried in `EffectPreset`, and the
+      `mix_mode` toggle put back to two states so `WET` stops leaking into
+      QuickEffect and Equalizer chains.
 - [ ] Extend the `mixxx-test` target if there's an existing engineeffectchain
       test; otherwise assert the three modes by hand with a known buffer
 
@@ -165,9 +173,7 @@ Mixxx cannot return wet-only today. `Reverb` and `Echo` declare
 
 ## Phase 3 — Route a unit to the aux and make it sound right
 
-- [ ] Dedicate one unit (EffectUnit2 suggested — Unit1 is already routed to
-      `[Channel1]`): `group_[Auxiliary1]_enable 1`, `group_[Channel1]_enable 0`,
-      `mix_mode 2`
+- [x] EffectUnit2 dedicated to `[Auxiliary1]`, `mix_mode` WET.
 - [ ] Chain `Filter (HPF) → Reverb`. HPF ~200–300 Hz on the wet keeps the effect
       obvious while removing the low-mid energy that carries perceived loudness,
       so the "no volume change" goal survives contact with a real system.
@@ -176,12 +182,10 @@ Mixxx cannot return wet-only today. `Reverb` and `Echo` declare
         feeding the tank and the existing tail rings out
       - `[EffectRack1_EffectUnit2] mix` = **return** — post-effect, cuts the
         tail dead
-- [ ] Ship the preset: chains live in `~/.mixxx/effects.xml`
-      (`effectsmanager.cpp:21`). Add it to `upload.sh` with the same
-      stop-Mixxx-first handling as `mixxx.cfg`, and the same XML pre-validation.
-- [ ] Sanity test at the mixer: send at zero → return is silent; send up →
-      reverb only, dry level unchanged. **If the dry level moves at all, stop**
-      — something is still passing dry.
+- [x] Preset shipped: `mixxx_config/effects.xml`, validated and copied by
+      `upload.sh` with the same stop-first handling as `mixxx.cfg`.
+- [x] Sanity tested at the mixer: reverb only, dry level unchanged, and it
+      survives a reboot with no manual step.
 
 **Exit criterion:** the original problem is solved. Everything below is
 refinement.
@@ -244,24 +248,36 @@ phase-align", which is still a large improvement over seconds.
 
 ---
 
-## Phase 5 — The FX tab
+## Phase 5 — The effect rack  *(superseded: see `docs/effects-prd.md`)*
 
-- [ ] Third child of `RootStack` in `skin.xml`, alongside `DeckView` and
-      `LibraryView`
-- [ ] Widgets exist already (`legacyskinparser.cpp:602-619`): `EffectSelector`,
-      `EffectName`, `EffectMetaKnob`, `EffectParameterKnob`,
-      `EffectParameterName`, `EffectPushButton`, `EffectChainPresetButton`
-- [ ] Prefer the slot controls over dropdowns for touch: `next_effect`,
-      `prev_effect`, `loaded_effect`, `effect_selector`, `enabled`, `meta`,
-      `parameterN` (`effectslot.cpp:78-123`)
-- [ ] **Open decision — the control surface.** Ring A and B are fully
-      allocated, so a live wet knob has to come from somewhere: the touchscreen,
-      the browse encoder over the deck view (currently waveform zoom, a
-      set-and-forget binding), or repurposing a pad as a momentary throw. With
-      wet-only working, the mixer's own send pots are the natural performance
-      control and the deck side may only need a trim — decide before building
-      the panel, not after.
-- [ ] Chain presets per genre, switchable live
+The "FX tab" sketched here became a full design and a signed-off PRD, revision
+3. Everything below is now specified there rather than guessed at: a horizontal
+rack of drawn modules, per-unit wet with the first dry-killer locked open, a
+master module pinned right and driven by the encoder, drag to scroll, hold to
+reorder, drag-to-bin to remove, and racks saved as stock Mixxx chain presets.
+
+**The engine work it rests on is done** (Phase 2). What remains is UI:
+
+- [ ] **Move the debug status block to Diagnostics.** Aux configured, aux to
+      main, aux level, unit routed, unit enabled, mix mode, effect loaded,
+      effect on, slot group — plus the measured 32 ms round trip and the aux VU
+      as a live bar. It is diagnostic information and belongs with the rest of
+      it. The rack shows no status text.
+- [ ] **Invert the browser's gesture dispatch.** `move`, `select` and `back`
+      each carry a chain of `if (m_stack.last().kind == …)` — sort menu,
+      diagnostics, effects — growing by three every time a page is added. The
+      rack needs drag, long-press and horizontal scroll on top. A page should
+      claim the gestures it wants instead of the browser knowing about each one.
+- [ ] **Replace `WDeckEffects` wholesale.** It rebuilds a rich-text document
+      through `setHtml` five times a second; it cannot do dragged knobs and
+      cannot do drag-and-drop reordering at all. It was scaffolding and says so.
+- [ ] Module chrome: cached `QPixmap` per module type, procedural, from the
+      palettes sampled off the reference skins (PRD §9).
+- [ ] Knobs, drag and double-tap-to-reset.
+- [ ] Rack scroll, long-press reorder, bin.
+- [ ] The `(+)` chooser.
+- [ ] Master module + encoder + mute.
+- [ ] Name bar and the rack browser.
 
 ---
 
