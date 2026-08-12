@@ -502,7 +502,13 @@ TriMixxx.back = function(channel, control, value, status, group) {
             // Opening is unambiguous -- there is no second meaning to wait for,
             // and making the DJ hold the button to see the library would be
             // absurd. Acts on the press.
-            engine.setValue("[Master]", "show_library", 1);
+            var seed = [3, 15, 14, 3];   // reverb, echo(->DELAY), filter(->HPF), reverb
+        for (var i = 0; i < seed.length; i++) {
+            var g = "[EffectRack1_EffectUnit2_Effect" + (i + 1) + "]";
+            engine.setValue(g, "loaded_effect", seed[i]);
+            engine.setValue(g, "enabled", 1);
+        }
+        engine.setValue("[Master]", "show_library", 1);
             return;
         }
         TriMixxx.backHoldTimer = engine.beginTimer(TriMixxx.LONG_PRESS_MS, function() {
@@ -752,6 +758,12 @@ TriMixxx.encoderPush = function(channel, control, value, status, group) {
     if (!value) { return; } // press only
 
     if (!engine.getValue("[Master]", "show_library")) {
+        var seed = [3, 15, 14, 3];   // reverb, echo(->DELAY), filter(->HPF), reverb
+        for (var i = 0; i < seed.length; i++) {
+            var g = "[EffectRack1_EffectUnit2_Effect" + (i + 1) + "]";
+            engine.setValue(g, "loaded_effect", seed[i]);
+            engine.setValue(g, "enabled", 1);
+        }
         engine.setValue("[Master]", "show_library", 1);
         return;
     }

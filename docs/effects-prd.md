@@ -458,9 +458,42 @@ ever left deliberately, with a press.
 **`(+)` is hidden when full, and an empty rack shows it centred** with "Add an
 effect" beneath, as §5 asks. The bin appears only while a module is held.
 
-### Not yet verified
+### What looking at it changed
 
-**Nobody has looked at it.** It compiles, deploys, and the deck runs clean, but
-every number in §5 and §6 — module width against four knobs, the 200 px knob
-throw, whether the brushed grain reads as metal or as noise at this size — is a
-guess until it is seen. That was §13's whole point.
+Screenshotted on the deck with `pi_config/deck-shot`, which is what §13 was for.
+Three of the guesses were wrong.
+
+**The module is not 496 px tall.** The browser draws a breadcrumb above the page,
+so the rack gets about 355. The last knob hung out of the bottom of the panel and
+the name plate lay across the one above it. Nothing is a constant now:
+`knobGeometry()` derives every position from the module rect it is given, and the
+row pitch is solved from the space actually left, so the layout cannot overflow
+whatever height the panel turns out to be.
+
+**The name belongs at the top, not the foot.** §6 put it bottom-left, following
+the reference skins' name plates. On a tall narrow module the eye lands at the
+top and the plate at the bottom was competing with a knob. It is now engraved
+into a hatched title strip across the head of the module, with a lit pilot beside
+it.
+
+**Knobs stack in two staggered columns, not one.** The single column of §14's
+first draft was legible but wasteful, and four knobs did not fit. Two columns
+with the right one dropped half a row buys the room back: the captions of one
+column sit beside the knobs of the other rather than under them.
+
+**Knob caps must not be their panel's colour.** This one only appeared with three
+materials on screen at once — matching made the black module's knobs invisible
+and the yellow module's gold-on-gold. Real equipment goes the other way, dark
+caps on light panels and light on dark, and now so does this.
+
+Also added because the first pass read as flat: a frame within a frame, the
+working area recessed into the face, ribbed hatching on the title strip, tick
+marks around each knob's travel, knurling on the caps, a corner grip. One bevel
+looks like a button; three depths look like a panel.
+
+### Still unverified
+
+The **touch gestures** — knob drag, double-tap reset, rack scroll, long-press
+reorder, drag-to-bin — have not been exercised by a finger. They are implemented
+and the geometry they hit-test against is the geometry that is drawn, but a
+screenshot cannot press anything.
