@@ -472,23 +472,21 @@ into place and then restarting lets the *running* instance write its stale
 in-memory state over the restore — the exact hazard `upload.sh`'s comment
 describes. It only bites now because the save works. Always stop first.
 
-### Still open: a second crash, later in shutdown
+### The "second crash" does not reproduce — withdrawn
 
-After both saves complete, shutdown still ends in 135 (SIGBUS) — **with our skin
-only**; stock LateNight exits 0. So there is a second memory bug in the deck's
-own widgets, and unlike the first it costs nothing functional. The bisect
-harness (`worklog/effect-pedal/`, and the exit-status logging now in `xinitrc`)
-makes finding it cheap to repeat.
+Right after the TrackCache fix, one shutdown with our skin still gave 135 while
+stock LateNight gave 0, and that was written up here as a second, skin-specific
+bug. It is not.
 
-Where to go next on that one, cheapest first:
+Three consecutive shutdown tests with the TriMixxx skin now give **exit 0 and
+both settings files written**. The single 135 came from the one test where
+config had just been restored underneath a *running* Mixxx — an instance holding
+stale state that then wrote it back — so the likeliest reading is the same
+corruption, or an artefact of that sequence, rather than a separate defect.
 
-1. **Reproduce off the deck.** A desktop build of the fork, same shutdown path.
-   If it reproduces, everything below is easy; if it does not, it is arm64,
-   this Qt, or the GL driver.
-2. **ASan.** `-fsanitize=address` names the offending allocation directly and
-   is the fastest route to an answer if step 1 reproduces.
-3. **Bisect the fork** against upstream 2.5.6, which is the branch point.
-4. Until then, config on the deck is `scp`-managed anyway, so the practical
+Nothing further to hunt. If it reappears the harness is still here: the exit
+status logging in `xinitrc`, and `git bisect` with main's `Dockerfile` and
+`.dockerignore` pinned on every step.
    damage is limited to state the DJ changes in the UI.
 
 **This invalidates two earlier conclusions in this document.** Both were reached
