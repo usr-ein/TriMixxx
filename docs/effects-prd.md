@@ -36,8 +36,16 @@ draggable knobs; a per-unit wet knob; a pinned master module driven by the
 encoder; add, reorder and delete; scrolling; save and load of whole racks;
 persistence across restarts.
 
-**Out (this round):** LV2 hosting, beat-synced delay times, a second rack for the
-deck's own audio, MIDI mapping of rack controls, effect automation.
+**Out (this round):** LV2 hosting, a second rack for the deck's own audio, MIDI
+mapping of rack controls, effect automation.
+
+**Beat sync is in, and was out when this was written.** The aux has no beatgrid
+of its own, so `[EffectTempo] bpm` is published from whichever deck has been
+playing longest — Pro DJ Link players and this deck judged on the same terms —
+and `EngineAux::collectFeatures` turns it into a `beat_length`. Length only, not
+phase: quantising a delay to a musical division is the useful half, and the
+phase of several decks summed by a mixer and arriving 32 ms late has no single
+right answer. The name bar says which deck and at what tempo.
 
 **Moved, not deleted:** everything the current effects page shows about the
 signal path — aux configured, aux to main, aux level, unit routed, unit enabled,
@@ -395,24 +403,29 @@ and looking at it on the deck:
 Written after implementing it, because a PRD that never gets marked up is a PRD
 nobody checked against.
 
-### Deferred
+### Deferred, then built after all
 
-**Saving and loading named racks (§10) is not built.** The design stands and
-Mixxx already has the machinery — chain presets as XML under
-`~/.mixxx/effects/chains/`, via `EffectChainPresetManager`. The obstacle is
-plumbing rather than design: saving needs `EffectsManager`, and a skin widget is
-handed no route to it. Doing it properly means threading that through
-`LegacySkinParser` into `WDeckBrowser`, which is a change to how the deck's
-widgets are constructed and did not belong in the same commit as the drawing.
+Saving and loading named racks was written up here as deferred, on the grounds
+that saving needs `EffectsManager` and a skin widget has no route to one. **That
+was wrong** — `LegacySkinParser` has held an `EffectsManager*` all along, so the
+plumbing was one argument passed to `WDeckBrowser` and on to the rack.
 
-Loading *could* be done today through `chain_preset_selector` and friends, which
-are ordinary controls — but a browser that can load and not save is worse than
-none. **The name bar is built and shows the generated name; tapping it does
-nothing yet.**
+Everything else was already in Mixxx: named chain presets as XML under
+`~/.mixxx/effects/chains/` (the SD card on this deck), loaded at startup, listed
+sorted, deleted on request. A rack *is* a chain, so saving one is saving a chain
+preset. It also writes immediately, so a saved rack does not depend on Mixxx
+surviving to shutdown.
 
-The live rack still persists across restarts through `effects.xml`, which now
-works: the shutdown crash that prevented Mixxx ever writing its settings was
-fixed on the way here.
+Tapping the name bar opens the list; row 0 is always "save this one", so an
+empty list is a usable screen rather than a dead end.
+
+**Loading forces the mix mode back to `WET` afterwards.** A preset carries its
+own, and a rack restored as `DRY/WET` would quietly put the dry into a mixer
+that already has one — the exact fault this bus exists to remove, arriving
+through the one door nobody would think to watch.
+
+The live rack also persists through `effects.xml`, which works now that the
+shutdown crash is fixed.
 
 ### Compromised
 
