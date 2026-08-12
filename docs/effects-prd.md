@@ -3,9 +3,9 @@
 The deck's effects UI: a 19-inch rack of effect modules, on a touchscreen,
 driving the effect-pedal bus. This document is the *what* and the *why*.
 
-Status: **revision 3 — signed off.** Every design question is answered and
-recorded in §12. What remains (§13) is settled by drawing it and looking at it on
-the deck, not by decision, and does not block implementation.
+Status: **revision 4 — built.** The rack is implemented and on the deck
+(`src/widget/deck/wdeckrack.cpp`). §14 records what was compromised, deferred or
+decided differently once it met the code.
 
 Companion documents: `xone92-send-return.md` for the mixer side,
 `worklog/effect-pedal/TODO.md` for the engine work already landed.
@@ -386,3 +386,81 @@ and looking at it on the deck:
    the one that gets grabbed mid-transition and may want to be coarser.
 3. **Does the brushed-metal grain survive** at 204 px wide without looking like
    noise? If not, the grain gets coarser rather than the material changing.
+
+
+---
+
+## 14. What the build changed, deferred or compromised
+
+Written after implementing it, because a PRD that never gets marked up is a PRD
+nobody checked against.
+
+### Deferred
+
+**Saving and loading named racks (§10) is not built.** The design stands and
+Mixxx already has the machinery — chain presets as XML under
+`~/.mixxx/effects/chains/`, via `EffectChainPresetManager`. The obstacle is
+plumbing rather than design: saving needs `EffectsManager`, and a skin widget is
+handed no route to it. Doing it properly means threading that through
+`LegacySkinParser` into `WDeckBrowser`, which is a change to how the deck's
+widgets are constructed and did not belong in the same commit as the drawing.
+
+Loading *could* be done today through `chain_preset_selector` and friends, which
+are ordinary controls — but a browser that can load and not save is worse than
+none. **The name bar is built and shows the generated name; tapping it does
+nothing yet.**
+
+The live rack still persists across restarts through `effects.xml`, which now
+works: the shutdown crash that prevented Mixxx ever writing its settings was
+fixed on the way here.
+
+### Compromised
+
+**The dry-killer test is a flag in the module catalogue, not the manifest.**
+§3.2 defines "generates new material" as `addDryToWet`, which is exactly right
+and is what the engine uses. The widget cannot see manifests — it reaches the
+engine through `ControlProxy` and there is no control that exposes the flag — so
+`CatalogueEntry::generatesNewMaterial` restates it. Two places to keep in step,
+for a catalogue that is five entries long and fixed. If the rack ever takes
+arbitrary effects, this has to come from the manifest instead.
+
+**Effects are loaded by position in `VisibleEffects`, not by id.**
+`loaded_effect` takes an index, and no control takes an effect id. So the
+catalogue carries indices into the list shipped in `mixxx_config/effects.xml`
+(reverb 3, filter 14, echo 15). It is the one coupling from this code to a file
+it does not own, and reordering that list silently loads the wrong effects.
+Called out in a comment where the table is.
+
+**Knobs stack rather than sitting side by side.** §6 sketched two knobs per row
+below the metaknob. At 204 px, two knobs with captions readable at arm's length
+do not fit, so all knobs are in one column: the big one at the top, the rest
+under it. It costs vertical room and caps a module at about four knobs, which is
+enough for everything in the catalogue.
+
+**Scrolling is direct, not kinetic.** The rack follows the finger and stops when
+it stops. Kinetic scrolling with a `QScroller` would fight the long-press and
+the knob drags for the same events, and the rack is at most six modules wide —
+about one screen and a half — so there is nothing to fling through.
+
+### Decided differently
+
+**No per-module bypass, and the metaknob is not a separate knob.** §12 settled
+bypass as "no". In the same spirit the module's headline knob is its **WET**,
+not the effect's metaknob: WET is what the PRD asks for per unit, it is what the
+engine now implements per slot, and having both would be two knobs that mostly
+do the same thing. Each effect's real parameters are exposed directly instead —
+decay, bandwidth and damping rather than one macro over them.
+
+**Turning the encoder while muted sets the level it will return to**, rather
+than unmuting. Unmuting by turning would be a surprise; this way mute is only
+ever left deliberately, with a press.
+
+**`(+)` is hidden when full, and an empty rack shows it centred** with "Add an
+effect" beneath, as §5 asks. The bin appears only while a module is held.
+
+### Not yet verified
+
+**Nobody has looked at it.** It compiles, deploys, and the deck runs clean, but
+every number in §5 and §6 — module width against four knobs, the 200 px knob
+throw, whether the brushed grain reads as metal or as noise at this size — is a
+guess until it is seen. That was §13's whole point.
