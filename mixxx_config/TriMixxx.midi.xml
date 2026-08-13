@@ -16,6 +16,18 @@
     </scriptfiles>
     <controls>
 
+      <!-- Unattended audio capture, for pi_config/deck-record. Note 0x7A
+           toggles Mixxx's recorder, so a change can be listened to from the
+           machine that made it rather than by standing at the deck. The S3
+           never sends this note; it exists for the test harness. -->
+      <control>
+        <group>[Recording]</group>
+        <key>toggle_recording</key>
+        <status>0x90</status>
+        <midino>0x7A</midino>
+        <options><normal/></options>
+      </control>
+
       <!-- ===================== Transport ===================== -->
       <!-- Play/pause: note 0x3C -> toggle (script) -->
       <control>

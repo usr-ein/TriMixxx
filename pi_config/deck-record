@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# deck-record [seconds] [out.wav]  --  record the deck's main mix and fetch it.
+#
+# Completes the pair deck-shot/deck-poke makes: one sees, one touches, this one
+# LISTENS. Without it the only way to know whether an effect change did anything
+# audible was to stand in front of the deck, which is exactly the loop those two
+# were written to close.
+#
+# It records Mixxx's own main mix -- the same sum that leaves the DAC -- so it
+# hears the aux return, the effect chain and the master gain together, which no
+# amount of `arecord` on the input side can tell you. arecord captures what the
+# CDJ is sending IN; this captures what the deck sends BACK.
+#
+#   ./deck-record              -> 10 s to /tmp/deck-<timestamp>.wav
+#   ./deck-record 20 out.wav
+#
+# The toggle arrives as MIDI note 0x7A on the deck's own controller port, which
+# is why this needs the mapping that carries it. It is a toggle and not a
+# duration, so a run that dies between the two calls leaves the recorder ON --
+# hence the trap.
+set -euo pipefail
+
+HOST="${HOST:-trimixxx-pi}"
+SECS="${1:-10}"
+OUT="${2:-/tmp/deck-$(date +%Y%m%d-%H%M%S).wav}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+
+REC_DIR=/home/sam1902/Music/Mixxx/Recordings
+
+# Start from a known state: anything left behind by an interrupted run would be
+# picked up below as "the newest file" and quietly analysed instead.
+ssh "$HOST" "mkdir -p $REC_DIR && rm -f $REC_DIR/*.wav"
+
+stop() { "$HERE/deck-poke" midi "90 7A 00" >/dev/null 2>&1 || true; }
+trap stop EXIT
+
+"$HERE/deck-poke" midi "90 7A 7F" >/dev/null
+sleep "$SECS"
+"$HERE/deck-poke" midi "90 7A 00" >/dev/null
+trap - EXIT
+sleep 1
+
+REMOTE="$(ssh "$HOST" "ls -t $REC_DIR/*.wav 2>/dev/null | head -1")"
+[ -n "$REMOTE" ] || { echo "nothing recorded -- is [Recording] mapped?" >&2; exit 1; }
+scp -q "$HOST:$REMOTE" "$OUT"
+echo "==> $OUT"

@@ -838,16 +838,48 @@ display showing a level neither stage has.
 The level that should move across is the one the DJ would come back to, which is
 `m_mutedLevel` whenever it is set.
 
-### 17.3 CUT does not work — **not yet explained**
+### 17.3 CUT does not work — **it does; a closed filter was eating the rack**
 
-Reported as not working at all. The obvious causes are ruled out: on the deck,
-`mix = 1`, `makeup = 1`, `pregain = 1`, `mix_mode = 2` (WetOnly), the unit is
-enabled and routed to `[Auxiliary1]`. The control exists, the binary contains it,
-and the engine applies `mix × makeup` in the WetOnly branch.
+Measured on the deck rather than reasoned about, and the report was right about
+the symptom and wrong about the cause.
 
-**Do not guess at this one.** It is being observed on the deck with a probe on
-the two gain stages rather than reasoned about from the source, which is the
-lesson the MONITOR switch already taught once.
+CUT is fine. Driving the rocker and the encoder from `deck-poke` while watching
+the two gain stages: tapping CUT moves the master onto `makeup`, the encoder
+takes it smoothly from 0.64 to 1.47, `pregain` stays pinned at unity, and
+`mix_mode` is 2 throughout. The control path does exactly what §15.2 asks.
+
+**The rack was silent whatever the master did**, because the third module — an
+LPF — was sitting at its floor of 13 Hz. A low-pass at 13 Hz passes nothing, and
+everything downstream of it, including the second reverb, was reverberating
+silence. Recorded through Mixxx's own main mix:
+
+| Rack | RMS | Peak |
+|---|---|---|
+| LPF at 13 Hz | **−79.6 dBFS** | −68.0 dBFS |
+| Same rack, LPF opened to 3.4 kHz | **−37.9 dBFS** | −21.7 dBFS |
+
+−79.6 dBFS is the noise floor. Nothing was reaching the master, so no master
+gesture could have done anything, in either mode.
+
+The filter was not born that way: a fresh LPF from the chooser comes up at
+2.0 kHz, as §15.6 asks. That one had been dragged shut, or predates the
+mid-band default.
+
+**What this actually exposes is a missing instrument.** A module that kills the
+whole chain looks exactly like a module that is working — correct chrome, a
+plausible readout, a lit pilot lamp. Nothing on screen distinguishes "the rack
+is off" from "the rack is fine and this one knob is closed". That is §15.3, per
+slot metering, and this promotes it from a nicety to the thing that would have
+made this self-evident in a second. It is the same silent-failure shape as the
+codec MONITOR switch and the four pedal-bus traps.
+
+### 17.5 The add button hides behind the master
+
+With four modules the rack's content is 832 px against an 820 px viewport, so
+the `(+)` falls under the pinned master and needs a scroll to reach. It is
+reachable — `scrollSpan()` counts it — but nothing says so. Minor, noted rather
+than fixed: scrolling is the design, and special-casing the one width where it
+is just off screen would be a worse rule than the one it replaced.
 
 ### 17.4 The encoder should follow the last knob touched
 

@@ -297,6 +297,7 @@ TriMixxx.init = function(id, debugging) {
         });
     engine.beginTimer(2000, TriMixxx.setupPedalBus, true);
 
+
     // Return to the waveform whenever a track is loaded (from the hardware
     // encoder push or an on-screen library tap), so the library never stays up
     // over the deck. [Master],show_library is the skin's deck/library toggle.
