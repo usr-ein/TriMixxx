@@ -3,7 +3,9 @@
 The deck's effects UI: a 19-inch rack of effect modules, on a touchscreen,
 driving the effect-pedal bus. This document is the *what* and the *why*.
 
-Status: **revision 4 — built.** The rack is implemented and on the deck
+Status: **revision 5 — first test run done.** §15 is the list it produced.
+
+Previously: **revision 4 — built.** The rack is implemented and on the deck
 (`src/widget/deck/wdeckrack.cpp`). §14 records what was compromised, deferred or
 decided differently once it met the code.
 
@@ -510,3 +512,173 @@ The **touch gestures** — knob drag, double-tap reset, rack scroll, long-press
 reorder, drag-to-bin — have not been exercised by a finger. They are implemented
 and the geometry they hit-test against is the geometry that is drawn, but a
 screenshot cannot press anything.
+
+
+---
+
+## 15. Follow-up from the first test run
+
+Nine problems, in the order they were reported. Several are one-line fixes;
+two are engine work; one is a design mistake in this document.
+
+### 15.1 The rack cannot reach the deck's own audio — **engine work**
+
+The rack processes `[Auxiliary1]` and nothing else, so it can effect every
+channel on the mixer *except* the one the deck is playing. That is backwards for
+the one deck the DJ is actually holding.
+
+Wanted:
+
+```
+(AUX IN × a) + (TriMixxx deck × b) ──> rack ──> wet ─┐
+                                                     ├──> deck output
+                             TriMixxx deck dry ──────┘
+```
+
+**Routing the unit to both channels does not do this.** Mixxx effect units are
+per-input-channel: a unit enabled for `[Auxiliary1]` and `[Channel1]` processes
+each *separately*, with its own state per channel — and in WET mode the deck's
+channel would then emit tail only, taking its dry with it. What is wanted is one
+chain over a *sum*, which Mixxx has no concept of.
+
+**Proposed: make the aux channel the send bus.** `EngineAux::process()` already
+receives the input, applies `pregain`, and runs the chain. If it also summed in
+a scaled copy of the deck's post-fader audio *before* the chain, then everything
+downstream is unchanged: the same single chain, the same WET output, the same
+one place it lands in the main mix — and the deck's own dry path is never
+touched, so it keeps going to the output as it does now.
+
+The risk is ordering: the deck's buffer has to be filled before the aux is
+processed. `EngineMixer` decides that, so this needs checking rather than
+assuming, and a wrong order silently gives a buffer late by one callback (~6 ms
+— inaudible, but wrong, and the kind of wrong that is never noticed).
+
+**The two dials** are that bus's send levels — a fixed **INPUT** module pinned at
+the far left, mirroring the master pinned at the far right, with `AUX` and
+`DECK`, both defaulting to 100%. They are exactly the Xone's per-channel aux
+sends, one layer in.
+
+### 15.2 The master should choose between cutting and ringing out
+
+Turning the master down cuts the wet immediately, because it scales the chain's
+*output*. To let a reverb ring out, the master has to scale the chain's *input*
+instead and let the tails decay on their own.
+
+That is the send/return distinction from `xone92-send-return.md`, arriving
+inside the deck: pull the **send** and the tank stops being fed but what is in
+it rings out; pull the **return** and the tail is cut dead. Both are musical and
+they are different gestures.
+
+**A toggle on the master module, drawn as a rocker** — `(0  )` / `(  0)` — picks
+which of the two the master knob and the mute drive. The other stays at unity.
+Default: **ring out**, because it is the one that cannot be got any other way.
+
+### 15.3 A VU on every module, and on the master — **engine work**
+
+Nothing publishes an effect slot's output level; it has to be measured where the
+audio is, in `EngineEffectChain::process()`, after each effect. A peak per slot,
+published as a control the module can draw.
+
+Styled to match: a recessed slot with a segmented ladder, green through amber to
+red, the way the reference skins draw theirs — not a flat progress bar.
+
+### 15.4 The rack is too quiet even at full master
+
+Correct, and structural rather than a mistake: the chain's output is
+`wet × mix`, `mix` maxes at 1.0, and a reverb tail at unity is far quieter than
+the dry it is sitting beside. There is no gain in the path at all.
+
+**Needs makeup gain**, either as range on the master beyond unity (say to
++12 dB) or as a normalising stage on the wet. The master having gain in hand is
+the more useful of the two — "I can always turn it down" only works if there is
+something above unity to turn down from.
+
+### 15.5 The rack does not survive leaving the page — **root cause found**
+
+Not persistence. `writeChainToEngine()`:
+
+```cpp
+m_modules.append({i, m_modules.size()});   // slot is already the index it will take
+...
+if (module.slot != i) {                    // so this is false
+    slotControl(i, "loaded_effect")->set(...);   // and the effect never loads
+}
+```
+
+A module added from the chooser is **drawn but never loaded into the chain**.
+Leaving the page calls `syncFromEngine()`, which rebuilds from the chain, finds
+nothing, and empties the rack. Reordering works only because moving a module
+makes `slot != i` true, which is why the fault looked intermittent.
+
+Also in this area:
+
+- **Saving asks for a name.** `EffectChainPresetManager::savePreset()` puts up a
+  dialog. On a deck with no keyboard the name must be generated and the file
+  written directly.
+- **A saved rack does not appear in the list** — almost certainly the same
+  thing: the dialog is dismissed, nothing is saved.
+- **The list does not scroll.** It draws rows until it runs out of screen and
+  stops.
+- **The last saved rack should load at startup**, so the deck comes up as it was
+  left.
+
+### 15.6 Filters should not have a wet knob at all — **the design was wrong**
+
+The report is right, and this document is what was wrong. §3.1 applies one blend
+rule to every module:
+
+```
+out = filter(in, cutoff)·w + in·(1 − w)
+```
+
+Everything above an HPF's cutoff appears in **both** terms — once filtered, once
+not — so it is heard twice, at a level that depends on the wet knob. That is not
+a half-open filter, it is a comb of the passband against itself.
+
+**A filter's output is the whole of its output:**
+
+```
+out = filter(in, cutoff)
+```
+
+No wet knob. "No effect" is what the cutoff already means at its extreme — HPF
+at the bottom, LPF at the top — so the knob it needs is the one it has.
+
+Two consequences: **the cutoff is a frequency in Hz**, and **HPF and LPF run
+opposite ways** — HPF cuts below its cutoff, LPF cuts above, exactly as the Xone
+does, so a DJ's hands already know which way to turn. And both **default to
+mid-band** rather than to an extreme, so a filter dropped into the rack does
+something instead of nothing.
+
+Note this does not disturb §3.2: a filter never was a dry-killer, and removing
+its wet knob does not change which module is.
+
+### 15.7 A dragged module jumps to a different height
+
+The drag offsets the module so its *centre* lands under the finger. It should
+keep the grab point: record where in the module the press landed and hold that
+constant, so the module stays exactly where it was picked up.
+
+### 15.8 Reordering should displace, not just drop
+
+Wanted: with A B C, holding C and dragging it left of B makes **B slide right
+into C's place and C take B's**, live, while still held. Dragging further past A
+swaps again. Dropping just stops. The rack is always showing the order that
+would result, so there is no moment where the outcome has to be imagined.
+
+That is a continuous reorder rather than a deferred one: the swap happens when
+the dragged module's centre crosses a neighbour's, and the neighbours animate to
+their new positions.
+
+### 15.9 Delay and Echo time should be musical divisions
+
+A continuous time knob is a blur to aim at. Fixed stops, with the value shown
+beside the dial:
+
+`1/16 · 1/8 · 1/4 · 1/2 · 3/4 · 1 · 2 · 4 · 8`
+
+These are beats, which is what makes them meaningful now that the bus has a
+tempo (§2). Note the floor: at 128 BPM a 1/16 is 29 ms, shorter than the bus's
+own 32 ms round trip, so the shortest divisions cannot be compensated for
+latency and will sit late. Worth having anyway — a late 1/16 is still a 1/16 —
+but it is why the list starts where it does rather than lower.
