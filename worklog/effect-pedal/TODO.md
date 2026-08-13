@@ -434,6 +434,56 @@ the mute-mode toggle the rocker has nothing to switch — so it comes after them
 
 ---
 
+## Open: Mixxx still segfaults at the end of shutdown
+
+**Not the effects, but it was hiding as them.** Mixxx crashed on every
+shutdown from 12 August 19:04 until 13 August, which is why the rack seemed
+not to persist -- and why *nothing* persisted, mixxx.cfg included, since the
+crash lands before `CoreServices::finalize()` saves anything.
+
+One cause found and fixed: `~MediaRegistry` -> `~ProLinkNetworkService` ->
+`shutdown()` -> `MediaRegistry::onDeviceLost()`, a destructor emitting a signal
+back into the half-destroyed object that owns it, which ran a database query
+and aborted inside malloc. See the commit for the symbolised trace.
+
+**A second crash remains**, and it is further along:
+
+```
+  debug [Main] 87 ms deleting menubar
+  Segmentation fault        (sometimes Bus error -- it alternates)
+```
+
+What is known:
+
+- It is at `mixxxmainwindow.cpp:520`, `m_pMenuBar = nullptr` /
+  `m_pMenuBar.toWeakRef()`, crashing inside
+  `QtSharedPointer::ExternalRefCountData::getAndRef` -- so `m_pMenuBar` is a
+  non-null dangling pointer by then. That is stock Mixxx code.
+- **Not our skin.** It crashes identically with the stock Deere skin.
+- **Not testable against stock Mixxx**: the apt binary exits 143 on SIGTERM
+  because handling that signal is our patch, so it never enters the graceful
+  path at all.
+- The crash type alternating between SIGSEGV and SIGBUS at the same line says
+  the heap is already corrupt before it gets there, so the cause is upstream of
+  the symptom.
+
+Persistence no longer depends on this being fixed -- the rack saves itself two
+seconds after each change -- so this is a tidiness and settings-durability
+issue rather than a data-loss one. **Next step if picked up:** bisect between
+`94d2af3` (12 Aug 09:03, the last build known to shut down cleanly) and
+`3e8022b`, or run one boot with `MALLOC_CHECK_=3` to abort at the corrupting
+operation rather than at its victim.
+
+## Open: an unreproduced bad restore
+
+Once, a cutoff saved as 2658 Hz came back as 13 Hz after a restart. Not
+reproducible since -- 4335 Hz saved and restored correctly on the same build --
+and the file was verified to hold the right value before the restart. Recorded
+because eager persistence makes any transient bad read *permanent*: it would
+overwrite the good file two seconds later. That is why `persistSoon()` ignores
+the startup read.
+
+
 # History
 
 Everything below is settled and is kept for the reasons rather than the results:
