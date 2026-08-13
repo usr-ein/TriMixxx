@@ -23,11 +23,18 @@ above it is verified on the deck rather than on the laptop.
 | 5 · The rack | **built, and tested once** | Superseded by `docs/effects-prd.md`; the test run's list is Phase 8 |
 | 6 · LV2 host | not started | Survey first — it decides whether the rest is worth doing |
 | 7 · Polish | not started | |
-| **8 · The test run's list** | **next** | Nine items, two of them engine work |
+| **8 · The test run's list** | **done bar one** | Only §15.1, the deck into the send bus, is left |
+| **9 · The second test run's list** | **done** | §17.1–17.4; 17.3 was a closed filter, not the master |
+| 10 · The FX strip (§16) | not started | Both its dependencies now exist |
 
-**Next action:** Phase 8's first item — the chain-write bug that empties the rack
-when you leave the page. It is one condition, and it blocks testing everything
-else.
+**Next action:** a test run. Everything below is on the deck and verified as far
+as it can be without ears — the two things that need a listener are the master
+rocker (does RING OUT actually ring out?) and the delay divisions at tempo.
+
+After that, the two remaining PRD items in order: **§15.1**, the deck's own
+audio into the send bus with an INPUT module, then **§16**, the FX strip on the
+deck view. §16 was blocked on metering and the mute-mode toggle; both now
+exist.
 
 ---
 
@@ -351,32 +358,63 @@ From a real run with the rack in front of a mixer. Full reasoning per item in
 **Ordered by what is blocking use.** The first two make the rack behave; the
 engine work after them makes it good.
 
-- [ ] **The rack empties when you leave the page.** `writeChainToEngine()` only
+- [x] **The rack empties when you leave the page.** `writeChainToEngine()` only
       writes `loaded_effect` when `module.slot != i`, and a module appended by
       the chooser already has `slot == i` — so it is drawn but never loaded, and
       `syncFromEngine()` on return finds an empty chain. One condition. **Do
       this first; it makes everything else testable.** (§15.5)
-- [ ] **Filters lose their wet knob.** `out = filter(in, cutoff)` and nothing
+- [x] **Filters lose their wet knob.** `out = filter(in, cutoff)` and nothing
       else — the blend double-counts the passband and combs it against itself.
       Cutoff becomes a frequency in Hz, HPF cuts below and LPF above, both
       default mid-band. (§15.6)
-- [ ] **Saving must not ask for a name.** `savePreset()` opens a dialog; the
+- [x] **Saving must not ask for a name.** `savePreset()` opens a dialog; the
       deck has no keyboard. Generate the name and write the file. Then: saved
       racks appear in the list, the list scrolls, and the last one loads at
       startup. (§15.5)
-- [ ] **Drag keeps its grab point** rather than centring the module on the
+- [x] **Drag keeps its grab point** rather than centring the module on the
       finger. (§15.7)
-- [ ] **Reorder displaces live** — neighbours slide out of the way as the held
+- [x] **Reorder displaces live** — neighbours slide out of the way as the held
       module crosses them, so the rack always shows the order that would
       result. (§15.8)
-- [ ] **Delay and Echo time in fixed divisions**, shown beside the dial:
+- [x] **Delay and Echo time in fixed divisions**, shown beside the dial:
       1/16 · 1/8 · 1/4 · 1/2 · 3/4 · 1 · 2 · 4 · 8. (§15.9)
-- [ ] **Makeup gain on the wet.** The chain outputs `wet × mix` with `mix`
+- [x] **Makeup gain on the wet.** The chain outputs `wet × mix` with `mix`
       maxing at unity, and a reverb tail at unity is far quieter than the dry
       beside it. The master wants range above 0 dB. (§15.4)
-- [ ] **Master ring-out toggle.** A rocker choosing whether the master scales
+- [x] **Master ring-out toggle.** A rocker choosing whether the master scales
       the chain's input (tails ring out) or its output (cut dead). Default ring
       out. (§15.2)
+
+### Phase 9 — the second test run's list — **done**
+
+Reasoning in `docs/effects-prd.md` §17.
+
+- [x] **The rocker glitched on the way across.** It parked the stage it was
+      leaving at unity *before* handing the level to the one it was arriving at,
+      so for one buffer both were open and the chain ran at full wet. Reversed,
+      which turns a burst into an inaudible dip.
+- [x] **Mute did not survive the rocker.** Flipping while muted carried the
+      zero across and left the real level stranded in `m_mutedLevel`.
+- [x] **CUT "did not work at all" — it did.** An LPF three modules in was at its
+      13 Hz floor and everything downstream was reverberating silence. Measured:
+      −79.6 dBFS with it closed, −37.9 with it open. §15.3 metering is the fix
+      for the class, and it now shows exactly where a chain dies.
+- [x] **The encoder follows the last knob touched**, with a lit ring saying
+      which. Press still always mutes the master.
+
+### Found while testing, not on any list
+
+- [x] **Mixxx segfaulted on every shutdown**, so *nothing* persisted — not the
+      rack, not mixxx.cfg. One cause fixed (a destructor emitting signals back
+      into the object destroying it); a second remains, recorded below.
+- [x] **The rack persists itself now**, two seconds after each change, rather
+      than depending on a clean exit that a booth deck rarely gets anyway.
+- [x] **`deck-record`** joins `deck-shot` and `deck-poke`: one sees, one
+      touches, this one listens. It records Mixxx's own main mix, which is the
+      only way to hear the aux return and the chain from here.
+- [x] **The build was capped and pinned.** Trixie pinned rather than read off
+      the deck, build trees keyed per release, parallelism capped so a cold
+      build stops OOMing.
 
 ### The FX strip on the deck view (§16)
 
