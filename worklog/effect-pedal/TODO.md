@@ -542,6 +542,27 @@ engine work after them makes it good.
       the chain's input (tails ring out) or its output (cut dead). Default ring
       out. (§15.2)
 
+### The FX strip on the deck view (§16)
+
+Reaching the effects should not mean leaving the waveform. **Depends on the two
+engine items below** — without metering the VU has nothing to draw, and without
+the mute-mode toggle the rocker has nothing to switch — so it comes after them.
+
+- [ ] An **FX** section down the left of the waveform on the deck view: VU,
+      master knob, mute-mode rocker.
+- [ ] **Touch claims the encoder** — rotate is the FX master, press is its mute,
+      and the border lights while it holds focus. Touching anything else
+      releases it and the encoder returns to library/zoom. The deck view needs
+      its own version of the `DeckPage` claim mechanism, or the two want
+      merging.
+- [ ] **Decide the focus timeout** (§16). Focus takes the encoder press away
+      from the library while held; a timeout gives it back on its own, no
+      timeout keeps it where it was put. Better mid-transition either way is not
+      obvious.
+- [ ] **Factor the chrome out of `WDeckRack`** — bevel, knob, VU, engraved text
+      — now that there is a second caller. Doing it earlier would have been
+      guessing at what the second caller needed.
+
 ### Engine work in this phase
 
 - [ ] **The rack must reach the deck's own audio.** Today it can effect every

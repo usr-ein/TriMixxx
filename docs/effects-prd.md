@@ -682,3 +682,71 @@ tempo (§2). Note the floor: at 128 BPM a 1/16 is 29 ms, shorter than the bus's
 own 32 ms round trip, so the shortest divisions cannot be compensated for
 latency and will sit late. Worth having anyway — a late 1/16 is still a 1/16 —
 but it is why the list starts where it does rather than lower.
+
+
+---
+
+## 16. The FX strip on the deck view
+
+Reaching the effects should not mean leaving the waveform. A DJ riding a filter
+through a transition is watching the track, not a menu three levels into the
+browser.
+
+So: a narrow **FX** section down the left of the waveform, on the deck view.
+
+```
+┌──────┬────────────────────────────────────────────────────┐
+│  FX  │                                                    │
+│      │                                                    │
+│  ▓▓  │              scrolling waveform                    │
+│  ▓▓  │                                                    │
+│  ██  │                                                    │
+│ (◕)  │                                                    │
+│ ⟨0 ⟩ │                                                    │
+└──────┴────────────────────────────────────────────────────┘
+```
+
+- A **VU** showing what the rack is putting out, in the same segmented ladder
+  style as the modules (§15.3).
+- The **master knob**, the same control the rack's master module drives.
+- The **mute mode rocker** from §15.2 — cut, or ring out.
+
+### Touch to focus, and what that costs
+
+Touching the section **claims the encoder**: rotate becomes the FX master level,
+press becomes its mute. The section's border lights while it holds focus, so
+there is never a question of what the encoder is about to do. Touching anything
+else releases it and the encoder goes back to what it does today — the library
+when the browser is up, waveform zoom when it is not.
+
+This is the same problem the browser's pages had, solved the same way: something
+on screen claims a gesture and says so, rather than every handler knowing about
+every claimant. `DeckPage` is that mechanism for the browser stack; the deck view
+needs its own small version of it, or the two want merging.
+
+**The cost is the encoder press.** Over the deck view it opens the library, and
+while FX holds focus it will not — a DJ who focuses FX and then reaches for the
+library has to touch elsewhere first. That is a real consequence and it is worth
+deciding rather than discovering:
+
+> **Open question.** Does focus time out — say five seconds after the last touch
+> — or is it strictly until something else is touched? A timeout means the
+> encoder always comes back on its own; no timeout means it stays where it was
+> put, which is better mid-transition and worse the next time you reach for the
+> library without looking.
+
+### What it needs first
+
+Both from §15, and neither exists yet:
+
+- **§15.3**, per-slot and master output metering, or the VU has nothing to draw.
+- **§15.2**, the mute-mode toggle, or the rocker has nothing to switch.
+
+### What it implies
+
+The rack draws its knobs, VUs, bevels and engraved captions with static methods
+inside `WDeckRack`. The strip needs the same vocabulary in a different widget, so
+**that painting wants factoring out** — a small `deckchrome` of bevel, knob, VU
+and engraved text that both use. Doing it when the second caller appears is the
+right time; doing it before would have been guessing at what the second caller
+needed.
