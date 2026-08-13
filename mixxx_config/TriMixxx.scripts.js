@@ -225,36 +225,20 @@ TriMixxx.playIntro = function(onDone) {
 // because init runs before the aux input exists and what survives that varies
 // between boots.
 TriMixxx.setupPedalBus = function() {
-    var slot = "[EffectRack1_EffectUnit2_Effect1]";
+    // One line, and it is the one thing the rack genuinely cannot do for
+    // itself. `main_mix` is NOT a persisted control: EngineAux's constructor
+    // calls setMainMix(false) unconditionally on every start, so whatever
+    // mixxx.cfg says, the aux boots muted and the Xone's send arrives at a
+    // channel nobody is listening to.
+    //
+    // Everything else this used to do -- loading a reverb into slot 1, setting
+    // its metaknob, enabling the slot -- belonged to a time before WDeckRack
+    // existed. The rack now restores the chain from effects.xml at
+    // construction and writes it back, which is what asserts the slot enables
+    // that StandardEffectChain does not set for itself. Doing it here as well
+    // meant stamping a reverb over slot 1 of whatever rack the DJ had saved,
+    // on every boot.
     engine.setValue("[Auxiliary1]", "main_mix", 1);
-
-    // Load from the manifest every session, and do not trust `loaded` to say
-    // whether that is needed. A preset can set `loaded` while mapping no
-    // parameters at all -- ours did -- which leaves a reverb that reports
-    // itself present and healthy with send_amount at 0, feeding nothing into
-    // the tank. Worse, the slot then serialises an empty <Parameters> list on
-    // exit, because EffectPreset reads m_loadedParameters and that is what was
-    // never filled. So the bad state is self-perpetuating and cannot be fixed
-    // by capturing what the deck writes.
-    //
-    // loaded_effect calls loadEffectWithDefaults, which builds the parameter
-    // set from the manifest. 3 is Reverb's 1-based position in the
-    // VisibleEffects list shipped in effects.xml (whitenoise, tremolo, reverb).
-    //
-    // The flag is set from what the control reads back rather than from having
-    // made the call, so this keeps retrying across the init/input_configured/
-    // timer sequence until one of them lands, then stops -- which is what keeps
-    // a later re-assert from stamping over a value being adjusted by hand.
-    if (!TriMixxx.pedalBusReady) {
-        engine.setValue(slot, "loaded_effect", 3);
-        // send_amount defaults to 0 in the manifest and is Linked to the
-        // effect's metaknob -- NOT the chain's super1, which is a different
-        // control. Nothing drives it on its own, so a freshly loaded reverb is
-        // silent until this moves.
-        engine.setValue(slot, "meta", 0.5);
-        TriMixxx.pedalBusReady = !!engine.getValue(slot, "loaded");
-    }
-    engine.setValue(slot, "enabled", 1);
 };
 
 TriMixxx.init = function(id, debugging) {
@@ -296,6 +280,7 @@ TriMixxx.init = function(id, debugging) {
             if (value) { TriMixxx.setupPedalBus(); }
         });
     engine.beginTimer(2000, TriMixxx.setupPedalBus, true);
+
 
 
 
@@ -504,13 +489,7 @@ TriMixxx.back = function(channel, control, value, status, group) {
             // Opening is unambiguous -- there is no second meaning to wait for,
             // and making the DJ hold the button to see the library would be
             // absurd. Acts on the press.
-            var seed = [3, 15, 14, 3];   // reverb, echo(->DELAY), filter(->HPF), reverb
-        for (var i = 0; i < seed.length; i++) {
-            var g = "[EffectRack1_EffectUnit2_Effect" + (i + 1) + "]";
-            engine.setValue(g, "loaded_effect", seed[i]);
-            engine.setValue(g, "enabled", 1);
-        }
-        engine.setValue("[Master]", "show_library", 1);
+            engine.setValue("[Master]", "show_library", 1);
             return;
         }
         TriMixxx.backHoldTimer = engine.beginTimer(TriMixxx.LONG_PRESS_MS, function() {
@@ -760,12 +739,6 @@ TriMixxx.encoderPush = function(channel, control, value, status, group) {
     if (!value) { return; } // press only
 
     if (!engine.getValue("[Master]", "show_library")) {
-        var seed = [3, 15, 14, 3];   // reverb, echo(->DELAY), filter(->HPF), reverb
-        for (var i = 0; i < seed.length; i++) {
-            var g = "[EffectRack1_EffectUnit2_Effect" + (i + 1) + "]";
-            engine.setValue(g, "loaded_effect", seed[i]);
-            engine.setValue(g, "enabled", 1);
-        }
         engine.setValue("[Master]", "show_library", 1);
         return;
     }
