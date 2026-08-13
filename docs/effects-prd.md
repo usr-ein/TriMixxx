@@ -709,6 +709,22 @@ own 32 ms round trip, so the shortest divisions cannot be compensated for
 latency and will sit late. Worth having anyway — a late 1/16 is still a 1/16 —
 but it is why the list starts where it does rather than lower.
 
+**Two unrelated things are called quantize, and they pull opposite ways.**
+
+| | What it does | On this deck |
+|---|---|---|
+| `[ChannelN] quantize` | Snaps cues, loops and beatjumps to the nearest beat *when you trigger them* | **On.** It is what a beatgrid is for |
+| Echo's `quantize` parameter | Rounds the delay **time** to the nearest 1/4 beat | **Pinned off**, and it has to be |
+
+The second one defaults ON, which is the trap: the rack offers 1/16, 1/8 and
+3/4, and quantize would silently round the first two to 1/4 while the knob went
+on reading what you asked for. The rack sets exact division values, so the
+rounding has nothing to add and everything to take away.
+
+Turning the first one on has no bearing on the second. They share a name and
+nothing else — different groups, different controls, one about playback and one
+about a delay line's length.
+
 
 ---
 
