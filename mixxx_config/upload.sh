@@ -97,12 +97,24 @@ ssh "$HOST" 'mv ~/.mixxx/skins/TriMixxx_skin ~/.mixxx/skins/TriMixxx'
 # the aux return is silent. Same rewritten-on-exit caveat as mixxx.cfg, hence
 # the same stop-first ordering.
 #
+# It is a SEED, not a payload: copied only when the deck does not already have
+# one. Mixxx writes this file on exit with whatever the rack was left holding,
+# so pushing it unconditionally would throw away the rack built at the mixer
+# every time an unrelated key in mixxx.cfg changed. To deliberately reset the
+# pedal bus to the shipped chain: ssh trimixxx-pi 'rm ~/.mixxx/effects.xml'
+# and run this again.
+#
 # One hazard worth knowing: the WET mix mode only exists in our Mixxx fork.
 # EffectChainMixMode::fromString falls back to DRY/WET on an unrecognised
 # string, so a stock Mixxx reading this file downgrades the pedal bus to
 # dry/wet silently -- which on a send/return puts the dry in the mix twice.
 ssh "$HOST" 'sudo systemctl stop getty@tty1.service' || true
-scp mixxx.cfg soundconfig.xml effects.xml "$HOST":~/.mixxx/
+scp mixxx.cfg soundconfig.xml "$HOST":~/.mixxx/
+if ssh "$HOST" 'test -e ~/.mixxx/effects.xml'; then
+	echo "==> keeping the deck's effects.xml (the rack it was left with)"
+else
+	scp effects.xml "$HOST":~/.mixxx/
+fi
 scp TriMixxx.midi.xml TriMixxx.scripts.js \
     PiMidiDaemon.midi.xml PiMidiDaemon.scripts.js "$HOST":~/.mixxx/controllers/
 ssh "$HOST" 'sudo systemctl restart getty@tty1.service'
