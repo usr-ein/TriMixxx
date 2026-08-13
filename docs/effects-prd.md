@@ -10,7 +10,15 @@ Previously: **revision 4 — built.** The rack is implemented and on the deck
 decided differently once it met the code.
 
 Companion documents: `xone92-send-return.md` for the mixer side,
-`worklog/effect-pedal/TODO.md` for the engine work already landed.
+`worklog/effect-pedal/TODO.md` for what is built and what is next.
+
+**How to read this.** §1–§13 are the design as it now stands and are kept true:
+where the build or a test run proved something wrong, the body was corrected
+rather than left to be contradicted further down. §14–§16 are the change record —
+what the build cost, what the first test run found, and what is specified but not
+yet built. Anything in §14–§16 marked *not built* is a promise, not a
+description; everything in the body describes the deck as it is, except where a
+line says otherwise.
 
 ---
 
@@ -69,24 +77,35 @@ input trim in this UI.
 
 ### 3.1 What a unit's wet knob does
 
-Serial, per unit, standard pedal semantics:
+Serial, per unit, standard pedal semantics — **for effects that generate new
+material**, which is to say reverb and echo:
 
 ```
 out_N = in_N · (1 − w_N)  +  fx_N(in_N) · w_N
 ```
 
-where `fx_N` is that effect's **fully wet** output — the reverb's tail alone, the
-echo's repeats alone, the filter's filtered signal. `in_N` is whatever the
-previous unit produced, not the original input.
+where `fx_N` is that effect's **fully wet** output — the reverb's tail alone,
+the echo's repeats alone. `in_N` is whatever the previous unit produced, not the
+original input.
 
-For reverb and echo this needs the chain to stop re-adding the dry itself, which
-it already can: `skipAddingDry` exists and fires for any mix mode that is not
-DRY/WET. With the per-unit blend doing that job uniformly, every effect in the
-rack is treated the same way regardless of whether its manifest declares
-`addDryToWet`.
+This needs the chain to stop re-adding the dry itself, which it already can:
+`skipAddingDry` fires for any mix mode that is not DRY/WET, so the per-unit
+blend is the only thing mixing dry back in.
 
-Your example works out as expected: aux → HPF at 100% → filtered; → Reverb at
-100% → the reverb of the filtered signal, and nothing else.
+Worked through: aux → HPF → Reverb at 100% gives the reverb of the filtered
+signal and nothing else.
+
+**Filters are not blended and have no wet knob.** Their output is the whole of
+their output:
+
+```
+out_N = filter(in_N, cutoff)
+```
+
+Blending a filter against its own input adds the passband to itself at a level
+set by the knob — a comb, not a half-open filter. "No effect" is already what a
+filter's cutoff means at its extreme, so the knob it needs is the one it has.
+The reasoning, and why this document said otherwise for a while, is in §15.6.
 
 ### 3.2 The first dry-killer is locked to 100%
 
@@ -131,9 +150,9 @@ CDJ's channel and combs against it every 31 Hz at the bus's measured 32 ms. That
 is a parallel filter and it is what the DJ asked for by building that rack. Worth
 knowing; not worth preventing.
 
-## 4. Engine work required
+## 4. Engine work required — **done**
 
-None of this is skin work.
+None of this was skin work, and all of it has landed.
 
 | Change | Where | Size |
 |---|---|---|
@@ -157,7 +176,7 @@ reached from the browser's root menu.
 ├────────────────────────────────────────────────┬──────────┤
 │ ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐    │          │
 │ │        │ │        │ │        │ │        │    │  MASTER  │
-│ │ REVERB │ │ DELAY  │ │  HPF   │ │  ECHO  │ (+)│          │  496
+│ │ REVERB │ │ DELAY  │ │  HPF   │ │  ECHO  │ (+)│          │  ~355
 │ │        │ │        │ │        │ │        │    │  pinned  │
 │ └────────┘ └────────┘ └────────┘ └────────┘    │          │
 ├────────────────────────────────────────────────┴──────────┤
@@ -166,7 +185,10 @@ reached from the browser's root menu.
   ←──────────── scrolls ────────────→              always visible
 ```
 
-- **Module size:** 204 × 496, four-pixel gutters.
+- **Module width 204**, four-pixel gutters. **The height is whatever is left**
+  and is not a constant: the browser draws a breadcrumb above this page, so the
+  rack gets about 355 of the screen's 600 rather than the 496 first assumed.
+  Every position inside a module is derived from the rect it is given (§14).
 - **The master module is pinned to the right edge** and never scrolls — it is
   always reachable. The remaining 820 px scrolls and holds the units plus the
   `(+)` at its right end, so four units are visible at a time and six fit with
@@ -186,16 +208,18 @@ reached from the browser's root menu.
 │      │  ███  │      │  ← WET: the unit's contribution
 │      ╰───────╯      │
 │         WET         │
-│    ╭─────╮ ╭─────╮  │
-│    │ ██  │ │  ██ │  │  ← the effect's metaknobs
-│    ╰─────╯ ╰─────╯  │
-│     DECAY    TONE   │
-│  ╭─────────────╮    │
-│  │   REVERB    │    │  ← stylised name, bottom left
-│  ╰─────────────╯    │
-│ ◉                   │
+│   ╭────╮            │
+│   │ ██ │   ╭────╮   │  ← parameters: two columns, the
+│   ╰────╯   │ ██ │   │    right one dropped half a row
+│    DECAY   ╰────╯   │
+│             BAND    │
+│ ◉                 ◉ │
 └─────────────────────┘
 ```
+
+**The name is engraved into the title strip at the top**, not on a plate at the
+foot: on a tall narrow module that is where the eye lands, and the plate was
+competing with a knob (§14).
 
 - **WET is the largest knob** and sits top-centre. It is what gets reached for.
 - **When a unit is the first dry-killer (§3.2) its WET knob is locked** at full
@@ -206,8 +230,7 @@ reached from the browser's root menu.
   Dragging it does nothing, and double-tap does nothing.
 - **Below it, the effect's own metaknobs**, however many that effect has, minus
   any the module hides (§9).
-- **Name plate, bottom left**, in the module's own typeface treatment — engraved
-  into metal, silkscreened onto plastic. The name is part of the skin.
+- **The name lives in the title strip**, engraved, with a lit pilot beside it.
 - **No bypass.** WET at zero is the bypass, and it fades rather than cuts.
 - **Screws are drawn, not images** — part of the chrome layer.
 
@@ -384,18 +407,21 @@ should be removed once the rack manages its own chain.
 | 12 | Mute across restarts | **No** |
 | 13 | Assets | **Procedural**, from palettes sampled off the reference skins (§9.1) |
 
-## 13. Remaining questions
+## 13. Open questions
 
-None blocking. Everything above is decided; what is left is settled by drawing it
-and looking at it on the deck:
+Two, and both are judgements rather than facts:
 
-1. **Do 204 px modules hold four knobs legibly** at arm's length in a dark booth,
-   or does the count have to come down? Settled by rendering one, not by
-   argument.
-2. **Is a 200 px drag the right knob throw** for the WET knob specifically? It is
-   the one that gets grabbed mid-transition and may want to be coarser.
-3. **Does the brushed-metal grain survive** at 204 px wide without looking like
-   noise? If not, the grain gets coarser rather than the material changing.
+1. **Does the FX strip's focus time out?** (§16) Holding focus takes the encoder
+   press away from the library. Keeping it where it was put is better
+   mid-transition; giving it back on its own is better the next time you reach
+   for the library without looking.
+2. **Does the rack ever serve the deck's own chain too**, or is one rack the
+   whole story? (§12.7)
+
+The three questions this section used to hold were about legibility — whether
+204 px holds four knobs, whether a 200 px knob throw is right, whether the
+brushed grain reads as metal. All were settled by rendering it and looking:
+see §14, *What looking at it changed*.
 
 
 ---

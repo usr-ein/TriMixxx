@@ -11,6 +11,24 @@ Ordered from *most fundamental* to *most uncertain*. Each phase is a place where
 the thing can be left working and put down. Don't start a phase before the one
 above it is verified on the deck rather than on the laptop.
 
+## Where this is
+
+| Phase | State | |
+|---|---|---|
+| 0 · Hardware path | **done** | PCM2902 does full duplex at 44.1 k. 32 ms round trip, −12.8 dBFS in, no hum. Two soak tests outstanding. |
+| 1 · Aux reaches the mix | **done** | |
+| 2 · `WetOnly` mix mode | **done** | Plus six slots, per-slot wet, and the `kNumModes` leak fixed |
+| 3 · A unit on the aux | **done** | Wet-only reverb on the CDJs, surviving a reboot |
+| 4 · Beat sync | **done** | Oldest playing deck wins. Latency compensation not attempted |
+| 5 · The rack | **built, and tested once** | Superseded by `docs/effects-prd.md`; the test run's list is Phase 8 |
+| 6 · LV2 host | not started | Survey first — it decides whether the rest is worth doing |
+| 7 · Polish | not started | |
+| **8 · The test run's list** | **next** | Nine items, two of them engine work |
+
+**Next action:** Phase 8's first item — the chain-write bug that empties the rack
+when you leave the page. It is one condition, and it blocks testing everything
+else.
+
 ---
 
 ## Phase 0 — Prove the hardware path (no code)
@@ -233,18 +251,28 @@ Echo's `Quantize` and `Triplets` are dead on an aux: `echoeffect.cpp:135` needs
 `groupFeatures.beat_length`, `EngineAux::collectFeatures` supplies only the VU
 meter, so the Time knob falls through to the seconds branch at `:148`.
 
-- [ ] Decide the tempo source: `[Channel1]`'s own beatgrid, or the ProLink
-      network tempo master (which this deck already tracks — see
-      `docs/tempo-sync.md`)
-- [ ] Inject `beat_length` into the aux's `GroupFeatureState`
-- [ ] Subtract the Phase 0 round-trip latency from the delay time so the taps
-      land on the grid rather than ~20 ms behind it
+- [x] **Tempo source: whichever deck has been playing longest.** Not the network
+      master — a master can be a deck sitting cued. Candidates are the Pro DJ
+      Link players judged by `isWorthFollowing()` (the same test the phase meter
+      uses, which already excludes cued, paused, searching and spun-down decks)
+      and this deck's own player on the same terms. Oldest wins and keeps
+      winning until it stops; entries drop the moment a deck stops, so a deck
+      that pauses and restarts is correctly the youngest again. Published as
+      `[EffectTempo] bpm` and `source`.
+- [x] **`beat_length` injected** in `EngineAux::collectFeatures`.
+- [x] **The name bar says which deck and at what tempo**, because a delay
+      quantised to the wrong deck sounds exactly like a broken one. Also logged
+      on change, which is how it was verified without a screen.
+- [ ] **Latency compensation is not done.** The taps sit ~32 ms late. Divisions
+      shorter than that cannot be compensated by subtraction at all — a 1/16 at
+      128 BPM is 29 ms — so this needs wrapping to the next beat rather than
+      subtracting, and has not been attempted.
 
-**Uncertain, and the reason this is Phase 4 not Phase 2:** tempo is the easy
-half. A delay wants to know *where the beat is*, not just how long it is, and
-`beat_fraction` for a live input mixed from several CDJs has no single correct
-answer. Possibly the honest scope is "quantise the delay time, don't try to
-phase-align", which is still a large improvement over seconds.
+**The uncertainty resolved the way the phase predicted.** Tempo was the easy
+half; phase was not attempted. `beat_fraction_buffer_end` is deliberately left
+unset: the phase of several decks summed by a mixer and arriving 32 ms late has
+no single right answer, so none is given. Quantising the delay *length* to a
+musical division is the useful part and that is what shipped.
 
 ---
 
@@ -314,6 +342,103 @@ will accept.
 - [ ] Document the mixer setup on the deck itself, or in the README
 
 ---
+
+## Phase 8 — the first test run's list
+
+From a real run with the rack in front of a mixer. Full reasoning per item in
+`docs/effects-prd.md` §15; this is the order to do them in.
+
+**Ordered by what is blocking use.** The first two make the rack behave; the
+engine work after them makes it good.
+
+- [ ] **The rack empties when you leave the page.** `writeChainToEngine()` only
+      writes `loaded_effect` when `module.slot != i`, and a module appended by
+      the chooser already has `slot == i` — so it is drawn but never loaded, and
+      `syncFromEngine()` on return finds an empty chain. One condition. **Do
+      this first; it makes everything else testable.** (§15.5)
+- [ ] **Filters lose their wet knob.** `out = filter(in, cutoff)` and nothing
+      else — the blend double-counts the passband and combs it against itself.
+      Cutoff becomes a frequency in Hz, HPF cuts below and LPF above, both
+      default mid-band. (§15.6)
+- [ ] **Saving must not ask for a name.** `savePreset()` opens a dialog; the
+      deck has no keyboard. Generate the name and write the file. Then: saved
+      racks appear in the list, the list scrolls, and the last one loads at
+      startup. (§15.5)
+- [ ] **Drag keeps its grab point** rather than centring the module on the
+      finger. (§15.7)
+- [ ] **Reorder displaces live** — neighbours slide out of the way as the held
+      module crosses them, so the rack always shows the order that would
+      result. (§15.8)
+- [ ] **Delay and Echo time in fixed divisions**, shown beside the dial:
+      1/16 · 1/8 · 1/4 · 1/2 · 3/4 · 1 · 2 · 4 · 8. (§15.9)
+- [ ] **Makeup gain on the wet.** The chain outputs `wet × mix` with `mix`
+      maxing at unity, and a reverb tail at unity is far quieter than the dry
+      beside it. The master wants range above 0 dB. (§15.4)
+- [ ] **Master ring-out toggle.** A rocker choosing whether the master scales
+      the chain's input (tails ring out) or its output (cut dead). Default ring
+      out. (§15.2)
+
+### The FX strip on the deck view (§16)
+
+Reaching the effects should not mean leaving the waveform. **Depends on the two
+engine items below** — without metering the VU has nothing to draw, and without
+the mute-mode toggle the rocker has nothing to switch — so it comes after them.
+
+- [ ] An **FX** section down the left of the waveform on the deck view: VU,
+      master knob, mute-mode rocker.
+- [ ] **Touch claims the encoder** — rotate is the FX master, press is its mute,
+      and the border lights while it holds focus. Touching anything else
+      releases it and the encoder returns to library/zoom. The deck view needs
+      its own version of the `DeckPage` claim mechanism, or the two want
+      merging.
+- [ ] **Decide the focus timeout** (§16). Focus takes the encoder press away
+      from the library while held; a timeout gives it back on its own, no
+      timeout keeps it where it was put. Better mid-transition either way is not
+      obvious.
+- [ ] **Factor the chrome out of `WDeckRack`** — bevel, knob, VU, engraved text
+      — now that there is a second caller. Doing it earlier would have been
+      guessing at what the second caller needed.
+
+### Engine work in this phase
+
+- [ ] **The rack must reach the deck's own audio.** Today it can effect every
+      channel on the mixer except the one the deck is playing. Routing the unit
+      to both channels does *not* do it — Mixxx units are per-channel and would
+      process them separately, taking the deck's dry with them. Proposed: sum a
+      scaled copy of the deck's post-fader audio into the aux buffer inside
+      `EngineAux::process()`, before the chain, so the aux channel *becomes* the
+      send bus and everything downstream is unchanged. **Check `EngineMixer`'s
+      channel order first** — the deck must be processed before the aux, and the
+      wrong order is a buffer one callback late, which is inaudible and still
+      wrong. Two send dials in a fixed INPUT module at the far left, mirroring
+      the master at the far right. (§15.1)
+- [ ] **Per-slot output metering.** Nothing publishes an effect's output level;
+      it has to be measured in `EngineEffectChain::process()` after each effect
+      and published as a control. Feeds a VU on every module and on the master,
+      drawn as a segmented ladder rather than a bar. (§15.3)
+
+---
+
+---
+
+## Open questions
+
+- Which mixer channel does TriMixxx return on? A music channel (CH 1-4) gets the
+  VCF and crossfader, which the deck wants as a player; `RTN 1/2` does not.
+- Does the deck's own track ever want the pedal bus? It can't — that closes the
+  feedback loop. Its effects have to be internal (a second unit on
+  `[Channel1]`), which means two FX controls unless the tab hides the seam.
+- Is a second cheap USB DAC worth it later? It would give the wet return its own
+  mixer channel and break the coupling where fading TriMixxx out also pulls the
+  effect off every other channel.
+
+---
+
+# History
+
+Everything below is settled and is kept for the reasons rather than the results:
+each of these cost hours, and the next person to meet one of them — including
+me, next month — will meet it in the same disguise.
 
 ## Risk register
 
@@ -387,7 +512,7 @@ Settle it whenever convenient by unplugging the `AUX 2 OUT` L cable: if L drops
 to the noise floor while R keeps signal, the channels are independent and it was
 the music.
 
-## Open: Mixxx never writes its settings on exit
+## Fixed: Mixxx never wrote its settings on exit
 
 Found 2026-08-11 while checking that per-slot wet round-tripped. **It does not,
 and neither does anything else**: `~/.mixxx/effects.xml` and `mixxx.cfg` were
@@ -506,90 +631,3 @@ would not survive a reboot until this is fixed.
 
 **Unrelated, found alongside:** `~/.mixxx/stderr.log` is **346 MB** and growing.
 Nothing rotates it.
-
-## Phase 8 — the first test run's list
-
-From a real run with the rack in front of a mixer. Full reasoning per item in
-`docs/effects-prd.md` §15; this is the order to do them in.
-
-**Ordered by what is blocking use.** The first two make the rack behave; the
-engine work after them makes it good.
-
-- [ ] **The rack empties when you leave the page.** `writeChainToEngine()` only
-      writes `loaded_effect` when `module.slot != i`, and a module appended by
-      the chooser already has `slot == i` — so it is drawn but never loaded, and
-      `syncFromEngine()` on return finds an empty chain. One condition. **Do
-      this first; it makes everything else testable.** (§15.5)
-- [ ] **Filters lose their wet knob.** `out = filter(in, cutoff)` and nothing
-      else — the blend double-counts the passband and combs it against itself.
-      Cutoff becomes a frequency in Hz, HPF cuts below and LPF above, both
-      default mid-band. (§15.6)
-- [ ] **Saving must not ask for a name.** `savePreset()` opens a dialog; the
-      deck has no keyboard. Generate the name and write the file. Then: saved
-      racks appear in the list, the list scrolls, and the last one loads at
-      startup. (§15.5)
-- [ ] **Drag keeps its grab point** rather than centring the module on the
-      finger. (§15.7)
-- [ ] **Reorder displaces live** — neighbours slide out of the way as the held
-      module crosses them, so the rack always shows the order that would
-      result. (§15.8)
-- [ ] **Delay and Echo time in fixed divisions**, shown beside the dial:
-      1/16 · 1/8 · 1/4 · 1/2 · 3/4 · 1 · 2 · 4 · 8. (§15.9)
-- [ ] **Makeup gain on the wet.** The chain outputs `wet × mix` with `mix`
-      maxing at unity, and a reverb tail at unity is far quieter than the dry
-      beside it. The master wants range above 0 dB. (§15.4)
-- [ ] **Master ring-out toggle.** A rocker choosing whether the master scales
-      the chain's input (tails ring out) or its output (cut dead). Default ring
-      out. (§15.2)
-
-### The FX strip on the deck view (§16)
-
-Reaching the effects should not mean leaving the waveform. **Depends on the two
-engine items below** — without metering the VU has nothing to draw, and without
-the mute-mode toggle the rocker has nothing to switch — so it comes after them.
-
-- [ ] An **FX** section down the left of the waveform on the deck view: VU,
-      master knob, mute-mode rocker.
-- [ ] **Touch claims the encoder** — rotate is the FX master, press is its mute,
-      and the border lights while it holds focus. Touching anything else
-      releases it and the encoder returns to library/zoom. The deck view needs
-      its own version of the `DeckPage` claim mechanism, or the two want
-      merging.
-- [ ] **Decide the focus timeout** (§16). Focus takes the encoder press away
-      from the library while held; a timeout gives it back on its own, no
-      timeout keeps it where it was put. Better mid-transition either way is not
-      obvious.
-- [ ] **Factor the chrome out of `WDeckRack`** — bevel, knob, VU, engraved text
-      — now that there is a second caller. Doing it earlier would have been
-      guessing at what the second caller needed.
-
-### Engine work in this phase
-
-- [ ] **The rack must reach the deck's own audio.** Today it can effect every
-      channel on the mixer except the one the deck is playing. Routing the unit
-      to both channels does *not* do it — Mixxx units are per-channel and would
-      process them separately, taking the deck's dry with them. Proposed: sum a
-      scaled copy of the deck's post-fader audio into the aux buffer inside
-      `EngineAux::process()`, before the chain, so the aux channel *becomes* the
-      send bus and everything downstream is unchanged. **Check `EngineMixer`'s
-      channel order first** — the deck must be processed before the aux, and the
-      wrong order is a buffer one callback late, which is inaudible and still
-      wrong. Two send dials in a fixed INPUT module at the far left, mirroring
-      the master at the far right. (§15.1)
-- [ ] **Per-slot output metering.** Nothing publishes an effect's output level;
-      it has to be measured in `EngineEffectChain::process()` after each effect
-      and published as a control. Feeds a VU on every module and on the master,
-      drawn as a segmented ladder rather than a bar. (§15.3)
-
----
-
-## Open questions
-
-- Which mixer channel does TriMixxx return on? A music channel (CH 1-4) gets the
-  VCF and crossfader, which the deck wants as a player; `RTN 1/2` does not.
-- Does the deck's own track ever want the pedal bus? It can't — that closes the
-  feedback loop. Its effects have to be internal (a second unit on
-  `[Channel1]`), which means two FX controls unless the tab hides the seam.
-- Is a second cheap USB DAC worth it later? It would give the wet return its own
-  mixer channel and break the coupling where fading TriMixxx out also pulls the
-  effect off every other channel.
