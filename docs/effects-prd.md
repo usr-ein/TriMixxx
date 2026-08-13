@@ -792,3 +792,94 @@ inside `WDeckRack`. The strip needs the same vocabulary in a different widget, s
 and engraved text that both use. Doing it when the second caller appears is the
 right time; doing it before would have been guessing at what the second caller
 needed.
+
+---
+
+## 17. Follow-up from the second test run
+
+The rack worked. Three things came back: two faults on the master rocker, and
+one change to what the encoder is for.
+
+### 17.1 The rocker glitches on the way across — **cause found**
+
+> *"If I'm on cut and switch to ring on, I hear a tiny bit of effect coming
+> through for a moment."*
+
+`setRingOut()` parks the stage it is leaving at unity **before** setting the
+level on the stage it is arriving at:
+
+```cpp
+pIdle->setParameter(0.5);   // the stage being left goes to unity...
+pNow->setParameter(level);  // ...and only then does the new one take the level
+```
+
+Between those two writes both stages are at unity, and the two are multiplied.
+The chain is briefly at **full wet** regardless of where the knob was. They are
+microseconds apart on the GUI thread, but each sends its own message to the
+engine and the audio thread can process a buffer in between — so the window is
+real and about one buffer wide.
+
+**Reversing the order turns a spike into a dip.** Going from `(old = L, new = 1)`
+to `(old = 1, new = L)`, setting the new stage first gives `L × L` for that one
+buffer — quieter than intended, momentarily — and then parking the old one gives
+`L`. A dip of one buffer is close to inaudible; a burst of full-level effect
+mid-transition is not. There is no ordering that has no window at all, because
+these are two independent controls and nothing makes a pair of them atomic.
+
+### 17.2 Mute does not survive the rocker
+
+Not reported, found while reading 17.1, and it is the same function. `mute`
+remembers the level in `m_mutedLevel` and writes 0 to the driven control. Flip
+the rocker while muted and `setRingOut()` reads the *muted* value — zero — off
+the old stage and carries that across as the level, while `m_mutedLevel` still
+holds the real one. The rack comes out of the switch muted at both ends with the
+display showing a level neither stage has.
+
+The level that should move across is the one the DJ would come back to, which is
+`m_mutedLevel` whenever it is set.
+
+### 17.3 CUT does not work — **not yet explained**
+
+Reported as not working at all. The obvious causes are ruled out: on the deck,
+`mix = 1`, `makeup = 1`, `pregain = 1`, `mix_mode = 2` (WetOnly), the unit is
+enabled and routed to `[Auxiliary1]`. The control exists, the binary contains it,
+and the engine applies `mix × makeup` in the WetOnly branch.
+
+**Do not guess at this one.** It is being observed on the deck with a probe on
+the two gain stages rather than reasoned about from the source, which is the
+lesson the MONITOR switch already taught once.
+
+### 17.4 The encoder should follow the last knob touched
+
+Today the encoder is the master and only the master, and every module knob is
+touch-only. That is backwards for the knob a DJ is actually working: a filter
+sweep wants the detented wheel, not a fingertip dragged 200 px up a 204 px
+module.
+
+**Rotation follows focus; the press does not.**
+
+- **Turning** the encoder moves whichever knob was **last touched** on this page
+  — a reverb's decay, a filter's cutoff, a delay's time. Touching a knob claims
+  the encoder; it does not have to be dragged, only touched.
+- **Pressing** the encoder always mutes and unmutes the **master**, whatever the
+  rotation is currently pointed at. It is the panic button and it should not
+  move.
+- With nothing touched yet — the state the page opens in — rotation is the
+  master, as now.
+
+This is the same claim-and-say-so idea as §16's FX strip, one level down, and it
+needs the same thing: **the focused knob has to be visibly focused.** A wheel
+that silently drives a different knob depending on history is worse than one
+that only ever drove the master. A lit ring round the knob, in the module's own
+accent colour, is enough.
+
+Open, and worth deciding rather than discovering:
+
+- **Does focus expire?** §16 asks the same question about the strip and the two
+  should probably answer it the same way.
+- **What does a snapped knob do?** Delay time moves in stops (§15.9), so one
+  detent should be one division rather than one step of 0.028 — which means the
+  encoder's step size is a property of the focused knob, not a constant.
+- **Does the locked wet knob take focus?** It cannot be turned, so claiming the
+  encoder with it would silently disable the wheel. It should refuse focus and
+  leave the encoder where it was.
