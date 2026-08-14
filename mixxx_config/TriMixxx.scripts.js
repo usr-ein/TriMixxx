@@ -697,25 +697,14 @@ TriMixxx.play = function(channel, control, value, status, group) {
 };
 
 // ---- Track browse encoder: firmware sends 1 = up, 127 = down (one per detent).
-//      MoveVertical acts on whichever library widget currently has focus, which
-//      is what lets one encoder scroll the sidebar and then the track list. ----
+//
+// The mapping's whole job is to say that a detent happened and in which
+// direction. What it MEANS is decided in one place, DeckEncoder, because it
+// depends on which screen is showing and on what that screen has focused --
+// and three copies of that decision, one of them here, is how the encoder
+// ended up doing nothing in the browser after the FX strip had been touched.
 TriMixxx.browse = function(channel, control, value, status, group) {
-    // The FX strip claims the encoder when it is touched and says so with a lit
-    // border, so this asks it first. It only ever answers yes on the deck view:
-    // the strip is not on screen while the library is.
-    if (engine.getValue("[TriMixxx]", "fx_focus")) {
-        engine.setValue("[TriMixxx]", "fx_move", (value === 1) ? -1 : 1);
-        return;
-    }
-    if (engine.getValue("[Master]", "show_library")) {
-        // Browsing: one encoder, one selection. There is no pane to pick any
-        // more -- the browser has a single focus (browser-prd.md 4.3).
-        engine.setValue("[Browser]", "move", (value === 1) ? -1 : 1);
-    } else {
-        // Playing view: zoom the waveform. (up = zoom in; swap the two control
-        // names if the direction feels inverted.)
-        engine.setValue(TriMixxx.DECK, (value === 1) ? "waveform_zoom_down" : "waveform_zoom_up", 1);
-    }
+    engine.setValue("[TriMixxx]", "encoder_move", (value === 1) ? -1 : 1);
 };
 
 // Hotcues: activate (jump if set, create at the playhead if empty), both edges so
@@ -737,30 +726,17 @@ TriMixxx.hotcue = function(channel, control, value, status, group) {
 };
 
 // ---- Track encoder push -------------------------------------------------
-// Deck view: open the browser. Browsing: activate whatever is selected, and
-// what that means -- enter a medium, open a category, load a track -- is the
-// browser's to decide. There used to be a focus dance here, reading and writing
-// [Library],focused_widget to tell a sidebar from a track table; the browser
-// has one focus and one selection, so there is nothing left to disambiguate.
+// As above: a press, and nothing about what it does. On the deck view it is
+// the FX mute, in the browser it activates the selection, on the Effects page
+// it mutes the rack's master. DeckEncoder holds that table.
+//
+// Note the deck view's press is NOT "open the library" any more -- BACK does
+// that, and the press is worth more as the one gesture that silences the
+// effects without looking.
 TriMixxx.encoderPush = function(channel, control, value, status, group) {
     if (!value) { return; } // press only
-
-    // While the FX strip holds focus the press is its mute, not the library.
-    // That is the cost of the claim and it is deliberate (effects-prd.md 16):
-    // touching anywhere else hands the encoder straight back.
-    if (engine.getValue("[TriMixxx]", "fx_focus")) {
-        engine.setValue("[TriMixxx]", "fx_select", 1);
-        engine.setValue("[TriMixxx]", "fx_select", 0);
-        return;
-    }
-
-    if (!engine.getValue("[Master]", "show_library")) {
-        engine.setValue("[Master]", "show_library", 1);
-        return;
-    }
-    // One control for every level: the browser knows whether the selection is
-    // a source, a category, a playlist or a track, and what each means.
-    engine.setValue("[Browser]", "select", 1);
+    engine.setValue("[TriMixxx]", "encoder_press", 1);
+    engine.setValue("[TriMixxx]", "encoder_press", 0);
 };
 
 // ---- Jog touch: enable scratch while held, pitch-bend when released ----
