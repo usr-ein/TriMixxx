@@ -25,9 +25,9 @@ above it is verified on the deck rather than on the laptop.
 | 7 · Polish | not started | |
 | **8 · The test run's list** | **done bar one** | Only §15.1, the deck into the send bus, is left |
 | **9 · The second test run's list** | **done** | §17.1–17.4; 17.3 was a closed filter, not the master |
-| 10 · The FX strip (§16) | not started | Both its dependencies now exist |
+| 10 · The FX strip (§16) | **done** | Built and verified; focus has no timeout |
 
-**Next action:** a test run. Everything below is on the deck and verified as far
+**Next action:** a test run. Every PRD item is now built. Everything below is on the deck and verified as far
 as it can be without ears — the two things that need a listener are the master
 rocker (does RING OUT actually ring out?) and the delay divisions at tempo.
 

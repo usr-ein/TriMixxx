@@ -771,11 +771,19 @@ while FX holds focus it will not — a DJ who focuses FX and then reaches for th
 library has to touch elsewhere first. That is a real consequence and it is worth
 deciding rather than discovering:
 
-> **Open question.** Does focus time out — say five seconds after the last touch
-> — or is it strictly until something else is touched? A timeout means the
-> encoder always comes back on its own; no timeout means it stays where it was
-> put, which is better mid-transition and worse the next time you reach for the
-> library without looking.
+> **Answered by building it: no timeout.** Focus is held until something else
+> is touched. A wheel that silently went back to the library after five seconds
+> would be worse than one that stayed where it was put, because the moment it
+> matters is mid-transition and that is exactly when nobody is looking at it.
+> The release is an application-wide event filter on the next mouse press
+> outside the strip — application-wide because the waveform is a native
+> OpenGLWindow whose events never reach the parent widget's filter, so the most
+> likely next touch was the one that did not work.
+
+**Built.** §15.1 and §16 are on the deck. The chrome is shared rather than
+extracted: `WDeckRack`'s bevel, knob, VU and engraved text are public statics
+that the strip calls. A `deckchrome` of its own is the right shape at three
+callers; at two it is indirection for its own sake.
 
 ### What it needs first
 

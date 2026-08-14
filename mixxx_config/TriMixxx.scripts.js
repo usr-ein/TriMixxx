@@ -700,6 +700,13 @@ TriMixxx.play = function(channel, control, value, status, group) {
 //      MoveVertical acts on whichever library widget currently has focus, which
 //      is what lets one encoder scroll the sidebar and then the track list. ----
 TriMixxx.browse = function(channel, control, value, status, group) {
+    // The FX strip claims the encoder when it is touched and says so with a lit
+    // border, so this asks it first. It only ever answers yes on the deck view:
+    // the strip is not on screen while the library is.
+    if (engine.getValue("[TriMixxx]", "fx_focus")) {
+        engine.setValue("[TriMixxx]", "fx_move", (value === 1) ? -1 : 1);
+        return;
+    }
     if (engine.getValue("[Master]", "show_library")) {
         // Browsing: one encoder, one selection. There is no pane to pick any
         // more -- the browser has a single focus (browser-prd.md 4.3).
@@ -737,6 +744,15 @@ TriMixxx.hotcue = function(channel, control, value, status, group) {
 // has one focus and one selection, so there is nothing left to disambiguate.
 TriMixxx.encoderPush = function(channel, control, value, status, group) {
     if (!value) { return; } // press only
+
+    // While the FX strip holds focus the press is its mute, not the library.
+    // That is the cost of the claim and it is deliberate (effects-prd.md 16):
+    // touching anywhere else hands the encoder straight back.
+    if (engine.getValue("[TriMixxx]", "fx_focus")) {
+        engine.setValue("[TriMixxx]", "fx_select", 1);
+        engine.setValue("[TriMixxx]", "fx_select", 0);
+        return;
+    }
 
     if (!engine.getValue("[Master]", "show_library")) {
         engine.setValue("[Master]", "show_library", 1);

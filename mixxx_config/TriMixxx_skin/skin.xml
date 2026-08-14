@@ -515,6 +515,23 @@
             </Connection>
             <Children>
 
+              <!-- The FX strip and the waveform, side by side. The strip is
+                   the rack's master where a DJ is actually looking during a
+                   transition (effects-prd.md 16); the waveform gives up 76 px
+                   for it. -->
+              <WidgetGroup>
+                <ObjectName>WaveformRow</ObjectName>
+                <Layout>horizontal</Layout>
+                <MinimumSize>1024,414</MinimumSize>
+                <MaximumSize>1024,414</MaximumSize>
+                <Children>
+
+              <DeckFxStrip>
+                <ObjectName>DeckFxStrip</ObjectName>
+                <MinimumSize>76,414</MinimumSize>
+                <MaximumSize>76,414</MaximumSize>
+              </DeckFxStrip>
+
               <!-- The waveform, with the tempo read-out laid over it.
                    Stacked, not side by side: QStackedLayout in StackAll mode
                    draws every child with later ones on top, so the numbers
@@ -522,8 +539,8 @@
               <WidgetGroup>
                 <ObjectName>WaveformStack</ObjectName>
                 <Layout>stacked</Layout>
-                <MinimumSize>1024,414</MinimumSize>
-                <MaximumSize>1024,414</MaximumSize>
+                <MinimumSize>948,414</MinimumSize>
+                <MaximumSize>948,414</MaximumSize>
                 <Children>
               <!-- Scrolling waveform -->
               <Visual>
@@ -535,8 +552,8 @@
                      one that gets squeezed for it. The waveform
                      absorbs every row of buttons that used to sit under it,
                      rather than leaving a hole. -->
-                <MinimumSize>1024,414</MinimumSize>
-                <MaximumSize>1024,414</MaximumSize>
+                <MinimumSize>948,414</MinimumSize>
+                <MaximumSize>948,414</MaximumSize>
                 <SignalHighColor>#ff5544</SignalHighColor>
                 <SignalMidColor>#88ff00</SignalMidColor>
                 <SignalLowColor>#2266ff</SignalLowColor>
@@ -600,12 +617,15 @@
                   <TempoPanel>
                     <ObjectName>TempoPanel</ObjectName>
                     <Group>[Channel1]</Group>
-                    <MinimumSize>1024,414</MinimumSize>
-                    <MaximumSize>1024,414</MaximumSize>
+                    <MinimumSize>948,414</MinimumSize>
+                    <MaximumSize>948,414</MaximumSize>
                     <TempoFont>Digital-7 Mono</TempoFont>
                     <TempoSize>52</TempoSize>
                     <TempoColor>#ff6600</TempoColor>
                   </TempoPanel>
+
+                </Children>
+              </WidgetGroup>
 
                 </Children>
               </WidgetGroup>
