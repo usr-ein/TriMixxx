@@ -522,87 +522,68 @@ overwrite the good file two seconds later. That is why `persistSoon()` ignores
 the startup read.
 
 
-## Open: playlists whose tracks only exist in Device Library Plus
+## Closed: playlists inside "techno night" came up empty — a stale export
 
-Reported 14 August, in the user's words:
+Reported 14 August. **Fixed by re-syncing the stick from rekordbox**, and our
+parser was never the problem.
 
-> There is a problem loading playlists inside folders. In my usb, the folder
-> "techno night" has playlists, but they all appear completely empty while they
-> are not. The other folder, which is a date like "2027-04-02" has also
-> playlists, and those work. It may have to do with the fact there is a space in
-> the folder name?
+The chase, because two of its three conclusions were wrong on the way:
 
-**Not the space.** `Sssssh claps` (13 tracks), `breakcore start` (10) and
-`alba franch ` (6, trailing space) all work.
+1. *"It's the space in the folder name."* No. `Sssssh claps`, `breakcore start`
+   and `alba franch ` (trailing space) all carried their tracks.
+2. *"The export has no entries, so it isn't us."* Right about the export, and
+   argued badly: the evidence offered was zero orphaned entries, which only
+   shows that what we read was attributed correctly, not that we read
+   everything. Establishing it properly took walking the `playlist_entries`
+   chain and confirming every page in the file is visited.
+3. *"The tracks are in Device Library Plus and we can't read it."* Plausible --
+   the stick did carry an encrypted `exportLibrary.db` and a Plus manifest
+   listing all four playlists -- and wrong. The old `export.pdb` was simply
+   stale.
 
-**The tracks are not in `export.pdb`, and that is not us dropping them.**
-Verified on the stick itself, mounted directly, with two probes now in
-lib/prolink:
-
-- `pl_probe` — the four playlists under `techno night` (rb_id 25–28) have zero
-  entry rows, while the six under `2025-06-29` have 1, 2, 1, 3, 9 and 106. Not
-  one of the file's 1200 entry rows is orphaned.
-- `all_pages` and `entries_pages` — the `playlist_entries` table has 6 pages
-  declaring 1195 rows, and the chain walk visits all 6 and reads 1200 (the
-  presence mask finds 5 the header does not count, which is the documented F47
-  behaviour). **We read every playlist-entries page in the file.**
-
-**Where the tracks actually are: `exportLibrary.db`.** That stick carries a
-rekordbox 6 *Device Library Plus* library beside the classic one —
-`exportLibrary.db` (544 kB, SQLCipher-encrypted, not plain SQLite),
-`exportExt.pdb`, and `playlists3Plus.sync`. The Plus manifest lists all four
-playlists with the same `Dev_ID`s the classic pdb uses:
+After a fresh sync, the same probes on the same stick:
 
 ```
-<NODE Id="BDF6834D" ParentId="0"        Attribute="1" Dev_ID="2"  Timestamp="0"/>
-<NODE Id="67F149CB" ParentId="BDF6834D" Attribute="0" Dev_ID="25" .../>   Intro
-<NODE Id="9431CFB3" ParentId="BDF6834D" Attribute="0" Dev_ID="26" .../>   tension builders
-<NODE Id="3C36F82D" ParentId="BDF6834D" Attribute="0" Dev_ID="27" .../>   maintain
-<NODE Id="4E1C5E9A" ParentId="BDF6834D" Attribute="0" Dev_ID="28" .../>   peak
+id=25 parent=2 folder=false entries=0     Intro
+id=26 parent=2 folder=false entries=8     tension builders
+id=27 parent=2 folder=false entries=15    maintain
+id=28 parent=2 folder=false entries=17    peak
+id=29 parent=0 folder=false entries=13    Rally house      (was 0)
+entries whose playlist_id matches no tree row: 0
 ```
 
-So the playlists exist in both libraries by name, and their membership was
-written only to the Plus one. A player that reads Plus shows them full; anything
-reading the classic `export.pdb` — this deck, and ProLink's own database
-service, which serves `PIONEER/rekordbox/export.pdb` and nothing else — shows
-them empty. `exportExt.pdb` was checked and does not hold them either: one
-playlist-tree row and no entries.
+`playlist_entries` is 6 pages, all 6 walked, chain ends where the directory says
+it does, and the per-playlist counts sum exactly to the 354 rows the reader
+returns. Headers declare 436 slots; the presence mask marks 354 live, which is
+the same mechanism that on the older file marked *more* live than the header
+counted (F47). Both directions are normal.
 
-Worth noting the folder's own node carries `Timestamp="0"` where the working
-folder has a real one. Might mean nothing; might be the tell for "never written
-to the classic export".
+**`Intro` is still empty**, which now means it is empty in rekordbox rather than
+lost in transit. Worth a glance next time the collection is open.
 
-### What to do about it
+### So: no Device Library Plus work
 
-Two honest options, and the first is not a workaround:
-
-1. **Re-export the stick from rekordbox** so the classic `export.pdb` carries
-   the membership. If rekordbox will not write it, that is Pioneer's choice
-   about which library is authoritative and the deck cannot argue with it.
-2. **Read Device Library Plus.** `exportLibrary.db` is SQLCipher; the key is
-   known in the wild but this is a real piece of work and a licensing question,
-   not an afternoon. Do not start it without deciding whether the deck wants to
-   depend on it.
-
-Until one of those, the deck is showing exactly what the classic library says,
-and the display is not lying — it just cannot see the other library.
+`exportLibrary.db` is SQLCipher and we still do not read it, and on this evidence
+we do not need to: rekordbox writes the classic `export.pdb` correctly when the
+stick is synced. If an empty playlist ever shows up again, re-sync first --
+that is one minute against a week of decryption and a licensing question.
 
 ### What the hunt left behind
 
 - `MediaRegistry` keeps the bytes it ingested at `~/.mixxx/last-ingest.pdb`. A
   remote medium's pdb never touches the disk, so "why was this playlist empty"
-  had no evidence to work from. MIDI note 0x7B re-pulls the database.
-- `lib/prolink` gains three examples: `pl_probe`, `entries_pages`, `all_pages`.
-  Between them they answer "did we read every row" and "is every row
-  attributed", which are the two ways this could have been our fault.
-- A trap: `QSqlDatabase::databaseName()` is a URL here (`file:/home/...`), not a
-  path, so the first version of the pdb copy wrote to a mangled directory and
-  failed silently.
-- **A correction worth keeping.** The first pass concluded "not our bug" on the
-  strength of the orphan count alone. That was too strong: zero orphans proves
-  every row we *read* was attributed, not that we read every row. The chain walk
-  is what actually closes it. Same conclusion, arrived at properly the second
-  time.
+  previously had no evidence to work from at all. MIDI note 0x7B re-pulls the
+  database without unplugging anything.
+- Three examples in `lib/prolink`: `pl_probe`, `entries_pages`, `all_pages`.
+  Between them they answer the only two ways an empty playlist could be ours --
+  "did we read every row" and "was every row attributed" -- and they are what
+  finally settled this one in a minute rather than a day.
+- A trap worth remembering: `QSqlDatabase::databaseName()` is a URL here
+  (`file:/home/...`), not a path, so the first version of the pdb copy wrote to
+  a mangled directory and said nothing.
+- The volatile-header business (F13) showed up again unprompted: the pdb pulled
+  from the CDJ and the same file read off the stick differed in 35 bytes, all of
+  them the write counter and its neighbours. Worth recognising on sight.
 
 # History
 
