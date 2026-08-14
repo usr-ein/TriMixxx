@@ -522,6 +522,26 @@ overwrite the good file two seconds later. That is why `persistSoon()` ignores
 the startup read.
 
 
+## Open: playlists inside some folders come up empty
+
+Reported 14 August, in the user's words:
+
+> There is a problem loading playlists inside folders. In my usb, the folder
+> "techno night" has playlists, but they all appear completely empty while they
+> are not. The other folder, which is a date like "2027-04-02" has also
+> playlists, and those work. It may have to do with the fact there is a space in
+> the folder name?
+
+Not investigated yet. The space is the obvious suspect and worth checking first,
+but "obvious suspect" is how the last four of these started and three of them
+were something else — so measure before believing it. Places to look: how the
+rekordbox pdb's playlist tree is walked (`src/library/deck/pdbingest.cpp`), and
+whether the folder name reaches a SQL `LIKE`/`GLOB` or a path that is split on
+whitespace anywhere between the pdb and `showPlaylists()`.
+
+Note it is the *playlists inside* the folder that are empty, not the folder —
+so the tree is being read and the leaf query is what returns nothing.
+
 # History
 
 Everything below is settled and is kept for the reasons rather than the results:
