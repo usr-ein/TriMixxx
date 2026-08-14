@@ -35,6 +35,13 @@ stop() { "$HERE/deck-poke" midi "90 7A 00" >/dev/null 2>&1 || true; }
 trap stop EXIT
 
 "$HERE/deck-poke" midi "90 7A 7F" >/dev/null
+sleep 1
+# The toggle has no feedback and an interrupted run leaves it inverted, so the
+# next start silently stops instead. Confirm a file appeared; flip again if not.
+if ! ssh "$HOST" "ls $REC_DIR/*.wav >/dev/null 2>&1"; then
+	"$HERE/deck-poke" midi "90 7A 7F" >/dev/null
+	sleep 1
+fi
 sleep "$SECS"
 "$HERE/deck-poke" midi "90 7A 00" >/dev/null
 trap - EXIT
