@@ -522,7 +522,7 @@ overwrite the good file two seconds later. That is why `persistSoon()` ignores
 the startup read.
 
 
-## Answered: playlists inside "techno night" come up empty — the export is empty
+## Open: playlists whose tracks only exist in Device Library Plus
 
 Reported 14 August, in the user's words:
 
@@ -532,51 +532,77 @@ Reported 14 August, in the user's words:
 > playlists, and those work. It may have to do with the fact there is a space in
 > the folder name?
 
-**Not the space, and not us.** The space theory dies on the deck's own data:
-`Sssssh claps` (13 tracks), `breakcore start` (10) and `alba franch ` (6, with a
-trailing space) all work.
+**Not the space.** `Sssssh claps` (13 tracks), `breakcore start` (10) and
+`alba franch ` (6, trailing space) all work.
 
-The medium's `export.pdb` was captured off the deck and read with
-`cargo run --example pl_probe -p prolink-rekordbox`:
+**The tracks are not in `export.pdb`, and that is not us dropping them.**
+Verified on the stick itself, mounted directly, with two probes now in
+lib/prolink:
+
+- `pl_probe` — the four playlists under `techno night` (rb_id 25–28) have zero
+  entry rows, while the six under `2025-06-29` have 1, 2, 1, 3, 9 and 106. Not
+  one of the file's 1200 entry rows is orphaned.
+- `all_pages` and `entries_pages` — the `playlist_entries` table has 6 pages
+  declaring 1195 rows, and the chain walk visits all 6 and reads 1200 (the
+  presence mask finds 5 the header does not count, which is the documented F47
+  behaviour). **We read every playlist-entries page in the file.**
+
+**Where the tracks actually are: `exportLibrary.db`.** That stick carries a
+rekordbox 6 *Device Library Plus* library beside the classic one —
+`exportLibrary.db` (544 kB, SQLCipher-encrypted, not plain SQLite),
+`exportExt.pdb`, and `playlists3Plus.sync`. The Plus manifest lists all four
+playlists with the same `Dev_ID`s the classic pdb uses:
 
 ```
-id=25 parent=2 folder=false entries=0     Intro
-id=26 parent=2 folder=false entries=0     tension builders
-id=27 parent=2 folder=false entries=0     maintain
-id=28 parent=2 folder=false entries=0     peak
-id=1  parent=0 folder=true  entries=0     2025-06-29
-id=2  parent=0 folder=true  entries=0     techno night
-...
-entries whose playlist_id matches no tree row: 0
+<NODE Id="BDF6834D" ParentId="0"        Attribute="1" Dev_ID="2"  Timestamp="0"/>
+<NODE Id="67F149CB" ParentId="BDF6834D" Attribute="0" Dev_ID="25" .../>   Intro
+<NODE Id="9431CFB3" ParentId="BDF6834D" Attribute="0" Dev_ID="26" .../>   tension builders
+<NODE Id="3C36F82D" ParentId="BDF6834D" Attribute="0" Dev_ID="27" .../>   maintain
+<NODE Id="4E1C5E9A" ParentId="BDF6834D" Attribute="0" Dev_ID="28" .../>   peak
 ```
 
-The four playlists under `techno night` (rb_id 2) have **zero entry rows in the
-export**, while the six under `2025-06-29` (rb_id 1) have 1, 2, 1, 3, 9 and 106.
-And no entry in the file is orphaned — every one of the 1200 rows is attributed
-to a playlist — so nothing is lost between the pdb and the database. The deck is
-showing exactly what the stick says.
+So the playlists exist in both libraries by name, and their membership was
+written only to the Plus one. A player that reads Plus shows them full; anything
+reading the classic `export.pdb` — this deck, and ProLink's own database
+service, which serves `PIONEER/rekordbox/export.pdb` and nothing else — shows
+them empty. `exportExt.pdb` was checked and does not hold them either: one
+playlist-tree row and no entries.
 
-`Rally house`, `To tag` and `last month` are empty in the export too, which fits.
+Worth noting the folder's own node carries `Timestamp="0"` where the working
+folder has a real one. Might mean nothing; might be the tell for "never written
+to the classic export".
 
-**So the question moves to rekordbox**, and the likely answers are that those
-playlists were populated after the last export, or that their tracks were not
-part of the export selection. Re-exporting the stick is the thing to try.
+### What to do about it
 
-**One thing not ruled out.** We read `PIONEER/rekordbox/export.pdb` and never
-`exportExt.pdb`, which rekordbox 6+ also writes. Nothing in the evidence points
-there — the four playlists' tree rows are in export.pdb, and rekordbox keeps a
-playlist's entries in the same file as its tree row — but if a re-export does not
-fix it, that is the next place to look. Mount the stick and see whether
-`exportExt.pdb` exists and how big it is.
+Two honest options, and the first is not a workaround:
 
-**What this bug bought us**, since it was otherwise unanswerable after the fact:
-`MediaRegistry` now keeps the bytes it ingested at `~/.mixxx/last-ingest.pdb`. A
-remote medium's pdb never touches the disk and a stick can be unplugged, so
-"why was this playlist empty" had no evidence to work from. Note the trap it
-walked into on the way: `QSqlDatabase::databaseName()` is a URL here
-(`file:/home/...`), not a path, so the first version wrote to a mangled
-directory and failed silently. MIDI note 0x7B re-pulls the database, for
-triggering an ingest without unplugging anything.
+1. **Re-export the stick from rekordbox** so the classic `export.pdb` carries
+   the membership. If rekordbox will not write it, that is Pioneer's choice
+   about which library is authoritative and the deck cannot argue with it.
+2. **Read Device Library Plus.** `exportLibrary.db` is SQLCipher; the key is
+   known in the wild but this is a real piece of work and a licensing question,
+   not an afternoon. Do not start it without deciding whether the deck wants to
+   depend on it.
+
+Until one of those, the deck is showing exactly what the classic library says,
+and the display is not lying — it just cannot see the other library.
+
+### What the hunt left behind
+
+- `MediaRegistry` keeps the bytes it ingested at `~/.mixxx/last-ingest.pdb`. A
+  remote medium's pdb never touches the disk, so "why was this playlist empty"
+  had no evidence to work from. MIDI note 0x7B re-pulls the database.
+- `lib/prolink` gains three examples: `pl_probe`, `entries_pages`, `all_pages`.
+  Between them they answer "did we read every row" and "is every row
+  attributed", which are the two ways this could have been our fault.
+- A trap: `QSqlDatabase::databaseName()` is a URL here (`file:/home/...`), not a
+  path, so the first version of the pdb copy wrote to a mangled directory and
+  failed silently.
+- **A correction worth keeping.** The first pass concluded "not our bug" on the
+  strength of the orphan count alone. That was too strong: zero orphans proves
+  every row we *read* was attributed, not that we read every row. The chain walk
+  is what actually closes it. Same conclusion, arrived at properly the second
+  time.
 
 # History
 
