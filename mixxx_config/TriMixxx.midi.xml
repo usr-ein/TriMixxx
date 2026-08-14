@@ -16,6 +16,18 @@
     </scriptfiles>
     <controls>
 
+      <!-- Re-fetch the linked player's database. Note 0x7B, for the test
+           harness; the S3 never sends it. Pairs with the copy of the ingested
+           pdb that MediaRegistry keeps, which is the only way to answer
+           "why is this playlist empty" after the fact. -->
+      <control>
+        <group>[ProLink]</group>
+        <key>pull_db</key>
+        <status>0x90</status>
+        <midino>0x7B</midino>
+        <options><normal/></options>
+      </control>
+
       <!-- Unattended audio capture, for pi_config/deck-record. Note 0x7A
            toggles Mixxx's recorder, so a change can be listened to from the
            machine that made it rather than by standing at the deck. The S3

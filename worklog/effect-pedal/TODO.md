@@ -522,7 +522,7 @@ overwrite the good file two seconds later. That is why `persistSoon()` ignores
 the startup read.
 
 
-## Open: playlists inside some folders come up empty
+## Answered: playlists inside "techno night" come up empty — the export is empty
 
 Reported 14 August, in the user's words:
 
@@ -532,15 +532,51 @@ Reported 14 August, in the user's words:
 > playlists, and those work. It may have to do with the fact there is a space in
 > the folder name?
 
-Not investigated yet. The space is the obvious suspect and worth checking first,
-but "obvious suspect" is how the last four of these started and three of them
-were something else — so measure before believing it. Places to look: how the
-rekordbox pdb's playlist tree is walked (`src/library/deck/pdbingest.cpp`), and
-whether the folder name reaches a SQL `LIKE`/`GLOB` or a path that is split on
-whitespace anywhere between the pdb and `showPlaylists()`.
+**Not the space, and not us.** The space theory dies on the deck's own data:
+`Sssssh claps` (13 tracks), `breakcore start` (10) and `alba franch ` (6, with a
+trailing space) all work.
 
-Note it is the *playlists inside* the folder that are empty, not the folder —
-so the tree is being read and the leaf query is what returns nothing.
+The medium's `export.pdb` was captured off the deck and read with
+`cargo run --example pl_probe -p prolink-rekordbox`:
+
+```
+id=25 parent=2 folder=false entries=0     Intro
+id=26 parent=2 folder=false entries=0     tension builders
+id=27 parent=2 folder=false entries=0     maintain
+id=28 parent=2 folder=false entries=0     peak
+id=1  parent=0 folder=true  entries=0     2025-06-29
+id=2  parent=0 folder=true  entries=0     techno night
+...
+entries whose playlist_id matches no tree row: 0
+```
+
+The four playlists under `techno night` (rb_id 2) have **zero entry rows in the
+export**, while the six under `2025-06-29` (rb_id 1) have 1, 2, 1, 3, 9 and 106.
+And no entry in the file is orphaned — every one of the 1200 rows is attributed
+to a playlist — so nothing is lost between the pdb and the database. The deck is
+showing exactly what the stick says.
+
+`Rally house`, `To tag` and `last month` are empty in the export too, which fits.
+
+**So the question moves to rekordbox**, and the likely answers are that those
+playlists were populated after the last export, or that their tracks were not
+part of the export selection. Re-exporting the stick is the thing to try.
+
+**One thing not ruled out.** We read `PIONEER/rekordbox/export.pdb` and never
+`exportExt.pdb`, which rekordbox 6+ also writes. Nothing in the evidence points
+there — the four playlists' tree rows are in export.pdb, and rekordbox keeps a
+playlist's entries in the same file as its tree row — but if a re-export does not
+fix it, that is the next place to look. Mount the stick and see whether
+`exportExt.pdb` exists and how big it is.
+
+**What this bug bought us**, since it was otherwise unanswerable after the fact:
+`MediaRegistry` now keeps the bytes it ingested at `~/.mixxx/last-ingest.pdb`. A
+remote medium's pdb never touches the disk and a stick can be unplugged, so
+"why was this playlist empty" had no evidence to work from. Note the trap it
+walked into on the way: `QSqlDatabase::databaseName()` is a URL here
+(`file:/home/...`), not a path, so the first version wrote to a mangled
+directory and failed silently. MIDI note 0x7B re-pulls the database, for
+triggering an ingest without unplugging anything.
 
 # History
 
