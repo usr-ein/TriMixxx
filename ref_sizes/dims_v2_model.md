@@ -126,3 +126,6 @@ UCA222 DAC (m3)
 - `tempo_knob_width` 16.5mm
 - `tempo_length` 130mm
 - `onebtn_dia` 15mm
+- `btn_play_dia` 33mm (CDJ2000nxs is 38mm for ref.)
+- `btn_loop_dia` 15mm
+- `btn_reloop_dia` 9mm
