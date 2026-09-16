@@ -2,8 +2,9 @@
 
 A custom DJ media player — a CDJ-style deck — built from scratch around a Raspberry Pi, designed to run [Mixxx](https://mixxx.org/) DJ software. It reuses an original Pioneer CDJ's buttons and jog wheel behind custom PCBs and a 3D-printed chassis for an authentic DJ feel, and reads Rekordbox-formatted USB sticks — no laptop required.
 
-![Front](screenshots/CDJ-TriMixxx-master-doc_v117_front.png)
-![Back](screenshots/CDJ-TriMixxx-master-doc_v117_back.png)
+![TriMixxx V2 — raytraced render of the chassis](screenshots/trimixxx_v2_raytraced_2026-09-16_18-21-07.jpg)
+![TriMixxx V2 — the Fusion 360 model behind it](screenshots/trimixxx_v2_3dmodel_2026-09-16_20-43-06.png)
+![midi_s3_mini v2 — the controller board inside](boards/midi_s3_mini/midi_s3_mini_v2.png)
 
 ### The screen
 
@@ -35,8 +36,6 @@ This project has been through several complete redesigns. It's worth keeping the
 2. **Breaking it apart.** The controller was split out onto its own board. `boards/midi-laser-pcb` was the first standalone MIDI-controller PCB — it was fabricated, then abandoned in favour of a cleaner design.
 
 3. **Where it is now.** `boards/midi_s3_mini` is the current controller board (fabricated), hosting a **LOLIN S3 Mini (ESP32-S3)**. The audio DAC and power delivery are no longer TriMixxx's job — a Raspberry Pi handles Mixxx and audio directly, and the S3 is purely the controller brain. The controls are spread across small purpose-built satellite boards, all of them already fabricated.
-
-![midi_s3_mini v2 board render](boards/midi_s3_mini/midi_s3_mini_v2.png)
 
 The old monolithic design is preserved in this README's history and in `screenshots/` as a record of the road not taken.
 
