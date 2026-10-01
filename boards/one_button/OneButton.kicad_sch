@@ -3464,7 +3464,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "easyeda2kicad:CONN-TH_B3B-PH-K-S"
+		(property "Footprint" "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN"
 			(at 233.68 124.46 0)
 			(hide yes)
 			(show_name no)
@@ -5803,7 +5803,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "easyeda2kicad:CONN-TH_B3B-PH-K-S"
+		(property "Footprint" "easyeda2kicad:CONN-TH_3P-P2.00_S3B-PH-K-S-LF-SN"
 			(at 243.84 104.14 0)
 			(hide yes)
 			(show_name no)
