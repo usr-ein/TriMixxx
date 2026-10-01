@@ -30,6 +30,13 @@ func (c RGB) Lit() bool { return c != RGB{} }
 
 func (c RGB) String() string { return fmt.Sprintf("#%02X%02X%02X", c.R, c.G, c.B) }
 
+// Scaled is this colour at a fraction of its level. The levels are PWM duty
+// cycles, so this is also the fraction of the current the LED draws.
+func (c RGB) Scaled(f float64) RGB {
+	s := func(v uint8) uint8 { return uint8(float64(v)*f + 0.5) }
+	return RGB{s(c.R), s(c.G), s(c.B)}
+}
+
 // Binding is one thing a control does: the keys it produces, a label for humans
 // reading a log or the control chart, and the colour that says so on the deck.
 type Binding struct {

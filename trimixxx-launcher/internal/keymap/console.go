@@ -7,16 +7,14 @@ import (
 
 // Console is the deck as a keyboard for the debug screen.
 //
-// The debug screen itself does not exist yet -- `trimixxx-debug` is a stub. This
-// map is the door left open for it, and it is also the constraint that shapes
-// it: the deck has no letter keys and no way to grow any, so whatever ends up
-// on that screen has to be drivable with a cursor, a confirm, a cancel and
-// seven function keys. In other words: a MENU, not a shell prompt. Anything
-// that needs typing needs a USB keyboard plugged in, which is precisely the
-// situation the debug screen exists to avoid.
+// The debug screen (`trimixxx-debug`) is a shell: in a terminal beside an
+// on-screen keyboard on the touchscreen, or on the bare console when X will not
+// come up. This map types into it too -- cursor keys, enter, escape, tab and
+// seven function keys -- which is what the deck's own controls can offer
+// without letter keys, and what a menu-driven debug screen would need if one is
+// ever built for a deck with neither a keyboard nor a working touchscreen.
 //
-// Provisional until there is something to drive; the notes below are the
-// reasoning, not a contract.
+// Provisional; the notes below are the reasoning, not a contract.
 func Console() *Map {
 	m := &Map{
 		Name: "console",
@@ -76,5 +74,20 @@ func Console() *Map {
 		}
 		m.Notes[byte(midimap.PadBBase+i)] = b
 	}
+	// Every pad at half the level the Doom map uses. The rescue console can be
+	// up for a long time with the whole deck lit, and both rings at full
+	// brightness draw a lot of current off the deck's 5 V for nothing: here the
+	// colours only have to be told apart. Half the duty cycle is half the
+	// current. The lamps (play, cue, loop) are on/off and stay as they are.
+	for note, b := range m.Notes {
+		if _, _, isPad := midimap.RingOf(note); isPad {
+			b.Color = b.Color.Scaled(consoleLevel)
+			m.Notes[note] = b
+		}
+	}
 	return m
 }
+
+// consoleLevel is the console map's pad brightness, as a fraction of the
+// colours it shares with the Doom map.
+const consoleLevel = 0.5
