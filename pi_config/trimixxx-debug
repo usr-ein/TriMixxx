@@ -1,23 +1,33 @@
 #!/bin/sh
-# TriMixxx debug console -- PLACEHOLDER. The door, not the room.
+# TriMixxx rescue console.
 #
 # Boot into it by holding CUE from power-on and letting go when the play/cue
-# LEDs blink. ~/.bash_profile runs it on tty1 with NO X, so it is still there
-# when the graphical stack is what is broken. Leaving it (exit) hands the deck
+# LEDs blink; ~/.bash_profile runs it on tty1. Leaving it (exit) hands the deck
 # back to Mixxx.
 #
 # WHAT THIS IS FOR: getting the unit back when you have lost contact with it --
 # wifi that did not come up, a route that went missing, a service that failed --
-# from the deck itself, with nothing plugged in.
+# from the deck itself.
 #
-# WHAT IT MUST NOT BE: a shell prompt. There is no keyboard on this unit and
-# nowhere to plug one in that helps, so the real thing has to be a MENU, driven
-# by a cursor, a confirm and a cancel. That is exactly what the deck can send:
-# `trimixxx-deckkeys --map console` maps ring B to the cursor keys, play/cue to
-# enter/escape, the track encoder to up/down and ring A to F1..F7.
+# One shell, already logged in (sudo needs no password), with two faces:
+#   * on the touchscreen, with nothing plugged in: an X session with this
+#     shell in a terminal on the left half of the panel and an on-screen
+#     keyboard on the right (rescue-session);
+#   * on the bare console, with NO X, when X will not come up -- the screen
+#     that is still there when the graphical stack is what is broken.
+# A USB keyboard works in both. And with one, there is a way in that needs no
+# boot gesture at all: Ctrl+Alt+F2 at any time for a password login on tty2,
+# Ctrl+Alt+F1 back to Mixxx.
 #
-# So when this gets built, it wants to be a small full-screen TUI offering
-# something like:
+# `trimixxx-debug --console` is the banner and the shell alone; the terminal
+# runs that, and so does the fallback.
+#
+# WHAT IT MAY STILL BECOME, for a deck with neither a keyboard nor a working
+# touchscreen: a MENU, driven by a cursor, a confirm and a cancel, because that
+# is exactly what the deck can send: `trimixxx-deckkeys --map console` maps
+# ring B to the cursor keys, play/cue to enter/escape, the track encoder to
+# up/down and ring A to F1..F7 -- and types into the terminal meanwhile. A
+# small full-screen TUI offering something like:
 #
 #     - what wlan0/eth0 currently are, and the default route
 #     - rejoin the known wifi / forget and rejoin
@@ -29,10 +39,32 @@
 # with every action a confirm-then-do, and no free text anywhere.
 set -eu
 
+SESSION=/usr/local/lib/trimixxx/rescue-session
+RAN="${XDG_RUNTIME_DIR:-/tmp}/trimixxx-rescue.ran"
+
+if [ "${1:-}" != "--console" ]; then
+    # The touch face first. startx returns when the terminal's shell is left,
+    # and also when X never came up; rescue-session drops RAN once its windows
+    # are up, which is what tells the two apart. Only the second falls through
+    # to the bare console below. X's own output goes to a file, so a failure
+    # leaves a reason behind on a screen with nothing else on it.
+    if [ -x "$SESSION" ] && command -v startx >/dev/null 2>&1; then
+        rm -f "$RAN"
+        startx "$SESSION" -- -nocursor >/tmp/trimixxx-rescue-x.log 2>&1 || true
+        if [ -e "$RAN" ]; then
+            rm -f "$RAN"
+            exit 0
+        fi
+        echo
+        echo "  The touch console did not come up: /tmp/trimixxx-rescue-x.log."
+    fi
+fi
+
 echo
-echo "  TriMixxx debug console"
-echo "  ----------------------"
-echo "  Not built yet -- this is the placeholder. See $0."
+echo "  TriMixxx rescue console"
+echo "  -----------------------"
+echo "  A shell, already logged in; sudo needs no password."
+echo "  Type here, or with a USB keyboard. What else this may become: see $0."
 echo
 
 # The one thing worth showing even from a stub, since "I cannot reach the deck"
@@ -58,4 +90,12 @@ echo "  Exit this shell to go back to Mixxx."
 echo
 
 # NOT exec: returning is what lets ~/.bash_profile hand the deck back.
-bash --login || true
+#
+# And NOT a login shell. A login bash reads ~/.bash_profile, which on tty1 with
+# the mode still "debug" runs this console again -- inside itself, without end,
+# until sam1902 runs out of processes, at which point even an ssh login as
+# sam1902 cannot fork. An interactive shell reads only ~/.bashrc, and the login
+# environment (~/.profile: PATH and the rest) is inherited from the session that
+# ran this. TRIMIXXX_RESCUE is the backstop: ~/.bash_profile does nothing while
+# it is set, even under a `bash --login` typed in here.
+TRIMIXXX_RESCUE=1 bash -i || true

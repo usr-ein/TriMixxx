@@ -8,12 +8,16 @@
 # Everything here is idempotent -- safe to re-run. Installs:
 #   * cpu-governor.service     -- pin cores to `performance` (low-latency audio)
 #   * trimixxx-bridge.service  -- ttymidi serial<->MIDI bridge (gates Mixxx boot)
+#   * trimixxx-lights-off.*    -- every button light off at shutdown
+#   * trimixxx-swap-sizes.conf, panel drivers in the initramfs -- boot speed
 #   * 99-prolink-ports.conf    -- let Mixxx bind UDP/111 (Pro DJ Link serving)
 #   * getty-tty1-stop-mixxx.conf -- quit Mixxx before the session (and X) go
 #   * trimixxx-splash.*        -- logo on the panel for the first seconds of boot
 #   * prolink-eth0.sh          -- eth0 to IPv4 link-local, for the CDJ network
 #   * wifi-fallback/*          -- the deck's own hotspot when there is no Wi-Fi
 #   * ~/.xinitrc               -- the X session startx runs (WM + Mixxx loop)
+#   * ~/.bash_profile, trimixxx-debug, rescue-* -- the session entry point and
+#                                 the rescue console (hold CUE at boot)
 #   * dj-usb/*                 -- USB auto-mount (delegated to its own installer)
 set -eux
 
@@ -54,6 +58,63 @@ ssh "$HOST" '
     # Mixxx -- the virtual MIDI port just drops and reappears.
     sudo systemctl enable trimixxx-bridge.service
     sudo systemctl restart trimixxx-bridge.service
+'
+
+# ---- button lights off at shutdown -------------------------------------------
+# The S3 outlives the Pi -- it stays powered after a halt -- so without this a
+# deck that was shut down mid-track keeps its PLAY lamp and pads lit. The unit
+# does its work when it STOPS (see its header for the ordering that makes that
+# land between Mixxx going and ttymidi going), so it is started but never
+# restarted here: a restart would black the deck out under a running Mixxx.
+# The script is read at shutdown, so an edited one needs no restart anyway.
+scp "$HERE/trimixxx-lights-off" "$HERE/trimixxx-lights-off.service" "$HOST":/tmp/
+ssh "$HOST" '
+    set -eux
+    sudo install -m 0755 /tmp/trimixxx-lights-off         /usr/local/bin/trimixxx-lights-off
+    sudo install -m 0644 /tmp/trimixxx-lights-off.service /etc/systemd/system/trimixxx-lights-off.service
+    rm -f /tmp/trimixxx-lights-off /tmp/trimixxx-lights-off.service
+    sudo systemctl daemon-reload
+    sudo systemctl enable trimixxx-lights-off.service
+    sudo systemctl start trimixxx-lights-off.service
+'
+
+# ---- boot speed: swap sizes, panel drivers in the initramfs -------------------
+# Both explained in fresh-install.md (1.4), where the config.txt and EEPROM
+# halves of the same work are, as manual steps.
+#
+# The swap drop-in pins what rpi-swap computes anyway, so its generator stops
+# running Perl on every boot.
+#
+# The initramfs already carries vc4 and tries to start the display there, but
+# without the DSI panel driver and the I2C mux in front of it, vc4 has to wait
+# for the root filesystem: the panel came up at ~6 s instead of ~1.7 s. The
+# standard place to add them is /etc/initramfs-tools/modules, which every kernel
+# update re-reads. Only on a deck with this panel that boots through an
+# initramfs, and the initramfs is only rebuilt when the list changed.
+scp "$HERE/trimixxx-swap-sizes.conf" "$HOST":/tmp/
+ssh "$HOST" '
+    set -eux
+    sudo install -d -m 0755 /etc/rpi/swap.conf.d
+    sudo install -m 0644 /tmp/trimixxx-swap-sizes.conf /etc/rpi/swap.conf.d/trimixxx-swap-sizes.conf
+    rm -f /tmp/trimixxx-swap-sizes.conf
+
+    list=/etc/initramfs-tools/modules
+    if grep -q "^dtoverlay=vc4-kms-dsi-waveshare-panel" /boot/firmware/config.txt &&
+       grep -q "^auto_initramfs=1" /boot/firmware/config.txt; then
+        changed=0
+        for m in i2c_mux_pinctrl panel_waveshare_dsi; do
+            grep -qx "$m" "$list" && continue
+            if [ "$changed" = 0 ]; then
+                echo "# TriMixxx: the DSI panel and its I2C mux, see pi_config/fresh-install.md 1.4" |
+                    sudo tee -a "$list" >/dev/null
+            fi
+            echo "$m" | sudo tee -a "$list" >/dev/null
+            changed=1
+        done
+        if [ "$changed" = 1 ]; then
+            sudo update-initramfs -u -k "$(uname -r)"
+        fi
+    fi
 '
 
 # ---- unprivileged port floor -------------------------------------------------
@@ -134,8 +195,15 @@ ssh "$HOST" 'chmod 0755 ~/.xinitrc'
 # sources ~/.profile itself to keep PATH and ~/.local/bin/env working -- which
 # means a `startx` line left in ~/.profile would now run BEFORE the mode is
 # looked at, and the boot gesture would silently do nothing.
+#
+# The rescue console rides along: trimixxx-debug, the touch session it starts
+# (rescue-session: a terminal beside an on-screen keyboard), and that
+# keyboard's layout. A malformed layout crashes the keyboard and leaves only
+# the bare-console fallback, so it is checked here first, like the fonts rule.
+python3 -c "import xml.dom.minidom; xml.dom.minidom.parse('$HERE/rescue-keyboard.xml')" \
+    || { echo "ABORT: rescue-keyboard.xml is not well-formed XML." >&2; exit 1; }
 scp "$HERE/bash_profile" "$HOST":/tmp/bash_profile
-scp "$HERE/trimixxx-debug" "$HOST":/tmp/
+scp "$HERE/trimixxx-debug" "$HERE/rescue-session" "$HERE/rescue-keyboard.xml" "$HOST":/tmp/
 ssh "$HOST" '
     set -eu
     if [ -f ~/.bash_profile ] && ! grep -q "TriMixxx" ~/.bash_profile; then
@@ -155,9 +223,19 @@ ssh "$HOST" '
         echo
     fi
 
-    # The rescue console. A placeholder on purpose -- see the script.
+    # The rescue console (hold CUE at boot): a shell on the touchscreen, in a
+    # terminal beside an on-screen keyboard, or on the bare console when X
+    # will not start. See trimixxx-debug and rescue-session.
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends \
+        xterm matchbox-keyboard >/dev/null
     sudo install -m 0755 /tmp/trimixxx-debug /usr/local/bin/trimixxx-debug
-    rm -f /tmp/trimixxx-debug
+    sudo install -d -m 0755 /usr/local/lib/trimixxx
+    sudo install -m 0755 /tmp/rescue-session /usr/local/lib/trimixxx/rescue-session
+    # The layout under the DEFAULT name: this matchbox-keyboard crashes when
+    # given a layout by name (see rescue-session).
+    install -d -m 0755 ~/.matchbox
+    install -m 0644 /tmp/rescue-keyboard.xml ~/.matchbox/keyboard.xml
+    rm -f /tmp/trimixxx-debug /tmp/rescue-session /tmp/rescue-keyboard.xml
 '
 
 # ---- clean Mixxx shutdown on `systemctl stop getty@tty1` ---------------------

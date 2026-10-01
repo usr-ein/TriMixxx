@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  The rescue console's on-screen keyboard: matchbox-keyboard's layout for a
+  shell, on the right half of the panel (see rescue-session).
+
+  The stock layouts are made for typing prose (three rows of letters, no
+  digits, no Tab, no Ctrl), and a shell needs everything they leave out: every
+  printable ASCII character (shifted pairs, as on a US keyboard), Esc, Tab, Ctrl
+  and Alt (latched until the next key, so Ctrl then c is Ctrl+C), Del,
+  Home/End and the arrows. No PgUp/PgDn: they did not fit legibly, and less
+  takes space and b, bash Ctrl+A and Ctrl+E.
+
+  The symbol labels need a font that has them, and the keyboard draws each
+  label in one font with no fallback: rescue-session starts it on DejaVu Sans,
+  which has every one of them. Its default font has none and shows boxes.
+
+  Six rows of 14 units each (width 1000 = one key), so the keys line up as a
+  grid on a half-panel; the keys with words on them are two units or more,
+  because the keyboard scales its font with its size and a word in a
+  one-unit key is cut off. Characters that XML reserves are entities, sent by
+  keysym name rather than by character.
+
+  Installed as ~/.matchbox/keyboard.xml by ./upload.sh: the default name,
+  because this build of matchbox-keyboard crashes when given a layout by name
+  (see rescue-session).
+-->
+<keyboard>
+<layout id="trimixxx rescue">
+
+  <row>
+    <key width="2000"><default display="Esc" action="xkeysym:Escape"/></key>
+    <key><default display="`"/><shifted display="~"/></key>
+    <key><default display="1"/><shifted display="!"/></key>
+    <key><default display="2"/><shifted display="@"/></key>
+    <key><default display="3"/><shifted display="#"/></key>
+    <key><default display="4"/><shifted display="$"/></key>
+    <key><default display="5"/><shifted display="%"/></key>
+    <key><default display="6"/><shifted display="^"/></key>
+    <key><default display="7"/><shifted display="&amp;" action="xkeysym:ampersand"/></key>
+    <key><default display="8"/><shifted display="*"/></key>
+    <key><default display="9"/><shifted display="("/></key>
+    <key><default display="0"/><shifted display=")"/></key>
+    <key><default display="-"/><shifted display="_"/></key>
+  </row>
+
+  <row>
+    <key width="2000"><default display="Tab" action="tab"/></key>
+    <key obey-caps="true"><default display="q"/><shifted display="Q"/></key>
+    <key obey-caps="true"><default display="w"/><shifted display="W"/></key>
+    <key obey-caps="true"><default display="e"/><shifted display="E"/></key>
+    <key obey-caps="true"><default display="r"/><shifted display="R"/></key>
+    <key obey-caps="true"><default display="t"/><shifted display="T"/></key>
+    <key obey-caps="true"><default display="y"/><shifted display="Y"/></key>
+    <key obey-caps="true"><default display="u"/><shifted display="U"/></key>
+    <key obey-caps="true"><default display="i"/><shifted display="I"/></key>
+    <key obey-caps="true"><default display="o"/><shifted display="O"/></key>
+    <key obey-caps="true"><default display="p"/><shifted display="P"/></key>
+    <key width="2000"><default display="⌫" action="backspace"/></key>
+  </row>
+
+  <row>
+    <key width="2000"><default display="Ctrl" action="modifier:control"/></key>
+    <key obey-caps="true"><default display="a"/><shifted display="A"/></key>
+    <key obey-caps="true"><default display="s"/><shifted display="S"/></key>
+    <key obey-caps="true"><default display="d"/><shifted display="D"/></key>
+    <key obey-caps="true"><default display="f"/><shifted display="F"/></key>
+    <key obey-caps="true"><default display="g"/><shifted display="G"/></key>
+    <key obey-caps="true"><default display="h"/><shifted display="H"/></key>
+    <key obey-caps="true"><default display="j"/><shifted display="J"/></key>
+    <key obey-caps="true"><default display="k"/><shifted display="K"/></key>
+    <key obey-caps="true"><default display="l"/><shifted display="L"/></key>
+    <key><default display=";"/><shifted display=":"/></key>
+    <key width="2000"><default display="⏎" action="return"/></key>
+  </row>
+
+  <row>
+    <key width="2000"><default display="⇧" action="modifier:shift"/></key>
+    <key obey-caps="true"><default display="z"/><shifted display="Z"/></key>
+    <key obey-caps="true"><default display="x"/><shifted display="X"/></key>
+    <key obey-caps="true"><default display="c"/><shifted display="C"/></key>
+    <key obey-caps="true"><default display="v"/><shifted display="V"/></key>
+    <key obey-caps="true"><default display="b"/><shifted display="B"/></key>
+    <key obey-caps="true"><default display="n"/><shifted display="N"/></key>
+    <key obey-caps="true"><default display="m"/><shifted display="M"/></key>
+    <key><default display=","/><shifted display="&lt;" action="xkeysym:less"/></key>
+    <key><default display="."/><shifted display="&gt;" action="xkeysym:greater"/></key>
+    <key><default display="/"/><shifted display="?"/></key>
+    <key width="2000"><default display="⇧" action="modifier:shift"/></key>
+  </row>
+
+  <row>
+    <key width="2000"><default display="Alt" action="modifier:alt"/></key>
+    <key><default display="="/><shifted display="+"/></key>
+    <key><default display="["/><shifted display="{"/></key>
+    <key><default display="]"/><shifted display="}"/></key>
+    <key><default display="\"/><shifted display="|"/></key>
+    <key><default display="&apos;" action="xkeysym:apostrophe"/><shifted display="&quot;" action="xkeysym:quotedbl"/></key>
+    <key width="2500"><default display="Home" action="xkeysym:Home"/></key>
+    <key width="2000"><default display="End" action="xkeysym:End"/></key>
+    <key width="2500"><default display="Del" action="xkeysym:Delete"/></key>
+  </row>
+
+  <row>
+    <key width="10000"><default display=" " action="space"/></key>
+    <key><default display="←" action="xkeysym:Left"/></key>
+    <key><default display="↑" action="xkeysym:Up"/></key>
+    <key><default display="↓" action="xkeysym:Down"/></key>
+    <key><default display="→" action="xkeysym:Right"/></key>
+  </row>
+
+</layout>
+</keyboard>

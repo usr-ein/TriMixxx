@@ -1,0 +1,50 @@
+#!/bin/sh
+# trimixxx-lights-off -- switch every light on the deck's buttons off.
+#
+# Run by trimixxx-lights-off.service when it stops, i.e. at shutdown. The lights
+# belong to the S3, and the S3 stays powered after the Pi halts, so whatever
+# Mixxx had lit -- the PLAY lamp, a hot cue -- stayed lit on a deck that was off.
+#
+# Through the same ttymidi port Mixxx uses, which is the only way to the S3:
+#   * the four lamps (play, cue, loop in, loop out): Note On, velocity 0, which
+#     is what Mixxx itself sends for "off";
+#   * every pad on both rings: the ring-LED SysEx with all six nibbles zero, for
+#     every node a ring can have (the firmware's 50), not just the pads fitted.
+#     The S3 drops nodes its ring doesn't have, so this is right on any deck.
+set -u
+
+# ttymidi's writable port (ALSA -> serial). Its two ports are both named
+# TriMixxx and only port 1 takes input, so it is found by its capabilities.
+port="$(awk '/^Client/ { c = ($0 ~ /: "TriMixxx" /) ? $2 : "" }
+             c != "" && /^  Port/ && /\(.[Ww]/ { print c ":" $2; exit }' \
+        /proc/asound/seq/clients 2>/dev/null)"
+if [ -z "$port" ]; then
+    echo "trimixxx-lights-off: no TriMixxx port (is trimixxx-bridge running?); nothing sent" >&2
+    exit 0
+fi
+
+failed=0
+aseqsend -p "$port" 90 3C 00 90 3D 00 90 3E 00 90 3F 00 || failed=1
+
+# 25 pads per send. ttymidi's ALSA queue holds 200 cells and a SysEx takes two,
+# so both rings in one go (200 cells) could overflow it and drop the tail.
+for cmd in 01 03; do
+    first=0
+    while [ "$first" -lt 50 ]; do
+        bytes=""
+        node=$first
+        while [ "$node" -lt $((first + 25)) ]; do
+            bytes="$bytes F0 7D $cmd $(printf '%02X' "$node") 00 00 00 00 00 00 F7"
+            node=$((node + 1))
+        done
+        # shellcheck disable=SC2086 # one argument per byte is what aseqsend wants
+        aseqsend -p "$port" $bytes || failed=1
+        first=$((first + 25))
+    done
+done
+
+if [ "$failed" -ne 0 ]; then
+    echo "trimixxx-lights-off: some sends to $port failed" >&2
+    exit 1
+fi
+echo "trimixxx-lights-off: lamps and both rings switched off through $port"

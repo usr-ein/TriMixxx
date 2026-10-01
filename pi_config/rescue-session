@@ -1,0 +1,88 @@
+#!/bin/sh
+# The rescue console on the touchscreen: the X client trimixxx-debug starts,
+# with a terminal on the left half of the panel running the rescue shell and an
+# on-screen keyboard on the right half typing into it. Nothing needs plugging
+# in. Leaving the shell (exit) ends the session, and trimixxx-debug hands the
+# deck back to Mixxx.
+#
+# Installed as /usr/local/lib/trimixxx/rescue-session by ./upload.sh, with the
+# xterm and matchbox-keyboard packages and the layout in rescue-keyboard.xml.
+#
+# No window manager: two windows, placed once, and that is all this needs.
+# Without one, though, X gives keyboard focus to whatever is under the pointer,
+# and on a touchscreen the pointer is wherever the finger last was -- on the
+# keyboard. So focus is put on the terminal explicitly, where it stays: the
+# keyboard's keys go out through XTEST to the focused window, wherever the
+# touch landed.
+set -u
+
+# Written once both windows are up. trimixxx-debug reads it to tell a session
+# that ran and was left from one that never came up -- startx returns either
+# way, and only the second should drop to the bare console.
+RAN="${XDG_RUNTIME_DIR:-/tmp}/trimixxx-rescue.ran"
+
+xset s off
+xset -dpms
+xset s noblank
+
+# The panel, as in ~/.xinitrc: the DSI output is the deck's own; failing that,
+# whatever is connected. The touch is pinned to it, so a monitor left plugged
+# into HDMI cannot stretch where a tap lands.
+panel="$(xrandr --query | awk '/^DSI-[0-9]+ connected/ {print $1; exit}')"
+[ -n "$panel" ] || panel="$(xrandr --query | awk '$2 == "connected" {print $1; exit}')"
+xrandr --output "$panel" --auto --primary --pos 0x0
+geometry="$(xrandr --query | awk -v p="$panel" '$1 == p {
+    for (i = 2; i <= NF; i++) if ($i ~ /^[0-9]+x[0-9]+\+/) { split($i, g, "+"); print g[1]; exit }
+}')"
+width="${geometry%x*}"
+height="${geometry#*x}"
+half=$((width / 2))
+for id in $(xinput list | awk 'tolower($0) ~ /slave +pointer/ && tolower($0) ~ /touch|goodix/ &&
+        match($0, /id=[0-9]+/) {print substr($0, RSTART + 3, RLENGTH - 3)}'); do
+    xinput map-to-output "$id" "$panel" 2>/dev/null
+done
+
+# Dark keyboard. Its colours are compiled in -- light grey keys, black labels;
+# the <options> its layouts carry are "not yet implemented" -- so instead of
+# theming it, the compositor inverts its window: near-black keys, white labels.
+# xrender, not glx: the rescue screen must not depend on GL. If picom fails, the
+# keyboard is merely light.
+picom --backend xrender --invert-color-include 'name = "Keyboard"' >/dev/null 2>&1 &
+compositor=$!
+
+# The terminal runs the same banner and shell as the bare console.
+xterm -fa 'DejaVu Sans Mono' -fs 13 -bg '#0c0c0c' -fg '#dddddd' -title 'TriMixxx rescue' \
+    -e /usr/local/bin/trimixxx-debug --console &
+term=$!
+# The layout is ~/.matchbox/keyboard.xml (rescue-keyboard.xml here), a layout
+# for a shell: the stock ones have no digits, Tab, Ctrl or arrows. It has to be
+# that default name, and the keyboard started with NO argument: this build
+# (0.2+git20160713, Debian trixie, arm64) segfaults on any layout argument at
+# all, an existing one or not, while the argument-less default lookup reads
+# ~/.matchbox/keyboard.xml before the stock file. Options are fine. DejaVu Sans
+# because the keyboard draws each label in one font, with no fallback, and its
+# default has none of the layout's symbols (the arrows, ⌫, ⏎, ⇧): boxes.
+matchbox-keyboard --fontfamily 'DejaVu Sans' &
+keyboard=$!
+
+# Bounded: a window that never appears must not leave this session hanging.
+window_of() { timeout 15 xdotool search --sync "$@" 2>/dev/null | head -n 1; }
+
+term_window="$(window_of --pid "$term")"
+# The keyboard sets no class or pid to find it by; its window is called Keyboard.
+keyboard_window="$(window_of --name '^Keyboard$')"
+if [ -z "$term_window" ] || [ -z "$keyboard_window" ]; then
+    echo "rescue-session: terminal [$term_window] or keyboard [$keyboard_window] never appeared" >&2
+    kill "$term" "$keyboard" "$compositor" 2>/dev/null
+    exit 1
+fi
+
+xdotool windowmove "$term_window" 0 0 windowsize "$term_window" "$half" "$height"
+xdotool windowmove "$keyboard_window" "$half" 0 \
+    windowsize "$keyboard_window" "$((width - half))" "$height"
+xdotool windowfocus "$term_window"
+touch "$RAN"
+
+wait "$term"
+kill "$keyboard" "$compositor" 2>/dev/null
+exit 0

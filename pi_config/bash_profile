@@ -29,8 +29,11 @@ elif [ -f ~/.bashrc ]; then
     . ~/.bashrc
 fi
 
-# Only on the deck's own console, and only if X is not already running.
-if [ -z "${DISPLAY:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
+# Only on the deck's own console, only if X is not already running, and never
+# inside the rescue console's own shell: that one runs on tty1 too, and taking
+# this branch there would start the console again, inside itself, without end.
+# See the last lines of trimixxx-debug.
+if [ -z "${DISPLAY:-}" ] && [ -z "${TRIMIXXX_RESCUE:-}" ] && [ "$(tty)" = "/dev/tty1" ]; then
     mode="$(cat /run/trimixxx/mode 2>/dev/null || true)"
 
     if [ "$mode" = "debug" ]; then

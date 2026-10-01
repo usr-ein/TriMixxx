@@ -104,5 +104,9 @@ cat "$IMG" >"$FB"
 # this script had no such line, and "it looks wrong on the panel" was the only
 # evidence there was that it had picked the wrong framebuffer.
 echo "splash up on vt$VT, framebuffer [$now], holding ${HOLD}s"
+# The same line in the kernel log, which is the clock to measure boot by: this
+# early, journald is not up yet and stamps the line above when it gets round to
+# reading it -- seconds late -- while dmesg stamps it the moment it is written.
+echo "trimixxx-splash: up on vt$VT" >/dev/kmsg 2>/dev/null || true
 
 sleep "$HOLD"

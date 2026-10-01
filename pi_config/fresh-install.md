@@ -20,9 +20,10 @@ done on trimixxx2 and what it showed.
 
 Hardware finished and the case closed (panel, touch and the S3 all wired).
 **The deck runs**: the TriMixxx skin on the panel, the controller live over the
-UART both ways, the UCA222 at full output. Done: §1 (bar the deferred EEPROM
-update), §2, §3.0–3.6 (bar the UCA222's MONITOR switch, hardware). The
-deploy-script fixes it took are in §6, not committed yet.
+UART both ways, the UCA222 at full output. Done: §1, §2, §3.0–3.6 (bar the
+UCA222's MONITOR switch, hardware). The deploy-script fixes it took are in §6.
+Since 2026-10-01 the splash comes up much sooner after power-on (§1.4) and the
+button lights go off at shutdown (`trimixxx-lights-off`, see the README).
 
 Since then: normalization is off (+6 dB on every track, §3.6), and this deck's
 different button wiring is remapped in Mixxx (§3.4).
@@ -77,10 +78,25 @@ Nothing else. What the fresh image looked like:
       closing the old session.
 
 ### 1.2 Firmware
-- [~] `sudo rpi-eeprom-update -a`. An update is pending (bootloader 2026-01-09 →
-      2026-09-23), but the deck boots fine on the current one, and a failed
-      flash would need the SD card out — the case is closed. Do it the next time
-      the case is open anyway.
+- [x] **Bootloader EEPROM: network install off** (and with it, the update to
+      2026-09-23; the 2026-01-09 image was no longer on disk to keep). Stock Pi 4
+      EEPROMs set `NET_INSTALL_AT_POWER_ON=1`, which on every **cold** boot
+      shows a "hold SHIFT for network install" screen — on HDMI only, so the
+      panel just stays black — and it was most of the black screen at power-on:
+      the SD card was first touched **8.15 s** after power came up. Done with:
+      ```sh
+      sudo rpi-eeprom-config > /tmp/boot.conf    # then edit it to read:
+      # NET_INSTALL_AT_POWER_ON=0
+      # NET_INSTALL_ENABLED=0     <- also skips the ~1 s USB keyboard probe
+      sudo rpi-eeprom-config --apply /tmp/boot.conf && sudo reboot
+      ```
+      The other lines (`BOOT_UART=0`, `WAKE_ON_GPIO=1`, `POWER_OFF_ON_HALT=0`)
+      stay as they were. The flash happens on that reboot, from `recovery.bin` on
+      the boot partition, which stays there until the flash succeeds — a power cut
+      mid-flash just means it flashes again on the next boot. Keyboard detection
+      at boot is also known to leave some already-connected USB devices stuck
+      ([rpi-eeprom#834](https://github.com/raspberrypi/rpi-eeprom/issues/834));
+      the UCA222 is one of those. Check: `vcgencmd bootloader_config`.
 
 ### 1.3 Boot flags — `/boot/firmware/config.txt`, `cmdline.txt`
 Originals kept as `config.txt.pre-trimixxx` and `cmdline.txt.pre-trimixxx`
@@ -91,6 +107,7 @@ end of `config.txt`:
 dtparam=audio=on          ->  dtparam=audio=off
 display_auto_detect=1     ->  display_auto_detect=0
 dtoverlay=vc4-kms-v3d     ->  dtoverlay=vc4-kms-v3d,noaudio
+camera_auto_detect=1      ->  camera_auto_detect=0     (§1.4, boot speed)
 
 [all]
 enable_uart=1
@@ -141,6 +158,63 @@ and in `cmdline.txt`, `console=serial0,115200 ` removed (it stays one line).
 - [x] Reboot: whole boot **15.3 s** (22.9 s before this section, 49.5 s fresh).
       `getty@tty1` starts at 13.0 s, behind `NetworkManager.service`, which takes
       7.8 s to start — where most of what is left goes.
+
+#### Splash as soon as possible after power-on
+The panel used to stay black for ~20 s after power-on before the TriMixxx logo.
+Where that went, and what was done (times from power-on unless said otherwise):
+
+| Stage | Was | Fix |
+|---|---|---|
+| Bootloader's network-install screen, cold boots only | 8.15 s | EEPROM, §1.2 |
+| Firmware reads the 12.5 MB initramfs (SD at ~10.6 MB/s) | 1.18 s | kept — see below |
+| Firmware reads and un-gzips the kernel | ~2.3 s | — (an uncompressed one reads no faster) |
+| systemd generators: `rpi-swap` runs Perl (`ack`) twice | 1.37 s | swap sizes pinned |
+| vc4 waits for the panel's drivers from the root fs; panel up at 6.15 s kernel time | | panel drivers in the initramfs |
+
+- [x] **Panel drivers in the initramfs.** Raspberry Pi's initramfs already
+      carries vc4 and starts the display there, but vc4 binds the panel and both
+      HDMI ports as one unit, and the DSI panel's driver and the I2C mux in front
+      of it were not in it — so the panel waited for the root filesystem.
+      `upload.sh` adds `i2c_mux_pinctrl` and `panel_waveshare_dsi` to
+      `/etc/initramfs-tools/modules`, the standard place, which every kernel
+      update re-reads, and rebuilds with `sudo update-initramfs -u -k "$(uname -r)"`
+      (that also copies it to `/boot/firmware/initramfs8`). The panel now comes
+      up at **1.66 s** kernel time, showing the boot log until the logo.
+- [x] **The initramfs stays.** Booting without one (`auto_initramfs=0`) was tried
+      and works — this kernel has the SD and ext4 drivers built in — and is
+      ~1.5 s faster to the logo, but it was **reverted**: with the kernel mounting
+      root itself, root shows as `/dev/root`, and `update-initramfs` (with
+      `MODULES=dep`) then fails with *failed to determine device for /*. Every
+      kernel update runs it, so the next `apt upgrade` would have ended in a
+      dpkg error; and Raspberry Pi OS ships with the initramfs on, so nothing
+      stops a future kernel from moving those drivers into modules, which would
+      leave a deck without one unbootable. Not worth a second.
+- [x] `camera_auto_detect=0` — no camera; spares the firmware probing for one.
+- [x] **Swap sizes pinned:** `upload.sh` installs `trimixxx-swap-sizes.conf` into
+      `/etc/rpi/swap.conf.d/` (2048 MiB zram, 2048 MiB file — what rpi-swap was
+      computing anyway). Checked: the generator writes byte-identical units.
+      Generators 1.37 s → 0.70 s, and no unit starts before they finish.
+- [x] Result, cold boot (2026-10-02, `rsts` 0x1000), firmware clock from
+      power-on: SD card first read at **2.8 s** (8.15 s before), kernel starts at
+      **8.2 s** (14.0 s), panel shows the boot log at ~9.9 s (kernel 1.66 s; was
+      ~20 s) and the logo at ~13.1 s (kernel 4.84 s; was ~20.5 s). The logo waits
+      for systemd, because the splash is a systemd service. Counted by hand from
+      the power going on: ~8 s to the splash.
+- **Trying a boot change safely** on a deck you cannot get a keyboard into — how
+  all of the above was tested: put the candidate in `/boot/firmware/tryboot.txt`
+  (an initramfs as `initramfs <file> followkernel` with `auto_initramfs=0`; and
+  `cmdline=cmdline.tryboot.txt` pointing at a copy of `cmdline.txt` that adds
+  `rootwait=20 panic=10`, so a root that never mounts reboots by itself), then
+  `sudo reboot '0 tryboot'`. Only that one boot uses it; any reboot or power
+  cycle after returns to `config.txt`. `/proc/device-tree/chosen/bootloader/tryboot`
+  reads 1 during the test.
+- Measuring: `sudo vclog --msg` is the firmware's own log, stamped in ms from
+  power-on (`arasan_emmc_open` = SD first touched, `Starting ARM` = kernel
+  starts). After that, use `dmesg` — the splash writes
+  `trimixxx-splash: up on vt7` there. Do **not** use journal times this early:
+  journald is not up yet and stamps lines when it reads them, seconds late.
+  `rsts` in `/proc/device-tree/chosen/bootloader/` says which kind of boot it
+  was: `0x1000` power-on, `0x20` reboot.
 
 ### 1.5 Card wear
 - [x] **log2ram:** `sudo apt install log2ram` — Debian trixie packages it now
@@ -451,6 +525,43 @@ No home Wi-Fi there, and last-minute fixes still have to be possible.
       persistent first if a fallback ever needs post-mortem reading.
 - [x] The rescue console (hold CUE at boot) prints `/run/trimixxx/wifi` too, so
       the hotspot's name and password are on screen when Mixxx is what broke.
+- [x] **A USB keyboard gets a shell, two ways, no network needed.**
+  - Any time: Ctrl+Alt+F2 → a password login on tty2 (logind's on-demand
+    gettys, `NAutoVTs` default 6; X allows VT switching). Ctrl+Alt+F1 back to
+    Mixxx. If X is hung, Alt+SysRq+R first (`kernel.sysrq` 438 allows it;
+    Alt+SysRq+B reboots on the spot). `sam1902` has a password, set at flash.
+  - The rescue console: a shell already logged in, no X. **It could not have
+    worked before this**: it opened `bash --login`, which re-reads
+    `~/.bash_profile`, which on tty1 with the mode still `debug` ran the console
+    again — inside itself, without end, until sam1902 ran out of processes (and
+    then even ssh as sam1902 cannot fork). Now `bash -i`, plus a
+    `TRIMIXXX_RESCUE` guard in `~/.bash_profile`. Tested by writing the mode
+    file (`echo debug | sudo tee /run/trimixxx/mode`, the launcher restarts the
+    session) with a root timer as backstop: exactly one level (login shell →
+    `trimixxx-debug` → `bash -i`), the banner and a prompt on tty1; hanging the
+    shell up ran the real hand-back — mode `mixxx`, X and Mixxx back, the
+    deck-keys bridge stopped. The CUE gesture itself is still to be tried by
+    hand.
+  - **No keyboard at all: the touchscreen.** The rescue console starts X with
+    the shell in an `xterm` on the left half and `matchbox-keyboard` on the
+    right (`rescue-session`, `rescue-keyboard.xml`; `xterm` +
+    `matchbox-keyboard`, no recommends: 5 small packages). Focus is pinned to
+    the terminal, since with no window manager X would hand it to whatever the
+    finger last touched; the keyboard types through XTEST. If X does not come
+    up, the bare console takes over (a marker file tells "left" from "never
+    started"; seen working when the keyboard was failing). What it took:
+    this build segfaults on *any* layout argument, so ours is
+    `~/.matchbox/keyboard.xml`, the default name; the stock layouts have no
+    digits, Tab, Ctrl or arrows; its labels need DejaVu Sans (one font, no
+    fallback — boxes otherwise) and two-unit keys for words; its colours are
+    compiled in, so picom (xrender) inverts the window to dark; and it keeps a
+    2:1 shape, 640×320 at the top of the right half, which is fine. Typing by
+    touch confirmed on the deck.
+  - **Pads at half brightness in the rescue console**: `trimixxx-deckkeys`'s
+    console map lit every pad at the Doom map's levels, the whole deck at
+    once. Now `RGB.Scaled(0.5)` on every ring pad of that map — half the duty
+    cycle, half the current — and Doom unchanged (`trimixxx-launcher`,
+    `internal/keymap`). The lamps (play, cue, loop) are on/off only.
 
 ## 4. Final check, after a cold boot
 - [ ] `systemctl --failed` is empty; `systemd-analyze critical-chain getty@tty1.service`
@@ -512,3 +623,10 @@ writing.
   unit, installer, README), hooked into `pi_config/upload.sh`;
   `pi_config/trimixxx-debug` prints the fallback's decision; in the `mixxx/`
   submodule, `WDeckDiagnostics` gains the Network section.
+- The rescue console's shell (§3.8): `pi_config/trimixxx-debug` opens `bash -i`
+  instead of `bash --login`, which recursed without end, and `pi_config/bash_profile`
+  stands down under `TRIMIXXX_RESCUE`.
+- The touch rescue console (§3.8): `pi_config/rescue-session` and
+  `pi_config/rescue-keyboard.xml`, `trimixxx-debug` trying them first, and
+  `pi_config/upload.sh` installing them with their two packages; in
+  `trimixxx-launcher`, the console map's pads at half brightness.

@@ -1,0 +1,28 @@
+[Unit]
+Description=TriMixxx: switch the deck's button lights off at shutdown
+Documentation=file:/usr/local/bin/trimixxx-lights-off
+# Does nothing at boot. STOPPING it -- which is what shutdown and reboot do --
+# switches every lamp and pad off, so a deck that is off looks off: the S3 stays
+# powered after the Pi halts and would keep whatever Mixxx last lit.
+#
+# The ordering is the whole design. At shutdown units stop in the reverse of
+# their start order, so:
+#   After=trimixxx-bridge.service      stops BEFORE the bridge: ttymidi is
+#                                      still there to carry the messages;
+#   Before=trimixxx-launchd.service    stops AFTER the launch manager (and the
+#          getty@tty1.service          key bridge it runs) and after Mixxx:
+#                                      nothing is left to light anything again.
+# Ordering only: at boot this adds nothing anyone waits for, its start is
+# /bin/true.
+After=trimixxx-bridge.service
+Before=trimixxx-launchd.service getty@tty1.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/true
+ExecStop=/usr/local/bin/trimixxx-lights-off
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target

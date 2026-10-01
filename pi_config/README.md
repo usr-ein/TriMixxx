@@ -37,6 +37,21 @@ config — and a system change here never has to go through the Mixxx-restart pa
   `getty@tty1` (hence Mixxx) at boot so the deck's virtual MIDI port exists
   before Mixxx enumerates devices. The `ttymidi` binary itself is built from the
   submodule in `../mixxx_config/ttymidi`.
+- `trimixxx-lights-off` + `trimixxx-lights-off.service` — every button light off
+  at shutdown. The S3 stays powered after the Pi halts, so whatever Mixxx last
+  lit (the PLAY lamp of a track that was playing) used to stay lit on a deck
+  that was off. The unit does nothing at boot; *stopping* it is what runs the
+  script, and its ordering puts that after Mixxx and the launch manager are
+  gone but before ttymidi is: Note-offs for the four lamps, and a black ring-LED
+  SysEx for all 50 nodes of each ring (the S3 ignores nodes it doesn't have), 25
+  at a time — ttymidi's ALSA queue holds 200 cells and a SysEx takes two. Try it
+  with `sudo systemctl stop trimixxx-lights-off` (then `start` to re-arm).
+- `trimixxx-swap-sizes.conf` — boot speed: pins rpi-swap's sizes so its
+  generator stops running Perl on every boot. Its companion, also in
+  `upload.sh`, puts the DSI panel's drivers in the initramfs
+  (`/etc/initramfs-tools/modules`) so the panel comes up at ~1.7 s instead of
+  ~6 s. The `config.txt` and EEPROM halves of the same work, and why the
+  initramfs itself stays, are in `fresh-install.md` §1.4.
 - `99-prolink-ports.conf` — `/etc/sysctl.d` drop-in lowering
   `net.ipv4.ip_unprivileged_port_start` to 111, so Mixxx can bind the RPC
   portmapper without root and serve its rekordbox USBs to real CDJs. A CDJ asks
@@ -71,11 +86,26 @@ config — and a system change here never has to go through the Mixxx-restart pa
   failed to start cannot stop the deck from being a deck. Note that bash reads
   `~/.bash_profile` *instead of* `~/.profile`, so `upload.sh` backs up whatever
   was there and warns if the old `startx` line is still in `.profile`.
-- `trimixxx-debug` — the rescue console. **A placeholder on purpose**: the hook
-  and the boot gesture (hold CUE) are wired up, the screen itself is not. Its
-  header records what it should become and, more usefully, what it cannot be —
-  the deck has no keyboard, so the real thing has to be a menu driven by a
-  cursor, a confirm and a cancel, not a shell prompt.
+- `trimixxx-debug` + `rescue-session` + `rescue-keyboard.xml` — the rescue
+  console: hold CUE from power-on. On the touchscreen, with nothing plugged in:
+  a terminal on the left half of the panel and an on-screen keyboard on the
+  right (`matchbox-keyboard`, dark, with a layout made for a shell — Esc, Tab,
+  Ctrl, Alt, the arrows, every ASCII character), the shell already logged in.
+  If X will not come up, the same shell on the bare console instead, which is
+  the screen still there when graphics are what broke. It shows the
+  interfaces, the route and the Wi-Fi fallback's decision first; `exit` hands
+  the deck back to Mixxx. Meanwhile the deck's pads type cursor keys and the
+  like (`trimixxx-deckkeys --map console`) and are lit at half brightness. A
+  USB keyboard works too, and with one there is a way in that needs no
+  gesture: Ctrl+Alt+F2 at any time for a password login on tty2 (Ctrl+Alt+F1
+  back to Mixxx; if X is hung, Alt+SysRq+R first). Quirks worth knowing, all
+  in `rescue-session`: this `matchbox-keyboard` segfaults when given a layout
+  by name, so ours is installed as its default (`~/.matchbox/keyboard.xml`);
+  it draws labels in one font with no fallback, hence DejaVu Sans; its colours
+  are compiled in, so picom inverts its window; and it keeps its own 2:1 shape,
+  640×320 at the top of the right half. The shell is interactive, *not* a
+  login shell, and `~/.bash_profile` stands down while `TRIMIXXX_RESCUE` is set:
+  a login shell there re-ran the console inside itself without end.
 - `trimixxx-splash.service` + `trimixxx-splash.sh` + `splash-render.py` +
   `splash-install.sh` — the boot splash: `trimixxx_logo_crt.svg` on the panel
   for the first ~8 s of boot, then the boot log as normal. The usual way to do
