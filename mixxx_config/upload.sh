@@ -54,8 +54,8 @@ PY
 DECK="$(ssh "$HOST" hostname)"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
-# The skin is staged too: a unit file can say the panel has no bezel, and that
-# is a value in skin.xml.
+# The skin is staged too: a unit file can say the panel has no bezel, or give
+# the deck an accent colour of its own, and both are written into the skin.
 cp -R TriMixxx_skin "$STAGE/"
 if [ -f "units/$DECK.json" ]; then
     python3 units/apply.py "units/$DECK.json" . "$STAGE"

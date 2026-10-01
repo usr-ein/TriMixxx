@@ -40,6 +40,15 @@
            in the fork) when it is built. Not persisted: it is a fact about the
            hardware, not a preference. -->
       <attribute persist="false" config_key="[TriMixxx],bezel">1</attribute>
+      <!-- This deck's accent colour: what is selected, where you are, what is
+           live. 8978176 is 0x88FF00, Trimixxx1's lime, written as the integer
+           a control holds (attributes are read as numbers). A deck with its
+           own colour sets `accent` in mixxx_config/units/<deck>.json, and
+           upload.sh writes it into this line and into style.qss and the SVGs,
+           which spell the lime as #88ff00. Read by the widgets that paint
+           themselves (the browser's lists and breadcrumb, Diagnostics)
+           through deckaccent.h in the fork. Not persisted, like the bezel. -->
+      <attribute persist="false" config_key="[TriMixxx],accent">8978176</attribute>
     </attributes>
   </manifest>
 
@@ -569,6 +578,9 @@
                      rather than leaving a hole. -->
                 <MinimumSize>1024,414</MinimumSize>
                 <MaximumSize>1024,-1</MaximumSize>
+                <!-- The waveform's own colours, not the skin's accent: the mid
+                     band is green on every deck, whatever its accent, and
+                     units/apply.py leaves this file's colours alone. -->
                 <SignalHighColor>#ff5544</SignalHighColor>
                 <SignalMidColor>#88ff00</SignalMidColor>
                 <SignalLowColor>#2266ff</SignalLowColor>

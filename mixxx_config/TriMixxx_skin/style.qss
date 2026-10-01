@@ -24,7 +24,14 @@
  * the one that matters: the track table's font comes from mixxx.cfg, not from
  * here, so it never sees this stack. The families listed after Meslo below are
  * the same chain repeated for the widgets the stylesheet does reach.
- */
+ *
+ * THE ACCENT is #88ff00, Trimixxx1's lime: what is selected, where you are,
+ * what is live. Each deck can have its own. A unit file with an `accent`
+ * (mixxx_config/units/) gets this file and the SVGs beside it with every
+ * #88ff00 replaced, by units/apply.py on the way out, and the [TriMixxx],accent
+ * attribute in skin.xml set to match for the widgets that paint themselves. So
+ * the accent is spelled exactly #88ff00 here, and nothing that is not the
+ * accent may be. */
 WWidget, QWidget {
     background-color: #1a1a1a;
     color: #e0e0e0;

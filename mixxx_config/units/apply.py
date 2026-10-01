@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rewrite the TriMixxx mapping for one deck's wiring.
+"""Rewrite the TriMixxx mapping and skin for one deck.
 
     apply.py UNIT_JSON SRC_DIR OUT_DIR
 
@@ -16,7 +16,12 @@ copies for the deck UNIT_JSON describes into OUT_DIR:
     the other way round;
   * `bezel`, if the unit sets it, goes into the skin's `[TriMixxx],bezel`
     attribute, in the copy of the skin upload.sh has staged at
-    OUT_DIR/TriMixxx_skin -- false for a panel with no lip to keep clear.
+    OUT_DIR/TriMixxx_skin -- false for a panel with no lip to keep clear;
+  * `accent`, if the unit sets it (`#rrggbb`), replaces the skin's own accent
+    in that staged copy: in its `[TriMixxx],accent` attribute, which the fork's
+    self-painting widgets read, and everywhere style.qss and the SVGs spell it
+    out. skin.xml's other colours are left alone -- the waveform's mid band is
+    the same green, and it is not the accent.
 
 Only <midino> text changes in the XML, so diffing the result against the
 canonical file shows the remap and nothing else. CC bindings keep their numbers:
@@ -34,6 +39,8 @@ STATUS = re.compile(r"<status>\s*0x([0-9A-Fa-f]{2})\s*</status>")
 MIDINO = re.compile(r"(<midino>\s*)0x([0-9A-Fa-f]{2})(\s*</midino>)")
 MARKER = re.compile(r"^TriMixxx\.UNIT = .*// @unit-wiring.*$", re.M)
 BEZEL = re.compile(r'(<attribute persist="false" config_key="\[TriMixxx\],bezel">)[01](</attribute>)')
+ACCENT = re.compile(r'(<attribute persist="false" config_key="\[TriMixxx\],accent">)(\d+)(</attribute>)')
+COLOUR = re.compile(r"#[0-9A-Fa-f]{6}")
 
 
 def note(text):
@@ -73,6 +80,38 @@ def remap_xml(text, buttons, lights):
     return BLOCK.sub(rewrite, text)
 
 
+def recolour(skin_dir, skin, accent):
+    """Put the unit's accent in place of the skin's own.
+
+    The skin's own is whatever skin.xml's `[TriMixxx],accent` attribute says.
+    Returns the new skin.xml text, and how many times each other file spelled
+    the accent out.
+    """
+    if not COLOUR.fullmatch(accent):
+        sys.exit(f"apply.py: accent {accent!r} is not a #rrggbb colour")
+    found = ACCENT.findall(skin)
+    if len(found) != 1:
+        sys.exit("apply.py: skin.xml needs exactly one [TriMixxx],accent attribute")
+    canonical = f"#{int(found[0][1]):06x}"
+    skin = ACCENT.sub(lambda m: f"{m.group(1)}{int(accent[1:], 16)}{m.group(3)}", skin)
+
+    swapped = {}
+    for path in [skin_dir / "style.qss", *sorted(skin_dir.glob("*.svg"))]:
+        text, count = re.subn(re.escape(canonical), accent.lower(), path.read_text(),
+                              flags=re.IGNORECASE)
+        if count:
+            if path.suffix == ".svg":
+                xml.dom.minidom.parseString(text)
+            path.write_text(text)
+            swapped[path.name] = count
+    # The stylesheet spelling the accent some other way would recolour the
+    # widgets that paint themselves and nothing else: half a deck in one colour
+    # and half in another, with no error anywhere.
+    if not swapped.get("style.qss"):
+        sys.exit(f"apply.py: style.qss never spells the skin's accent {canonical}")
+    return skin, swapped
+
+
 def main():
     if len(sys.argv) != 4:
         sys.exit(__doc__)
@@ -99,18 +138,26 @@ def main():
     (out / "TriMixxx.midi.xml").write_text(mapping)
     (out / "TriMixxx.scripts.js").write_text(script)
 
-    if "bezel" in unit:
-        skin_path = out / "TriMixxx_skin" / "skin.xml"
+    if "bezel" in unit or "accent" in unit:
+        skin_dir = out / "TriMixxx_skin"
+        skin_path = skin_dir / "skin.xml"
         if not skin_path.exists():
-            sys.exit(f"apply.py: `bezel` needs the skin staged at {skin_path}")
-        skin, count = BEZEL.subn(
-            lambda m: f"{m.group(1)}{1 if unit['bezel'] else 0}{m.group(2)}",
-            skin_path.read_text())
-        if count != 1:
-            sys.exit("apply.py: skin.xml needs exactly one [TriMixxx],bezel attribute")
+            sys.exit(f"apply.py: `bezel` and `accent` need the skin staged at "
+                     f"{skin_dir}")
+        skin = skin_path.read_text()
+        if "bezel" in unit:
+            skin, count = BEZEL.subn(
+                lambda m: f"{m.group(1)}{1 if unit['bezel'] else 0}{m.group(2)}", skin)
+            if count != 1:
+                sys.exit("apply.py: skin.xml needs exactly one [TriMixxx],bezel "
+                         "attribute")
+            print(f"apply.py: {unit['deck']}: bezel {'on' if unit['bezel'] else 'off'}")
+        if "accent" in unit:
+            skin, swapped = recolour(skin_dir, skin, unit["accent"])
+            print(f"apply.py: {unit['deck']}: accent {unit['accent']}, in skin.xml and "
+                  + ", ".join(f"{name} ({count})" for name, count in swapped.items()))
         xml.dom.minidom.parseString(skin)
         skin_path.write_text(skin)
-        print(f"apply.py: {unit['deck']}: bezel {'on' if unit['bezel'] else 'off'}")
     moved = sum(1 for a, b in zip(
         re.findall(r"<midino>[^<]*</midino>", (src / "TriMixxx.midi.xml").read_text()),
         re.findall(r"<midino>[^<]*</midino>", mapping)) if a != b)

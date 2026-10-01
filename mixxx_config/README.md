@@ -152,15 +152,29 @@ wrong button. Such a deck gets a `units/<hostname>.json`: `buttons` says which
 note each control actually arrives on, `lights` which note — or ring node — its
 LED actually answers to, both keyed by the canonical note from `MidiMap.hpp`;
 `jogReversed` flips a jog encoder wired the other way round (scratch and bend
-both); `"bezel": false` is a panel that sits flush, with no lip to keep clear.
+both); `"bezel": false` is a panel that sits flush, with no lip to keep clear;
+`"accent": "#rrggbb"` is the deck's own accent colour.
 
-That last one is the skin's `[TriMixxx],bezel` attribute (default 1), which
+`bezel` is the skin's `[TriMixxx],bezel` attribute (default 1), which
 `apply.py` writes into a staged copy of the skin. With it off, the deck view's
 `DeckBezelPad`/`BevelPad` strips go, and so does the browser's own
 (`deckbezel.h` in the fork, read when it is built). The skin's minimum sizes
 are the 1024×600 layout and its maximum heights are open, so a taller logical
 screen is filled rather than letterboxed — on trimixxx2 (1024×640 at 1.25) the
 waveform takes the difference.
+
+`accent` is the colour of whatever is selected, where you are and what is live:
+the selected row, the breadcrumb, the header rule, the key, BPM and remaining
+time, SYNC, the Diagnostics headings. The skin ships Trimixxx1's lime,
+`#88ff00`, and a deck with no `accent` keeps it. With one, `apply.py` replaces
+every `#88ff00` in the staged `style.qss` and SVGs, and sets the skin's
+`[TriMixxx],accent` attribute — the colour as an integer, `8978176` for the
+lime — which the fork's self-painting widgets read through `deckaccent.h`.
+So in those files the accent is spelled exactly `#88ff00`, and nothing else
+may be. `skin.xml`'s own colours are not touched: the RGB waveform's mid band
+is the same green and stays green on every deck. A deck uploaded with a Mixxx
+build from before `deckaccent.h` gets the new stylesheet but keeps a lime
+selection and breadcrumb until the fork is rebuilt.
 `upload.sh` looks the deck's hostname up, and if there is a file, runs
 `units/apply.py` on the way out: it renumbers the XML's note bindings and
 outputs (nothing else in the file changes), and fills the script's
@@ -175,7 +189,8 @@ remapped deck they see its wiring as it is.
 
 `trimixxx2.json` is the first: an eighth pad sits third in ring A — unbound,
 no function yet — pushing the loop pads and BACK one node down, hot cues 1–4
-arrive reversed, the jog turns the other way, and the panel is flush.
+arrive reversed, the jog turns the other way, the panel is flush, and its
+accent is pink, `#FF7092`.
 
 Overall ring brightness is `TriMixxx.RING_LEVEL` (0.8), applied in `ringLed()`
 to every level the script sets — indicators, SORT/KEY SYNC, hot cues, the boot
