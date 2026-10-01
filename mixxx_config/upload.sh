@@ -54,6 +54,9 @@ PY
 DECK="$(ssh "$HOST" hostname)"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
+# The skin is staged too: a unit file can say the panel has no bezel, and that
+# is a value in skin.xml.
+cp -R TriMixxx_skin "$STAGE/"
 if [ -f "units/$DECK.json" ]; then
     python3 units/apply.py "units/$DECK.json" . "$STAGE"
 else
@@ -88,7 +91,7 @@ ssh "$HOST" 'fc-cache -f ~/.local/share/fonts >/dev/null 2>&1;
 # directory fails -- so a fresh unit needs these before the first copy.
 ssh "$HOST" 'mkdir -p ~/.mixxx/skins ~/.mixxx/controllers && rm -rf ~/.mixxx/skins/TriMixxx'
 
-scp -r TriMixxx_skin "$HOST":~/.mixxx/skins/
+scp -r "$STAGE/TriMixxx_skin" "$HOST":~/.mixxx/skins/
 ssh "$HOST" 'mv ~/.mixxx/skins/TriMixxx_skin ~/.mixxx/skins/TriMixxx'
 # soundconfig.xml is the audio device + buffer config, and it is SEPARATE from
 # mixxx.cfg -- Mixxx keeps sound hardware in its own file, so before this it was

@@ -308,11 +308,41 @@ Docker Desktop running (all Pi binaries are arm64 builds in Docker), `uv`, and
       (0.6 s) returns to the deck; 8/4-beat loops, ×2/÷2 and hot cues 1–4 do
       what they say (needs a track loaded); each pad's light sits on its own
       pad; the eighth pad does nothing.
+- [x] **The jog is wired the other way round** on this deck: `"jogReversed":
+      true` in the same unit file; `TriMixxx.jog` flips the tick before scratch
+      and bend alike. Checked in node (one tick: −0.3 standard, +0.3 here) and
+      deployed.
+- [x] **Ring LEDs 20 % dimmer** — `TriMixxx.RING_LEVEL = 0.8`, applied in
+      `ringLed()`/`ringLedPair()` to everything, so SORT/KEY SYNC (which set
+      their own levels, up to 1.0) and the boot sweep dim with the rest and the
+      tuned ratios hold. First as 0.8 of the duty cycle, which looked like no
+      change: the WS2812s are linear and nothing between Mixxx and them corrects
+      for gamma, so 80 % duty reads as ~10 % dimmer. Now gamma-corrected, 0.8²·²
+      = 61 % duty (full white 255 → 156). Shared: Trimixxx1 gets it on its next
+      config upload.
+- [x] **No bezel strips on this deck** — `"bezel": false` in the unit file. The
+      panel sits flush, so the strips Trimixxx1 needs (deck view 36 px top /
+      14 px bottom; browser 36 top, 56 bottom, 16 left; rack 56 bottom) were
+      dead bands here, plus 20 px of letterbox top and bottom because the skin
+      was pinned to 600 high in a 640-high screen. Skin: a `[TriMixxx],bezel`
+      attribute the strips follow, and open maximum heights (minimums kept, so a
+      600-high screen lays out as before). Fork: `deckbezel.h`, read by
+      `WDeckBrowser` and `WDeckRack` when built. Checked by screenshot: deck
+      view, browser and Effects page all edge to edge; the waveform grew from
+      414 to 488 logical px. Needs the fork rebuilt — `mixxx/dist/mixxx`
+      `760d69ef…`, from uncommitted fork sources as of this writing.
+- [ ] **Docker's disk is full.** `mixxx/upload.sh`'s rebuild of that same
+      binary failed with `No space left on device`; it was installed by hand
+      from the earlier, identical build instead (the post-build half of
+      `upload.sh`: `ldd` check, swap, session restart). `docker system df`: 28 GB
+      of build cache (19 GB reclaimable), 11 GB of images (10 GB reclaimable).
+      Pruning the build cache costs the next Mixxx build its ccache — one cold
+      ~12 min build.
 - [~] **Known limit of a Mixxx-only remap:** the launch manager and Doom
       (`trimixxx-deckkeys`) read the same MIDI with the canonical table. PLAY,
       CUE and LOOP IN/OUT are standard here, so the boot gestures and the panic
       chord work; in Doom, ring A's pads from the third on and ring B's hot-cue
-      pads land as wired.
+      pads land as wired, and the jog turns the other way.
 - [ ] **The effects rack is empty.** The seeded `effects.xml` carries a reverb
       on the pedal bus (EffectUnit2, WET), but the deck's file now holds an
       empty WET chain, and the Effects page shows "EMPTY RACK". Most likely
@@ -424,4 +454,9 @@ writing.
   `ringLedPair()` address the physical node, and the hot-cue handler reads the
   canonical note; `pi_config/deck-poke`'s named verbs send what the deck's own
   S3 would. `mixxx_config/README.md` documents it, and its encoder row now says
-  push over the deck is the FX mute.
+  push over the deck is the FX mute. Later the same evening: `jogReversed` in
+  the unit file, read by `TriMixxx.jog`; `TriMixxx.RING_LEVEL` (0.8, gamma
+  corrected), the rings' overall brightness; and `"bezel"` in the unit file —
+  `[TriMixxx],bezel` in `skin.xml` with open maximum heights, `apply.py` and
+  `upload.sh` staging the skin, and in the `mixxx/` submodule
+  `src/widget/deck/deckbezel.h` plus `WDeckBrowser`/`WDeckRack` reading it.

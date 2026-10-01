@@ -37,11 +37,12 @@ TriMixxx.BACK_DEBOUNCE_MS = 200;
 //
 // `buttons` maps a canonical note (MidiMap.hpp) to the note this deck actually
 // sends for that control, `lights` to the note -- for a ring pad, the node --
-// its LED actually answers to. Both are empty on a standard deck. The marked
-// line is REPLACED at deploy time by upload.sh from units/<hostname>.json, which
-// renumbers the XML's notes from the same file, so that file is the one thing
-// in this folder that differs from deck to deck.
-TriMixxx.UNIT = {deck: "", buttons: {}, lights: {}}; // @unit-wiring
+// its LED actually answers to. Both are empty on a standard deck.
+// `jogReversed` is a jog encoder wired the other way round (trimixxx2's is).
+// The marked line is REPLACED at deploy time by upload.sh from
+// units/<hostname>.json, which renumbers the XML's notes from the same file, so
+// that file is the one thing in this folder that differs from deck to deck.
+TriMixxx.UNIT = {deck: "", buttons: {}, lights: {}, jogReversed: false}; // @unit-wiring
 
 // Physical note -> canonical, for the handlers that read meaning off the note.
 TriMixxx.UNIT_IN = (function() {
@@ -113,6 +114,19 @@ TriMixxx.KEY_SYNC_DIM  = 0.15;
 // ---- Ring button LED palette. Entries only need correct hue RATIOS -- dim()
 //      normalizes each to full intensity, then scales by BRIGHTNESS. ----
 TriMixxx.BRIGHTNESS = 0.8;          // 0..1 default for indicator LEDs (per-call override below)
+// The whole ring, last thing before a colour leaves for the S3: every level in
+// this file -- indicators, SORT/KEY SYNC, hot cues, the boot sweep -- is relative
+// to full, and this scales all of them together, so "the pads are too bright"
+// is one number that keeps every ratio above.
+//
+// It is how bright the rings LOOK, not their duty cycle. A WS2812 is linear in
+// duty and nothing between here and it (S3, ring node) corrects for gamma, but
+// the eye is not linear: 0.8 of the duty cycle reads as barely 10% dimmer, which
+// is what the first attempt at this produced -- no visible change. So the
+// level is converted through the usual 2.2 gamma: 0.8 looks ~20% dimmer and is
+// ~61% of the duty cycle. 0.8 since 2026-10-01, when the rings read too bright.
+TriMixxx.RING_LEVEL = 0.8;
+TriMixxx.RING_DUTY = Math.pow(TriMixxx.RING_LEVEL, 2.2);
 TriMixxx.C_OFF    = [0, 0, 0];
 TriMixxx.C_DIM_W  = [24, 24, 24];   // A7 back: dim white
 TriMixxx.C_RED    = [160, 0, 0];
@@ -184,8 +198,10 @@ TriMixxx.hueWheel = function(pos) {
 };
 
 // One node -> both its LEDs, via the 6-nibble short-form ring-LED SysEx.
+TriMixxx.level = function(v) { return Math.round(v * TriMixxx.RING_DUTY); };
 TriMixxx.ringLed = function(cmd, node, r, g, b) {
     node = TriMixxx.physicalNode(cmd, node);
+    r = TriMixxx.level(r); g = TriMixxx.level(g); b = TriMixxx.level(b);
     midi.sendSysexMsg(
         [0xF0, 0x7D, cmd, node,
             (r >> 4) & 0xF, r & 0xF, (g >> 4) & 0xF, g & 0xF, (b >> 4) & 0xF, b & 0xF, 0xF7], 11);
@@ -200,6 +216,8 @@ TriMixxx.ringLed = function(cmd, node, r, g, b) {
 // what scaling one colour can reach. See KEY_SYNC_DIM.
 TriMixxx.ringLedPair = function(cmd, node, a, b) {
     node = TriMixxx.physicalNode(cmd, node);
+    // Copies: callers pass shared palette constants, which must not dim in place.
+    a = a.map(TriMixxx.level); b = b.map(TriMixxx.level);
     midi.sendSysexMsg(
         [0xF0, 0x7D, cmd, node,
             (a[0] >> 4) & 0xF, a[0] & 0xF, (a[1] >> 4) & 0xF, a[1] & 0xF, (a[2] >> 4) & 0xF, a[2] & 0xF,
@@ -806,6 +824,9 @@ TriMixxx.jogTouch = function(channel, control, value, status, group) {
 //      negate here -- this flips scratch and pitch-bend together. ----
 TriMixxx.jog = function(channel, control, value, status, group) {
     var delta = -((value < 64) ? value : value - 128);
+    if (TriMixxx.UNIT.jogReversed) {
+        delta = -delta; // this deck's encoder is wired the other way round
+    }
     if (TriMixxx.scratching) {
         // Raw delta: scratch sensitivity is already baked into ticks/rev above.
         engine.scratchTick(TriMixxx.DECK_NUM, delta);

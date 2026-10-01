@@ -32,6 +32,14 @@
            stale position from last boot would be a lie about a physical
            control, which is the one thing this must never be. -->
       <attribute persist="false" config_key="[TriMixxx],tempo_fader">-2</attribute>
+      <!-- Whether the panel sits behind a lip, so the outer rows have to be
+           kept clear: 1 for Trimixxx1, whose panel is recessed on every edge.
+           A deck with a flush panel sets 0 in mixxx_config/units/<deck>.json,
+           which upload.sh writes into this line on the way out. Read by the
+           DeckBezelPad/BevelPad strips here, and by the browser and the rack
+           (deckbezel.h in the fork) when they are built. Not persisted: it is
+           a fact about the hardware, not a preference. -->
+      <attribute persist="false" config_key="[TriMixxx],bezel">1</attribute>
     </attributes>
   </manifest>
 
@@ -87,7 +95,7 @@
     <ObjectName>RootStack</ObjectName>
     <Layout>stacked</Layout>
     <MinimumSize>1024,600</MinimumSize>
-    <MaximumSize>1024,600</MaximumSize>
+    <MaximumSize>1024,-1</MaximumSize>
     <Children>
 
       <!-- Media notifications. FIRST child on purpose: RootStack renders in
@@ -97,7 +105,7 @@
       <DeckToast>
         <ObjectName>DeckToast</ObjectName>
         <MinimumSize>1024,600</MinimumSize>
-        <MaximumSize>1024,600</MaximumSize>
+        <MaximumSize>1024,-1</MaximumSize>
       </DeckToast>
 
       <!-- Shutdown confirm. Covers everything, so the deck is unreachable while
@@ -109,7 +117,7 @@
         <ObjectName>ShutdownOverlay</ObjectName>
         <Layout>vertical</Layout>
         <MinimumSize>1024,600</MinimumSize>
-        <MaximumSize>1024,600</MaximumSize>
+        <MaximumSize>1024,-1</MaximumSize>
         <Connection>
           <ConfigKey persist="false">[TriMixxx],shutdown_confirm</ConfigKey>
           <BindProperty>visible</BindProperty>
@@ -199,11 +207,19 @@
         </Children>
       </WidgetGroup>
 
+      <!-- SIZES: every MINIMUM in this file is the 1024x600 panel's layout, and
+           a 1024x600 screen gets exactly that. The MAXIMUM heights of the
+           top-level groups, the deck view and the waveform row are left open,
+           so a taller logical screen is filled instead of letterboxed: trimixxx2
+           runs a 1280x800 panel at QT_SCALE_FACTOR 1.25 (see
+           pi_config/xinitrc), which is 1024x640, and with its flush panel
+           ([TriMixxx],bezel 0) the waveform takes the forty extra pixels plus
+           the fifty the bezel strips would have used. -->
       <WidgetGroup>
         <ObjectName>Root</ObjectName>
         <Layout>vertical</Layout>
         <MinimumSize>1024,600</MinimumSize>
-        <MaximumSize>1024,600</MaximumSize>
+        <MaximumSize>1024,-1</MaximumSize>
         <Children>
 
           <!-- The panel is recessed behind a lip on every edge, and the top
@@ -212,18 +228,34 @@
 
                Hidden while browsing, on the same condition as the header below
                it, because the browser already has its own and two would stack
-               to seventy-two pixels of nothing. -->
+               to seventy-two pixels of nothing.
+
+               And gone altogether on a flush panel ([TriMixxx],bezel 0). Two
+               conditions, so two groups: a widget's visibility can follow only
+               one control. The outer one shrinks to nothing when the inner is
+               hidden, because nothing inside it has a size to ask for. -->
           <WidgetGroup>
-            <ObjectName>DeckBezelPad</ObjectName>
-            <Layout>horizontal</Layout>
-            <MinimumSize>1024,36</MinimumSize>
-            <MaximumSize>1024,36</MaximumSize>
+            <ObjectName>DeckBezelSlot</ObjectName>
+            <Layout>vertical</Layout>
+            <SizePolicy>min,max</SizePolicy>
             <Connection>
-              <ConfigKey persist="true">[Master],show_library</ConfigKey>
-              <Transform><Not/></Transform>
+              <ConfigKey>[TriMixxx],bezel</ConfigKey>
               <BindProperty>visible</BindProperty>
             </Connection>
-            <Children/>
+            <Children>
+              <WidgetGroup>
+                <ObjectName>DeckBezelPad</ObjectName>
+                <Layout>horizontal</Layout>
+                <MinimumSize>1024,36</MinimumSize>
+                <MaximumSize>1024,36</MaximumSize>
+                <Connection>
+                  <ConfigKey persist="true">[Master],show_library</ConfigKey>
+                  <Transform><Not/></Transform>
+                  <BindProperty>visible</BindProperty>
+                </Connection>
+                <Children/>
+              </WidgetGroup>
+            </Children>
           </WidgetGroup>
 
           <!-- =========== TOP HEADER (always visible) =========== -->
@@ -507,7 +539,7 @@
             <!-- 600 total - 80 header. There is no bottom bar any more, so the
                  deck owns everything under the header. -->
             <MinimumSize>1024,520</MinimumSize>
-            <MaximumSize>1024,520</MaximumSize>
+            <MaximumSize>1024,-1</MaximumSize>
             <Connection>
               <ConfigKey persist="true">[Master],show_library</ConfigKey>
               <Transform><Not/></Transform>
@@ -523,13 +555,13 @@
                 <ObjectName>WaveformRow</ObjectName>
                 <Layout>horizontal</Layout>
                 <MinimumSize>1024,414</MinimumSize>
-                <MaximumSize>1024,414</MaximumSize>
+                <MaximumSize>1024,-1</MaximumSize>
                 <Children>
 
               <DeckFxStrip>
                 <ObjectName>DeckFxStrip</ObjectName>
                 <MinimumSize>76,414</MinimumSize>
-                <MaximumSize>76,414</MaximumSize>
+                <MaximumSize>76,-1</MaximumSize>
               </DeckFxStrip>
 
               <!-- The waveform, with the tempo read-out laid over it.
@@ -540,7 +572,7 @@
                 <ObjectName>WaveformStack</ObjectName>
                 <Layout>stacked</Layout>
                 <MinimumSize>948,414</MinimumSize>
-                <MaximumSize>948,414</MaximumSize>
+                <MaximumSize>948,-1</MaximumSize>
                 <Children>
               <!-- Scrolling waveform -->
               <Visual>
@@ -553,7 +585,7 @@
                      absorbs every row of buttons that used to sit under it,
                      rather than leaving a hole. -->
                 <MinimumSize>948,414</MinimumSize>
-                <MaximumSize>948,414</MaximumSize>
+                <MaximumSize>948,-1</MaximumSize>
                 <SignalHighColor>#ff5544</SignalHighColor>
                 <SignalMidColor>#88ff00</SignalMidColor>
                 <SignalLowColor>#2266ff</SignalLowColor>
@@ -618,7 +650,7 @@
                     <ObjectName>TempoPanel</ObjectName>
                     <Group>[Channel1]</Group>
                     <MinimumSize>948,414</MinimumSize>
-                    <MaximumSize>948,414</MaximumSize>
+                    <MaximumSize>948,-1</MaximumSize>
                     <TempoFont>Digital-7 Mono</TempoFont>
                     <TempoSize>52</TempoSize>
                     <TempoColor>#ff6600</TempoColor>
@@ -696,6 +728,10 @@
                 <ObjectName>BevelPad</ObjectName>
                 <MinimumSize>1024,14</MinimumSize>
                 <MaximumSize>1024,14</MaximumSize>
+                <Connection>
+                  <ConfigKey>[TriMixxx],bezel</ConfigKey>
+                  <BindProperty>visible</BindProperty>
+                </Connection>
                 <Children/>
               </WidgetGroup>
 
@@ -710,7 +746,7 @@
             <Layout>vertical</Layout>
             <!-- The whole panel: the header is hidden while this is up. -->
             <MinimumSize>1024,600</MinimumSize>
-            <MaximumSize>1024,600</MaximumSize>
+            <MaximumSize>1024,-1</MaximumSize>
             <Connection>
               <ConfigKey persist="true">[Master],show_library</ConfigKey>
               <BindProperty>visible</BindProperty>
@@ -723,7 +759,7 @@
               <DeckBrowser>
                 <ObjectName>DeckBrowser</ObjectName>
                 <MinimumSize>1024,600</MinimumSize>
-                <MaximumSize>1024,600</MaximumSize>
+                <MaximumSize>1024,-1</MaximumSize>
                 <SizePolicy>e,e</SizePolicy>
               </DeckBrowser>
             </Children>

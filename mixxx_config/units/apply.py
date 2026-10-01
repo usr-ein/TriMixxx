@@ -12,7 +12,11 @@ copies for the deck UNIT_JSON describes into OUT_DIR:
     `lights`;
   * the script's `// @unit-wiring` line gets both maps, for the ring LEDs (sent
     as SysEx by node, which the XML cannot reach) and for the handlers that read
-    meaning off the note number.
+    meaning off the note number -- and `jogReversed`, for a jog encoder wired
+    the other way round;
+  * `bezel`, if the unit sets it, goes into the skin's `[TriMixxx],bezel`
+    attribute, in the copy of the skin upload.sh has staged at
+    OUT_DIR/TriMixxx_skin -- false for a panel with no lip to keep clear.
 
 Only <midino> text changes in the XML, so diffing the result against the
 canonical file shows the remap and nothing else. CC bindings keep their numbers:
@@ -29,6 +33,7 @@ BLOCK = re.compile(r"<(control|output)>(.*?)</\1>", re.S)
 STATUS = re.compile(r"<status>\s*0x([0-9A-Fa-f]{2})\s*</status>")
 MIDINO = re.compile(r"(<midino>\s*)0x([0-9A-Fa-f]{2})(\s*</midino>)")
 MARKER = re.compile(r"^TriMixxx\.UNIT = .*// @unit-wiring.*$", re.M)
+BEZEL = re.compile(r'(<attribute persist="false" config_key="\[TriMixxx\],bezel">)[01](</attribute>)')
 
 
 def note(text):
@@ -85,6 +90,7 @@ def main():
         "deck": unit["deck"],
         "buttons": {str(k): v for k, v in sorted(buttons.items())},
         "lights": {str(k): v for k, v in sorted(lights.items())},
+        "jogReversed": bool(unit.get("jogReversed", False)),
     })
     script = MARKER.sub(lambda _: f"TriMixxx.UNIT = {wiring}; // @unit-wiring, from "
                                   f"units/{unit_path.name}", script)
@@ -92,6 +98,19 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
     (out / "TriMixxx.midi.xml").write_text(mapping)
     (out / "TriMixxx.scripts.js").write_text(script)
+
+    if "bezel" in unit:
+        skin_path = out / "TriMixxx_skin" / "skin.xml"
+        if not skin_path.exists():
+            sys.exit(f"apply.py: `bezel` needs the skin staged at {skin_path}")
+        skin, count = BEZEL.subn(
+            lambda m: f"{m.group(1)}{1 if unit['bezel'] else 0}{m.group(2)}",
+            skin_path.read_text())
+        if count != 1:
+            sys.exit("apply.py: skin.xml needs exactly one [TriMixxx],bezel attribute")
+        xml.dom.minidom.parseString(skin)
+        skin_path.write_text(skin)
+        print(f"apply.py: {unit['deck']}: bezel {'on' if unit['bezel'] else 'off'}")
     moved = sum(1 for a, b in zip(
         re.findall(r"<midino>[^<]*</midino>", (src / "TriMixxx.midi.xml").read_text()),
         re.findall(r"<midino>[^<]*</midino>", mapping)) if a != b)

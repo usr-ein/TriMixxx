@@ -150,7 +150,17 @@ Ring pads are numbered by their place in the daisy chain, and PLAY/CUE by the
 GPIO they land on, so a deck wired differently sends the right MIDI for the
 wrong button. Such a deck gets a `units/<hostname>.json`: `buttons` says which
 note each control actually arrives on, `lights` which note — or ring node — its
-LED actually answers to, both keyed by the canonical note from `MidiMap.hpp`.
+LED actually answers to, both keyed by the canonical note from `MidiMap.hpp`;
+`jogReversed` flips a jog encoder wired the other way round (scratch and bend
+both); `"bezel": false` is a panel that sits flush, with no lip to keep clear.
+
+That last one is the skin's `[TriMixxx],bezel` attribute (default 1), which
+`apply.py` writes into a staged copy of the skin. With it off, the deck view's
+`DeckBezelPad`/`BevelPad` strips go, and so do the browser's and the rack's own
+(`deckbezel.h` in the fork, read when they are built). The skin's minimum sizes
+are the 1024×600 layout and its maximum heights are open, so a taller logical
+screen is filled rather than letterboxed — on trimixxx2 (1024×640 at 1.25) the
+waveform takes the difference.
 `upload.sh` looks the deck's hostname up, and if there is a file, runs
 `units/apply.py` on the way out: it renumbers the XML's note bindings and
 outputs (nothing else in the file changes), and fills the script's
@@ -164,8 +174,16 @@ The remap is Mixxx's alone. The launcher's boot gestures and Doom
 remapped deck they see its wiring as it is.
 
 `trimixxx2.json` is the first: an eighth pad sits third in ring A — unbound,
-no function yet — pushing the loop pads and BACK one node down, and hot cues
-1–4 arrive reversed.
+no function yet — pushing the loop pads and BACK one node down, hot cues 1–4
+arrive reversed, the jog turns the other way, and the panel is flush.
+
+Overall ring brightness is `TriMixxx.RING_LEVEL` (0.8), applied in `ringLed()`
+to every level the script sets — indicators, SORT/KEY SYNC, hot cues, the boot
+sweep — so dimming the rings is one number. It is *perceived* brightness: the
+LEDs are linear in duty and nothing on the way corrects for gamma, so it goes
+out as `RING_LEVEL ^ 2.2` (0.8 → 61 % duty). Plain 0.8 of the duty cycle looked
+like no change at all. `BRIGHTNESS` is only the plain indicators' level relative
+to full.
 
 ## Decisions you may want to change
 - **Ring button assignments** are just the tables above — repurpose freely
