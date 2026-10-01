@@ -1,0 +1,21 @@
+[Unit]
+Description=TriMixxx Wi-Fi fallback: the deck's own hotspot when no Wi-Fi has been joined
+Documentation=file:/usr/local/bin/trimixxx-wifi-fallback
+# After NetworkManager, so there is something to ask. Ordering only, and NOT
+# network-online.target: at a venue the network never comes online, and
+# pulling that target in would make other units wait for its timeout.
+After=NetworkManager.service
+Wants=NetworkManager.service
+ConditionPathExists=/sys/class/net/wlan0
+# Nothing is ordered after this unit. Mixxx and sshd never wait for it, which
+# is what keeps a boot without home Wi-Fi as fast as one with it.
+
+[Service]
+# exec, not oneshot: the script spends up to WAIT+GRACE seconds watching wlan0,
+# and a oneshot would hold multi-user.target (and everything ordered after it)
+# for that long.
+Type=exec
+ExecStart=/usr/local/bin/trimixxx-wifi-fallback
+
+[Install]
+WantedBy=multi-user.target

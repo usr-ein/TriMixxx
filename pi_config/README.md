@@ -90,6 +90,11 @@ config — and a system change here never has to go through the Mixxx-restart pa
   Self-contained; `upload.sh` delegates to `splash-install.sh`.
 - `dj-usb/` — USB stick auto-mount (udev rule → templated systemd service +
   mount helper). Self-contained; `upload.sh` delegates to its `install.sh`.
+- `wifi-fallback/` — the deck's own hotspot, named after its hostname, when no
+  Wi-Fi has been joined 45 s into a boot: the way in at a venue. Once per boot,
+  never undone; a reboot retries home. Self-contained and inert until the next
+  boot; `upload.sh` delegates to its `install.sh`. See its README, including
+  how to try it at home with a one-off test boot.
 
 ## Deploy
 ```sh

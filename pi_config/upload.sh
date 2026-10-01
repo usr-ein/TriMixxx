@@ -12,6 +12,7 @@
 #   * getty-tty1-stop-mixxx.conf -- quit Mixxx before the session (and X) go
 #   * trimixxx-splash.*        -- logo on the panel for the first seconds of boot
 #   * prolink-eth0.sh          -- eth0 to IPv4 link-local, for the CDJ network
+#   * wifi-fallback/*          -- the deck's own hotspot when there is no Wi-Fi
 #   * ~/.xinitrc               -- the X session startx runs (WM + Mixxx loop)
 #   * dj-usb/*                 -- USB auto-mount (delegated to its own installer)
 set -eux
@@ -192,6 +193,13 @@ HOST="$HOST" "$HERE/splash-install.sh"
 # layer and Mixxx sees nothing. Self-contained and eth0-only; it verifies wlan0
 # and the default route are unchanged before returning. See the script's header.
 HOST="$HOST" "$HERE/prolink-eth0.sh"
+
+# ---- Wi-Fi fallback ----------------------------------------------------------
+# The deck's own hotspot, named after its hostname, when no Wi-Fi has been
+# joined 45 s into a boot -- the way in at a venue. Self-contained and inert
+# until the next boot; it verifies wlan0 and the default route are unchanged.
+# See wifi-fallback/README.md.
+HOST="$HOST" "$HERE/wifi-fallback/install.sh"
 
 # ---- DJ USB auto-mount -------------------------------------------------------
 # Self-contained installer (its own scp + sudo dance, incl. udev reload/trigger).

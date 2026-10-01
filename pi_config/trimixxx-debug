@@ -46,6 +46,14 @@ if command -v ip >/dev/null 2>&1; then
     echo
 fi
 
+# What the Wi-Fi fallback decided at boot (wifi-fallback/README.md). With the
+# deck's own hotspot up, its name and password are the way back in.
+if [ -r /run/trimixxx/wifi ]; then
+    echo "  Wi-Fi:"
+    sed 's/^/    /' /run/trimixxx/wifi
+    echo
+fi
+
 echo "  Exit this shell to go back to Mixxx."
 echo
 

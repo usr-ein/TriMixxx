@@ -63,8 +63,18 @@ Nothing else. What the fresh image looked like:
       `/etc/sudoers.d/010_sam1902-nopasswd` (`sam1902 ALL=(ALL) NOPASSWD: ALL`),
       checked with `visudo -cf` before it went in. The same line was also added
       to `/etc/sudoers` (line 48) by hand; either one alone is enough.
-- [ ] *Optional:* `PasswordAuthentication no` for sshd. Only with a second
-      working key in `authorized_keys` — it holds two today.
+- [ ] **`PasswordAuthentication no` for sshd** — no longer optional once the
+      Wi-Fi fallback is in (§3.8): its password is in the repo, so anyone at a
+      venue can join the deck's hotspot, and with password logins on, the
+      login password is all that stands between them and a passwordless sudo.
+      `authorized_keys` holds two keys, and key login works. A drop-in,
+      `/etc/ssh/sshd_config.d/100-custom-sshd.conf`, was written by hand on
+      2026-10-01 but says `PasswordAuthentication yes`, so nothing changed and
+      sshd was not restarted. When it says `no`, it wins: sshd keeps the first
+      value it reads, and `100-…` sorts before cloud-init's `50-…`, which also
+      says `yes`. Validate with `sudo sshd -t`, check `sudo sshd -T | grep
+      passwordauthentication`, restart, and prove a NEW key login works before
+      closing the old session.
 
 ### 1.2 Firmware
 - [~] `sudo rpi-eeprom-update -a`. An update is pending (bootloader 2026-01-09 →
@@ -404,6 +414,44 @@ Docker Desktop running (all Pi binaries are arm64 builds in Docker), `uv`, and
   settings.
 - **Panel.** See the skin decision in §2.
 
+### 3.8 Reaching the deck at a venue
+No home Wi-Fi there, and last-minute fixes still have to be possible.
+- [x] **ssh over Ethernet already works.** sshd listens on every interface
+      (`0.0.0.0:22`, `[::]:22`), eth0 included. On the CDJs' switch eth0 holds a
+      169.254 link-local address; a laptop on the same switch gives itself one
+      too, then `ssh sam1902@trimixxx2.local` (avahi answers on every
+      interface) or the address the Diagnostics page shows.
+- [x] **Diagnostics → Network** (fork, `WDeckDiagnostics`), right under
+      Identity: host and the ssh line to type; eth0's live address, or "no
+      cable" / "linked, no address yet"; Wi-Fi as home network + address, or
+      HOTSPOT + name + password + address, from `/run/trimixxx/wifi`. Built cold
+      after the Docker prune and deployed with `mixxx/upload.sh`. Seen on the
+      panel: `trimixxx2  ssh sam1902@trimixxx2.local`, `Ethernet: no cable`,
+      `Wi-Fi: Odildo-3F96AC · 192.168.1.118`. The eth0-address and hotspot
+      lines are still to be seen with a cable / during a fallback.
+- [x] **Wi-Fi fallback** (`pi_config/wifi-fallback/`, see its README): if wlan0
+      has not joined a network 45 s into a boot (30 s more if mid-connection),
+      the deck brings up its own access point — SSID = hostname, password
+      `trimixxx-debug-Kmj3Df`, 2.4 GHz channel from a per-deck table (Trimixxx1
+      6, trimixxx2 7), the deck at 10.42.0.1. Once per boot, never undone; a
+      reboot retries home. shellcheck clean. Installed inert (`autoconnect=no`
+      profile, unit enabled not started, wlan0 and the default route checked
+      unchanged). Tested:
+      - at home it does nothing but record `mode=client` (started by hand, then
+        on a real boot): 39 ms to start, not on Mixxx's critical chain — getty
+        at 16.4 s is NetworkManager's 7.8 s plus the launcher's 3.3 s gesture
+        window, as before;
+      - the one-off test boot (`echo 300 | sudo tee
+        /var/lib/trimixxx/wifi-fallback-test`, reboot): `trimixxx2` appeared,
+        a phone joined with the password, and ssh over it worked. Rebooted by
+        hand mid-hold: a normal boot, flag gone, home Wi-Fi back, wlan0's
+        runtime autoconnect back on.
+      The test boot's own log is gone — journald is volatile on this image (no
+      `/var/log/journal`), so nothing survives a reboot. Make the journal
+      persistent first if a fallback ever needs post-mortem reading.
+- [x] The rescue console (hold CUE at boot) prints `/run/trimixxx/wifi` too, so
+      the hotspot's name and password are on screen when Mixxx is what broke.
+
 ## 4. Final check, after a cold boot
 - [ ] `systemctl --failed` is empty; `systemd-analyze critical-chain getty@tty1.service`
 - [ ] `grep -E 'TriMixxx|pi-midi-daemon' /proc/asound/seq/clients` — both ports
@@ -460,3 +508,7 @@ writing.
   `[TriMixxx],bezel` in `skin.xml` with open maximum heights, `apply.py` and
   `upload.sh` staging the skin, and in the `mixxx/` submodule
   `src/widget/deck/deckbezel.h` plus `WDeckBrowser`/`WDeckRack` reading it.
+- Reaching the deck at a venue (§3.8): `pi_config/wifi-fallback/` (script,
+  unit, installer, README), hooked into `pi_config/upload.sh`;
+  `pi_config/trimixxx-debug` prints the fallback's decision; in the `mixxx/`
+  submodule, `WDeckDiagnostics` gains the Network section.

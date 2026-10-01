@@ -1,0 +1,148 @@
+#!/usr/bin/env bash
+# trimixxx-wifi-fallback -- the deck's own Wi-Fi, when there is no other.
+#
+# Run once per boot by trimixxx-wifi-fallback.service, after NetworkManager. If
+# wlan0 has not joined a network within WAIT seconds -- at a venue, where the
+# home network does not exist -- it brings up the `trimixxx-hotspot` profile
+# that install.sh created: an access point named after this deck's hostname,
+# with the deck at 10.42.0.1. That is the way in for a last-minute fix when
+# there is no network to share.
+#
+# Decided once per boot and never undone. There is no switching back to home
+# Wi-Fi mid-session, on purpose: a reboot tries home again, and that is the
+# whole recovery story.
+#
+# SAFETY. wlan0 carries ssh, so this is on the deck's only way in:
+#   * it only ever ACTIVATES the hotspot profile. It never modifies, deletes or
+#     deactivates the home profile, and never touches sshd or eth0;
+#   * when wlan0 has joined a network it does nothing at all, so a boot at home
+#     is exactly what it was without this;
+#   * nothing waits for it -- the unit is Type=exec and nothing is ordered
+#     after it -- so Mixxx and sshd come up on their own schedule regardless;
+#   * the profile is autoconnect=no: NetworkManager can never pick it over home
+#     on its own.
+#
+# What it decided goes to /run/trimixxx/wifi, for the Diagnostics page and the
+# debug console: `mode=client` + `ssid=`, or `mode=hotspot` + `ssid=`,
+# `password=`, `address=`. /run is tmpfs, so a reboot can never leave a stale
+# "hotspot" claim behind.
+#
+# TESTING without leaving the house: put a hold time in seconds in the flag file
+# and reboot --
+#
+#     echo 300 | sudo tee /var/lib/trimixxx/wifi-fallback-test
+#
+# That boot, and only that one (the flag is deleted before anything else),
+# disconnects wlan0 from home to stand in for a venue, falls back exactly as at
+# a venue, holds the hotspot for the hold time, and then hands wlan0 back to
+# NetworkManager, which rejoins home. A backstop timer does the same if this
+# script dies mid-test, and a reboot at any point is a normal boot.
+set -u
+
+WAIT="${WIFI_FALLBACK_WAIT:-45}"     # seconds to give home Wi-Fi
+GRACE="${WIFI_FALLBACK_GRACE:-30}"   # more, if a connection is still on its way
+PROFILE=trimixxx-hotspot
+IFACE=wlan0
+STATE_DIR=/run/trimixxx
+STATE="$STATE_DIR/wifi"
+TEST_FLAG=/var/lib/trimixxx/wifi-fallback-test
+BACKSTOP=trimixxx-wifi-test-backstop
+
+log() { echo "wifi-fallback: $*"; }
+
+# wlan0's NetworkManager state, as its number: 100 connected, 40..90 on its way
+# (prepare, config, need-auth, ip-config, ip-check, secondaries), 30
+# disconnected, 20 unavailable.
+dev_state() {
+    nmcli -g GENERAL.STATE device show "$IFACE" 2>/dev/null | cut -d' ' -f1
+}
+connected() { [ "$(dev_state)" = 100 ]; }
+
+write_state() {
+    mkdir -p "$STATE_DIR"
+    printf '%s\n' "$@" >"$STATE.tmp" && mv -f "$STATE.tmp" "$STATE"
+}
+
+# Record whatever wlan0 has joined, if anything.
+record_client() {
+    local conn ssid
+    conn="$(nmcli -g GENERAL.CONNECTION device show "$IFACE" 2>/dev/null)"
+    ssid="$(nmcli -g 802-11-wireless.ssid connection show "$conn" 2>/dev/null)"
+    write_state "mode=client" "ssid=${ssid:-$conn}"
+    log "wlan0 is on ${ssid:-$conn}; nothing to do"
+}
+
+# ---- test mode: stand in for a venue ------------------------------------------
+hold=""
+if [ -e "$TEST_FLAG" ]; then
+    hold="$(tr -dc '0-9' <"$TEST_FLAG")"
+    hold="${hold:-300}"
+    # First, before anything can go wrong: the NEXT boot is a normal one.
+    rm -f "$TEST_FLAG"
+    log "TEST: standing in for a venue; hotspot for ${hold}s, then back to home"
+    # If this script dies mid-test, hand wlan0 back anyway.
+    systemd-run --quiet --unit="$BACKSTOP" \
+        --on-active="$((WAIT + GRACE + hold + 60))" \
+        /bin/sh -c "nmcli device set $IFACE autoconnect yes; nmcli device connect $IFACE" ||
+        log "TEST: could not arm the backstop timer; a reboot still restores home"
+    # Keep wlan0 off home for this boot, whenever NetworkManager gets round to
+    # it: a device's autoconnect is a runtime property, gone at the next boot,
+    # and with it off NetworkManager will not rejoin home on its own however
+    # early or late the disconnect lands.
+    nmcli device set "$IFACE" autoconnect no >/dev/null 2>&1 || true
+    nmcli device disconnect "$IFACE" >/dev/null 2>&1 || true
+fi
+
+# ---- give home Wi-Fi its chance ---------------------------------------------
+deadline=$((SECONDS + WAIT))
+while [ "$SECONDS" -lt "$deadline" ] && ! connected; do
+    sleep 2
+done
+
+# On its way at the deadline (authenticating, waiting on DHCP): give it the
+# grace rather than cut off a connection that was about to succeed.
+state="$(dev_state)"
+if ! connected && [ "${state:-0}" -ge 40 ] && [ "${state:-0}" -lt 100 ]; then
+    log "wlan0 still connecting (state $state); waiting up to ${GRACE}s more"
+    deadline=$((SECONDS + GRACE))
+    while [ "$SECONDS" -lt "$deadline" ] && ! connected; do
+        sleep 2
+    done
+fi
+
+if connected; then
+    record_client
+    exit 0
+fi
+
+# ---- no network: become one --------------------------------------------------
+log "wlan0 has not joined a network in ${WAIT}s (state $(dev_state)); starting $PROFILE"
+if nmcli connection up "$PROFILE" ifname "$IFACE" >/dev/null; then
+    ssid="$(nmcli -g 802-11-wireless.ssid connection show "$PROFILE")"
+    psk="$(nmcli -s -g 802-11-wireless-security.psk connection show "$PROFILE")"
+    address="$(nmcli -g ipv4.addresses connection show "$PROFILE" | cut -d/ -f1)"
+    write_state "mode=hotspot" "ssid=$ssid" "password=$psk" "address=${address:-10.42.0.1}"
+    log "hotspot $ssid is up; the deck is at ${address:-10.42.0.1}"
+    status=0
+else
+    write_state "mode=none"
+    log "could not start $PROFILE"
+    status=1
+fi
+
+# ---- test mode: hand back ---------------------------------------------------
+if [ -n "$hold" ]; then
+    sleep "$hold"
+    log "TEST: hold over; handing wlan0 back to NetworkManager"
+    nmcli connection down "$PROFILE" >/dev/null 2>&1 || true
+    nmcli device set "$IFACE" autoconnect yes >/dev/null 2>&1 || true
+    nmcli device connect "$IFACE" >/dev/null 2>&1 || true
+    systemctl stop "$BACKSTOP.timer" 2>/dev/null || true
+    if connected; then
+        record_client
+    else
+        write_state "mode=none"
+        log "TEST: wlan0 did not rejoin; NetworkManager keeps trying, and a reboot restores home"
+    fi
+fi
+exit "$status"
