@@ -27,7 +27,7 @@
 //  MIDI -- ring railroad + magenta, board LED flash (solid while pressed),
 //  jog/tempo/encoder serial reports. 0 = normal deck operation.
 // ===========================================================================
-#define DECK_DEBUG 1
+#define DECK_DEBUG 0
 
 // ---- Ring A ---------------------------------------------------------------
 #define RING_A_TX 17
