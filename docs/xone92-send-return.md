@@ -1,5 +1,9 @@
 # The Xone:92's send and return, and what it does about wet/dry
 
+> **The deck no longer takes the Xone's send.** The effect pedal bus this was
+> written for was removed on 2026-10-01; what follows about the mixer itself
+> still holds.
+
 Reference for the effect-pedal work: what the mixer actually gives us, which
 knob does what to the send, and why the "I hear the track twice" problem is not
 something the mixer can be talked out of.

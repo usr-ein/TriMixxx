@@ -1,5 +1,9 @@
 # Phase 0 measurements
 
+> **The pedal bus these were taken for was removed on 2026-10-01.** The numbers
+> are the deck's codec and the round trip through the Xone, and still hold for
+> that hardware.
+
 Everything measured on the deck itself, at the ALSA layer, so none of it depends
 on Mixxx's config being right. Recorded 2026-08-11.
 

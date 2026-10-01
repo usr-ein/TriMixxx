@@ -68,7 +68,7 @@ deck runs [our 2.5.6 fork](../mixxx)). One deck = `[Channel1]`.
 | Cue | note `0x3D` | `cue_default` (momentary); LED ← `cue_indicator` |
 | Loop in / out | notes `0x3E` / `0x3F` | `loop_in` / `loop_out`; both LEDs ← `loop_enabled` |
 | Reloop | note `0x40` | `reloop_toggle` (no LED) |
-| Track encoder | CC `0x10` + note `0x41` | browse library; push over the deck = FX mute, in the browser = `GoToItem` / `LoadSelectedTrack` (see below). BACK (A7) is what opens the library |
+| Track encoder | CC `0x10` + note `0x41` | browse library; push = open / `GoToItem` / `LoadSelectedTrack` (see below) |
 | Jog | CC `0x11` + note `0x42` | scratch when touched, pitch bend otherwise |
 | Tempo | CC `0x12`/`0x32` (14-bit) | `rate` |
 
@@ -156,8 +156,8 @@ both); `"bezel": false` is a panel that sits flush, with no lip to keep clear.
 
 That last one is the skin's `[TriMixxx],bezel` attribute (default 1), which
 `apply.py` writes into a staged copy of the skin. With it off, the deck view's
-`DeckBezelPad`/`BevelPad` strips go, and so do the browser's and the rack's own
-(`deckbezel.h` in the fork, read when they are built). The skin's minimum sizes
+`DeckBezelPad`/`BevelPad` strips go, and so does the browser's own
+(`deckbezel.h` in the fork, read when it is built). The skin's minimum sizes
 are the 1024×600 layout and its maximum heights are open, so a taller logical
 screen is filled rather than letterboxed — on trimixxx2 (1024×640 at 1.25) the
 waveform takes the difference.

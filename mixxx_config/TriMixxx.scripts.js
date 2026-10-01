@@ -252,50 +252,6 @@ TriMixxx.playIntro = function(onDone) {
     }, false);
 };
 
-// ---- The effect-pedal bus -----------------------------------------------
-// The Xone's aux send arrives at [Auxiliary1]; EffectUnit2 processes it in WET
-// mix mode and the result leaves on the deck's only output. Four things have to
-// be true for that to make a sound, none of which Mixxx does on its own, and
-// every one of which fails silently:
-//
-//   1. The aux has to be on the main mix. `main_mix` is NOT a persisted
-//      control and EngineAux's constructor calls setMainMix(false) on every
-//      start, so mixxx.cfg cannot carry it.
-//   2. The effect slot has to be enabled. StandardEffectChain -- the numbered
-//      units -- is the only chain type that does not enable its slots after
-//      loading; Output, QuickEffect and Equalizer all do. Upstream expects a
-//      skin to draw an enable button and a DJ to press it. effects.xml cannot
-//      carry it either: EffectPreset has no enabled field.
-//   3. An effect has to actually be loaded, WITH ITS PARAMETERS. A chain preset
-//      restores parameters from its own <Parameters> list, and one that leaves
-//      that list empty maps no parameters at all -- loadEffectInner clears
-//      m_loadedParameters and then fills it from the preset, so empty in is
-//      empty out. The reverb then sits with send_amount at 0, feeding nothing
-//      into the tank. `loaded_effect` avoids this: it calls
-//      loadEffectWithDefaults, which builds the parameter set from the manifest.
-//   4. Some wet has to be returned, which is the `mix` knob, and that one does
-//      persist in mixxx.cfg.
-//
-// All of it is idempotent so it can be run as often as needed -- which it is,
-// because init runs before the aux input exists and what survives that varies
-// between boots.
-TriMixxx.setupPedalBus = function() {
-    // One line, and it is the one thing the rack genuinely cannot do for
-    // itself. `main_mix` is NOT a persisted control: EngineAux's constructor
-    // calls setMainMix(false) unconditionally on every start, so whatever
-    // mixxx.cfg says, the aux boots muted and the Xone's send arrives at a
-    // channel nobody is listening to.
-    //
-    // Everything else this used to do -- loading a reverb into slot 1, setting
-    // its metaknob, enabling the slot -- belonged to a time before WDeckRack
-    // existed. The rack now restores the chain from effects.xml at
-    // construction and writes it back, which is what asserts the slot enables
-    // that StandardEffectChain does not set for itself. Doing it here as well
-    // meant stamping a reverb over slot 1 of whatever rack the DJ had saved,
-    // on every boot.
-    engine.setValue("[Auxiliary1]", "main_mix", 1);
-};
-
 TriMixxx.init = function(id, debugging) {
     if (TriMixxx.UNIT.deck) {
         print("TriMixxx: buttons and lights remapped for " + TriMixxx.UNIT.deck);
@@ -318,29 +274,6 @@ TriMixxx.init = function(id, debugging) {
     // single control is global, which is also why one widget shows both and a
     // second one could only ever repeat it.
     engine.setValue("[Controls]", "ShowDurationRemaining", 2);
-
-    // The effect-pedal bus. [Auxiliary1] is the DAC's physical input, carrying
-    // the Xone's AUX 1 send, and it has to be forced on here rather than in
-    // mixxx.cfg because `main_mix` is NOT a persisted control: EngineAux's
-    // constructor calls setMainMix(false) unconditionally on every start
-    // (engineaux.cpp), so whatever the config says, the aux boots muted and the
-    // send would arrive at a channel nobody is listening to.
-    TriMixxx.setupPedalBus();
-    // ...and again, because once is not enough. The controller opens before
-    // SoundManager sets up devices (about 30 ms before, in the startup log), so
-    // init runs while [Auxiliary1] has no input yet, and which of these settings
-    // survives has been observed to vary between boots. Rather than work out
-    // which stage clears what, tie the setup to the event that matters -- the
-    // input becoming configured -- and re-assert once more on a timer for
-    // anything that lands later still. Every one of these is idempotent.
-    TriMixxx.pedalBusConn = engine.makeConnection(
-        "[Auxiliary1]", "input_configured", function(value) {
-            if (value) { TriMixxx.setupPedalBus(); }
-        });
-    engine.beginTimer(2000, TriMixxx.setupPedalBus, true);
-
-
-
 
     // Return to the waveform whenever a track is loaded (from the hardware
     // encoder push or an on-screen library tap), so the library never stays up
@@ -754,15 +687,17 @@ TriMixxx.play = function(channel, control, value, status, group) {
     }
 };
 
-// ---- Track browse encoder: firmware sends 1 = up, 127 = down (one per detent).
-//
-// The mapping's whole job is to say that a detent happened and in which
-// direction. What it MEANS is decided in one place, DeckEncoder, because it
-// depends on which screen is showing and on what that screen has focused --
-// and three copies of that decision, one of them here, is how the encoder
-// ended up doing nothing in the browser after the FX strip had been touched.
+// ---- Track browse encoder: firmware sends 1 = up, 127 = down (one per detent). ----
 TriMixxx.browse = function(channel, control, value, status, group) {
-    engine.setValue("[TriMixxx]", "encoder_move", (value === 1) ? -1 : 1);
+    if (engine.getValue("[Master]", "show_library")) {
+        // Browsing: one encoder, one selection. There is no pane to pick any
+        // more -- the browser has a single focus (browser-prd.md 4.3).
+        engine.setValue("[Browser]", "move", (value === 1) ? -1 : 1);
+    } else {
+        // Playing view: zoom the waveform. (up = zoom in; swap the two control
+        // names if the direction feels inverted.)
+        engine.setValue(TriMixxx.DECK, (value === 1) ? "waveform_zoom_down" : "waveform_zoom_up", 1);
+    }
 };
 
 // Hotcues: activate (jump if set, create at the playhead if empty), both edges so
@@ -784,17 +719,21 @@ TriMixxx.hotcue = function(channel, control, value, status, group) {
 };
 
 // ---- Track encoder push -------------------------------------------------
-// As above: a press, and nothing about what it does. On the deck view it is
-// the FX mute, in the browser it activates the selection, on the Effects page
-// it mutes the rack's master. DeckEncoder holds that table.
-//
-// Note the deck view's press is NOT "open the library" any more -- BACK does
-// that, and the press is worth more as the one gesture that silences the
-// effects without looking.
+// Deck view: open the browser. Browsing: activate whatever is selected, and
+// what that means -- enter a medium, open a category, load a track -- is the
+// browser's to decide. There used to be a focus dance here, reading and writing
+// [Library],focused_widget to tell a sidebar from a track table; the browser
+// has one focus and one selection, so there is nothing left to disambiguate.
 TriMixxx.encoderPush = function(channel, control, value, status, group) {
     if (!value) { return; } // press only
-    engine.setValue("[TriMixxx]", "encoder_press", 1);
-    engine.setValue("[TriMixxx]", "encoder_press", 0);
+
+    if (!engine.getValue("[Master]", "show_library")) {
+        engine.setValue("[Master]", "show_library", 1);
+        return;
+    }
+    // One control for every level: the browser knows whether the selection is
+    // a source, a category, a playlist or a track, and what each means.
+    engine.setValue("[Browser]", "select", 1);
 };
 
 // ---- Jog touch: enable scratch while held, pitch-bend when released ----

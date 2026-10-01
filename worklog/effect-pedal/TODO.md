@@ -1,5 +1,11 @@
 # Effect pedal — implementation order
 
+> **Removed 2026-10-01.** The pedal bus and the rack it grew into are gone:
+> the fork, the skin, the mapping and the config are back to how they were
+> before it, and `docs/effects-prd.md` went with it. This page stays for what it
+> recorded on the way — the shutdown crash, the TrackCache bisect and the
+> "techno night" playlists are not about effects, and still stand.
+
 Turning TriMixxx into the effects unit on the Xone:92's AUX 1 send/return, so
 that the CDJs' audio can be reverbed/delayed/crushed by the deck and returned
 **wet only** — no dry, no level jump, one hand.

@@ -23,7 +23,8 @@
  * ../pi_config/60-trimixxx-fonts.conf, which also installs them. That file is
  * the one that matters: the track table's font comes from mixxx.cfg, not from
  * here, so it never sees this stack. The families listed after Meslo below are
- * the same chain repeated for the widgets the stylesheet does reach. */
+ * the same chain repeated for the widgets the stylesheet does reach.
+ */
 WWidget, QWidget {
     background-color: #1a1a1a;
     color: #e0e0e0;
@@ -619,11 +620,4 @@ WTrackTableView QScrollBar::sub-page:horizontal {
     background-color: #0c0c0c;
     border: none;
     padding: 12px 20px;
-}
-
-/* The effect rack paints itself entirely -- chrome, knobs, name bar -- so the
-   stylesheet only has to stop Qt drawing a frame behind it. */
-#DeckRack {
-    background-color: #0c0c0c;
-    border: none;
 }

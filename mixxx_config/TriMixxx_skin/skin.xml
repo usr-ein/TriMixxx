@@ -36,9 +36,9 @@
            kept clear: 1 for Trimixxx1, whose panel is recessed on every edge.
            A deck with a flush panel sets 0 in mixxx_config/units/<deck>.json,
            which upload.sh writes into this line on the way out. Read by the
-           DeckBezelPad/BevelPad strips here, and by the browser and the rack
-           (deckbezel.h in the fork) when they are built. Not persisted: it is
-           a fact about the hardware, not a preference. -->
+           DeckBezelPad/BevelPad strips here, and by the browser (deckbezel.h
+           in the fork) when it is built. Not persisted: it is a fact about the
+           hardware, not a preference. -->
       <attribute persist="false" config_key="[TriMixxx],bezel">1</attribute>
     </attributes>
   </manifest>
@@ -547,23 +547,6 @@
             </Connection>
             <Children>
 
-              <!-- The FX strip and the waveform, side by side. The strip is
-                   the rack's master where a DJ is actually looking during a
-                   transition (effects-prd.md 16); the waveform gives up 76 px
-                   for it. -->
-              <WidgetGroup>
-                <ObjectName>WaveformRow</ObjectName>
-                <Layout>horizontal</Layout>
-                <MinimumSize>1024,414</MinimumSize>
-                <MaximumSize>1024,-1</MaximumSize>
-                <Children>
-
-              <DeckFxStrip>
-                <ObjectName>DeckFxStrip</ObjectName>
-                <MinimumSize>76,414</MinimumSize>
-                <MaximumSize>76,-1</MaximumSize>
-              </DeckFxStrip>
-
               <!-- The waveform, with the tempo read-out laid over it.
                    Stacked, not side by side: QStackedLayout in StackAll mode
                    draws every child with later ones on top, so the numbers
@@ -571,8 +554,8 @@
               <WidgetGroup>
                 <ObjectName>WaveformStack</ObjectName>
                 <Layout>stacked</Layout>
-                <MinimumSize>948,414</MinimumSize>
-                <MaximumSize>948,-1</MaximumSize>
+                <MinimumSize>1024,414</MinimumSize>
+                <MaximumSize>1024,-1</MaximumSize>
                 <Children>
               <!-- Scrolling waveform -->
               <Visual>
@@ -584,8 +567,8 @@
                      one that gets squeezed for it. The waveform
                      absorbs every row of buttons that used to sit under it,
                      rather than leaving a hole. -->
-                <MinimumSize>948,414</MinimumSize>
-                <MaximumSize>948,-1</MaximumSize>
+                <MinimumSize>1024,414</MinimumSize>
+                <MaximumSize>1024,-1</MaximumSize>
                 <SignalHighColor>#ff5544</SignalHighColor>
                 <SignalMidColor>#88ff00</SignalMidColor>
                 <SignalLowColor>#2266ff</SignalLowColor>
@@ -649,15 +632,12 @@
                   <TempoPanel>
                     <ObjectName>TempoPanel</ObjectName>
                     <Group>[Channel1]</Group>
-                    <MinimumSize>948,414</MinimumSize>
-                    <MaximumSize>948,-1</MaximumSize>
+                    <MinimumSize>1024,414</MinimumSize>
+                    <MaximumSize>1024,-1</MaximumSize>
                     <TempoFont>Digital-7 Mono</TempoFont>
                     <TempoSize>52</TempoSize>
                     <TempoColor>#ff6600</TempoColor>
                   </TempoPanel>
-
-                </Children>
-              </WidgetGroup>
 
                 </Children>
               </WidgetGroup>
