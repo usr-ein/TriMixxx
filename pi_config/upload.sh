@@ -20,6 +20,17 @@ set -eux
 HOST="${HOST:-trimixxx-pi}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# ---- preflight -----------------------------------------------------------------
+# The bridge is enabled and RESTARTED below, but its binary is not installed by
+# this script -- it comes from the ttymidi submodule. On a fresh unit it is not
+# there yet, so the restart fails and set -e stops this script half-way, with
+# some pieces installed and the rest not. Check before changing anything.
+ssh "$HOST" 'test -x /usr/local/bin/ttymidi' || {
+    echo "ABORT: $HOST has no /usr/local/bin/ttymidi. Install it first:" >&2
+    echo "       make -C $HERE/../mixxx_config/ttymidi install-remote HOST=$HOST" >&2
+    exit 1
+}
+
 
 # ---- systemd units (governor + bridge) ---------------------------------------
 # Shipped together: both are plain unit files installed into /etc/systemd/system
@@ -138,7 +149,7 @@ ssh "$HOST" '
         echo "WARNING: ~/.profile contains a startx line. ~/.bash_profile sources"
         echo "         ~/.profile, so X would start from there BEFORE the boot mode"
         echo "         is read -- and holding PLAY at boot would do nothing."
-        echo "         Remove it: starting X is ~/.bash_profile's job now."
+        echo "         Remove it: starting X is the job of ~/.bash_profile now."
         grep -n startx ~/.profile || true
         echo
     fi

@@ -27,6 +27,41 @@ TriMixxx.LONG_PRESS_MS = 600;   // hold past this and a button takes its second 
 // still gets through; lower it if deliberate taps start being eaten.
 TriMixxx.BACK_DEBOUNCE_MS = 200;
 
+// ---- this deck's wiring ----------------------------------------------------
+// Ring pads are numbered by their place in the daisy chain, and PLAY/CUE by the
+// GPIO they land on, so a deck wired in a different order sends the right MIDI
+// for the wrong button. trimixxx2 is one: an eighth pad sits third in ring A,
+// pushing the loop pads and BACK one node down; hot cues 1-4 come in reversed;
+// PLAY and CUE are swapped. The fix lives here and in the XML, not in the S3,
+// so the firmware stays one build for every deck.
+//
+// `buttons` maps a canonical note (MidiMap.hpp) to the note this deck actually
+// sends for that control, `lights` to the note -- for a ring pad, the node --
+// its LED actually answers to. Both are empty on a standard deck. The marked
+// line is REPLACED at deploy time by upload.sh from units/<hostname>.json, which
+// renumbers the XML's notes from the same file, so that file is the one thing
+// in this folder that differs from deck to deck.
+TriMixxx.UNIT = {deck: "", buttons: {}, lights: {}}; // @unit-wiring
+
+// Physical note -> canonical, for the handlers that read meaning off the note.
+TriMixxx.UNIT_IN = (function() {
+    var inverse = {};
+    for (var canonical in TriMixxx.UNIT.buttons) {
+        inverse[TriMixxx.UNIT.buttons[canonical]] = Number(canonical);
+    }
+    return inverse;
+}());
+TriMixxx.canonicalNote = function(note) {
+    var canonical = TriMixxx.UNIT_IN[note];
+    return canonical === undefined ? note : canonical;
+};
+// The node a ring-LED SysEx must address to light a canonical pad.
+TriMixxx.physicalNode = function(cmd, node) {
+    var base = (cmd === 0x03) ? 0x43 : 0x00; // ring B's notes start at 0x43, ring A's at 0
+    var note = TriMixxx.UNIT.lights[base + node];
+    return note === undefined ? node : note - base;
+};
+
 // ---- SORT LED ----------------------------------------------------------
 // The pad's colour says which field the browser is sorting by and its
 // brightness says which direction. Both come from the browser rather than from
@@ -150,6 +185,7 @@ TriMixxx.hueWheel = function(pos) {
 
 // One node -> both its LEDs, via the 6-nibble short-form ring-LED SysEx.
 TriMixxx.ringLed = function(cmd, node, r, g, b) {
+    node = TriMixxx.physicalNode(cmd, node);
     midi.sendSysexMsg(
         [0xF0, 0x7D, cmd, node,
             (r >> 4) & 0xF, r & 0xF, (g >> 4) & 0xF, g & 0xF, (b >> 4) & 0xF, b & 0xF, 0xF7], 11);
@@ -163,6 +199,7 @@ TriMixxx.ringLed = function(cmd, node, r, g, b) {
 // Half-lighting a node is the dimmest a pad on this deck can be, well below
 // what scaling one colour can reach. See KEY_SYNC_DIM.
 TriMixxx.ringLedPair = function(cmd, node, a, b) {
+    node = TriMixxx.physicalNode(cmd, node);
     midi.sendSysexMsg(
         [0xF0, 0x7D, cmd, node,
             (a[0] >> 4) & 0xF, a[0] & 0xF, (a[1] >> 4) & 0xF, a[1] & 0xF, (a[2] >> 4) & 0xF, a[2] & 0xF,
@@ -242,6 +279,9 @@ TriMixxx.setupPedalBus = function() {
 };
 
 TriMixxx.init = function(id, debugging) {
+    if (TriMixxx.UNIT.deck) {
+        print("TriMixxx: buttons and lights remapped for " + TriMixxx.UNIT.deck);
+    }
     // Tempo fader span: the 14-bit `rate` CC is scaled by the deck's rate range,
     // which defaults to +/-8%. Widen it here so the fader covers +/-RATE_RANGE.
     engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGE);
@@ -713,7 +753,7 @@ TriMixxx.browse = function(channel, control, value, status, group) {
 // because that path never runs this handler.
 TriMixxx.HOTCUE_COLORS = [0xFE0000, 0xFDFE02, 0x0BFF01, 0x011EFE, 0xFE00F6];
 TriMixxx.hotcue = function(channel, control, value, status, group) {
-    var idx = control - 0x42; // note 0x43 -> hotcue 1
+    var idx = TriMixxx.canonicalNote(control) - 0x42; // note 0x43 -> hotcue 1
     if (!value) {
         engine.setValue(group, "hotcue_" + idx + "_activate", 0); // end any preview
         return;

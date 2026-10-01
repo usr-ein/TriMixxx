@@ -43,6 +43,7 @@
 set -euo pipefail
 
 HOST="${HOST:-trimixxx-pi}"
+HERE="$(cd "$(dirname "$0")" && pwd)"
 
 # MIDI addresses, mirroring firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp.
 # One deck = channel 1, so note-on is 0x90 and control change is 0xB0.
@@ -118,11 +119,29 @@ midi() {
     "
 }
 
+# The note this deck's S3 actually sends for a control. A deck wired in a
+# different order has a ../mixxx_config/units/<hostname>.json, and its mapping
+# listens for each control where that deck's wiring put it -- so a verb naming a
+# control has to send the same, or `back` on trimixxx2 would run loop halve.
+wired() {
+    local unit
+    unit="$HERE/../mixxx_config/units/$(ssh "$HOST" hostname).json"
+    [ -f "$unit" ] || { echo "$1"; return; }
+    python3 - "$unit" "$1" <<'PY'
+import json, sys
+buttons = json.load(open(sys.argv[1])).get("buttons", {})
+wiring = {int(k, 16): int(v, 16) for k, v in buttons.items()}
+note = int(sys.argv[2], 16)
+print(f"{wiring.get(note, note):02X}")
+PY
+}
+
 # A button: note-on then note-off, held for as long as asked. The firmware pairs
 # every press with a release, and the mapping's long-press handling only works
 # if both edges arrive.
 button() {
-    local note="$1" hold_ms="${2:-60}"
+    local note hold_ms="${2:-60}"
+    note="$(wired "$1")"
     midi "90 $note 7F"
     sleep "$(awk "BEGIN{print $hold_ms/1000}")"
     midi "90 $note 00"

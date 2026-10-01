@@ -52,6 +52,15 @@ fi
 echo "eth0 profile : $profile"
 
 current="$(nmcli -g ipv4.method connection show "$profile")"
+
+# --- is anything plugged in? -------------------------------------------------
+# With no cable, NetworkManager refuses to activate the profile ("no carrier")
+# and there is no address to wait for -- which on a fresh unit with nothing in
+# eth0 yet failed the whole of upload.sh. The profile change is the part that
+# matters, and it persists: NM brings eth0 up link-local by itself the moment a
+# CDJ or a switch is plugged in. So with no link, change it and say so.
+carrier="$(cat /sys/class/net/eth0/carrier 2>/dev/null || echo 0)"
+
 if [ "$current" = "link-local" ]; then
     echo "already link-local; nothing to change"
 else
@@ -60,24 +69,30 @@ else
     # Bring up this profile on this device only. Deliberately not
     # `nmcli networking` or a NetworkManager restart, either of which would
     # bounce wlan0 and drop this ssh session.
-    sudo nmcli connection up "$profile" ifname eth0 >/dev/null
+    if [ "$carrier" = 1 ]; then
+        sudo nmcli connection up "$profile" ifname eth0 >/dev/null
+    fi
 fi
 
-# --- wait for IPv4LL to settle ----------------------------------------------
-# RFC 3927 probes for conflicts before committing, so the address does not
-# appear instantly.
-for _ in $(seq 1 20); do
-    addr="$(ip -4 -o addr show eth0 | awk '{print $4}')"
-    [ -n "$addr" ] && break
-    sleep 0.5
-done
+if [ "$carrier" = 1 ]; then
+    # --- wait for IPv4LL to settle ------------------------------------------
+    # RFC 3927 probes for conflicts before committing, so the address does not
+    # appear instantly.
+    for _ in $(seq 1 20); do
+        addr="$(ip -4 -o addr show eth0 | awk '{print $4}')"
+        [ -n "$addr" ] && break
+        sleep 0.5
+    done
 
-echo "eth0 address : ${addr:-<none>}"
-case "${addr:-}" in
-    169.254.*) echo "OK: eth0 is on the link-local subnet the CDJs use" ;;
-    "")        echo "ERROR: eth0 still has no IPv4 address" >&2; exit 1 ;;
-    *)         echo "WARNING: eth0 has $addr, not a 169.254/16 link-local address" >&2 ;;
-esac
+    echo "eth0 address : ${addr:-<none>}"
+    case "${addr:-}" in
+        169.254.*) echo "OK: eth0 is on the link-local subnet the CDJs use" ;;
+        "")        echo "ERROR: eth0 still has no IPv4 address" >&2; exit 1 ;;
+        *)         echo "WARNING: eth0 has $addr, not a 169.254/16 link-local address" >&2 ;;
+    esac
+else
+    echo "eth0 address : <no link> -- profile is link-local, comes up when plugged in"
+fi
 
 # --- prove wlan0 is untouched ------------------------------------------------
 wlan_after="$(ip -4 -o addr show wlan0 2>/dev/null | awk '{print $4}' || true)"

@@ -40,6 +40,27 @@ for f in files:
 sys.exit(1 if bad else 0)
 PY
 
+# ---- This deck's wiring ----------------------------------------------------
+# Ring pads are numbered by their place in the daisy chain and PLAY/CUE by the
+# GPIO they land on, so a deck wired in a different order sends the right MIDI
+# for the wrong button. Such a deck has a units/<hostname>.json saying where
+# each control actually landed, and the mapping and script are rewritten for it
+# on the way out (units/apply.py); the files in this folder stay canonical. A
+# deck with no file -- the standard wiring -- gets them untouched.
+#
+# Keyed on the deck's hostname, not on $HOST, which is only this machine's ssh
+# alias for it. Done before anything on the deck is touched, so a bad wiring
+# file stops the upload here.
+DECK="$(ssh "$HOST" hostname)"
+STAGE="$(mktemp -d)"
+trap 'rm -rf "$STAGE"' EXIT
+if [ -f "units/$DECK.json" ]; then
+    python3 units/apply.py "units/$DECK.json" . "$STAGE"
+else
+    echo "==> $DECK: standard wiring"
+    cp TriMixxx.midi.xml TriMixxx.scripts.js "$STAGE/"
+fi
+
 # ---- Fonts -----------------------------------------------------------------
 # MesloLGL Nerd Font is not a stock Raspberry Pi OS font, and both
 # mixxx.cfg ([Library] Font) and the skin's stylesheet name it. Qt resolves font
@@ -63,7 +84,9 @@ ssh "$HOST" 'fc-cache -f ~/.local/share/fonts >/dev/null 2>&1;
              fc-list : family | grep -q "MesloLGL Nerd Font"' \
     || { echo "ABORT: the deck cannot resolve 'MesloLGL Nerd Font' after install." >&2; exit 1; }
 
-ssh "$HOST" 'rm -rf ~/.mixxx/skins/TriMixxx'
+# A deck that has never run Mixxx has no ~/.mixxx at all, and scp into a missing
+# directory fails -- so a fresh unit needs these before the first copy.
+ssh "$HOST" 'mkdir -p ~/.mixxx/skins ~/.mixxx/controllers && rm -rf ~/.mixxx/skins/TriMixxx'
 
 scp -r TriMixxx_skin "$HOST":~/.mixxx/skins/
 ssh "$HOST" 'mv ~/.mixxx/skins/TriMixxx_skin ~/.mixxx/skins/TriMixxx'
@@ -115,7 +138,7 @@ if ssh "$HOST" 'test -e ~/.mixxx/effects.xml'; then
 else
 	scp effects.xml "$HOST":~/.mixxx/
 fi
-scp TriMixxx.midi.xml TriMixxx.scripts.js \
+scp "$STAGE/TriMixxx.midi.xml" "$STAGE/TriMixxx.scripts.js" \
     PiMidiDaemon.midi.xml PiMidiDaemon.scripts.js "$HOST":~/.mixxx/controllers/
 ssh "$HOST" 'sudo systemctl restart getty@tty1.service'
 echo Upload done

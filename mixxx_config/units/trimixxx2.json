@@ -1,0 +1,26 @@
+{
+  "deck": "trimixxx2",
+  "about": "Where trimixxx2's controls actually land, measured 2026-10-01 by pressing every control in order with `aseqdump -p TriMixxx` running. buttons: canonical note (MidiMap.hpp) -> the note this deck's S3 sends for it. lights: canonical note -> the note, or for a ring pad the node, its LED answers to; a pad's LED sits on the same board as its button, so the ring entries match. Ring A has an eighth pad, third in its chain (note 0x02): it has no function yet, so nothing is bound to it. PLAY and CUE are wired as standard. Applied by upload.sh through apply.py; see ../README.md.",
+  "buttons": {
+    "0x02": "0x03",
+    "0x03": "0x04",
+    "0x04": "0x05",
+    "0x05": "0x06",
+    "0x06": "0x07",
+    "0x43": "0x46",
+    "0x44": "0x45",
+    "0x45": "0x44",
+    "0x46": "0x43"
+  },
+  "lights": {
+    "0x02": "0x03",
+    "0x03": "0x04",
+    "0x04": "0x05",
+    "0x05": "0x06",
+    "0x06": "0x07",
+    "0x43": "0x46",
+    "0x44": "0x45",
+    "0x45": "0x44",
+    "0x46": "0x43"
+  }
+}

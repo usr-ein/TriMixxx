@@ -8,6 +8,55 @@ xset s noblank
 # brightness
 #xrandr --output HDMI-1 --brightness 1.0
 
+# ---- which screen is the deck's ----------------------------------------------
+# The deck's own panel is on DSI (trimixxx2: a Waveshare 10.1" DSI LCD (C),
+# 1280x800, `vc4-kms-dsi-waveshare-panel` in config.txt). An HDMI monitor is a
+# debugging aid, and plugged in alongside the panel it must MIRROR it rather
+# than extend the desktop: X's default lays outputs side by side, which puts
+# Mixxx's fullscreen window on whichever output is listed first and stretches
+# the touchscreen across both.
+#
+# --scale-from fits the panel's picture to the monitor whatever the monitor's own
+# mode, and keeps the X screen exactly the panel's size -- so the window
+# manager's idea of "fullscreen" and the touchscreen's coordinate range both stay
+# the panel's, even with a 3440x1440 monitor attached. The touch is pinned to the
+# panel as well, for when scaling is refused and the screen grows after all.
+#
+# Runs before the window manager starts, so it starts on the final geometry. A
+# monitor plugged in mid-session is not picked up until the session restarts
+# (sudo systemctl restart getty@tty1). A DSI output reads "connected" whenever
+# its overlay is loaded, panel or not -- harmless: the mirror is then the only
+# picture there is. No DSI output at all (an HDMI-only deck) skips all of this,
+# and X's defaults are right for it.
+panel="$(xrandr --query | awk '/^DSI-[0-9]+ connected/ {print $1; exit}')"
+if [ -n "$panel" ]; then
+    xrandr --output "$panel" --auto --primary --pos 0x0
+    size="$(xrandr --query | awk -v p="$panel" '$1 == p {
+        for (i = 2; i <= NF; i++) if ($i ~ /^[0-9]+x[0-9]+\+/) { split($i, g, "+"); print g[1]; exit }
+    }')"
+    for out in $(xrandr --query | awk -v p="$panel" '$2 == "connected" && $1 != p {print $1}'); do
+        xrandr --output "$out" --auto --same-as "$panel" --scale-from "$size" ||
+            xrandr --output "$out" --auto --same-as "$panel"
+    done
+    for id in $(xinput list | awk 'tolower($0) ~ /slave +pointer/ && tolower($0) ~ /touch|goodix/ &&
+            match($0, /id=[0-9]+/) {print substr($0, RSTART + 3, RLENGTH - 3)}'); do
+        xinput map-to-output "$id" "$panel" 2>/dev/null
+    done
+
+    # The skin is pinned to 1024x600 (every top-level group in skin.xml has
+    # Minimum = Maximum size), so on a bigger panel it sits top-left with empty
+    # bands to the right and below. Scale Mixxx up until the skin meets the
+    # panel's width or height, whichever comes first: 1.25 on a 1280x800 panel,
+    # which fills the width and leaves 40 logical (50 real) px at the bottom; no
+    # scaling at all on a 1024x600 one. Text stays sharp, bitmap art is
+    # resampled. QT_SCALE_FACTOR overrides mixxx.cfg's [Config] ScaleFactor
+    # (adjustScaleFactor() in mixxx/src/main.cpp), which is what keeps this
+    # per-unit while every deck shares one mixxx.cfg.
+    scale="$(echo "$size" | awk -F x '$2 > 0 {
+        s = $1 / 1024; t = $2 / 600; if (t < s) s = t; if (s != 1) printf "%g", s }')"
+    [ -n "$scale" ] && export QT_SCALE_FACTOR="$scale"
+fi
+
 # Hide cursor immediately (touchscreen)
 unclutter -idle 0 -root &
 
@@ -102,6 +151,11 @@ cap_log() {
         done
     done
 }
+
+# A fresh unit has no ~/.mixxx until Mixxx has run once, and the shell opens the
+# `2>>` redirect below BEFORE it starts mixxx -- so without this the redirect
+# fails, mixxx never runs, and the loop spins on a black screen forever.
+mkdir -p ~/.mixxx
 
 cap_log ~/.mixxx/stderr.log ~/.mixxx/mixxx.log &
 CAP_PID=$!

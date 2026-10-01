@@ -68,7 +68,7 @@ deck runs [our 2.5.6 fork](../mixxx)). One deck = `[Channel1]`.
 | Cue | note `0x3D` | `cue_default` (momentary); LED ← `cue_indicator` |
 | Loop in / out | notes `0x3E` / `0x3F` | `loop_in` / `loop_out`; both LEDs ← `loop_enabled` |
 | Reloop | note `0x40` | `reloop_toggle` (no LED) |
-| Track encoder | CC `0x10` + note `0x41` | browse library; push = open / `GoToItem` / `LoadSelectedTrack` (see below) |
+| Track encoder | CC `0x10` + note `0x41` | browse library; push over the deck = FX mute, in the browser = `GoToItem` / `LoadSelectedTrack` (see below). BACK (A7) is what opens the library |
 | Jog | CC `0x11` + note `0x42` | scratch when touched, pitch bend otherwise |
 | Tempo | CC `0x12`/`0x32` (14-bit) | `rate` |
 
@@ -145,6 +145,28 @@ each 8-bit channel split into two data bytes so a 7-bit payload still carries
 0..255. `TriMixxx.ringLed()` is the one place that formats it; `TriMixxx.led()` /
 `dim()` normalise the palette so entries only need correct hue *ratios*.
 
+### A deck wired in a different order (`units/`)
+Ring pads are numbered by their place in the daisy chain, and PLAY/CUE by the
+GPIO they land on, so a deck wired differently sends the right MIDI for the
+wrong button. Such a deck gets a `units/<hostname>.json`: `buttons` says which
+note each control actually arrives on, `lights` which note — or ring node — its
+LED actually answers to, both keyed by the canonical note from `MidiMap.hpp`.
+`upload.sh` looks the deck's hostname up, and if there is a file, runs
+`units/apply.py` on the way out: it renumbers the XML's note bindings and
+outputs (nothing else in the file changes), and fills the script's
+`// @unit-wiring` line, which `ringLed()` and the hot-cue handler consult. The
+files here stay canonical; a deck with no unit file gets them untouched.
+`../pi_config/deck-poke` reads the same file, so its named verbs still press
+the control they name.
+
+The remap is Mixxx's alone. The launcher's boot gestures and Doom
+(`trimixxx-deckkeys`) read the same MIDI with the canonical table, so on a
+remapped deck they see its wiring as it is.
+
+`trimixxx2.json` is the first: an eighth pad sits third in ring A — unbound,
+no function yet — pushing the loop pads and BACK one node down, and hot cues
+1–4 arrive reversed.
+
 ## Decisions you may want to change
 - **Ring button assignments** are just the tables above — repurpose freely
   (hotcues, beatjump, …); the pads are physically identical.
@@ -153,6 +175,18 @@ each 8-bit channel split into two data bytes so a 7-bit payload still carries
 - **Jog feel:** `JOG_TICKS_REV` (12960) mirrors `JogWheel::TICKS_PER_REV`;
   `JOG_BEND_SENSITIVITY` (0.3) damps pitch bend only — scratch stays 1:1. The
   scratch `alpha`/`beta`/`rpm` in `jogTouch()` are the usual starting values.
+- **Loudness normalization is off** (`[ReplayGain] ReplayGainEnabled 0`), so every
+  track plays at the level it was mastered at, like a CDJ. It used to be on with
+  the analyser off (`ReplayGainAnalyserEnabled 0`), and that combination
+  normalizes nothing: a track with no ReplayGain value gets
+  `InitialDefaultBoost` (−6 dB) in `EnginePregain::process()`, and with no
+  analyser only files carrying ReplayGain tags ever have one — rekordbox exports
+  generally do not. So every track played at half amplitude, which is why the
+  line level read low. The UCA222's line out tops out at 2 dBV (≈1.26 V RMS),
+  already ~4 dB under a typical CD player's 2 V, so the deck has no level to
+  spare; make up the rest with the mixer's channel trim, not with gain past unity
+  in Mixxx, which only clips loud masters. Turning it back on is only worth it
+  with the analyser on too.
 - **Audio buffer — `latency="3"` in `soundconfig.xml` can cause crackling.**
   It's set low on purpose, for responsiveness. **If crackling is really a
   problem, put it back to `4`** — that's the known-good value and the only

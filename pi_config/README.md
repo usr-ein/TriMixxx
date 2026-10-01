@@ -10,6 +10,10 @@ restarts Mixxx, so a routine mapping tweak can never disturb the deck's system
 config — and a system change here never has to go through the Mixxx-restart path.
 
 ## Files
+- `fresh-install.md` — **start here for a new unit.** Everything between a freshly
+  flashed Raspberry Pi OS Lite card and a working deck, in order: the boot flags,
+  sudo, autologin and packages that no script here sets up, then which upload
+  runs first. Written while bringing up trimixxx2.
 - `upload.sh` — installs everything below onto the Pi (idempotent; `sudo` on the
   far side). Override the host with `HOST=other ./upload.sh`.
 - `deck-shot` / `deck-poke` — **look at the deck, and touch it, from your desk.**
