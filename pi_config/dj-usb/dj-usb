@@ -55,6 +55,15 @@ do_mount() {
         opts="$opts,uid=$uid,gid=$gid"
         ;;
     esac
+    # FAT stores long names as UTF-16, and the Pi kernel translates them with
+    # CONFIG_FAT_DEFAULT_IOCHARSET="ascii" unless told otherwise -- so every
+    # name with an accent or a non-Latin letter in it (Zøe, Ø [Phase], ...)
+    # came out mangled, and the file behind it could not be opened by its real
+    # name: a track rekordbox exported, listed fine from the pdb, that would not
+    # load. exFAT, NTFS and HFS+ already default to UTF-8.
+    if [[ $fstype == vfat ]]; then
+        opts="$opts,utf8"
+    fi
 
     take_lock
     for ((i = 1; i <= SLOTS; i++)); do
@@ -76,6 +85,12 @@ do_mount() {
             mkdir -p /run/dj-usb
             blkid -o value -s LABEL "$dev" 2>/dev/null >"/run/dj-usb/DJ_USB_$i.label" ||
                 : >"/run/dj-usb/DJ_USB_$i.label"
+            # And which stick it is. The label cannot say -- two sticks can
+            # share one, or have none -- and the slot is reused by the next
+            # stick in the same port, so Mixxx keys what it caches from a stick
+            # on its filesystem UUID. For FAT that is the volume serial.
+            blkid -o value -s UUID "$dev" 2>/dev/null >"/run/dj-usb/DJ_USB_$i.uuid" ||
+                : >"/run/dj-usb/DJ_USB_$i.uuid"
             log "mounted $dev ($fstype) read-only at $mp"
             exit 0
         fi
@@ -104,7 +119,7 @@ do_unmount() {
         # when the last handle closes, instead of failing with EBUSY.
         umount -l "$mp" 2>/dev/null || log "umount -l $mp failed"
         rmdir "$mp" 2>/dev/null || true
-        rm -f "/run/dj-usb/DJ_USB_$i.label"
+        rm -f "/run/dj-usb/DJ_USB_$i.label" "/run/dj-usb/DJ_USB_$i.uuid"
         log "unmounted $mp ($kname)"
     done
 }
