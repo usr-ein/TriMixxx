@@ -156,3 +156,9 @@ Some deck state still lives only on the Pi and would be lost on a re-image:
   resolution, so this matters.
 
 Worth pulling into this folder if full reproducibility is wanted.
+
+Deliberately *not* versioned: `~/.mixxx/trimixxx-levels`, the output trim and
+panel brightness set on the deck itself from Diagnostics → Adjust. It is per
+deck and per venue, outside `mixxx.cfg` so `mixxx_config/upload.sh` cannot
+reset it, and losing it on a re-image only puts the output back to unity and
+the panel to whatever `systemd-backlight` restores.

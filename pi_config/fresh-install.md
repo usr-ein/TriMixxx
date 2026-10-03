@@ -450,8 +450,8 @@ Docker Desktop running (all Pi binaries are arm64 builds in Docker), `uv`, and
 - [ ] **UCA222 MONITOR switch OFF** — hardware. Left on, it feeds the input
       straight back into the output (`worklog/effect-pedal`).
 - [x] **DECIDED — normalization off** (`ReplayGainEnabled 0` in the shared
-      `mixxx.cfg`, live on trimixxx2; Trimixxx1 gets it on its next config
-      upload). Why, from the investigation:
+      `mixxx.cfg`, live on trimixxx2, and on Trimixxx1 since its config upload
+      of 2026-10-03). Why, from the investigation:
 - **Every track played 6 dB down, on both decks.** Trimixxx1's
       line level was reported as "a bit low". The hardware is already at its
       ceiling: `PCM` 128/128 is the codec's maximum (0 dB, no positive gain),
@@ -474,6 +474,17 @@ Docker Desktop running (all Pi binaries are arm64 builds in Docker), `uv`, and
   - The remaining ~4 dB below a CD player is the UCA222's analog ceiling: the
     mixer's channel trim, or a hotter DAC. Software gain past unity (pregain or
     main gain) only clips loud masters.
+- [x] **Diagnostics → Adjust** (fork, `DeckLevels`), the page's first section:
+      the output trim — `[Master],gain`, ±6 dB in 0.5 dB steps, with a
+      Clipping row beside it for when above unity starts to bite — and the
+      panel's brightness, 10–100 % in 5 % steps through
+      `/sys/class/backlight/10-0045/brightness`. That file is group `video`
+      (Raspberry Pi OS's `60-backlight.rules`) and `sam1902` is in `video`, so
+      there is nothing to install. Both are kept in `~/.mixxx/trimixxx-levels`
+      and put back when the skin loads. Seen on trimixxx2's panel 2026-10-03
+      through `deck-poke` / `deck-shot`: press to adjust, turn, press on to
+      brightness, BACK out of adjusting, BACK held mid-adjust, and a restart
+      restoring both. Left at 0 dB / 100 % with no levels file.
 
 ### 3.7 Per-unit differences
 - **CPU clock.** A Rev 1.5 board with `arm_boost=1` runs to 1.8 GHz, so the

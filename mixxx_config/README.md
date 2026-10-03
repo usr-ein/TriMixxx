@@ -219,7 +219,11 @@ to full.
   already ~4 dB under a typical CD player's 2 V, so the deck has no level to
   spare; make up the rest with the mixer's channel trim, not with gain past unity
   in Mixxx, which only clips loud masters. Turning it back on is only worth it
-  with the analyser on too.
+  with the analyser on too. The deck's own trim is **Diagnostics → Adjust →
+  Output** (±6 dB, `[Master],gain`): below unity it is free, above it is exactly
+  that gain past unity, and the Clipping row under it says when it bites. It
+  lives in `~/.mixxx/trimixxx-levels`, so this script's `mixxx.cfg` copy does not
+  reset it.
 - **Audio buffer — `latency="3"` in `soundconfig.xml` can cause crackling.**
   It's set low on purpose, for responsiveness. **If crackling is really a
   problem, put it back to `4`** — that's the known-good value and the only
