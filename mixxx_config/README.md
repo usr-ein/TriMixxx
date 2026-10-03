@@ -224,6 +224,14 @@ to full.
   that gain past unity, and the Clipping row under it says when it bites. It
   lives in `~/.mixxx/trimixxx-levels`, so this script's `mixxx.cfg` copy does not
   reset it.
+- **The waveform's height follows the track's gain, so `[Waveform] VisualGain_0`
+  is 0.5.** The RGB renderer (`WaveformType 10`) scales by `total_gain` × 2 ×
+  `VisualGain_0` (the ×2 is Mixxx's own "compensation",
+  `WaveformWidgetRenderer::getGain`). With normalization on, an untagged track
+  had a `total_gain` of 0.5 (the −6 dB default boost), so full scale landed
+  exactly on the waveform's edge. Turning it off made that 1.0 and drew every
+  track twice as tall, loud parts off the screen; 0.5 puts full scale back on
+  the edge. The deck's Output trim is `[Master],gain` and does not move it.
 - **Audio buffer — `latency="3"` in `soundconfig.xml` can cause crackling.**
   It's set low on purpose, for responsiveness. **If crackling is really a
   problem, put it back to `4`** — that's the known-good value and the only
