@@ -171,8 +171,8 @@ every `#88ff00` in the staged `style.qss` and SVGs, and sets the skin's
 `[TriMixxx],accent` attribute — the colour as an integer, `8978176` for the
 lime — which the fork's self-painting widgets read through `deckaccent.h`.
 So in those files the accent is spelled exactly `#88ff00`, and nothing else
-may be. `skin.xml`'s own colours are not touched: the RGB waveform's mid band
-is the same green and stays green on every deck. A deck uploaded with a Mixxx
+may be. `skin.xml`'s own colours are not touched: the waveform's three bands
+(blue, yellow, white) are the same on every deck. A deck uploaded with a Mixxx
 build from before `deckaccent.h` gets the new stylesheet but keeps a lime
 selection and breadcrumb until the fork is rebuilt.
 `upload.sh` looks the deck's hostname up, and if there is a file, runs
@@ -232,6 +232,19 @@ to full.
   exactly on the waveform's edge. Turning it off made that 1.0 and drew every
   track twice as tall, loud parts off the screen; 0.5 puts full scale back on
   the edge. The deck's Output trim is `[Master],gain` and does not move it.
+  That is the stock, mixed view; the stacked one below sets its own scale.
+- **Both waveforms are three bands as stacked bars.** Highs white at the
+  centre, mids yellow on top of them, bass blue outermost, each as thick as
+  there is of it, so all three always show. The scrolling waveform is the
+  fork's `<SignalStacked>` mode of that RGB renderer (colours from the skin's
+  `SignalRGB*Color` nodes): smoothed across a few pixels, and scaled to the
+  track's own deepest stack, which fills 90 % of the height, so it never
+  clips whatever the master's level — the gains above do not apply to it. The
+  overview under it is Mixxx's Filtered overview (`WaveformOverviewType 0`;
+  2.5 ignores a skin `Type` node) with the same `<SignalStacked>`, its colours
+  the `Signal*Color` nodes, normalized by `OverviewNormalized`. Beat and
+  downbeat lines are 3 px wide (the fork's `<BeatWidth>`; stock draws a
+  one-pixel hairline).
 - **Audio buffer — `latency="3"` in `soundconfig.xml` can cause crackling.**
   It's set low on purpose, for responsiveness. **If crackling is really a
   problem, put it back to `4`** — that's the known-good value and the only

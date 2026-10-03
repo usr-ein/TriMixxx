@@ -578,9 +578,17 @@
                      rather than leaving a hole. -->
                 <MinimumSize>1024,414</MinimumSize>
                 <MaximumSize>1024,-1</MaximumSize>
-                <!-- The waveform's own colours, not the skin's accent: the mid
-                     band is green on every deck, whatever its accent, and
-                     units/apply.py leaves this file's colours alone. -->
+                <!-- The waveform's own colours, not the skin's accent, the same
+                     on every deck: units/apply.py leaves this file's colours
+                     alone. SignalStacked (the fork's) draws the three bands as
+                     layers of their own, Rekordbox's 3-band look: bass blue at
+                     the back, mids yellow over it, highs white in front. Those
+                     are the SignalRGB colours; the Signal*Color nodes after them
+                     only matter to the filtered renderers, not WaveformType 10. -->
+                <SignalStacked>true</SignalStacked>
+                <SignalRGBLowColor>#2266ff</SignalRGBLowColor>
+                <SignalRGBMidColor>#ffcc00</SignalRGBMidColor>
+                <SignalRGBHighColor>#ffffff</SignalRGBHighColor>
                 <SignalHighColor>#ff5544</SignalHighColor>
                 <SignalMidColor>#88ff00</SignalMidColor>
                 <SignalLowColor>#2266ff</SignalLowColor>
@@ -588,6 +596,9 @@
                 <BgColor>#000000</BgColor>
                 <AxesColor>#444444</AxesColor>
                 <BeatColor>#cccccc</BeatColor>
+                <!-- Beat and downbeat lines, in pixels (the fork's; stock is
+                     one, which reads as a hairline at arm's length). -->
+                <BeatWidth>3</BeatWidth>
                 <!-- First beat of each bar, Rekordbox-style. Anchored on the
                      intro cue, so a track with no intro cue shows plain beats. -->
                 <DownbeatColor>#ff0000</DownbeatColor>
@@ -672,13 +683,22 @@
                   <ConfigKey>[Channel1],playposition</ConfigKey>
                 </Connection>
                 <BgColor>#0c0c0c</BgColor>
-                <SignalHighColor>#ff5544</SignalHighColor>
-                <SignalMidColor>#88ff00</SignalMidColor>
+                <!-- The same three bands as the waveform above it, stacked the
+                     same way: highs white at the centre, mids yellow on top,
+                     bass blue outermost. That is the Filtered overview with
+                     the fork's SignalStacked, its bands these Signal*Color
+                     nodes. SignalColor has to be there too, or Mixxx throws
+                     the three away and derives greens from a default. The
+                     overview type itself comes from mixxx.cfg ([Waveform]
+                     WaveformOverviewType 0); Mixxx 2.5 reads no Type node. -->
+                <SignalStacked>true</SignalStacked>
+                <SignalColor>#2266ff</SignalColor>
+                <SignalHighColor>#ffffff</SignalHighColor>
+                <SignalMidColor>#ffcc00</SignalMidColor>
                 <SignalLowColor>#2266ff</SignalLowColor>
                 <PlayPosColor>#ffffff</PlayPosColor>
                 <EndOfTrackColor>#ff2200</EndOfTrackColor>
                 <AxesColor>#333333</AxesColor>
-                <Type>RGB</Type>
                 <!-- Hotcues (auto), cue point, and active loop on the minimap -->
                 <DefaultMark>
                   <Align>bottom|right</Align>
