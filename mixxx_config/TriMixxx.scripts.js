@@ -363,8 +363,8 @@ TriMixxx.shutdown = function() {
 //    fader live (owner decision 5).
 //
 // [TriMixxx],tempo_fader is published for the tempo panel in the same -1..1 as
-// `rate`, computed exactly as Mixxx would map the 14-bit value, so the panel
-// can say "caught" by comparing the two rather than modelling a threshold.
+// `rate`, from the same number the script writes to `rate`, so the panel can
+// say "caught" by comparing the two rather than modelling a threshold.
 TriMixxx.PICKUP_BPM = 0.05;
 TriMixxx.faderMsb = 0;
 TriMixxx.faderLsb = 0;
@@ -375,13 +375,12 @@ TriMixxx.lastSetRate = null;    // the last `rate` this script wrote
 TriMixxx.following = false;
 TriMixxx.startAtFaderPending = false;
 
-// Mixxx's own mapping of a 14-bit pair onto a potmeter: MidiController divides
-// by 128 and caps at 127, and ControlPotmeterBehavior puts 64 exactly at the
-// centre. A linear map was up to 0.0155 of `rate` off above centre.
+// The 14-bit position as a `rate`: the firmware puts the centre detent at 8192
+// exactly, so that is 0, and each half of the travel spans its own 1.0. The
+// script writes `rate` from this and publishes it as tempo_fader, so the two
+// cannot disagree about where the fader is.
 TriMixxx.faderRateOf = function(raw) {
-    var nv = Math.min(raw / 128, 127);
-    var p = nv > 64 ? (nv - 1) / 126 : nv / 128;
-    return p * 2 - 1;
+    return raw >= 8192 ? (raw - 8192) / 8191 : (raw - 8192) / 8192;
 };
 
 // The tempo the deck would play with `rate` at *rate*: its own tempo at this
@@ -428,14 +427,20 @@ TriMixxx.onFollowingChanged = function(value) {
 // tempo on a range change, so nothing is heard; A1's colour says why.
 TriMixxx.widenRangeFor = function(rate) {
     if (Math.abs(rate) <= 1) { return; }
+    engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGES[TriMixxx.rangeHolding(0)]);
+};
+
+// The first of RATE_RANGES, from index *from* on and wrapping round, wide enough
+// to express the tempo playing now. WIDE (the last) if none is: a tempo more
+// than double can be followed (owner decision 17) and no range holds it.
+TriMixxx.rangeHolding = function(from) {
     var deviation = Math.abs(engine.getValue(TriMixxx.DECK, "rate_ratio") - 1);
-    for (var i = 0; i < TriMixxx.RATE_RANGES.length; i++) {
-        if (TriMixxx.RATE_RANGES[i] >= deviation) {
-            engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGES[i]);
-            return;
-        }
+    var n = TriMixxx.RATE_RANGES.length;
+    for (var i = 0; i < n; i++) {
+        var idx = (from + i) % n;
+        if (TriMixxx.RATE_RANGES[idx] >= deviation) { return idx; }
     }
-    engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGES[TriMixxx.RATE_RANGES.length - 1]);
+    return n - 1;
 };
 
 TriMixxx.onTrackLoaded = function() {
@@ -518,11 +523,7 @@ TriMixxx.tempoRange = function(channel, control, value, status, group) {
     // Owner decision 11: the tempo is kept and the fader catches its new
     // position. A range too narrow to express the tempo now playing would
     // leave a fader that can only catch at its end stop, so it is skipped.
-    var deviation = Math.abs(engine.getValue(TriMixxx.DECK, "rate_ratio") - 1);
-    for (var n = 0; n < TriMixxx.RATE_RANGES.length; n++) {
-        idx = (idx + 1) % TriMixxx.RATE_RANGES.length;
-        if (TriMixxx.RATE_RANGES[idx] >= deviation) { break; }
-    }
+    idx = TriMixxx.rangeHolding((idx + 1) % TriMixxx.RATE_RANGES.length);
     engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGES[idx]);
 };
 
