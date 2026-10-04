@@ -61,8 +61,9 @@ add_sub() {
     echo "$path: at ${sha:0:10}, a worktree of $MAIN/$path"
 }
 
-# $1: a submodule path. Its linked worktree removed -- not if it has changes.
-remove_sub() {
+# $1: a submodule path. Fails, saying why, if removing its linked worktree
+# would lose work: uncommitted changes, or commits no branch holds.
+check_sub() {
     local path=$1
     checked_out "$path" || return 0
     if [ -n "$(git -C "$ROOT/$path" status --porcelain --ignore-submodules=all)" ]; then
@@ -77,6 +78,13 @@ remove_sub() {
         [ -z "$(git -C "$MAIN/$path" branch --all --contains "$sha" 2>/dev/null)" ]; then
         die "$path is detached at commits no branch holds: git -C $path switch -c BRANCH first"
     fi
+}
+
+# $1: a submodule path. Its linked worktree removed (check_sub first).
+remove_sub() {
+    local path=$1 branch
+    checked_out "$path" || return 0
+    branch="$(git -C "$ROOT/$path" symbolic-ref --quiet --short HEAD || true)"
     git -C "$MAIN/$path" worktree remove "$ROOT/$path"
     mkdir -p "$ROOT/$path"
     echo "$path: released${branch:+ (branch $branch stays in $MAIN/$path)}"
@@ -125,6 +133,8 @@ status)
     ;;
 release)
     is_main && die "this is the main checkout: nothing to release"
+    # Everything checked before anything is undone: a refusal changes nothing.
+    for p in mixxx/lib/prolink mixxx mixxx_config/ttymidi; do check_sub "$p"; done
     checked_out mixxx && drop_builds
     for p in mixxx/lib/prolink mixxx mixxx_config/ttymidi; do remove_sub "$p"; done
     echo "released: git worktree remove $ROOT"

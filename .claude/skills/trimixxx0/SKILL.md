@@ -137,18 +137,19 @@ that a track plays. A new pid is the proof Mixxx restarted, and a
 screenshot is meaningful straight away. `pi-qemu/instance.sh ready NAME`
 checks the same on its own.
 
-Typical times: `config` ~10 s, `system` ~20 s, `mixxx` a Docker build first
-(minutes when the cache is cold).
+Typical times: `config` ~10 s, `system` ~20 s, `mixxx` ~45 s for a changed
+file or two (~75 s the first time in a worktree), plus any wait behind
+another agent's Mixxx build.
 
 `mixxx`, `launcher`, `ttymidi` and `doom` build in Docker. `deploy` stops
 early if Docker's disk has less than 4 GB free. Freeing it is the person's
 call: tell them, do not prune.
 
-Mixxx builds compile incrementally in Docker cache mounts that every session
-shares:
-- Grep `deploy`'s output for each `.cpp` you changed being compiled. A stale
-  object can ship without your change, and nothing errors.
-- To force a rebuild, touch a stamp file in `mixxx/dist/`.
+Mixxx builds go by content: each checkout's build tree keeps its own copy
+of the sources, and a build recompiles exactly the files whose content
+changed since that tree's last build (`deploy`'s output says how many:
+`tree-sync: N change(s)`). File timestamps, git checkouts and other agents'
+builds do not affect it.
 
 ## Working from a git worktree
 
@@ -168,9 +169,9 @@ whole workflow). For the deck:
 3. **`deploy NAME mixxx`** builds *your worktree's* Mixxx in its own Docker
    build tree, then swaps it onto your deck.
    - The first build in a worktree starts from a copy of the main checkout's
-     tree and recompiles only what differs.
-   - After that, each build recompiles only what changed, by content (file
-     timestamps don't matter).
+     tree and recompiles only what differs (~75 s in all).
+   - After that, each build recompiles only what changed, by content
+     (~45 s; file timestamps don't matter).
    - Mixxx builds queue: one compiles at a time across all agents, which
      keeps Docker's memory in bounds.
 4. **Changing the S3's MIDI table** (`firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp`)

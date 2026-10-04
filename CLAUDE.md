@@ -45,8 +45,11 @@ from a worktree:
    - Each worktree builds Mixxx in its own Docker build tree (`mixxx/checkout-id.sh`).
      The first build copies the main checkout's tree and rebuilds only what
      differs, then each build after that only what changed, both by content.
-   - Builds queue on the shared compiler cache, but never mix code from two
-     checkouts.
+   - A Mixxx deploy takes about 75 s the first time in a worktree, then about
+     45 s.
+   - Builds from several worktrees queue on the shared compiler cache, so a
+     deploy may wait for another agent's build first. They never mix code
+     from two checkouts.
 4. **When done:** commit, `pi-qemu/instance.sh rm NAME`, then
    **`pi-qemu/worktree.sh release`**. That gives back the worktree's ~4 GB
    Docker build tree and its submodule checkouts. It refuses if they hold
