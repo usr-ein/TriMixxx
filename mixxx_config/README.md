@@ -120,6 +120,11 @@ The shift lands on the tonic, the fourth or the fifth (`shortestStepsToCompatibl
 the same as Mixxx's own `sync_key`), so it never asks for more than two semitones,
 and it is re-applied from the new track's own key on every load.
 
+That is why `mixxx.cfg` has `[Controls] SpeedAutoReset 0`. At Mixxx's default
+(1, reset the pitch on load) the load re-applied the shift and then, a few lines
+later in the same call, zeroed `pitch_adjust`: every track after the first played
+in its own key while B6 stayed bright.
+
 ## The screen has no buttons except POWER
 Everything the skin used to put under the waveform — LIBRARY/DECK, the ±6/±10/±16/
 WIDE tempo-range pads, LOOP ÷2 / ×2 — is on the hardware (ring A1, A5, A6 and the
