@@ -112,9 +112,11 @@ ssh "$HOST" 'mv ~/.mixxx/skins/TriMixxx_skin ~/.mixxx/skins/TriMixxx'
 # comments in it (they will not survive) and re-pull it after changing sound
 # prefs on the deck itself. Nothing writes it on shutdown, so scp-then-restart
 # below is safe: the dying instance will not clobber what we just pushed.
-# Mixxx rewrites mixxx.cfg from memory when it exits, so copying it while the
-# old instance is still running gets it clobbered the moment the restart stops
-# that instance. Stop first, then copy, and the new instance reads what we sent.
+# mixxx.cfg is never written by the fork (CoreServices::finalize()), so what is
+# copied here is exactly what the deck runs with, until the next upload. Stock
+# Mixxx does rewrite it from memory when it exits, which would clobber a copy
+# made while it ran; stopping first, then copying, keeps that safe as well, and
+# the new instance reads what we sent.
 ssh "$HOST" 'sudo systemctl stop getty@tty1.service' || true
 scp mixxx.cfg soundconfig.xml "$HOST":~/.mixxx/
 scp "$STAGE/TriMixxx.midi.xml" "$STAGE/TriMixxx.scripts.js" \

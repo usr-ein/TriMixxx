@@ -40,7 +40,12 @@ tweak can never disturb the deck's system config.
 - `soundconfig.xml` — audio device + buffer size. Mixxx keeps sound hardware in
   its own file, *not* `mixxx.cfg`. Deployed by `upload.sh`; see the buffer note
   below.
-- `mixxx.cfg` — the rest of the Mixxx preferences as deployed.
+- `mixxx.cfg` — the rest of the Mixxx preferences as deployed. The fork never
+  writes it back (no save on exit, nor from Preferences), so this file *is* the
+  deck's settings: a change made in Preferences on the deck lasts until Mixxx
+  exits, and a lasting one is made here and uploaded. Keep its `[Config]
+  Version` at the fork's (2.5.6): an older one makes Mixxx treat every start as
+  an upgrade, since the bumped version is never saved.
 - `upload.sh` — deploy all of the above to the deck. **Validates every XML before
   anything leaves this machine**: Qt rejects a malformed skin silently and boots
   the default one instead, with nothing in the log.

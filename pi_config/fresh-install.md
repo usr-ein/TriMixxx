@@ -232,6 +232,10 @@ Where that went, and what was done (times from power-on unless said otherwise):
       runs Mixxx without `--developer` and puts both logs in `/tmp/mixxx`
       (tmpfs) — `mixxx.log` through the fork's `--log-path`. They no longer
       survive a reboot.
+- [x] **Mixxx never writes `mixxx.cfg`** (fork, 2026-10-02): it used to save
+      it on exit by deleting the old file and renaming the new one in, with no
+      fsync, so a power cut within ~30 s of quitting could leave it empty.
+      `mixxx_config/upload.sh` is now the only thing that writes it.
 
 ### 1.6 Real-time audio — only if needed
 - [ ] If the first Mixxx run logs that it could not get real-time priority:
