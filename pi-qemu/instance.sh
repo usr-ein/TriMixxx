@@ -139,19 +139,6 @@ wait_ready() { # $1: seconds
         sleep 0.5
     done
 }
-# A git worktree starts without its submodules. The steps that build from one
-# check it out first, borrowing the main checkout's objects (--reference):
-# seconds, where a fresh clone of the Mixxx fork is 700 MB. $1: the submodule's
-# path; $2, for one nested in it: the path inside $1.
-ensure_submodule() {
-    local root; root="$(cd "$HERE/.." && pwd)"
-    local where="$root/$1" ref="$MAIN/$1" path="$1" in="$root"
-    if [ -n "${2:-}" ]; then where="$root/$1/$2" ref="$MAIN/$1/$2" path="$2" in="$root/$1"; fi
-    [ "$root" = "$MAIN" ] && return 0      # the main checkout keeps its own as it is
-    [ -e "$where/.git" ] && return 0       # already checked out
-    echo "checking out ${1}${2:+/$2} in this worktree (objects borrowed from $ref)"
-    git -C "$in" submodule update --init --reference "$ref" -- "$path"
-}
 # Save the machine to $D/state and wait for pi-qemu to be gone. Headless
 # pi-qemu exits with the Pi; with windows it stays open, so stop it.
 suspend_now() {
@@ -283,8 +270,8 @@ deploy)
             [ "$free_gb" -ge 4 ] || die "Docker's disk has ${free_gb} GB free, a build needs ~4: ask the person to free some (docker system df)"
             ;;
     esac
-    case " ${*:-all} " in *" all "*|*" mixxx "*) ensure_submodule mixxx; ensure_submodule mixxx lib/prolink ;; esac
-    case " ${*:-all} " in *" all "*|*" ttymidi "*) ensure_submodule mixxx_config/ttymidi ;; esac
+    # A git worktree starts without its submodules: the ones these steps build from.
+    case " ${*:-all} " in *" all "*|*" mixxx "*|*" ttymidi "*) "$HERE/worktree.sh" prepare ;; esac
     PATH="$D/bin:$PATH" HOST="$NAME" "$HERE/deploy.sh" "$NAME" "$@"
     # These restart the deck's session, so Mixxx: wait for the new one.
     case " ${*:-all} " in

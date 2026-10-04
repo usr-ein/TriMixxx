@@ -20,7 +20,8 @@ deck by hand, snapshots, the image build, USB sticks, troubleshooting), read
 
 Run everything from the root of your checkout (or worktree), with
 **that checkout's** `pi-qemu/instance.sh`. It deploys the code next to it,
-and finds the built QEMU and cards in the main checkout by itself.
+and finds the built QEMU and cards in the main checkout by itself. In a git
+worktree, read "Working from a git worktree" below first.
 
 ## Rules
 
@@ -139,9 +140,6 @@ checks the same on its own.
 Typical times: `config` ~10 s, `system` ~20 s, `mixxx` a Docker build first
 (minutes when the cache is cold).
 
-In a fresh worktree, `mixxx/` needs `git submodule update --init mixxx` before
-`deploy NAME mixxx`.
-
 `mixxx`, `launcher`, `ttymidi` and `doom` build in Docker. `deploy` stops
 early if Docker's disk has less than 4 GB free. Freeing it is the person's
 call: tell them, do not prune.
@@ -151,6 +149,36 @@ shares:
 - Grep `deploy`'s output for each `.cpp` you changed being compiled. A stale
   object can ship without your change, and nothing errors.
 - To force a rebuild, touch a stamp file in `mixxx/dist/`.
+
+## Working from a git worktree
+
+Agents usually work in their own git worktree (the root `CLAUDE.md` has the
+whole workflow). For the deck:
+
+1. **`pi-qemu/worktree.sh prepare`** first. A new worktree's submodules
+   (`mixxx/`, its `lib/prolink`, `mixxx_config/ttymidi`) are empty directories.
+   `prepare` makes them linked worktrees of the main checkout's repositories,
+   in seconds, without downloading anything. `deploy` runs it by itself for
+   `mixxx` and `ttymidi`, but you need it before editing Mixxx. Never
+   `git submodule update`: its clones die with the worktree, and any commits
+   in them with it.
+2. **Changing Mixxx:** `git -C mixxx switch -c NAME` before committing there.
+   The branch and its commits are then in the main checkout's `mixxx/` too.
+   Commit the bump in this repo as well (`git add mixxx`).
+3. **`deploy NAME mixxx`** builds *your worktree's* Mixxx in its own Docker
+   build tree, then swaps it onto your deck.
+   - The first build in a worktree starts from a copy of the main checkout's
+     tree and recompiles only what differs.
+   - After that, each build recompiles only what changed, by content (file
+     timestamps don't matter).
+   - Mixxx builds queue: one compiles at a time across all agents, which
+     keeps Docker's memory in bounds.
+4. **Changing the S3's MIDI table** (`firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp`)
+   **or pi-qemu itself:** the virtual S3 is compiled into pi-qemu, so build
+   your own and point `instance.sh` at it:
+   `pi-qemu/app/build.sh && export PI_QEMU_BIN=$PWD/pi-qemu/app/build/pi-qemu`,
+   in the same shell command as the `instance.sh` calls that should use it.
+   Then `rm` and `up` your deck so it runs on it.
 
 ## When ssh does not answer
 
@@ -197,6 +225,11 @@ Every time you end your work, whether it succeeded, failed or stopped part way:
      is still running or suspended, and the exact command to remove it.
      `instance.sh stop NAME` suspends one you will come back to; that costs
      disk, not RAM, and `up` resumes it in ~3 s.
-3. Your final message always ends with a line like
+3. Working in a git worktree that is going away: **`pi-qemu/worktree.sh release`**.
+   It gives back the worktree's Docker build tree (~4 GB) and its submodule
+   checkouts. It refuses while they hold uncommitted work, or commits that no
+   branch has. Leave the worktree in place if the person may still want it,
+   and say so.
+4. Your final message always ends with a line like
    `Emulated decks: removed fix-sync-meter.` or
    `Emulated decks: fix-sync-meter still running - pi-qemu/instance.sh rm fix-sync-meter when done.`

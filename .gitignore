@@ -125,3 +125,6 @@ $RECYCLE.BIN/
 
 ### Node (mixxx_config JS tooling) ###
 node_modules/
+
+# Agents' git worktrees (CLAUDE.md, pi-qemu/worktree.sh)
+.claude/worktrees/

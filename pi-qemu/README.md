@@ -22,6 +22,7 @@ in [PLAN.md](PLAN.md).
 | `image/build.sh` | builds a deck's card from the stock Raspberry Pi OS image |
 | `deploy.sh`, `deploy/base.sh` | sets up or updates any deck over ssh, real or emulated |
 | `instance.sh` | runs emulated decks side by side (agents, tests), from snapshots |
+| `worktree.sh` | readies a git worktree of the repo to build and deploy the deck's code |
 | `console.py` | runs commands on a deck over its serial console, without ssh |
 | `.cache/` (gitignored) | images, built cards, the golden snapshot, USB stick images |
 
@@ -180,6 +181,40 @@ boots a card of your own. The script's header documents the rest. Every
 command prints or says what it runs, so you can do any of it by hand.
 
 Each instance takes 2 GB of RAM; four at once is about the limit on a 16 GB Mac.
+
+## Git worktrees
+
+Several agents (or people) can work at once, each in a git worktree of the
+repo, each deploying its own code to its own emulated deck. The root
+`CLAUDE.md` is the workflow agents follow. Behind it:
+
+- **`pi-qemu/worktree.sh prepare`** sets up the worktree's submodules, which
+  start as empty directories. `mixxx/` (and its `lib/prolink`) and
+  `mixxx_config/ttymidi` become linked worktrees of your main checkout's
+  submodule repositories, detached at the commits the worktree's branch
+  records. It takes seconds and downloads nothing. A branch made in a worktree's
+  `mixxx/` is a branch of your main `mixxx/` at once, so merging it there is
+  enough. `git submodule update` would instead clone a private copy that is
+  deleted with the worktree.
+- **Every checkout builds Mixxx in its own Docker build tree** (keyed by
+  `mixxx/checkout-id.sh`). A tree builds from its own copy of the sources,
+  which `mixxx/tree-sync.sh` updates by content before each build. ninja then
+  recompiles exactly what changed since that tree's last build, whatever git
+  did to the files' dates. A worktree's first build starts from a copy of the
+  main checkout's tree.
+  - Builds queue on the shared compiler cache, so only one Mixxx compiles at a
+    time.
+  - Each tree takes about 4 GB of Docker's disk.
+- **`pi-qemu/worktree.sh release`**, before removing a worktree, empties its
+  Docker build trees and removes its submodule worktrees. Until then git
+  refuses to remove a worktree with checked-out submodules, short of `--force`,
+  which leaves the build trees behind. `release` refuses itself if they hold
+  uncommitted changes, or commits no branch has.
+  `pi-qemu/worktree.sh status` shows what a worktree has checked out.
+
+`instance.sh deploy` from a worktree runs `prepare` itself when a step needs
+the submodules, and always deploys the code of the checkout its `instance.sh`
+is in.
 
 ## Snapshots
 
