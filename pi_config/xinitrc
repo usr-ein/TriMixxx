@@ -96,47 +96,60 @@ esac
 
 # Auto-restart Mixxx if it crashes; sleep prevents tight loops
 #
-# To log audio underruns, add --developer to the mixxx line below. Without it
-# SoundManager::underflowHappened() sets its flag and returns silently
-# (soundmanager.h), so grepping the log for xruns always finds nothing whether
-# or not the buffer is coping. With it, each one logs "underflowHappened code: N".
+# ---- logs: in RAM, never on the SD card ---------------------------------------
+# Both logs live in LOG_DIR on /tmp, which is a tmpfs: mixxx.log because the
+# fork's --log-path puts it there, stderr.log because of the redirect below. On
+# the card they were its one steady writer -- a write every couple of seconds
+# while Mixxx was up -- so a power cut was likely to catch one in flight
+# (measured 2026-10-02). The price is that they do not survive a reboot: read
+# them, or copy them off, before one. --log-path is the fork's: stock Mixxx
+# (/usr/bin/mixxx.apt) exits on an option it does not know, so a rollback to it
+# has to drop the flag too.
 #
-# Do NOT leave it on for a gig. That warning is printed from the audio callback and
-# qWarning locks -- Mixxx's own comment on the line says it "will make the problem
-# worse", i.e. this flag can itself cause the dropouts it reports. It is a
-# measuring tool, not a setting. The live counter in Preferences -> Sound Hardware
-# ([App],audio_latency_overload_count) needs no flag and costs nothing.
-# Keep one previous run and no more.
+# --log-level only filters stderr. mixxx.log gets every Debug and Info message
+# whatever it says (handleMessage() in logging.cpp, a TODO since 2.4.0), so a
+# lower level would not have spared the card. With debug, stderr.log carries
+# the full stream as well, and stderr is unbuffered: after a crash its tail is
+# the one to trust, since mixxx.log only flushes at --log-flush-level.
 #
-# --log-level debug writes tens of megabytes an hour, and both logs are on the
-# SD card: stderr.log had reached 200 MB before anyone looked. Rotating on start
-# rather than trimming on a timer means the log covering a crash is still whole
-# when the auto-restart below brings Mixxx back, which is exactly when it is
-# worth reading.
+# --developer is OFF. It is a measuring tool, not a setting:
+#   * It makes underruns visible. Without it SoundManager::underflowHappened()
+#     sets its flag and returns silently (soundmanager.h); with it each one logs
+#     "underflowHappened code: N". But that warning is printed from the audio
+#     callback and qWarning locks -- Mixxx's own comment on the line says it
+#     "will make the problem worse", i.e. the flag can cause the dropouts it
+#     reports. The live counter in Preferences -> Sound Hardware
+#     ([App],audio_latency_overload_count) needs no flag and costs nothing.
+#   * It times every event in MixxxApplication::notify() and logs each one over
+#     a threshold, which on this hardware is most UI events:
+#       Processing QEvent::UpdateRequest for object OpenGLWindow(0x...) took 10 ms
+#     That one message was 112,546 of the 113,212 lines in a 12-minute session's
+#     mixxx.log (2026-10-02), and has been measured at 2 MB/s.
+# Add it to the mixxx line below for a measuring session, never for a gig.
+LOG_DIR=/tmp/mixxx
+
+# One previous run per log and no more. Rotating on start rather than trimming
+# on a timer means the log covering a crash is still whole when the auto-restart
+# below brings Mixxx back, which is exactly when it is worth reading.
 rotate_log() {
     [ -s "$1" ] || return 0
     mv -f "$1" "$1.1" 2>/dev/null || true
 }
 
-# Rotating between runs is not enough on its own: a SINGLE session can outgrow
-# the card. Measured 2026-08-11, stderr.log reached 347 MB in under three
-# minutes -- about 2 MB/s, 7 GB an hour -- and it was one message repeated:
-#
-#   Processing QEvent::UpdateRequest for object OpenGLWindow(0x...) took 10 ms
-#
-# That comes from MixxxApplication::notify(), which times every event and logs
-# any that takes longer than its threshold. It is gated on --developer, and on
-# this hardware most UI events cross the threshold, so the flag turns it into a
-# firehose. See the note above: --developer is a measuring tool, and leaving it
-# on is what makes this necessary.
-#
-# So cap the file during the session. Truncate IN PLACE rather than rename:
-# Mixxx holds it open in append mode, and a rename would take the open
-# descriptor with it -- writes would keep landing in the renamed file while the
-# fresh one stayed empty forever. Copy the tail out first so the part worth
-# reading, whatever happened just before, survives. logrotate calls this
+# Rotating between runs is not enough on its own: with --developer on, a single
+# session eats RAM fast (2026-08-11: stderr.log reached 347 MB in under three
+# minutes). So cap stderr.log during the session. Truncate IN PLACE rather than
+# rename: it is open in append mode (the `2>>` below), and a rename would take
+# the open descriptor with it -- writes would keep landing in the renamed file
+# while the fresh one stayed empty forever. Copy the tail out first so the part
+# worth reading, whatever happened just before, survives. logrotate calls this
 # copytruncate.
-LOG_CAP_BYTES=$((128 * 1024 * 1024))
+#
+# mixxx.log is capped by Mixxx itself instead (--log-max-file-size, the same
+# size). Mixxx does not open it in append mode, so truncating it from out here
+# would leave Mixxx writing on at its old offset, into a file that is mostly a
+# hole. At the cap Mixxx stops writing it; stderr.log keeps the tail.
+LOG_CAP_BYTES=$((32 * 1024 * 1024))
 LOG_KEEP_BYTES=$((8 * 1024 * 1024))
 
 cap_log() {
@@ -152,26 +165,31 @@ cap_log() {
     done
 }
 
-# A fresh unit has no ~/.mixxx until Mixxx has run once, and the shell opens the
-# `2>>` redirect below BEFORE it starts mixxx -- so without this the redirect
-# fails, mixxx never runs, and the loop spins on a black screen forever.
-mkdir -p ~/.mixxx
+# /tmp starts empty at every boot, and the shell opens the `2>>` redirect below
+# BEFORE it starts mixxx -- so without this the redirect fails, mixxx never
+# runs, and the loop spins on a black screen forever. (Mixxx creates LOG_DIR
+# itself as well, but only once it is running.)
+mkdir -p "$LOG_DIR"
 
-cap_log ~/.mixxx/stderr.log ~/.mixxx/mixxx.log &
+cap_log "$LOG_DIR/stderr.log" &
 CAP_PID=$!
 # The watchdog must not outlive the session -- without this it survives as an
 # orphan across every X restart and they accumulate.
 trap 'kill "$CAP_PID" 2>/dev/null' EXIT INT TERM
 
 while true; do
-    rotate_log ~/.mixxx/stderr.log
-    rotate_log ~/.mixxx/mixxx.log
-    mixxx --fullScreen --developer --log-level debug --log-flush-level info 2>>~/.mixxx/stderr.log
+    rotate_log "$LOG_DIR/stderr.log"
+    # Mixxx rotates its own log as it starts (mixxx.log -> .1 -> ... -> .10).
+    # Clearing the older generations first leaves one previous run, as for
+    # stderr.log; in RAM, ten of them would cost ten times the memory.
+    rm -f "$LOG_DIR"/mixxx.log.*
+    mixxx --fullScreen --log-path "$LOG_DIR" --log-max-file-size "$LOG_CAP_BYTES" \
+        --log-level debug --log-flush-level info 2>>"$LOG_DIR/stderr.log"
     # How Mixxx ended, which is otherwise unknowable: its own log stops at
     # whatever was last flushed, so a clean quit and a crash during shutdown look
     # identical from the outside. 0 is a normal exit; 143 is SIGTERM taking the
     # default action, i.e. the signal handler did not turn it into a quit; 134 is
     # SIGABRT, which on this build means a failed DEBUG_ASSERT.
-    echo "--- mixxx exited $? at $(date '+%H:%M:%S') ---" >>~/.mixxx/stderr.log
+    echo "--- mixxx exited $? at $(date '+%H:%M:%S') ---" >>"$LOG_DIR/stderr.log"
     sleep 2
 done

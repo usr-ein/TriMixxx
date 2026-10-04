@@ -414,12 +414,12 @@ Two were races; the other two were stale answers nobody had asked to be refreshe
    freely.
 55. **The Pro DJ Link library's own log is not in `mixxx.log`.** `lib/prolink`
    says everything it knows through `tracing`, and `init_logging` sends that to
-   **stderr** — which on the deck is `~/.mixxx/stderr.log`, not the Qt log
+   **stderr** — which on the deck is `/tmp/mixxx/stderr.log`, not the Qt log
    everything else lands in. Every protocol decision is in there and none of it
    is where you would look first:
 
    ```
-   ssh trimixxx-pi 'grep -iE "master|yield" ~/.mixxx/stderr.log | tail -30'
+   ssh trimixxx-pi 'grep -iE "master|yield" /tmp/mixxx/stderr.log | tail -30'
    ```
 
    Three rounds of reasoning about why a CDJ could not take mastership back were

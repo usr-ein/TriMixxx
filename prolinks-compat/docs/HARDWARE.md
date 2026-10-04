@@ -301,7 +301,7 @@ ssh trimixxx-pi 'ip -4 -br addr show eth0'      # want 169.254.x.y/16
 > reason. Tell the two apart by whether the shutdown sequence is in the log:
 >
 > ```sh
-> ssh trimixxx-pi 'grep -c "deleting Library" ~/.mixxx/mixxx.log.1'
+> ssh trimixxx-pi 'grep -c "deleting Library" /tmp/mixxx/mixxx.log.1'
 > ```
 >
 > `1` means Qt's teardown ran and the test was real. `0` means it did not.
@@ -318,37 +318,33 @@ no log reading is needed for any of the table above.
 
 **Mixxx does not log to journald.** It is launched from `~/.xinitrc` on the deck,
 not as a systemd unit, so `journalctl` shows nothing useful. It writes its own
-file:
+files, in RAM — `/tmp` is a tmpfs, so they are gone after a reboot:
 
 ```
-~/.mixxx/mixxx.log          current run
-~/.mixxx/mixxx.log.1        previous run  (rotated on every start, up to .10)
+/tmp/mixxx/mixxx.log        current run
+/tmp/mixxx/mixxx.log.1      previous run  (rotated on every start, one kept)
+/tmp/mixxx/stderr.log       the same lines, unbuffered (.1 = previous run)
 ```
 
 The rotation matters: after a restart, the run you just did is `mixxx.log.1`.
 
-**The default log level hides everything this feature emits.** Mixxx defaults to
-`Warning` (`kLogLevelDefault`, `src/util/logging.h:24`), and discovery logs at
+**The log level does not hide this feature from `mixxx.log`.** Discovery logs at
 `info` — "listening on UDP 50000", "found 1 · CDJ-2000nexus", "went offline",
-"removing". Note that `--developer` does *not* raise the level, despite what its
-name suggests. So on the deck, add the flag to the Mixxx line in `~/.xinitrc`:
-
-```sh
-ssh trimixxx-pi 'grep mixxx ~/.xinitrc'          # see what is there now
-# ...append --log-level info to that line...
-```
-
-Then:
+"removing" — and `mixxx.log` gets every Info and Debug line whatever
+`--log-level` says (`handleMessage()` in `src/util/logging.cpp`); the level only
+filters stderr. Note that `--developer` does *not* raise the level either,
+despite what its name suggests. The deck runs `--log-level debug`, so
+`stderr.log` carries them too.
 
 ```sh
 # follow live while power-cycling a CDJ
-ssh trimixxx-pi 'tail -f ~/.mixxx/mixxx.log | grep -i prolink'
+ssh trimixxx-pi 'tail -f /tmp/mixxx/mixxx.log | grep -i prolink'
 
 # pull the whole thing back for a proper look
-scp trimixxx-pi:.mixxx/mixxx.log /tmp/deck-mixxx.log
+scp trimixxx-pi:/tmp/mixxx/mixxx.log /tmp/deck-mixxx.log
 
 # previous run, e.g. after testing a clean quit
-scp trimixxx-pi:.mixxx/mixxx.log.1 /tmp/deck-mixxx-prev.log
+scp trimixxx-pi:/tmp/mixxx/mixxx.log.1 /tmp/deck-mixxx-prev.log
 ```
 
 Expect lines like:
@@ -408,7 +404,7 @@ Deploy as in §11, then with a CDJ on the network and a rekordbox USB in it:
 3. Watch the log:
 
 ```sh
-ssh trimixxx-pi 'tail -f ~/.mixxx/mixxx.log | grep -i "pull_db\|ProLinkNfs"'
+ssh trimixxx-pi 'tail -f /tmp/mixxx/mixxx.log | grep -i "pull_db\|ProLinkNfs"'
 ```
 
 Expect:
@@ -485,7 +481,7 @@ track that has art — not the ~10% it used to.
 Stop the capture, then read the log:
 
 ```sh
-ssh trimixxx-pi 'grep -E "ProLinkDbServer|cover images" ~/.mixxx/mixxx.log'
+ssh trimixxx-pi 'grep -E "ProLinkDbServer|cover images" /tmp/mixxx/mixxx.log'
 ```
 
 | Line | Means |

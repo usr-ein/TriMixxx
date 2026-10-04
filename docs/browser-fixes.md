@@ -233,7 +233,7 @@ check, in the order most likely to catch a mistake:
 
 | # | Change | How to know it worked |
 |---|---|---|
-| 1 | One transaction around the ingest | A stick should read in **well under a second**, and the source list should stay scrollable while the second one reads. Watch for `DeckIngest - wrote N tracks` in `~/.mixxx/mixxx.log`. |
+| 1 | One transaction around the ingest | A stick should read in **well under a second**, and the source list should stay scrollable while the second one reads. Watch for `DeckIngest - wrote N tracks` in `/tmp/mixxx/mixxx.log`. |
 | 2 | `camelot_order` column, Key sorts on it | Sort by Key: 1A, 1B, 2A … 12B. **This is a schema change, so both sticks must be re-read** — they are, on every boot. |
 | 3 | The info panel | Long-press SORT, or tap an already-selected track. Panel on the right, following the selection as you turn the encoder. |
 | 4 | BPM re-buckets live | Open BPM, press ring A1. Ranges should widen without the menu closing. |

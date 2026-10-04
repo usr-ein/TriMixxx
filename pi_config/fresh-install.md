@@ -225,9 +225,13 @@ Where that went, and what was done (times from power-on unless said otherwise):
 - [~] Cap journald to fit in log2ram's RAM disk — not needed here: this image
       has no `/var/log/journal`, so the journal is volatile and already lives in
       `/run`, not in `/var/log`.
-- Note: the biggest card writer is not `/var/log` but Mixxx's own logs in
-  `~/.mixxx`. `xinitrc` runs it with `--developer --log-level debug`, measured at
-  ~2 MB/s, capped at 128 MB per file. log2ram does not cover them.
+- [x] **Mixxx's logs off the card** (2026-10-02). They were the card's one
+      steady writer, not `/var/log`: with Mixxx idle, 33 writes a minute, and
+      112,546 of the 113,212 lines in a session's `mixxx.log` were a single
+      `--developer` message. log2ram does not cover `~/.mixxx`. `xinitrc` now
+      runs Mixxx without `--developer` and puts both logs in `/tmp/mixxx`
+      (tmpfs) — `mixxx.log` through the fork's `--log-path`. They no longer
+      survive a reboot.
 
 ### 1.6 Real-time audio — only if needed
 - [ ] If the first Mixxx run logs that it could not get real-time priority:
@@ -578,7 +582,7 @@ No home Wi-Fi there, and last-minute fixes still have to be possible.
 - [ ] `systemctl --failed` is empty; `systemd-analyze critical-chain getty@tty1.service`
 - [ ] `grep -E 'TriMixxx|pi-midi-daemon' /proc/asound/seq/clients` — both ports
 - [ ] `cat /run/trimixxx/mode` → `mixxx`
-- [ ] Mixxx: the UCA222 opened, both controllers loaded (`~/.mixxx/mixxx.log`)
+- [ ] Mixxx: the UCA222 opened, both controllers loaded (`/tmp/mixxx/mixxx.log`)
 - [ ] `HOST=trimixxx-pi-2 ./deck-shot` shows the TriMixxx skin; `deck-poke` moves it
 - [ ] A rekordbox stick mounts at `/media/DJ_USB_1` and shows in the library
 - [ ] `ip -4 addr show eth0` → `169.254.x.x` with a CDJ attached; players appear
