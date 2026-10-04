@@ -343,15 +343,17 @@ TriMixxx.publishFader = function() {
     engine.setValue("[TriMixxx]", "tempo_fader", (raw / 16383) * 2 - 1);
 };
 
-// MSB last, because it is the half that is sent last and the half a lone
-// message is most likely to be: publishing on the LSB alone would pair it with
-// a stale MSB and jump the read-out a whole coarse step.
-TriMixxx.tempoFaderLsb = function(channel, control, value, status, group) {
-    TriMixxx.faderLsb = value;
-};
-
+// Published on the LSB, because the firmware sends the pair MSB first and LSB
+// second, every time the fader moves (firmwares/trimixxx-midi/src/main.cpp).
+// Publishing on the MSB paired each new MSB with the previous move's LSB: off by
+// up to a whole coarse step whenever a move crossed one, and left that way at
+// rest until the fader moved again.
 TriMixxx.tempoFaderMsb = function(channel, control, value, status, group) {
     TriMixxx.faderMsb = value;
+};
+
+TriMixxx.tempoFaderLsb = function(channel, control, value, status, group) {
+    TriMixxx.faderLsb = value;
     TriMixxx.publishFader();
 };
 
