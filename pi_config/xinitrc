@@ -28,7 +28,13 @@ xset s noblank
 # its overlay is loaded, panel or not -- harmless: the mirror is then the only
 # picture there is. No DSI output at all (an HDMI-only deck) skips all of this,
 # and X's defaults are right for it.
+#
+# The emulated deck (pi-qemu) has no KMS at all: X runs on the firmware
+# framebuffer, set to the panel's size, and xrandr calls its one output
+# "default". That is the panel there, so it is scaled the same way. A deck
+# always has vc4 KMS, so it never sees this output.
 panel="$(xrandr --query | awk '/^DSI-[0-9]+ connected/ {print $1; exit}')"
+[ -n "$panel" ] || panel="$(xrandr --query | awk '/^default connected/ {print $1; exit}')"
 if [ -n "$panel" ]; then
     xrandr --output "$panel" --auto --primary --pos 0x0
     size="$(xrandr --query | awk -v p="$panel" '$1 == p {

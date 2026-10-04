@@ -205,4 +205,65 @@ edit("target/arm/hvf/hvf.c",
                                      memory_region_size(mr) - start);
                     memory_region_set_dirty(mr, start, len);""")
 
+# ---- 7. usb-audio named as the deck's DAC ----------------------------------------
+# Mixxx's soundconfig.xml picks its device by name: the Behringer UCA222's
+# "USB Audio CODEC". ALSA names the card after the USB product string, so the
+# emulated card takes that name and the same config works on both. Vendor and
+# product IDs stay QEMU's, so no kernel quirk for the real chip applies.
+edit("hw/usb/dev-audio.c",
+     """    [STRING_MANUFACTURER]       = "QEMU",
+    [STRING_PRODUCT]            = "QEMU USB Audio",""",
+     """    [STRING_MANUFACTURER]       = "Burr-Brown from TI",
+    [STRING_PRODUCT]            = "USB Audio CODEC",""")
+# ... and at its rate: soundconfig.xml runs the deck at 44.1 kHz, which the
+# UCA222 offers and QEMU's 48 kHz-only card refused. A 1 ms packet is then 44
+# or 45 frames, inside the 96-frame maximum the descriptors give.
+edit("hw/usb/dev-audio.c",
+     "#define USBAUDIO_SAMPLE_RATE     48000",
+     "#define USBAUDIO_SAMPLE_RATE     44100")
+# Its intake took only packets of exactly 48 frames, and dropped the rest
+# without a word: at 44.1 kHz, all of them. It takes any whole-frame packet
+# that fits now, wrapping round the ring as it goes.
+edit("hw/usb/dev-audio.c",
+     """static int streambuf_put(struct streambuf *buf, USBPacket *p, uint32_t channels)
+{
+    int64_t free = buf->size - (buf->prod - buf->cons);
+
+    if (free < USBAUDIO_PACKET_SIZE(channels)) {
+        return 0;
+    }
+    if (p->iov.size != USBAUDIO_PACKET_SIZE(channels)) {
+        return 0;
+    }
+
+    /* can happen if prod overflows */
+    assert(buf->prod % USBAUDIO_PACKET_SIZE(channels) == 0);
+    usb_packet_copy(p, buf->data + (buf->prod % buf->size),
+                    USBAUDIO_PACKET_SIZE(channels));
+    buf->prod += USBAUDIO_PACKET_SIZE(channels);
+    return USBAUDIO_PACKET_SIZE(channels);
+}""",
+     """static int streambuf_put(struct streambuf *buf, USBPacket *p, uint32_t channels)
+{
+    int64_t free = buf->size - (buf->prod - buf->cons);
+    size_t len = p->iov.size, off, first;
+
+    /*
+     * Whole frames, up to the descriptors' maximum: at 44.1 kHz a 1 ms
+     * packet is 44 or 45 frames, not the fixed 48 of 48 kHz.
+     */
+    if (len > USBAUDIO_PACKET_SIZE(channels) || len % (channels * 2) ||
+        free < (int64_t)len) {
+        return 0;
+    }
+    off = buf->prod % buf->size;
+    first = MIN(len, buf->size - off);
+    usb_packet_copy(p, buf->data + off, first);
+    if (first < len) {
+        usb_packet_copy(p, buf->data, len - first);
+    }
+    buf->prod += len;
+    return len;
+}""")
+
 print("trimixxx-patches: applied")

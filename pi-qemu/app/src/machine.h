@@ -33,6 +33,7 @@ public:
     bool powerOn(QString* error);
     void pullPlug();               // like the mains switch: no shutdown
     bool running() const { return m_proc.state() != QProcess::NotRunning; }
+    const MachineOptions& options() const { return m_o; }
     QString s3Socket() const;
     QString runDir() const { return m_o.runDir; }
 

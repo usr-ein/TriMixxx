@@ -50,8 +50,10 @@ ssh "$HOST" '
     sudo systemctl daemon-reload
 
     sudo systemctl enable --now cpu-governor.service
-    # Confirm the governor actually took (prints "performance").
-    cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+    # Confirm the governor actually took (prints "performance"). An emulated
+    # deck (pi-qemu) has no cpufreq; the unit stands down there.
+    g=/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+    if [ -e "$g" ]; then cat "$g"; else echo "no cpufreq here: governor left alone"; fi
 
     # The bridge gates getty@tty1 (hence Mixxx) at boot; enable it, and restart
     # so an edited unit takes effect now. Restarting the bridge does not restart

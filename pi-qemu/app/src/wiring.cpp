@@ -13,8 +13,8 @@ namespace {
 // mixxx_config/README.md lists them; the rest from MidiMap.hpp.
 struct Named { const char* name; int note; const char* label; };
 constexpr Named kControls[] = {
-    {"tempo-range", midimap::PAD_A_BASE + 0, "TEMPO"},
-    {"keylock", midimap::PAD_A_BASE + 1, "KEYLOCK"},
+    {"tempo-range", midimap::PAD_A_BASE + 0, "TEMPO RANGE"},
+    {"keylock", midimap::PAD_A_BASE + 1, "MASTER TEMPO"},
     {"loop8", midimap::PAD_A_BASE + 2, "8 BEAT"},
     {"loop4", midimap::PAD_A_BASE + 3, "4 BEAT"},
     {"loop-double", midimap::PAD_A_BASE + 4, "x2"},

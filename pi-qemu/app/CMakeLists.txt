@@ -21,6 +21,7 @@ add_executable(pi-qemu
     src/control.cpp
     src/sticks.cpp
     src/deckwindow.cpp
+    src/buildwindow.cpp
 )
 
 # The S3 firmware's MIDI table is the single source of truth for every address:

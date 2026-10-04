@@ -8,6 +8,11 @@
 #include <QJsonDocument>
 #include <QTimer>
 
+#include <atomic>
+#include <sys/types.h>
+
+extern std::atomic<pid_t> g_qemuPid;
+
 Machine::Machine(MachineOptions o, QObject* parent) : QObject(parent), m_o(std::move(o)) {
     connect(&m_proc, &QProcess::finished, this, &Machine::onFinished);
     connect(&m_qmp, &QLocalSocket::readyRead, this, &Machine::onQmpBytes);
@@ -62,7 +67,17 @@ bool Machine::powerOn(QString* error) {
     a << "-chardev" << (m_o.serialLog.isEmpty()
                             ? "socket,id=s3,path=" + s3Socket() + ",server=on,wait=off"
                             : "file,id=s3,path=" + m_o.serialLog);
-    if (p.s3OnPL011) a << "-serial" << "chardev:s3" << "-serial" << "null";
+    // The other UART: the debug console, when the firmware gave it one --
+    // `nc -U run/console.sock` to log in, run/console.log for the boot.
+    const QString run = m_o.runDir;
+    QString other = "null";
+    if (p.debugConsole) {
+        QFile::remove(QDir(run).filePath("console.sock"));
+        a << "-chardev" << "socket,id=console,server=on,wait=off,path=" + QDir(run).filePath("console.sock") +
+                               ",logfile=" + QDir(run).filePath("console.log");
+        other = "chardev:console";
+    }
+    if (p.s3OnPL011) a << "-serial" << "chardev:s3" << "-serial" << other;
     else a << "-serial" << "null" << "-serial" << "chardev:s3";
 
     if (m_o.audio == "speakers") a << "-audiodev" << "coreaudio,id=snd,in.voices=0";
@@ -70,12 +85,18 @@ bool Machine::powerOn(QString* error) {
     else a << "-audiodev" << "none,id=snd"; // silent; the guest still has its sound card
     a << "-device" << "usb-audio,bus=xhci.0,audiodev=snd";
 
-    if (m_o.net == "none") {
-        a << "-nic" << "none";
-    } else {
-        QString nic = QString("user,mac=%1,hostfwd=tcp:127.0.0.1:%2-:22").arg(m_o.mac).arg(m_o.sshPort);
-        if (m_o.net == "restricted") nic += ",restrict=on";
-        a << "-nic" << nic;
+    // eth0 (GENET) is the deck's CDJ port: link-local, nobody on it yet (a
+    // cable to an empty switch). The deck reaches home -- ssh, apt -- over
+    // wlan0, which the board cannot emulate, so a USB Ethernet adapter on the
+    // xHCI takes that role, its MAC one above eth0's.
+    a << "-nic" << "none";
+    if (m_o.net != "none") {
+        QStringList mac = m_o.mac.split(':');
+        mac[5] = QString("%1").arg((mac[5].toInt(nullptr, 16) + 1) & 0xff, 2, 16, QChar('0'));
+        QString netdev = QString("user,id=home,hostfwd=tcp:127.0.0.1:%1-:22").arg(m_o.sshPort);
+        if (m_o.net == "restricted") netdev += ",restrict=on";
+        a << "-netdev" << netdev
+          << "-device" << "usb-net,bus=xhci.0,netdev=home,mac=" + mac.join(':');
     }
     if (m_o.display == "window") a << "-display" << "cocoa,zoom-to-fit=on";
     else a << "-display" << "none";
@@ -102,6 +123,7 @@ bool Machine::powerOn(QString* error) {
         *error = m_proc.errorString();
         return false;
     }
+    g_qemuPid = pid_t(m_proc.processId());
     QTimer::singleShot(200, this, &Machine::connectQmp);
     return true;
 }
@@ -111,6 +133,7 @@ void Machine::pullPlug() {
 }
 
 void Machine::onFinished() {
+    g_qemuPid = 0;
     m_qmp.abort();
     while (!m_pending.isEmpty()) m_pending.dequeue();
     if (m_stopping) return;

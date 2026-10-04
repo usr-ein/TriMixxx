@@ -22,6 +22,7 @@ struct BootPlan {
     QString     kernel, initramfs, dtb, cmdline; // files in the run directory
     QStringList skipped;     // overlays for hardware nothing here emulates
     bool        s3OnPL011 = true; // serial0 (GPIO 14/15, the S3) is the PL011
+    bool        debugConsole = false; // a console on the mini UART (run/console.sock)
 };
 
 bool prepareBoot(Card& card, const FirmwareOptions& o, BootPlan* plan, QString* error);

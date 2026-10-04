@@ -13,14 +13,34 @@
 #include "sticks.h"
 #include "wiring.h"
 #include "deckwindow.h"
+#include "buildwindow.h"
 
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
 #include <QTextStream>
+#include <QTimer>
 
+#include <QSocketNotifier>
+
+#include <atomic>
+#include <csignal>
 #include <cstdio>
+#include <sys/socket.h>
+#include <unistd.h>
+
+// QEMU is pi-qemu's child: a pi-qemu that is killed must not leave it running
+// (holding the card open and its ports bound). SIGTERM/SIGINT/SIGHUP quit the
+// event loop, so the Machine stops QEMU on the way out; the handler also
+// signals QEMU itself, in case the loop never gets there.
+std::atomic<pid_t> g_qemuPid{0};
+static int g_sigFd[2] = {-1, -1};
+static void onSignal(int sig) {
+    if (pid_t p = g_qemuPid.load()) ::kill(p, SIGTERM);
+    char c = char(sig);
+    (void)::write(g_sigFd[1], &c, 1);
+}
 
 namespace {
 
@@ -29,12 +49,20 @@ QString repoDir() { return QDir::cleanPath(PI_QEMU_SOURCE_DIR); }
 int run(int argc, char** argv) {
     QApplication app(argc, argv);
     QApplication::setApplicationName("pi-qemu");
+    ::socketpair(AF_UNIX, SOCK_STREAM, 0, g_sigFd);
+    QSocketNotifier sigNotifier(g_sigFd[0], QSocketNotifier::Read);
+    QObject::connect(&sigNotifier, &QSocketNotifier::activated, &app, [] {
+        char c;
+        (void)::read(g_sigFd[0], &c, 1);
+        QCoreApplication::quit();
+    });
+    for (int sig : {SIGTERM, SIGINT, SIGHUP}) std::signal(sig, onSignal);
     QCommandLineParser p;
     p.setApplicationDescription("Run a TriMixxx deck's SD card on an emulated Raspberry Pi 4.");
     p.addHelpOption();
     p.addPositionalArgument("run", "");
     p.addPositionalArgument("card", "the SD card image (raw, power-of-two size)");
-    QCommandLineOption deck("deck", "whose wiring the controls follow (mixxx_config/units/<deck>.json)", "name", "trimixxx2");
+    QCommandLineOption deck("deck", "whose wiring the controls follow (mixxx_config/units/<deck>.json)", "name", "trimixxx0");
     QCommandLineOption display("display", "window | vnc | none", "mode", "window");
     QCommandLineOption audio("audio", "none | speakers | wav:FILE  (none is silent)", "mode", "none");
     QCommandLineOption mac("mac", "eth0's MAC, written into the device tree", "mac", "02:54:4d:58:00:00");
@@ -84,7 +112,10 @@ int run(int argc, char** argv) {
     S3 s3(machine.s3Socket());
     Sticks sticks(&machine, p.value(sticksDir));
     Control control(&machine, &s3, &sticks, &wiring);
-    if (!control.listen(o.runDir + "/control.sock", &err)) { fprintf(stderr, "pi-qemu: %s\n", qPrintable(err)); return 1; }
+    // Test hook: PI_QEMU_SNAPSHOT=file.png renders the control panel to a file
+    // and quits, with no Pi started and no control socket taken from a running one.
+    const QString shot = qEnvironmentVariable("PI_QEMU_SNAPSHOT");
+    if (shot.isEmpty() && !control.listen(o.runDir + "/control.sock", &err)) { fprintf(stderr, "pi-qemu: %s\n", qPrintable(err)); return 1; }
 
     QObject::connect(&machine, &Machine::status, [&out](const QString& s) { out << "pi-qemu: " << s << Qt::endl; });
     QObject::connect(&machine, &Machine::poweredOff, [&] { sticks.forgetAll(); });
@@ -100,6 +131,10 @@ int run(int argc, char** argv) {
         window = std::make_unique<DeckWindow>(&machine, &s3, &sticks, &wiring);
         QObject::connect(window.get(), &DeckWindow::powerOnRequested, powerOn);
         window->show();
+        if (!shot.isEmpty()) {
+            QTimer::singleShot(1000, window.get(), [&window, shot] { window->grab().save(shot); QCoreApplication::quit(); });
+            return app.exec();
+        }
     } else {
         QApplication::setQuitOnLastWindowClosed(false);
         QObject::connect(&machine, &Machine::poweredOff, &app, &QApplication::quit);
@@ -116,10 +151,22 @@ int run(int argc, char** argv) {
 
 int main(int argc, char** argv) {
     if (argc >= 2 && QString(argv[1]) == "run") return run(argc, argv);
+    if (argc == 3 && QString(argv[1]) == "build-log") { // a window on image/build.sh's log
+        QApplication app(argc, argv);
+        BuildWindow w(QString::fromLocal8Bit(argv[2]));
+        w.show();
+        w.raise();
+        // Test hook: PI_QEMU_SNAPSHOT=file.png renders the window to a file
+        // after a moment and quits (QT_QPA_PLATFORM=offscreen needs no screen).
+        if (QString shot = qEnvironmentVariable("PI_QEMU_SNAPSHOT"); !shot.isEmpty())
+            QTimer::singleShot(2500, &w, [&w, shot] { w.grab().save(shot); QCoreApplication::quit(); });
+        return app.exec();
+    }
     QCoreApplication app(argc, argv);
     QStringList words = app.arguments().mid(1);
     if (words.isEmpty() || words[0] == "--help" || words[0] == "-h" || words[0] == "help") {
         printf("usage: pi-qemu run [options] CARD.img   (pi-qemu run --help)\n"
+               "       pi-qemu build-log LOGFILE        watch an image build\n"
                "       pi-qemu COMMAND ...              drive the running deck\n\n%s\n",
                qPrintable(Control::help()));
         return words.isEmpty() ? 2 : 0;

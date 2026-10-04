@@ -6,13 +6,16 @@
 #include "sticks.h"
 #include "wiring.h"
 
+#include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
+#include <QSet>
 #include <QSlider>
+#include <QTabWidget>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QtMath>
@@ -30,7 +33,9 @@ public:
     bool round = true, held = false;
 
     DeckButton(QWidget* parent, QString text, int diameter) : QWidget(parent), label(std::move(text)) {
-        setFixedSize(diameter + 30, diameter + 18);
+        QFont f = font();
+        f.setPointSizeF(8);
+        setFixedSize(qMax(diameter + 30, QFontMetrics(f).horizontalAdvance(label) + 8), diameter + 18);
         setCursor(Qt::PointingHandCursor);
     }
 
@@ -151,7 +156,7 @@ class Encoder : public QWidget {
 public:
     std::function<void(int)> onTurn;
     std::function<void(bool)> onPush;
-    explicit Encoder(QWidget* parent) : QWidget(parent) { setFixedSize(70, 86); setCursor(Qt::PointingHandCursor); }
+    explicit Encoder(QWidget* parent) : QWidget(parent) { setFixedSize(70, 86); setCursor(Qt::SizeVerCursor); }
 
 protected:
     void paintEvent(QPaintEvent*) override {
@@ -165,19 +170,32 @@ protected:
         p.drawLine(r.center(), r.center() + QPointF(qSin(m_pos), -qCos(m_pos)) * 22);
         p.setPen(kText);
         QFont f = font(); f.setPointSizeF(8); p.setFont(f);
-        p.drawText(QRect(0, 58, width(), 28), Qt::AlignCenter, "BROWSE\nscroll / click");
+        p.drawText(QRect(0, 58, width(), 28), Qt::AlignCenter, "BROWSE\ndrag / click");
     }
-    void wheelEvent(QWheelEvent* e) override {
-        m_acc += e->angleDelta().y();
-        int detents = m_acc / 120;
-        m_acc -= detents * 120;
-        if (detents && onTurn) { onTurn(detents); m_pos += detents * 0.4; update(); }
+    // Drag up or down to turn it, a detent every kStep pixels (up is +); a
+    // click that did not turn it is the push.
+    void mousePressEvent(QMouseEvent* e) override { m_lastY = e->position().y(); m_turned = false; }
+    void mouseMoveEvent(QMouseEvent* e) override {
+        const int detents = int((m_lastY - e->position().y()) / kStep);
+        if (!detents) return;
+        m_lastY -= detents * kStep;
+        m_turned = true;
+        if (onTurn) onTurn(detents);
+        m_pos += detents * 0.4;
+        update();
     }
-    void mousePressEvent(QMouseEvent*) override { m_pushed = true; if (onPush) onPush(true); update(); }
-    void mouseReleaseEvent(QMouseEvent*) override { m_pushed = false; if (onPush) onPush(false); update(); }
+    void mouseReleaseEvent(QMouseEvent*) override {
+        if (m_turned || !onPush) return;
+        m_pushed = true;
+        onPush(true);
+        update();
+        QTimer::singleShot(80, this, [this] { m_pushed = false; onPush(false); update(); });
+    }
 
 private:
-    int m_acc = 0;
+    static constexpr double kStep = 12;
+    double m_lastY = 0;
+    bool m_turned = false;
     double m_pos = 0;
     bool m_pushed = false;
 };
@@ -215,15 +233,36 @@ DeckWindow::DeckWindow(Machine* m, S3* s3, Sticks* sticks, const Wiring* wiring,
         return b;
     };
 
-    // Ring A down the left, ring B along the top: pads by node, in chain order.
-    auto* ringA = new QVBoxLayout;
-    for (int i = 0; i < m_wiring->ringSize(0); i++) ringA->addWidget(padButton(0, i));
-    ringA->addStretch();
-    auto* ringB = new QHBoxLayout;
-    for (int i = 0; i < m_wiring->ringSize(1); i++) ringB->addWidget(padButton(1, i));
-    ringB->addStretch();
+    // A ring pad by what it does, wherever this deck's wiring put it.
+    QSet<int> placed; // physical notes the plate has a place for
+    auto pad = [&](const QString& control) {
+        const int phys = *m_wiring->note(control);
+        placed << phys;
+        return phys >= midimap::PAD_B_BASE ? padButton(1, phys - midimap::PAD_B_BASE)
+                                           : padButton(0, phys - midimap::PAD_A_BASE);
+    };
+    const DeckLeds* L = &m_s3->leds();
 
+    // The top row: the loop (IN OUT RELOOP) at the start, the loop lengths at the end.
+    auto* loops = new QHBoxLayout;
+    loops->addWidget(lamp("IN", "loop-in", 30, [L] { return L->loopIn; }, QColor(255, 160, 0)));
+    loops->addWidget(lamp("OUT", "loop-out", 30, [L] { return L->loopOut; }, QColor(255, 160, 0)));
+    loops->addWidget(lamp("RELOOP", "reloop", 30, {}, {}));
+    loops->addStretch();
+    for (const char* c : {"loop-double", "loop-halve", "loop4", "loop8"}) loops->addWidget(pad(c));
+    // SLIP and SORT over the hot cues, which sit two by two beside the platter.
+    auto* slipSort = new QHBoxLayout;
+    slipSort->addWidget(pad("slip"));
+    slipSort->addWidget(pad("sort"));
+    auto* cues = new QGridLayout;
+    cues->addWidget(pad("hotcue1"), 0, 0);
+    cues->addWidget(pad("hotcue2"), 0, 1);
+    cues->addWidget(pad("hotcue3"), 1, 0);
+    cues->addWidget(pad("hotcue4"), 1, 1);
+
+    // As wide as it is drawn: a wider widget only puts air around the platter.
     auto* jog = new JogWheel(this);
+    jog->setFixedSize(340, 340);
     jog->onTicks = [this](int t) { m_s3->jog(m_wiring->jogReversed() ? -t : t); };
     jog->onTouch = pressFor("jog-touch");
 
@@ -231,46 +270,66 @@ DeckWindow::DeckWindow(Machine* m, S3* s3, Sticks* sticks, const Wiring* wiring,
     enc->onTurn = [this](int d) { m_s3->encoder(d); };
     enc->onPush = pressFor("push");
 
-    // The 14-bit tempo fader; double-click puts it back on the centre detent.
+    // The 14-bit tempo fader; "centre" puts it back on the centre detent.
     auto* fader = new QSlider(Qt::Vertical, this);
     fader->setRange(0, 16383);
     fader->setValue(8192);
-    fader->setMinimumHeight(220);
+    fader->setMinimumHeight(170);
     connect(fader, &QSlider::valueChanged, this, [this](int v) { m_s3->tempo(v); });
-    auto* faderBox = new QVBoxLayout;
-    auto* faderLabel = new QLabel("TEMPO");
-    faderLabel->setToolTip("double-click the label: back to the centre detent");
-    faderBox->addWidget(faderLabel, 0, Qt::AlignHCenter);
-    faderBox->addWidget(fader, 1, Qt::AlignHCenter);
     auto* center = new QPushButton("centre");
     connect(center, &QPushButton::clicked, fader, [fader] { fader->setValue(8192); });
-    faderBox->addWidget(center);
 
-    const DeckLeds* L = &m_s3->leds();
-    auto* loops = new QHBoxLayout;
-    loops->addWidget(lamp("IN", "loop-in", 30, [L] { return L->loopIn; }, QColor(255, 160, 0)));
-    loops->addWidget(lamp("OUT", "loop-out", 30, [L] { return L->loopOut; }, QColor(255, 160, 0)));
-    loops->addWidget(lamp("RELOOP", "reloop", 20, {}, {}));
-    loops->addStretch();
-    auto* transport = new QVBoxLayout;
-    transport->addLayout(loops);
+    // Right: BACK over the browse encoder, MASTER TEMPO and KEYLOCK over the fader.
+    auto* browse = new QHBoxLayout;
+    browse->addWidget(pad("back"), 0, Qt::AlignTop);
+    browse->addWidget(enc, 0, Qt::AlignTop);
+    auto* right = new QVBoxLayout;
+    right->addLayout(browse);
+    right->addSpacing(8);
+    auto* tempoPads = new QHBoxLayout;
+    tempoPads->addWidget(pad("tempo-range"));
+    tempoPads->addWidget(pad("keylock"));
+    right->addLayout(tempoPads);
+    right->addWidget(new QLabel("TEMPO"), 0, Qt::AlignHCenter);
+    right->addWidget(fader, 1, Qt::AlignHCenter);
+    right->addWidget(center);
+
+    // Pads this deck has but nothing is wired to (trimixxx2's eighth), still
+    // pressable: on the end of the SLIP SORT row.
+    auto* spare = slipSort;
+    for (int ring = 0; ring < 2; ring++)
+        for (int i = 0; i < m_wiring->ringSize(ring); i++)
+            if (!placed.contains((ring == 0 ? midimap::PAD_A_BASE : midimap::PAD_B_BASE) + i))
+                spare->addWidget(padButton(ring, i));
+    spare->addStretch();
+    // CUE over PLAY, under the hot cues, as on the deck.
+    auto* transport = new QHBoxLayout;
     transport->addWidget(lamp("CUE", "cue", 66, [L] { return L->cue; }, QColor(255, 150, 0)));
     transport->addWidget(lamp("PLAY / PAUSE", "play", 66, [L] { return L->play; }, QColor(60, 220, 60)));
+    transport->addStretch();
+    auto* left = new QVBoxLayout;
+    left->addStretch();
+    left->addLayout(slipSort);
+    left->addSpacing(8);
+    left->addLayout(cues);
+    left->addLayout(transport);
+    left->addStretch();
 
-    auto* deckTop = new QHBoxLayout;
-    deckTop->addLayout(ringB, 1);
-    deckTop->addWidget(enc);
-    auto* middle = new QHBoxLayout;
-    middle->addLayout(ringA);
-    middle->addWidget(jog, 1);
-    middle->addLayout(faderBox);
-    auto* plate = new QVBoxLayout;
-    plate->addLayout(deckTop);
-    plate->addLayout(middle, 1);
-    plate->addLayout(transport);
 
-    // The side: the S3's status LED, the board, the USB sticks.
-    auto* side = new QVBoxLayout;
+    // The plate as a grid: the loop row across the top; SLIP SORT and the hot
+    // cues and the transport, the platter, and browse and tempo on one row.
+    auto* controls = new QWidget;
+    auto* plate = new QGridLayout(controls);
+    plate->addLayout(loops, 0, 0, 1, 3);
+    plate->setRowMinimumHeight(1, 4);
+    plate->addLayout(left, 2, 0);
+    plate->addWidget(jog, 2, 1, Qt::AlignCenter);
+    plate->addLayout(right, 2, 2);
+    plate->setColumnStretch(1, 1);
+
+    // The other tab: the S3's status LED, the board, the USB sticks.
+    auto* board = new QWidget;
+    auto* side = new QVBoxLayout(board);
     auto* s3led = new QLabel("●  S3");
     side->addWidget(s3led);
     connect(m_s3, &S3::linkActivity, s3led, [s3led](bool tx) {
@@ -290,16 +349,25 @@ DeckWindow::DeckWindow(Machine* m, S3* s3, Sticks* sticks, const Wiring* wiring,
     powerRow->addWidget(on);
     powerRow->addWidget(off);
     side->addLayout(powerRow);
-    side->addWidget(new QLabel("Sound: off (enable later with --audio speakers)"));
+    const QString audio = m->options().audio;
+    side->addWidget(new QLabel(audio == "none" ? "Sound: off (enable with --audio speakers)"
+                               : audio == "speakers" ? "Sound: ON, through the Mac's speakers"
+                                                     : "Sound: recording to " + audio.mid(4)));
     side->addSpacing(12);
     side->addWidget(new QLabel(QString("<b>USB sticks</b> (two slots, read-only)")));
     m_stickRows = new QVBoxLayout;
     side->addLayout(m_stickRows);
     side->addStretch();
 
+    for (QWidget* page : {controls, board}) { // the plate's colour, not the tab pane's
+        page->setPalette(pal);
+        page->setAutoFillBackground(true);
+    }
+    auto* tabs = new QTabWidget(this);
+    tabs->addTab(controls, "Controls");
+    tabs->addTab(board, "S3, power, USB sticks");
     auto* root = new QHBoxLayout(this);
-    root->addLayout(plate, 1);
-    root->addLayout(side);
+    root->addWidget(tabs);
 
     connect(m_s3, &S3::ledsChanged, this, qOverload<>(&QWidget::update));
     connect(m_s3, &S3::ledsChanged, this, [this] { for (auto* w : findChildren<QWidget*>()) w->update(); });
@@ -312,7 +380,7 @@ DeckWindow::DeckWindow(Machine* m, S3* s3, Sticks* sticks, const Wiring* wiring,
     connect(poll, &QTimer::timeout, this, &DeckWindow::refreshSticks);
     poll->start(3000);
     refreshSticks();
-    resize(1100, 720);
+    adjustSize();
 }
 
 void DeckWindow::refreshSticks() {

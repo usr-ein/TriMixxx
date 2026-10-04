@@ -177,6 +177,17 @@ bool prepareBoot(Card& card, const FirmwareOptions& o, BootPlan* plan, QString* 
         line.replace("console=serial" + n, pl011 ? "console=ttyAMA0" : "console=ttyS0");
         if (n == "0") plan->s3OnPL011 = pl011;
     }
+    // The emulator's own way in: a console on the UART the S3 leaves free (the
+    // mini UART, which the deck's config.txt switches off), ahead of the card's
+    // console= so tty1 stays /dev/console. A real deck never gets this.
+    if (plan->s3OnPL011) {
+        QString mini = fdtget(plan->dtb, "/aliases", "serial1");
+        if (mini.contains("7e215040") &&
+            tool("fdtput", {"-t", "s", plan->dtb, mini, "status", "okay"}, nullptr)) {
+            line.prepend("console=ttyS0,115200 ");
+            plan->debugConsole = true;
+        }
+    }
     plan->cmdline = line.simplified();
     return true;
 }

@@ -18,6 +18,8 @@
 # (the kernel default governor takes over on next boot).
 Description=Pin CPU to performance governor (low-latency audio)
 After=multi-user.target
+# No cpufreq, no governor to set: the emulated deck (pi-qemu) has none.
+ConditionPathExists=/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 
 [Service]
 Type=oneshot

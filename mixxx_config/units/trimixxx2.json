@@ -25,5 +25,6 @@
     "0x44": "0x45",
     "0x45": "0x44",
     "0x46": "0x43"
-  }
+  },
+  "panelOverlay": "vc4-kms-dsi-waveshare-panel,10_1_inch"
 }

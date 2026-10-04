@@ -43,7 +43,10 @@ git -C rpi-qemu fetch -q origin "$RPI_QEMU_COMMIT" 2>/dev/null || true
 git -C rpi-qemu checkout -q "$RPI_QEMU_COMMIT"
 
 SRC="qemu-$QEMU_VERSION"
-if [ ! -f "$SRC/.patched" ]; then
+# The stamp is the patch script's hash: changing a patch re-applies them all to
+# a fresh tree.
+PATCHES_SHA="$(shasum -a 256 "$HERE/trimixxx-patches.py" | cut -d' ' -f1)"
+if [ "$(cat "$SRC/.patched" 2>/dev/null)" != "$PATCHES_SHA" ]; then
     rm -rf "$SRC"
     tar xf "qemu-$QEMU_VERSION.tar.xz"
     (
@@ -54,7 +57,7 @@ if [ ! -f "$SRC/.patched" ]; then
             git -c user.name=build -c user.email=build@localhost am -q --3way "$p"
         done
         python3 "$HERE/trimixxx-patches.py" .
-        touch .patched
+        echo "$PATCHES_SHA" > .patched
     )
 fi
 

@@ -1,0 +1,30 @@
+{
+  "deck": "trimixxx0",
+  "about": "The emulated deck (pi-qemu): a virtual trimixxx2, so its controls land where trimixxx2's do -- the eighth pad third in ring A, hot cues 1-4 reversed, the jog the other way round -- and the remap is exercised before a real deck sees it. Its own accent, cyan, so it is never mistaken for trimixxx2 on a screenshot. No bezel: the emulator's screen has no lip. Applied by upload.sh through apply.py; see ../README.md.",
+  "jogReversed": true,
+  "bezel": false,
+  "accent": "#00C8FF",
+  "buttons": {
+    "0x02": "0x03",
+    "0x03": "0x04",
+    "0x04": "0x05",
+    "0x05": "0x06",
+    "0x06": "0x07",
+    "0x43": "0x46",
+    "0x44": "0x45",
+    "0x45": "0x44",
+    "0x46": "0x43"
+  },
+  "lights": {
+    "0x02": "0x03",
+    "0x03": "0x04",
+    "0x04": "0x05",
+    "0x05": "0x06",
+    "0x06": "0x07",
+    "0x43": "0x46",
+    "0x44": "0x45",
+    "0x45": "0x44",
+    "0x46": "0x43"
+  },
+  "panelOverlay": "vc4-kms-dsi-waveshare-panel,10_1_inch"
+}
