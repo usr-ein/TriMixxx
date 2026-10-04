@@ -526,11 +526,11 @@ TriMixxx.tempoRange = function(channel, control, value, status, group) {
     engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGES[idx]);
 };
 
-// A2: master tempo on the deck, SORT in the library.
+// A2: master tempo (Mixxx's keylock), in every view. SORT lives on B6.
 //
-// The button does the job of whatever is on screen. Over the deck it is Mixxx's
-// keylock; over the library there is no track to lock the key of, and sorting is
-// the thing there is no other way to reach without a keyboard.
+// With KEY SYNC engaged, toggling it keeps the semitone shift: KeyControl
+// zeroes pitch_adjust on the toggle and the fork's KEY SYNC puts it straight
+// back (owner decision 8).
 TriMixxx.keylock = function(channel, control, value, status, group) {
     if (!value) { return; }
     engine.setValue(TriMixxx.DECK, "keylock", !engine.getValue(TriMixxx.DECK, "keylock"));
@@ -693,8 +693,7 @@ TriMixxx.ledTempoRange = function() {
     TriMixxx.led(0x01, 0, c);
 };
 
-// A2 master tempo: off when keylock off, red when on. Yields to the sort colour
-// while the library is up, since that is what the button does there.
+// A2 master tempo: off when keylock off, red when on.
 TriMixxx.ledKeylock = function() {
     TriMixxx.led(0x01, 1, engine.getValue(TriMixxx.DECK, "keylock") ? TriMixxx.C_RED : TriMixxx.C_OFF);
 };

@@ -100,8 +100,10 @@ populated, so adding a board never renumbers anything. `TriMixxx.RING_A_N` /
 `RING_B_N` at the top of the script are the counts actually wired today.
 
 ### KEY SYNC (B6, over the deck)
-Holds this deck in the key the CDJ that has tempo master is playing in, and the
-key it shows is `[Channel1],key` in the header, beside the artist.
+Pitches this deck into a key compatible with the **track** the CDJ holding
+tempo master has loaded, as rekordbox analysed it -- not as that CDJ is heard:
+its own pitch fader and master tempo are not on the wire, and are ignored. The
+key this deck plays is `[Channel1],key` in the header, beside the artist.
 
 The rules are Mixxx's, in [`keysync.h`](../mixxx/src/network/prolink/keysync.h),
 and the pad only mirrors them:
@@ -116,14 +118,24 @@ and the pad only mirrors them:
   releases itself, because dropping the sync under a playing track would re-pitch
   it mid-mix. Pressing it again releases it, always. A new key needs off, then on.
 
+Engaging turns master tempo (A2, keylock) on: a latched key would otherwise
+move with every tempo change from the moment it was set. Turning master tempo
+off afterwards keeps the semitone shift, and the key then also moves with the
+tempo fader, as it does with master tempo off; turning it back on keeps it too.
+The shift is an offset (`pitch_adjust`), so releasing leaves nothing behind
+whatever the fader is doing.
+
+Only a rekordbox-analysed track has a key here: an unanalysed file on the
+master is not looked up, and KEY SYNC stays dark rather than guess.
+
 The shift lands on the tonic, the fourth or the fifth (`shortestStepsToCompatibleKey`,
 the same as Mixxx's own `sync_key`), so it never asks for more than two semitones,
 and it is re-applied from the new track's own key on every load.
 
-That is why `mixxx.cfg` has `[Controls] SpeedAutoReset 0`. At Mixxx's default
-(1, reset the pitch on load) the load re-applied the shift and then, a few lines
-later in the same call, zeroed `pitch_adjust`: every track after the first played
-in its own key while B6 stayed bright.
+`mixxx.cfg` has `[Controls] SpeedAutoReset 0`. Mixxx's default (1) resets the
+pitch on every load, after the new key is set; the fork re-applies the shift
+after that reset, so either setting works, but at 0 nothing undoes it even for
+a moment, and nothing else on this deck moves `pitch_adjust`.
 
 ### SYNC's phase trim (`[ProLink] phase_trim_ms`)
 SYNC, the phase meter and the beats this deck sends compare phases *as heard*:
