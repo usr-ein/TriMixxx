@@ -275,6 +275,18 @@ TriMixxx.init = function(id, debugging) {
     // second one could only ever repeat it.
     engine.setValue("[Controls]", "ShowDurationRemaining", 2);
 
+    // Mixxx's own deck sync stays off. SYNC on this deck is Pro DJ Link's
+    // ([ProLink],sync_enabled), which writes the tempo itself; Mixxx's would be
+    // a second thing deciding it, with no light on the screen to say so. It is
+    // one key away -- "1" on any USB keyboard plugged in for maintenance -- so
+    // it is put back whenever anything turns it on, not only at boot.
+    engine.setValue(TriMixxx.DECK, "sync_enabled", 0);
+    TriMixxx.watch(TriMixxx.DECK, "sync_enabled", function(value) {
+        if (value) {
+            engine.setValue(TriMixxx.DECK, "sync_enabled", 0);
+        }
+    });
+
     // Return to the waveform whenever a track is loaded (from the hardware
     // encoder push or an on-screen library tap), so the library never stays up
     // over the deck. [Master],show_library is the skin's deck/library toggle.
