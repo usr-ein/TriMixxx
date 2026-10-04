@@ -125,6 +125,26 @@ That is why `mixxx.cfg` has `[Controls] SpeedAutoReset 0`. At Mixxx's default
 later in the same call, zeroed `pitch_adjust`: every track after the first played
 in its own key while B6 stayed bright.
 
+### SYNC's phase trim (`[ProLink] phase_trim_ms`)
+SYNC, the phase meter and the beats this deck sends compare phases *as heard*:
+the fork moves the engine's position to the sample the DAC is playing, using
+the latency Mixxx knows about. What it cannot know -- the USB codec, and a
+CDJ's own gap between its beat packet and its sound -- is this trim, in
+milliseconds, positive when this deck is heard later than the CDJ. It is a
+persistent control read from `mixxx.cfg`, 0 when absent:
+
+```
+[ProLink]
+phase_trim_ms 0
+```
+
+To measure it: CDJ master playing a track with a hard kick, this deck playing
+the same or a similar track with SYNC lit, both outputs recorded on the two
+channels of one interface. The gap between the two kicks, TriMixxx's minus
+the CDJ's, is the trim to add to the current value. One measurement per rig
+(deck hardware, sound card and buffer size); re-measure after changing the
+buffer in `soundconfig.xml`.
+
 ## The screen has no buttons except POWER
 Everything the skin used to put under the waveform — LIBRARY/DECK, the ±6/±10/±16/
 WIDE tempo-range pads, LOOP ÷2 / ×2 — is on the hardware (ring A1, A5, A6 and the
