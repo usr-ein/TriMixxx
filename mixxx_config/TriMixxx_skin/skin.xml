@@ -23,7 +23,7 @@
       <attribute persist="false" config_key="[TriMixxx],shutdown_now">0</attribute>
       <!-- Where the tempo fader physically is, in the same -1..1 the deck's own
            `rate` uses, so the tempo panel can show what the fader is ASKING for
-           while soft-takeover is still holding it off. Without it there is
+           while the mapping's pickup is still holding it off. Without it there is
            nothing on screen to aim with: the fader is disconnected, the number
            does not move, and catching the tempo is a blind hunt.
 
