@@ -293,8 +293,13 @@ TriMixxx.init = function(id, debugging) {
     TriMixxx.trackLoadedConn = engine.makeConnection(TriMixxx.DECK, "track_loaded", function(value) {
         if (value) {
             engine.setValue("[Master]", "show_library", 0);
+            TriMixxx.onTrackLoaded();
         }
     });
+    // The fader's owner needs to know when SYNC takes and gives back the tempo,
+    // and when anything else moves it. See "Tempo fader" above.
+    TriMixxx.watch("[ProLink]", "following", TriMixxx.onFollowingChanged);
+    TriMixxx.watch(TriMixxx.DECK, "rate", TriMixxx.onRateChanged);
 
     // Button LED indicators: connect each deck control to its colour updater.
     TriMixxx.ledConnect("rateRange", TriMixxx.ledTempoRange);
@@ -337,29 +342,150 @@ TriMixxx.shutdown = function() {
     for (var b = 0; b < TriMixxx.RING_B_N; b++) { TriMixxx.ringLed(0x03, b, 0, 0, 0); }
 };
 
-// ---- Tempo fader, watched for the screen -------------------------------
+// ---- Tempo fader: the one thing that writes `rate` from the fader ----------
 //
-// The fader's own binding to [Channel1],rate is elsewhere in the XML and this
-// does not touch it. This is the same two CCs read a second time, purely so the
-// tempo panel can draw where the fader IS while soft-takeover is holding it off
-// -- otherwise the DJ is creeping toward a number with nothing to aim at.
+// The fader used to be bound to [Channel1],rate in the XML with Mixxx's
+// <soft-takeover/>, which knows nothing about SYNC. While SYNC followed a deck,
+// a fader moved across the followed tempo was let through, and the fader and
+// SYNC then fought over the tempo thirty times a second; and soft-takeover's
+// catch is a proximity of 3/128 of the travel -- 0.36 BPM at +/-6%, 6 BPM at
+// WIDE -- with the tempo jumping by that much when it caught.
 //
-// Published in the same -1..1 the `rate` control uses, which is what Mixxx maps
-// the 14-bit value onto, so the panel can apply the deck's own range and
-// direction to it rather than guessing at either.
+// So the script owns it, in docs/tempo-sync.md's terms:
+//
+//  * While SYNC follows a deck ([ProLink],following) the fader writes nothing.
+//  * Whenever something other than the fader moves the tempo -- SYNC, a range
+//    change, a keyboard -- the fader is "armed": it does nothing until it
+//    crosses the tempo actually playing, or comes within PICKUP_BPM of it, and
+//    then leads. A crossing is two consecutive positions on either side.
+//  * A track loaded while not following starts at the fader's tempo, with the
+//    fader live (owner decision 5).
+//
+// [TriMixxx],tempo_fader is published for the tempo panel in the same -1..1 as
+// `rate`, computed exactly as Mixxx would map the 14-bit value, so the panel
+// can say "caught" by comparing the two rather than modelling a threshold.
+TriMixxx.PICKUP_BPM = 0.05;
 TriMixxx.faderMsb = 0;
 TriMixxx.faderLsb = 0;
+TriMixxx.faderRate = null;      // where the fader is, as a `rate`; null until heard
+TriMixxx.pickupArmed = true;    // until the fader has been heard, it leads nothing
+TriMixxx.lastFaderBpm = null;   // the fader's tempo at its previous message
+TriMixxx.lastSetRate = null;    // the last `rate` this script wrote
+TriMixxx.following = false;
+TriMixxx.startAtFaderPending = false;
+
+// Mixxx's own mapping of a 14-bit pair onto a potmeter: MidiController divides
+// by 128 and caps at 127, and ControlPotmeterBehavior puts 64 exactly at the
+// centre. A linear map was up to 0.0155 of `rate` off above centre.
+TriMixxx.faderRateOf = function(raw) {
+    var nv = Math.min(raw / 128, 127);
+    var p = nv > 64 ? (nv - 1) / 126 : nv / 128;
+    return p * 2 - 1;
+};
+
+// The tempo the deck would play with `rate` at *rate*: its own tempo at this
+// point of the grid (bpm over rate_ratio) times the fader's ratio.
+TriMixxx.tempoAtRate = function(rate) {
+    var bpm = engine.getValue(TriMixxx.DECK, "bpm");
+    var ratio = engine.getValue(TriMixxx.DECK, "rate_ratio");
+    if (bpm <= 0 || ratio <= 0) { return null; }
+    var dir = engine.getValue(TriMixxx.DECK, "rate_dir");
+    var range = engine.getValue(TriMixxx.DECK, "rateRange");
+    return (bpm / ratio) * (1 + dir * range * rate);
+};
+
+TriMixxx.setRate = function(rate) {
+    TriMixxx.lastSetRate = rate;
+    engine.setValue(TriMixxx.DECK, "rate", rate);
+};
+
+// Anything but this script moved the tempo: the fader has to catch it again.
+TriMixxx.onRateChanged = function(value) {
+    if (TriMixxx.lastSetRate === null || Math.abs(value - TriMixxx.lastSetRate) > 1e-9) {
+        TriMixxx.pickupArmed = true;
+    }
+    if (TriMixxx.following) {
+        TriMixxx.widenRangeFor(value);
+    }
+};
+
+TriMixxx.onFollowingChanged = function(value) {
+    var now = value > 0;
+    if (now === TriMixxx.following) { return; }
+    TriMixxx.following = now;
+    if (now) {
+        TriMixxx.startAtFaderPending = false;
+        TriMixxx.widenRangeFor(engine.getValue(TriMixxx.DECK, "rate"));
+    }
+    // Leaving SYNC holds the tempo; the fader has to come back to it.
+    TriMixxx.pickupArmed = true;
+};
+
+// Owner decision 9: a tempo SYNC holds that the fader cannot reach at this
+// range would only ever be "caught" at the end stop, with a drop of several
+// BPM. Step the range up to the smallest one that holds it. Mixxx keeps the
+// tempo on a range change, so nothing is heard; A1's colour says why.
+TriMixxx.widenRangeFor = function(rate) {
+    if (Math.abs(rate) <= 1) { return; }
+    var deviation = Math.abs(engine.getValue(TriMixxx.DECK, "rate_ratio") - 1);
+    for (var i = 0; i < TriMixxx.RATE_RANGES.length; i++) {
+        if (TriMixxx.RATE_RANGES[i] >= deviation) {
+            engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGES[i]);
+            return;
+        }
+    }
+    engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGES[TriMixxx.RATE_RANGES.length - 1]);
+};
+
+TriMixxx.onTrackLoaded = function() {
+    if (TriMixxx.following) { return; }   // SYNC sets this track's tempo
+    if (TriMixxx.faderRate === null) {
+        // Not heard since boot: the firmware only sends on a move. Applied
+        // the moment it is, as long as the deck has not started by then.
+        TriMixxx.startAtFaderPending = true;
+        return;
+    }
+    TriMixxx.startAtFader();
+};
+
+TriMixxx.startAtFader = function() {
+    TriMixxx.startAtFaderPending = false;
+    TriMixxx.pickupArmed = false;
+    TriMixxx.setRate(TriMixxx.faderRate);
+};
 
 TriMixxx.publishFader = function() {
     var raw = (TriMixxx.faderMsb << 7) | TriMixxx.faderLsb;   // 0 .. 16383
-    engine.setValue("[TriMixxx]", "tempo_fader", (raw / 16383) * 2 - 1);
+    var rate = TriMixxx.faderRateOf(raw);
+    TriMixxx.faderRate = rate;
+    engine.setValue("[TriMixxx]", "tempo_fader", rate);
+
+    if (TriMixxx.startAtFaderPending && !TriMixxx.following &&
+            !engine.getValue(TriMixxx.DECK, "play")) {
+        TriMixxx.startAtFader();
+    }
+
+    var faderBpm = TriMixxx.tempoAtRate(rate);
+    var lastBpm = TriMixxx.lastFaderBpm;
+    TriMixxx.lastFaderBpm = faderBpm;
+    if (TriMixxx.following) { return; }       // decoupled while SYNC follows
+    if (TriMixxx.pickupArmed) {
+        var playing = engine.getValue(TriMixxx.DECK, "bpm");
+        if (faderBpm === null || playing <= 0) {
+            // No tempo to meet (no track): nothing to protect.
+            TriMixxx.pickupArmed = false;
+        } else {
+            var near = Math.abs(faderBpm - playing) <= TriMixxx.PICKUP_BPM;
+            var crossed = lastBpm !== null && (lastBpm - playing) * (faderBpm - playing) < 0;
+            if (!near && !crossed) { return; }
+            TriMixxx.pickupArmed = false;
+        }
+    }
+    TriMixxx.setRate(rate);
 };
 
 // Published on the LSB, because the firmware sends the pair MSB first and LSB
 // second, every time the fader moves (firmwares/trimixxx-midi/src/main.cpp).
-// Publishing on the MSB paired each new MSB with the previous move's LSB: off by
-// up to a whole coarse step whenever a move crossed one, and left that way at
-// rest until the fader moved again.
 TriMixxx.tempoFaderMsb = function(channel, control, value, status, group) {
     TriMixxx.faderMsb = value;
 };
@@ -379,7 +505,14 @@ TriMixxx.tempoRange = function(channel, control, value, status, group) {
     for (var i = 0; i < TriMixxx.RATE_RANGES.length; i++) {
         if (Math.abs(TriMixxx.RATE_RANGES[i] - cur) < 0.001) { idx = i; break; }
     }
-    idx = (idx + 1) % TriMixxx.RATE_RANGES.length;
+    // Owner decision 11: the tempo is kept and the fader catches its new
+    // position. A range too narrow to express the tempo now playing would
+    // leave a fader that can only catch at its end stop, so it is skipped.
+    var deviation = Math.abs(engine.getValue(TriMixxx.DECK, "rate_ratio") - 1);
+    for (var n = 0; n < TriMixxx.RATE_RANGES.length; n++) {
+        idx = (idx + 1) % TriMixxx.RATE_RANGES.length;
+        if (TriMixxx.RATE_RANGES[idx] >= deviation) { break; }
+    }
     engine.setValue(TriMixxx.DECK, "rateRange", TriMixxx.RATE_RANGES[idx]);
 };
 
