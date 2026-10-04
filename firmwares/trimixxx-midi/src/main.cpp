@@ -126,6 +126,10 @@ static void applyRingLed(OneButtonRing& ring, uint8_t maxNodes, const uint8_t* a
     else ring.setLed(node, 1, nib(args + 7), nib(args + 9), nib(args + 11));
 }
 
+// Set by a fader-report SysEx, consumed where the fader is sent. Both run on
+// loop()'s thread (pi.poll() delivers SysEx), so a plain flag is enough.
+static bool tempoReportRequested = false;
+
 static void onSysExFromMixxx(const uint8_t* payload, uint8_t len, void* ctx) {
     if (len < 2 || payload[0] != midimap::SYSEX_MFR_ID) return; // not ours
     const uint8_t  cmd  = payload[1];
@@ -135,6 +139,7 @@ static void onSysExFromMixxx(const uint8_t* payload, uint8_t len, void* ctx) {
     switch (cmd) {
     case midimap::SYSEX_CMD_RING_LED: applyRingLed(ringA, RING_A_NODES, args, n); return;
     case midimap::SYSEX_CMD_RING_B_LED: applyRingLed(ringB, RING_B_NODES, args, n); return;
+    case midimap::SYSEX_CMD_FADER_REPORT: tempoReportRequested = true; return;
     case midimap::SYSEX_CMD_RESET: {
         // Magic-gated so a stray/corrupt SysEx can never reboot the deck mid-set.
         if (n != sizeof(midimap::SYSEX_RESET_MAGIC)) return;
@@ -473,7 +478,10 @@ void loop() {
 
     // ---- tempo fader -> 14-bit absolute CC (MSB + LSB, only on change) ----
     // Polled by tempoPollTask on core 0; here we only consume the latched value.
-    if (tempo.changed()) {
+    // ...or because Mixxx asked where it is (SYSEX_CMD_FADER_REPORT).
+    const bool tempoReport = tempoReportRequested;
+    tempoReportRequested = false;
+    if (tempo.changed() || tempoReport) {
         uint16_t v = tempo.value();                        // 0..16383
         pi.cc(midimap::CC_TEMPO, (uint8_t)(v >> 7));       // high 7 bits (MSB)
         pi.cc(midimap::CC_TEMPO_LSB, (uint8_t)(v & 0x7F)); // low 7 bits (LSB)

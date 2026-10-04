@@ -300,6 +300,7 @@ TriMixxx.init = function(id, debugging) {
     // and when anything else moves it. See "Tempo fader" above.
     TriMixxx.watch("[ProLink]", "following", TriMixxx.onFollowingChanged);
     TriMixxx.watch(TriMixxx.DECK, "rate", TriMixxx.onRateChanged);
+    TriMixxx.requestFaderReport();
 
     // Button LED indicators: connect each deck control to its colour updater.
     TriMixxx.ledConnect("rateRange", TriMixxx.ledTempoRange);
@@ -443,9 +444,18 @@ TriMixxx.onTrackLoaded = function() {
         // Not heard since boot: the firmware only sends on a move. Applied
         // the moment it is, as long as the deck has not started by then.
         TriMixxx.startAtFaderPending = true;
+        TriMixxx.requestFaderReport();
         return;
     }
     TriMixxx.startAtFader();
+};
+
+// Ask the S3 where the fader is (MidiMap.hpp SYSEX_CMD_FADER_REPORT): it is
+// otherwise only sent when it moves, so after a boot Mixxx would not know until
+// the DJ touched it. An older firmware ignores the request, which is the old
+// behaviour: the position arrives with the first move.
+TriMixxx.requestFaderReport = function() {
+    midi.sendSysexMsg([0xF0, 0x7D, 0x04, 0xF7], 4);
 };
 
 TriMixxx.startAtFader = function() {

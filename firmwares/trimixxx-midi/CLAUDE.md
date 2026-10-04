@@ -61,7 +61,7 @@ change both together, no address overlaps.
   50-wide reservation matches ring A even though fewer nodes are populated, so
   growing a ring never renumbers anything.
 - Jog: `CC_JOG` relative 7-bit two's-complement ticks; `NOTE_JOG_TOUCH` = scratch enable.
-- Tempo: 14-bit CC pair — `CC_TEMPO` (MSB) + `CC_TEMPO_LSB` (= MSB+32); Mixxx must bind both as `<fourteen-bit-msb>`/`<lsb>`.
+- Tempo: 14-bit CC pair — `CC_TEMPO` (MSB) + `CC_TEMPO_LSB` (= MSB+32), always both, MSB first. The Mixxx mapping assembles the pair in its script (it owns pickup against SYNC), so the order matters: the LSB completes a pair.
 - Track encoder: `CC_ENCODER` relative (1=up, 127=down) + `NOTE_ENC_SW` press.
 - Play/cue: `NOTE_PLAY` / `NOTE_CUE` press; LED ← incoming Note-On velocity.
 - Loop: `NOTE_LOOP_IN` / `NOTE_LOOP_OUT` / `NOTE_RELOOP` press; LED ← Note-On (reloop has no LED).
@@ -84,6 +84,10 @@ so this layout is purely between the Mixxx mapping and `main.cpp`'s `onSysExFrom
 - **`0x02` reset** — `F0 7D 02 52 53 54 F7` ("RST") reboots the S3 via `esp_restart()`,
   equivalent to the physical RESET button. The magic is **required**: it stops a stray
   or corrupt SysEx from rebooting the deck mid-set, so a bare `F0 7D 02 F7` does nothing.
+- **`0x04` fader report** — `F0 7D 04 F7` sends the tempo fader's current position as
+  the usual MSB/LSB pair, as if it had just moved. The fader is otherwise only sent on a
+  move, so Mixxx asks at mapping init (and on a track load while it still does not know)
+  to start a loaded track at the fader's tempo.
 
 Note-On velocity → white pad brightness still works and is unchanged; SysEx is the
 way to get an actual colour, which a 7-bit velocity cannot express.

@@ -73,4 +73,10 @@ constexpr uint8_t SYSEX_CMD_RING_B_LED = 0x03;
 // mid-set; a bare `F0 7D 02 F7` is ignored.
 constexpr uint8_t SYSEX_CMD_RESET      = 0x02;
 constexpr uint8_t SYSEX_RESET_MAGIC[3] = {0x52, 0x53, 0x54}; // 'R','S','T'
+
+// F0 7D 04 F7 -- send the tempo fader's position now (CC_TEMPO then
+// CC_TEMPO_LSB, as on a move). The fader is otherwise only sent when it moves,
+// so after a boot or a mapping reload Mixxx does not know where it is until it
+// is touched -- and a track loaded then cannot start at the fader's tempo.
+constexpr uint8_t SYSEX_CMD_FADER_REPORT = 0x04;
 } // namespace midimap
