@@ -266,4 +266,445 @@ edit("hw/usb/dev-audio.c",
     return len;
 }""")
 
+# ---- 8. usb-audio can be saved -----------------------------------------------------
+# It was marked unmigratable, which blocks saving the whole machine -- and a
+# saved, booted deck is how pi-qemu starts one in seconds. Its state is small:
+# the USB device, the alternate setting (the stream on or off) and the volume.
+edit("hw/usb/dev-audio.c",
+     """    /* properties */
+    uint32_t debug;
+    uint32_t buffer_user, buffer;
+    bool multi;
+};""",
+     """    uint32_t mig_altset; /* out.altset, for migration */
+
+    /* properties */
+    uint32_t debug;
+    uint32_t buffer_user, buffer;
+    bool multi;
+};""")
+edit("hw/usb/dev-audio.c",
+     """static const VMStateDescription vmstate_usb_audio = {
+    .name = TYPE_USB_AUDIO,
+    .unmigratable = 1,
+};""",
+     """static int usb_audio_pre_save(void *opaque)
+{
+    USBAudioState *s = opaque;
+
+    s->mig_altset = s->out.altset;
+    return 0;
+}
+
+static int usb_audio_post_load(void *opaque, int version_id)
+{
+    USBAudioState *s = opaque;
+
+    /*
+     * The stream as the guest left it, volume and all; the few
+     * milliseconds of samples that were in flight are not kept.
+     */
+    s->out.altset = ALTSET_OFF;
+    usb_audio_set_output_altset(s, s->mig_altset);
+    audio_be_set_volume_out(s->audio_be, s->out.voice, &s->out.vol);
+    return 0;
+}
+
+static const VMStateDescription vmstate_usb_audio = {
+    .name = TYPE_USB_AUDIO,
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .pre_save = usb_audio_pre_save,
+    .post_load = usb_audio_post_load,
+    .fields = (const VMStateField[]) {
+        VMSTATE_USB_DEVICE(dev, USBAudioState),
+        VMSTATE_UINT32(mig_altset, USBAudioState),
+        VMSTATE_BOOL(out.vol.mute, USBAudioState),
+        VMSTATE_UINT8_ARRAY(out.vol.vol, USBAudioState, AUDIO_MAX_CHANNELS),
+        VMSTATE_END_OF_LIST()
+    }
+};""")
+
+# ---- 9. usb-net can be saved -------------------------------------------------------
+# The emulator's management NIC, unmigratable too; same reason as 8.
+edit("hw/usb/dev-network.c",
+     """    enum rndis_state rndis_state;
+    uint32_t medium;""",
+     """    enum rndis_state rndis_state;
+    uint32_t mig_rndis_state; /* rndis_state, for migration */
+    uint32_t medium;""")
+edit("hw/usb/dev-network.c",
+     """static const VMStateDescription vmstate_usb_net = {
+    .name = "usb-net",
+    .unmigratable = 1,
+};""",
+     """static int usb_net_pre_save(void *opaque)
+{
+    USBNetState *s = opaque;
+
+    s->mig_rndis_state = s->rndis_state;
+    return 0;
+}
+
+static int usb_net_post_load(void *opaque, int version_id)
+{
+    USBNetState *s = opaque;
+
+    if (s->out_ptr > sizeof(s->out_buf) || s->in_len > sizeof(s->in_buf) ||
+        s->in_ptr > s->in_len + 1) {
+        return -EINVAL;
+    }
+    s->rndis_state = s->mig_rndis_state;
+    return 0;
+}
+
+/*
+ * The link as the guest set it up, and the frames half-way through the
+ * device. RNDIS control responses not yet collected are not kept: a saved
+ * machine is paused, and the guest asks again.
+ */
+static const VMStateDescription vmstate_usb_net = {
+    .name = "usb-net",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .pre_save = usb_net_pre_save,
+    .post_load = usb_net_post_load,
+    .fields = (const VMStateField[]) {
+        VMSTATE_USB_DEVICE(dev, USBNetState),
+        VMSTATE_UINT32(mig_rndis_state, USBNetState),
+        VMSTATE_UINT32(medium, USBNetState),
+        VMSTATE_UINT32(speed, USBNetState),
+        VMSTATE_UINT32(media_state, USBNetState),
+        VMSTATE_UINT16(filter, USBNetState),
+        VMSTATE_UINT32(vendorid, USBNetState),
+        VMSTATE_UINT16(connection, USBNetState),
+        VMSTATE_UINT32(out_ptr, USBNetState),
+        VMSTATE_BUFFER(out_buf, USBNetState),
+        VMSTATE_UINT32(in_ptr, USBNetState),
+        VMSTATE_UINT32(in_len, USBNetState),
+        VMSTATE_BUFFER(in_buf, USBNetState),
+        VMSTATE_END_OF_LIST()
+    }
+};""")
+
+# ---- 10. qemu-xhci with msix=off can be loaded --------------------------------------
+# Loading a saved machine walked the MSI-X vectors of an xHCI that has none
+# (msix=off, as the Pi's PCIe root needs) and hit an assertion.
+edit("hw/usb/hcd-xhci-pci.c",
+     """    PCIDevice *pci_dev = PCI_DEVICE(s);
+    int intr;
+
+    for (intr = 0; intr < s->xhci.numintrs; intr++) {""",
+     """    PCIDevice *pci_dev = PCI_DEVICE(s);
+    int intr;
+
+    if (!msix_present(pci_dev)) { /* msix=off: no vectors to restore */
+        return 0;
+    }
+    for (intr = 0; intr < s->xhci.numintrs; intr++) {""")
+
+# ---- 11. the PCIe root port is saved --------------------------------------------------
+# It derives from the abstract pcie-root-port, which declares no saved state,
+# so a saved machine silently dropped it: restored, the root port was at power
+# on -- no bus numbers, no windows -- and the xHCI behind it unreachable. The
+# guest's writes to the USB controller went nowhere and Linux declared it dead.
+edit("hw/arm/bcm2838_pcie.c",
+     """#include "hw/arm/bcm2838_pcie.h"
+#include "trace.h"
+""",
+     """#include "hw/arm/bcm2838_pcie.h"
+#include "hw/pci/pcie_aer.h"
+#include "migration/vmstate.h"
+#include "trace.h"
+""")
+edit("hw/arm/bcm2838_pcie.c",
+     """static void bcm2838_pcie_root_class_init(ObjectClass *class, const void *data)
+{""",
+     """/*
+ * What the root port has to keep across a saved machine: its config space --
+ * the bridge's bus numbers and windows, which Linux programs at boot -- and
+ * the Broadcom registers. The abstract pcie-root-port this derives from
+ * declares nothing (only the concrete pcie-root-port does), so a restored
+ * machine came back with a power-on root port and nothing behind it
+ * reachable. Restored before the devices behind it, as pcie-root-port is.
+ */
+static const VMStateDescription vmstate_bcm2838_pcie_root = {
+    .name = "bcm2838-pcie-root",
+    .priority = MIG_PRI_PCI_BUS,
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .post_load = pcie_cap_slot_post_load,
+    .fields = (const VMStateField[]) {
+        VMSTATE_PCI_DEVICE(parent_obj.parent_obj.parent_obj.parent_obj,
+                           BCM2838PcieRootState),
+        VMSTATE_STRUCT(parent_obj.parent_obj.parent_obj.parent_obj.exp.aer_log,
+                       BCM2838PcieRootState, 0, vmstate_pcie_aer_log,
+                       PCIEAERLog),
+        VMSTATE_UINT8_ARRAY(regs, BCM2838PcieRootState,
+                            BCM2838_PCIE_REGS_SIZE - PCIE_CONFIG_SPACE_SIZE),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
+static void bcm2838_pcie_root_class_init(ObjectClass *class, const void *data)
+{""")
+edit("hw/arm/bcm2838_pcie.c",
+     """    dc->desc = "BCM2711 PCIe Bridge";""",
+     """    dc->desc = "BCM2711 PCIe Bridge";
+    dc->vmsd = &vmstate_bcm2838_pcie_root;""")
+
+# ---- 12. GENET is saved ------------------------------------------------------------
+# The deck's CDJ port declared no saved state either: restored, eth0 was at
+# power on under a driver that had set it up.
+edit("hw/net/bcm2838_genet.c",
+     """#include "hw/net/bcm2838_genet.h"
+#include "trace.h"
+""",
+     """#include "hw/net/bcm2838_genet.h"
+#include "migration/vmstate.h"
+#include "trace.h"
+""")
+edit("hw/net/bcm2838_genet.c",
+     """static void bcm2838_genet_class_init(ObjectClass *class, const void *data)
+{
+    DeviceClass *dc = DEVICE_CLASS(class);
+
+    dc->realize = bcm2838_genet_realize;""",
+     """static int bcm2838_genet_post_load(void *opaque, int version_id)
+{
+    BCM2838GenetState *s = opaque;
+
+    /* Frames that arrived while the machine was stopped */
+    qemu_flush_queued_packets(qemu_get_queue(s->nic));
+    return 0;
+}
+
+/*
+ * GENET keeps everything in its register blocks (MAC, DMA rings, PHY and
+ * its shadow registers): plain data, kept as they are. tx_packet and
+ * rx_packet are scratch within one call. Host-endian: a saved machine is
+ * restored on the host that saved it.
+ */
+static const VMStateDescription vmstate_bcm2838_genet = {
+    .name = "bcm2838-genet",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .post_load = bcm2838_genet_post_load,
+    .fields = (const VMStateField[]) {
+        VMSTATE_BUFFER_UNSAFE(regs, BCM2838GenetState, 0,
+                              sizeof(BCM2838GenetRegs)),
+        VMSTATE_BUFFER_UNSAFE(phy_regs, BCM2838GenetState, 0,
+                              sizeof(BCM2838GenetPhyRegs)),
+        VMSTATE_BUFFER_UNSAFE(phy_shd_regs, BCM2838GenetState, 0,
+                              sizeof(BCM2838GenetPhyShdRegs)),
+        VMSTATE_BUFFER_UNSAFE(phy_aux_ctl_shd_regs, BCM2838GenetState, 0,
+                              sizeof(BCM2838GenetPhyAuxShdRegs)),
+        VMSTATE_BUFFER_UNSAFE(phy_exp_shd_regs, BCM2838GenetState, 0,
+                              sizeof(BCM2838GenetPhyExpShdRegs)),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
+static void bcm2838_genet_class_init(ObjectClass *class, const void *data)
+{
+    DeviceClass *dc = DEVICE_CLASS(class);
+
+    dc->realize = bcm2838_genet_realize;
+    dc->vmsd = &vmstate_bcm2838_genet;""")
+
+# ---- 13. a USB device keeps its configuration ---------------------------------------
+# The generic USB device state had the address and the control transfer, not
+# the configuration and alternate settings the guest chose. Upstream's
+# migratable devices never look; usb-net does, and dropped every frame of a
+# restored machine (no dev->config).
+edit("hw/usb/desc.h",
+     """void usb_desc_init(USBDevice *dev);
+void usb_desc_attach(USBDevice *dev);""",
+     """void usb_desc_init(USBDevice *dev);
+void usb_desc_attach(USBDevice *dev);
+int usb_desc_post_load(USBDevice *dev);""")
+edit("hw/usb/desc.c",
+     """static int usb_desc_set_config(USBDevice *dev, int value)
+{""",
+     """/*
+ * After loading a saved machine: dev->configuration and dev->altsetting[]
+ * came back with it; point the device at those descriptors and rebuild its
+ * endpoints. The device model is not told -- its own state came back too.
+ */
+int usb_desc_post_load(USBDevice *dev)
+{
+    int i;
+
+    if (!dev->device) {
+        return 0;
+    }
+    dev->config = NULL;
+    dev->ninterfaces = 0;
+    if (dev->configuration) {
+        for (i = 0; i < dev->device->bNumConfigurations; i++) {
+            if (dev->device->confs[i].bConfigurationValue ==
+                dev->configuration) {
+                dev->config = dev->device->confs + i;
+                dev->ninterfaces = dev->config->bNumInterfaces;
+            }
+        }
+        if (!dev->config || dev->ninterfaces > USB_MAX_INTERFACES) {
+            return -EINVAL;
+        }
+    }
+    for (i = 0; i < USB_MAX_INTERFACES; i++) {
+        dev->ifaces[i] = NULL;
+        if (i < dev->ninterfaces) {
+            dev->ifaces[i] = usb_desc_find_interface(dev, i,
+                                                     dev->altsetting[i]);
+            if (!dev->ifaces[i]) {
+                return -EINVAL;
+            }
+        }
+    }
+    usb_desc_ep_init(dev);
+    return 0;
+}
+
+static int usb_desc_set_config(USBDevice *dev, int value)
+{""")
+edit("hw/usb/bus.c",
+     """#include "migration/vmstate.h"
+""",
+     """#include "migration/vmstate.h"
+#include "desc.h"
+""")
+edit("hw/usb/bus.c",
+     """const VMStateDescription vmstate_usb_device = {
+    .name = "USBDevice",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .post_load = usb_device_post_load,
+    .fields = (const VMStateField[]) {
+        VMSTATE_UINT8(addr, USBDevice),
+        VMSTATE_INT32(state, USBDevice),
+        VMSTATE_INT32(remote_wakeup, USBDevice),
+        VMSTATE_INT32(setup_state, USBDevice),
+        VMSTATE_INT32(setup_len, USBDevice),
+        VMSTATE_INT32(setup_index, USBDevice),
+        VMSTATE_UINT8_ARRAY(setup_buf, USBDevice, 8),
+        VMSTATE_END_OF_LIST(),
+    }
+};""",
+     """static bool usb_device_desc_needed(void *opaque)
+{
+    USBDevice *dev = opaque;
+
+    return dev->configuration != 0;
+}
+
+static int usb_device_desc_post_load(void *opaque, int version_id)
+{
+    return usb_desc_post_load(opaque);
+}
+
+/*
+ * The configuration and alternate settings the guest chose. Without them a
+ * restored device is unconfigured under a driver that configured it: usb-net
+ * then drops every frame (no dev->config), and endpoints lose their types.
+ */
+static const VMStateDescription vmstate_usb_device_desc = {
+    .name = "USBDevice/desc",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = usb_device_desc_needed,
+    .post_load = usb_device_desc_post_load,
+    .fields = (const VMStateField[]) {
+        VMSTATE_INT32(configuration, USBDevice),
+        VMSTATE_INT32_ARRAY(altsetting, USBDevice, USB_MAX_INTERFACES),
+        VMSTATE_END_OF_LIST(),
+    }
+};
+
+const VMStateDescription vmstate_usb_device = {
+    .name = "USBDevice",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .post_load = usb_device_post_load,
+    .fields = (const VMStateField[]) {
+        VMSTATE_UINT8(addr, USBDevice),
+        VMSTATE_INT32(state, USBDevice),
+        VMSTATE_INT32(remote_wakeup, USBDevice),
+        VMSTATE_INT32(setup_state, USBDevice),
+        VMSTATE_INT32(setup_len, USBDevice),
+        VMSTATE_INT32(setup_index, USBDevice),
+        VMSTATE_UINT8_ARRAY(setup_buf, USBDevice, 8),
+        VMSTATE_END_OF_LIST(),
+    },
+    .subsections = (const VMStateDescription * const []) {
+        &vmstate_usb_device_desc,
+        NULL
+    }
+};""")
+
+# ---- 14. the SD card at the Mac's speed ------------------------------------------
+# ADMA did 5 descriptors (typically 5 x 4 KiB) per round, then waited on a
+# 100 ns timer -- which macOS's main loop serves in milliseconds: ~4 MB/s, a
+# tenth of a real card. Nothing about a real card is modelled by it; it only
+# keeps one huge transfer from starving the main loop, which 512 still does.
+edit("hw/sd/sdhci-internal.h",
+     """#define SDHC_ADMA_DESCS_PER_DELAY       5""",
+     """#define SDHC_ADMA_DESCS_PER_DELAY       512""")
+
+# ---- 15. the SD card reads ahead and gathers writes ---------------------------------
+# The card model read and wrote the image one 512-byte block per blk_pread()/
+# blk_pwrite(), each a thread-pool round trip: ~5 MB/s whatever the transfer.
+# It reads 256 KiB ahead now, and gathers consecutive written blocks into one
+# write that reaches the image before the next command and whenever the
+# machine stops (a save, a power-off, quit).
+edit("hw/sd/sd.c",
+     '#include "qemu/module.h"\n#include "sdmmc-internal.h"',
+     '#include "qemu/module.h"\n#include "system/runstate.h"\n#include "sdmmc-internal.h"')
+edit("hw/sd/sd.c",
+     '    QEMUTimer *ocr_power_timer;\n    uint8_t dat_lines;\n    bool cmd_line;\n    char *preset_auth_key;\n};',
+     '    QEMUTimer *ocr_power_timer;\n    uint8_t dat_lines;\n    bool cmd_line;\n    char *preset_auth_key;\n\n    /*\n     * The image in big pieces: read ahead, and consecutive written blocks\n     * gathered into one write. One blk_pread()/blk_pwrite() per 512-byte\n     * block -- a thread-pool round trip each -- made the card a few MB/s.\n     * Gathered blocks reach the image before the next command is handled\n     * and whenever the machine stops, so the guest never sees the difference.\n     */\n    uint8_t *ra_buf;            /* SD_IO_CHUNK bytes; ra_len valid from ra_start */\n    uint64_t ra_start;\n    uint32_t ra_len;\n    uint8_t *wb_buf;            /* written blocks not yet in the image */\n    uint64_t wb_start;\n    uint32_t wb_len;\n    VMChangeStateEntry *vmstate_change;\n};\n\n#define SD_IO_CHUNK (256 * KiB)')
+edit("hw/sd/sd.c",
+     'static void sd_blk_read(SDState *sd, uint64_t addr, uint32_t len)\n{\n    trace_sdcard_read_block(addr, len);\n    addr += sd_part_offset(sd);\n    if (!sd->blk || blk_pread(sd->blk, addr, len, sd->data, 0) < 0) {\n        fprintf(stderr, "sd_blk_read: read error on host side\\n");\n    }\n}\n\nstatic void sd_blk_write(SDState *sd, uint64_t addr, uint32_t len)\n{\n    trace_sdcard_write_block(addr, len);\n    addr += sd_part_offset(sd);\n    if (!sd->blk || blk_pwrite(sd->blk, addr, len, sd->data, 0) < 0) {\n        fprintf(stderr, "sd_blk_write: write error on host side\\n");\n    }\n}\n\n/* Erase [addr, addr + len): erased blocks read as zeroes */\nstatic void sd_blk_erase(SDState *sd, uint64_t addr, uint64_t len)\n{\n    addr += sd_part_offset(sd);\n    if (!sd->blk ||',
+     '/* The gathered blocks into the image (host addresses, partition included) */\nstatic void sd_wb_flush(SDState *sd)\n{\n    if (!sd->wb_len) {\n        return;\n    }\n    if (!sd->blk ||\n        blk_pwrite(sd->blk, sd->wb_start, sd->wb_len, sd->wb_buf, 0) < 0) {\n        fprintf(stderr, "sd_blk_write: write error on host side\\n");\n    }\n    sd->wb_len = 0;\n}\n\n/* What is read ahead of [addr, addr + len) no longer matches the image */\nstatic void sd_ra_drop(SDState *sd, uint64_t addr, uint64_t len)\n{\n    if (sd->ra_len && addr < sd->ra_start + sd->ra_len &&\n        addr + len > sd->ra_start) {\n        sd->ra_len = 0;\n    }\n}\n\nstatic void sd_vm_state_change(void *opaque, bool running, RunState state)\n{\n    if (!running) {\n        sd_wb_flush(opaque);\n    }\n}\n\nstatic void sd_blk_read(SDState *sd, uint64_t addr, uint32_t len)\n{\n    trace_sdcard_read_block(addr, len);\n    addr += sd_part_offset(sd);\n    sd_wb_flush(sd);\n    if (sd->blk && len <= SD_IO_CHUNK) {\n        if (!(sd->ra_len && addr >= sd->ra_start &&\n              addr + len <= sd->ra_start + sd->ra_len)) {\n            int64_t end = blk_getlength(sd->blk);\n            uint64_t n = end > (int64_t)addr ? MIN(SD_IO_CHUNK, end - addr) : 0;\n\n            sd->ra_len = 0;\n            if (n >= len && blk_pread(sd->blk, addr, n, sd->ra_buf, 0) >= 0) {\n                sd->ra_start = addr;\n                sd->ra_len = n;\n            }\n        }\n        if (sd->ra_len) {\n            memcpy(sd->data, sd->ra_buf + (addr - sd->ra_start), len);\n            return;\n        }\n    }\n    if (!sd->blk || blk_pread(sd->blk, addr, len, sd->data, 0) < 0) {\n        fprintf(stderr, "sd_blk_read: read error on host side\\n");\n    }\n}\n\nstatic void sd_blk_write(SDState *sd, uint64_t addr, uint32_t len)\n{\n    trace_sdcard_write_block(addr, len);\n    addr += sd_part_offset(sd);\n    sd_ra_drop(sd, addr, len);\n    if (sd->blk && len <= SD_IO_CHUNK) {\n        if (sd->wb_len && (addr != sd->wb_start + sd->wb_len ||\n                           sd->wb_len + len > SD_IO_CHUNK)) {\n            sd_wb_flush(sd);\n        }\n        if (!sd->wb_len) {\n            sd->wb_start = addr;\n        }\n        memcpy(sd->wb_buf + sd->wb_len, sd->data, len);\n        sd->wb_len += len;\n        return;\n    }\n    if (!sd->blk || blk_pwrite(sd->blk, addr, len, sd->data, 0) < 0) {\n        fprintf(stderr, "sd_blk_write: write error on host side\\n");\n    }\n}\n\n/* Erase [addr, addr + len): erased blocks read as zeroes */\nstatic void sd_blk_erase(SDState *sd, uint64_t addr, uint64_t len)\n{\n    addr += sd_part_offset(sd);\n    sd_wb_flush(sd);\n    sd_ra_drop(sd, addr, len);\n    if (!sd->blk ||')
+edit("hw/sd/sd.c",
+     '        addr = lduw_be_p(&frame->address) * RPMB_DATA_LEN + sd_part_offset(sd);\n        if (blk_pwrite(sd->blk, addr, RPMB_DATA_LEN, frame->data, 0) < 0) {',
+     '        addr = lduw_be_p(&frame->address) * RPMB_DATA_LEN + sd_part_offset(sd);\n        sd_ra_drop(sd, addr, RPMB_DATA_LEN);\n        if (blk_pwrite(sd->blk, addr, RPMB_DATA_LEN, frame->data, 0) < 0) {')
+edit("hw/sd/sd.c",
+     '    int last_state;\n    sd_rsp_type_t rtype;\n    int rsplen;\n\n    if (!sd->blk || !blk_is_inserted(sd->blk)) {\n        return 0;\n    }',
+     '    int last_state;\n    sd_rsp_type_t rtype;\n    int rsplen;\n\n    /* Every command sees the image as the guest last wrote it */\n    sd_wb_flush(sd);\n    if (!sd->blk || !blk_is_inserted(sd->blk)) {\n        return 0;\n    }')
+edit("hw/sd/sd.c",
+     '    sd->proto = sc->proto;\n    sd->last_cmd_name = "UNSET";\n    sd->ocr_power_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, sd_ocr_powerup, sd);\n}\n\nstatic void sd_instance_finalize(Object *obj)\n{\n    SDState *sd = SDMMC_COMMON(obj);\n\n    timer_free(sd->ocr_power_timer);\n}',
+     '    sd->proto = sc->proto;\n    sd->last_cmd_name = "UNSET";\n    sd->ocr_power_timer = timer_new_ns(QEMU_CLOCK_VIRTUAL, sd_ocr_powerup, sd);\n    sd->ra_buf = g_malloc(SD_IO_CHUNK);\n    sd->wb_buf = g_malloc(SD_IO_CHUNK);\n    /* gathered writes reach the image whenever the machine stops */\n    sd->vmstate_change = qemu_add_vm_change_state_handler(sd_vm_state_change, sd);\n}\n\nstatic void sd_instance_finalize(Object *obj)\n{\n    SDState *sd = SDMMC_COMMON(obj);\n\n    qemu_del_vm_change_state_handler(sd->vmstate_change);\n    sd_wb_flush(sd);\n    g_free(sd->ra_buf);\n    g_free(sd->wb_buf);\n    timer_free(sd->ocr_power_timer);\n}')
+
+# ---- 16. the SD card moves a block per call ---------------------------------------
+# Multi-block reads and writes (CMD18, CMD25) went one byte per call, each with
+# the state checks, a block-layer media check and a trace check again: about
+# 75 us a 512-byte block, a few MB/s however the image is read. They move the
+# rest of the current block per call now; the callers already loop for more.
+edit("hw/sd/sd.c",
+     '    case 18:  /* CMD18:  READ_MULTIPLE_BLOCK */\n        /*\n         * We will only read one byte at a time. We will be called again with\n         * the remaining buffer.\n         */\n        length = 1;\n\n        if (sd->data_offset == 0) {\n            if (!address_in_range(sd, "READ_MULTIPLE_BLOCK",\n                                  sd->data_start, io_len)) {\n                *value = dummy_byte;\n                return length;\n            }',
+     '    case 18:  /* CMD18:  READ_MULTIPLE_BLOCK */\n        /*\n         * At most the rest of this block; we will be called again with the\n         * remaining buffer. (It was one byte per call, ~75 us a block.)\n         */\n        if (sd->data_offset == 0) {\n            if (!address_in_range(sd, "READ_MULTIPLE_BLOCK",\n                                  sd->data_start, io_len)) {\n                *value = dummy_byte;\n                return 1;\n            }')
+edit("hw/sd/sd.c",
+     '        *value = sd->data[sd->data_offset++];\n\n        if (sd->data_offset >= io_len) {\n            sd->data_start += io_len;',
+     '        length = MIN(length, io_len - sd->data_offset);\n        memcpy(value, sd->data + sd->data_offset, length);\n        sd->data_offset += length;\n\n        if (sd->data_offset >= io_len) {\n            sd->data_start += io_len;')
+edit("hw/sd/sd.c",
+     '    case 25:  /* CMD25:  WRITE_MULTIPLE_BLOCK */\n        /*\n         * Only read one byte at a time. We will be called again with the\n         * remaining.\n         */\n        length = 1;\n\n        if (sd->data_offset == 0) {',
+     '    case 25:  /* CMD25:  WRITE_MULTIPLE_BLOCK */\n        /*\n         * At most the rest of this block; we will be called again with the\n         * remaining. (It was one byte per call.)\n         */\n        if (sd->data_offset == 0) {')
+edit("hw/sd/sd.c",
+     '        sd->data[sd->data_offset++] = value[0];\n        if (sd->data_offset >= sd->blk_len) {',
+     '        length = MIN(length, sd->blk_len - sd->data_offset);\n        memcpy(sd->data + sd->data_offset, value, length);\n        sd->data_offset += length;\n        if (sd->data_offset >= sd->blk_len) {')
+
+# ---- 17. a WAV recording is valid while it is made -------------------------------
+# The header's lengths were written only at teardown, which QEMU skips at exit:
+# every --audio wav: file said it held nothing, and Python's wave refused it.
+edit("audio/wavaudio.c",
+     'static size_t wav_write_out(HWVoiceOut *hw, void *buf, size_t len)\n{\n    WAVVoiceOut *wav = (WAVVoiceOut *) hw;',
+     'static void wav_store_lengths(WAVVoiceOut *wav);\n\nstatic size_t wav_write_out(HWVoiceOut *hw, void *buf, size_t len)\n{\n    WAVVoiceOut *wav = (WAVVoiceOut *) hw;')
+edit("audio/wavaudio.c",
+     '    wav->total_samples += bytes / hw->info.bytes_per_frame;\n    return bytes;\n}',
+     '    wav->total_samples += bytes / hw->info.bytes_per_frame;\n    if (bytes) {\n        wav_store_lengths(wav);\n    }\n    return bytes;\n}')
+edit("audio/wavaudio.c",
+     'static int wav_init_out(HWVoiceOut *hw, struct audsettings *as)',
+     '/*\n * The RIFF and data lengths in the header, kept right after every write: the\n * file is a valid WAV at every moment. They used to be written only by\n * wav_fini_out(), which QEMU does not run at exit -- the WAV of any run that\n * ended said it held nothing.\n */\nstatic void wav_store_lengths(WAVVoiceOut *wav)\n{\n    uint8_t len[4];\n    uint32_t datalen = wav->total_samples * wav->hw.info.bytes_per_frame;\n\n    le_store(len, datalen + 36, 4);\n    if (fseek(wav->f, 4, SEEK_SET) || fwrite(len, 4, 1, wav->f) != 1) {\n        goto out;\n    }\n    le_store(len, datalen, 4);\n    if (fseek(wav->f, 40, SEEK_SET) || fwrite(len, 4, 1, wav->f) != 1) {\n        goto out;\n    }\nout:\n    if (fseek(wav->f, 0, SEEK_END)) {\n        error_report("wav: fseek to the end failed: %s", strerror(errno));\n    }\n}\n\nstatic int wav_init_out(HWVoiceOut *hw, struct audsettings *as)')
+
 print("trimixxx-patches: applied")

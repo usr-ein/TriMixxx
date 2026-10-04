@@ -19,7 +19,7 @@ class Control : public QObject {
     Q_OBJECT
 public:
     Control(Machine* m, S3* s3, Sticks* sticks, const Wiring* wiring, QObject* parent = nullptr);
-    bool listen(const QString& path, QString* error);
+    bool listen(const QString& path, bool claimCurrent, QString* error); // claimCurrent: ~/.pi-qemu/current
     static QString help();
 
 signals:

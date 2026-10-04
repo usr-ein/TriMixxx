@@ -22,6 +22,7 @@ struct MachineOptions {
     int     fbWidth = 1280, fbHeight = 800, fbDepth = 16;
     int     sshPort = 2222;
     QStringList sticks;         // image files plugged in at power-on
+    QString restore;            // a saved machine (pi-qemu save) to start from, once
 };
 
 class Machine : public QObject {
@@ -40,6 +41,11 @@ public:
     using Reply = std::function<void(const QJsonObject& reply)>;
     void qmp(const QString& command, const QJsonObject& args = {}, Reply done = {});
 
+    // Pause the Pi, write the whole machine to `file`, and stop QEMU: the Pi
+    // is then off, and its card and `file` belong together (run --restore).
+    using Done = std::function<void(bool ok, const QString& message)>;
+    void save(const QString& file, Done done);
+
 signals:
     void status(const QString& line); // human-readable, for the window and the terminal
     void poweredOff();
@@ -48,6 +54,8 @@ private:
     void onFinished();
     void connectQmp();
     void onQmpBytes();
+    void finishRestore(int tries);
+    void pollMigration(int tries, Done done);
 
     MachineOptions m_o;
     QProcess       m_proc;
@@ -57,4 +65,8 @@ private:
     QString        m_shutdownReason;
     bool           m_qmpReady = false;
     bool           m_stopping = false;
+    bool           m_restoring = false;  // QEMU is loading m_o.restore
+    bool           m_restoreUsed = false; // only the first power-on restores
+    QString        m_savedTo;            // QEMU stopped after saving the machine here
+    qint64         m_startMs = 0;
 };

@@ -17,6 +17,9 @@
 # deck's panelOverlay, and this script's base-stage section. REBUILD_BASE=1
 # makes it again anyway.
 #
+# For trimixxx0 the build ends by refreshing the golden snapshot (instance.sh
+# golden): agents' emulated decks restore it rather than boot.
+#
 # The emulated deck is SILENT the whole time (pi-qemu's default), and has no
 # window: watch it with `pi-qemu screenshot FILE.png` if you want to. The deck
 # itself is set up by ../deploy.sh, the same script that updates a real deck.
@@ -47,7 +50,7 @@ command -v mcopy >/dev/null || { echo "mtools missing: brew install mtools" >&2;
 docker info >/dev/null 2>&1 || { echo "Docker is not running" >&2; exit 1; }
 # Docker Desktop's VM disk fills with Mixxx builds; a full one fails the build
 # half-way. Stop here instead of pruning anything: that is the user's call.
-free_gb="$(docker run --rm --pull never debian:trixie df -BG --output=avail / 2>/dev/null | tail -1 | tr -dc 0-9 || echo 0)"
+free_gb="$(docker run --rm --pull missing debian:trixie df -BG --output=avail / 2>/dev/null | tail -1 | tr -dc 0-9 || echo 0)"
 if [ "${free_gb:-0}" -lt 6 ]; then
     echo "Docker's disk has ${free_gb:-?} GB free; the Mixxx build needs ~6. Free some first." >&2
     exit 1
@@ -242,5 +245,13 @@ ssh "$HOST" 'echo "serial0 -> $(readlink -f /dev/serial0)"'
 say "sealing: cloud-init off, caches cleared, power off"
 ssh "$HOST" 'sudo touch /etc/cloud/cloud-init.disabled && sudo apt-get clean' || true
 stop_pi
+
+# ---- golden snapshot -----------------------------------------------------------------
+# The emulated deck's card, booted until Mixxx plays and saved with its whole
+# machine: what every agent's instance (instance.sh up) starts from, in seconds.
+if [ "$DECK" = trimixxx0 ]; then
+    say "golden snapshot: the deck agents' instances start from"
+    "$PIQ/instance.sh" golden "$CARD"
+fi
 say "done: $CARD"
 echo "run it:  $PIQ/app/build/pi-qemu run $CARD"

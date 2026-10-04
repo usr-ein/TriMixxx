@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Build the QEMU that emulates the deck: upstream QEMU, rpi-qemu's raspi4b
 # patch series (GENET, PCIe root complex, firmware fix-ups, watchdog, ...), then
-# ours (trimixxx-patches.py: HVF, working PCIe/xHCI, SD DMA, full RAM).
+# ours (trimixxx-patches.py: HVF, working PCIe/xHCI, SD DMA, full RAM, the
+# deck's DAC and its 44.1 kHz, and every device saved, for snapshots).
 #
 #   ./build.sh            -> .build/qemu-<ver>/build/qemu-system-aarch64
 #

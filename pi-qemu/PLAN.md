@@ -130,8 +130,24 @@ Carried in `qemu/trimixxx-patches.py`, each small:
 |---|---|---|
 | Q1 | 4 GiB board (revision `c03115`, the firmware's memory layout) | the deck has 4 GiB |
 | Q2 | Reboot partition and `tryboot` flag visible over QMP | A/B updates in the emulator (§4.5) |
-| Q3 | USB audio presented as the UCA222 (TI PCM2902, "USB Audio CODEC", 44.1/48 kHz) | `soundconfig.xml` then matches unchanged: Mixxx keys the device by name, and QEMU's device is 48 kHz only |
-| Q4 | Faster SD reads (multi-block) | ~6 MB/s today; apt and big copies are slow |
+Done (patches 7–16):
+
+- **Q3, the UCA222.** usb-audio names itself "USB Audio CODEC", runs at
+  44.1 kHz, and takes the 44- and 45-frame packets that rate sends. It used to
+  drop them silently. `soundconfig.xml` works unchanged.
+- **Snapshots** (`pi-qemu save FILE`, `run --restore FILE`): a deck restores
+  in about 3–4 s against about 50 s for a boot. That needed saved state for:
+  - usb-audio and usb-net, which were marked unmigratable;
+  - the PCIe root port and GENET, which silently had none, so a restored Pi
+    lost its USB controller;
+  - a USB device's chosen configuration;
+
+  plus loading an xHCI that has no MSI-X. Agents' instances start from the
+  golden snapshot (`instance.sh`, README.md).
+- **Q4, a fast SD card.** It went ~4 MB/s → ~800 MB/s read and ~400 MB/s
+  write. Multi-block transfers moved one byte per call; the image was accessed
+  one 512-byte block at a time; ADMA ran 5 descriptors per main-loop round.
+  This took a boot from ~50 s to ~5 s.
 
 Then offer the PCIe, SD, RAM and HVF fixes to rpi-qemu, so there is less to
 carry. Portability: the build links Homebrew libraries, so `pack` bundles them

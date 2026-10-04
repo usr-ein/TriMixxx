@@ -35,6 +35,10 @@ done
 
 say() { printf '\n==> [%s] %s: %s\n' "$(date +%H:%M:%S)" "$HOST" "$*"; }
 reboot_needed=0
+# Mixxx opens the deck's MIDI port (ttymidi's) once, at start, and never again:
+# a step that restarts the bridge leaves the running Mixxx deaf to the S3 until
+# the session restarts. Steps that restart the session themselves clear this.
+session_stale=0
 
 DECK="$(ssh -o ConnectTimeout=10 "$HOST" hostname)" || { echo "cannot reach $HOST" >&2; exit 1; }
 UNIT="$REPO/mixxx_config/units/$DECK.json"
@@ -57,10 +61,12 @@ for step in "${STEPS[@]}"; do
         else
             make -C "$REPO/mixxx_config/ttymidi" install-remote HOST="$HOST" SERVICE=
         fi
+        session_stale=1
         ;;
     system)
         say "system (pi_config/upload.sh)"
         HOST="$HOST" "$REPO/pi_config/upload.sh"
+        session_stale=1
         ;;
     launcher)
         say "launcher"
@@ -69,11 +75,13 @@ for step in "${STEPS[@]}"; do
     mixxx)
         say "Mixxx fork"
         HOST="$HOST" "$REPO/mixxx/upload.sh"
+        session_stale=0
         ;;
     config)
         say "Mixxx config (mixxx_config/upload.sh)"
         ssh "$HOST" 'mkdir -p ~/Music ~/.mixxx'
         (cd "$REPO/mixxx_config" && HOST="$HOST" ./upload.sh)
+        session_stale=0
         ;;
     library)
         # Mixxx asks "Choose music library directory" at every start until its
@@ -97,6 +105,11 @@ for step in "${STEPS[@]}"; do
         ;;
     esac
 done
+
+if [ "$session_stale" = 1 ]; then
+    say "restarting the session: the MIDI bridge restarted, and Mixxx only opens it at start"
+    ssh "$HOST" 'sudo systemctl restart getty@tty1.service'
+fi
 
 say "done"
 [ "$reboot_needed" = 1 ] && echo "The boot flags changed: they apply from $HOST's next reboot (ssh $HOST sudo reboot)."

@@ -3,8 +3,10 @@
 #include "card.h"
 #include "firmware.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QJsonDocument>
 #include <QTimer>
 
@@ -100,14 +102,31 @@ bool Machine::powerOn(QString* error) {
     }
     if (m_o.display == "window") a << "-display" << "cocoa,zoom-to-fit=on";
     else a << "-display" << "none";
-    if (m_o.display != "none") a << "-vnc" << "127.0.0.1:1";
+    // The first free VNC display from :1, so decks running side by side all get one.
+    if (m_o.display != "none") a << "-vnc" << "127.0.0.1:1,to=99";
     for (int i = 0; i < m_o.sticks.size(); i++)
         a << "-drive" << QString("if=none,id=boot%1,format=raw,readonly=on,file=%2").arg(i).arg(m_o.sticks[i])
           << "-device" << QString("usb-storage,bus=xhci.0,drive=boot%1,id=bootstick%1").arg(i);
 
+    // A saved machine instead of a boot: the same machine and devices, its RAM
+    // and device state from the file. Only on the first power-on -- a reboot
+    // after it reads the card like any other.
+    m_restoring = false;
+    if (!m_o.restore.isEmpty() && !m_restoreUsed) {
+        if (!QFileInfo::exists(m_o.restore)) {
+            *error = m_o.restore + ": no such saved machine";
+            return false;
+        }
+        a << "-incoming" << "file:" + QFileInfo(m_o.restore).absoluteFilePath();
+        m_restoring = m_restoreUsed = true;
+        emit status("restoring " + m_o.restore);
+    }
+
     QFile::remove(QDir(m_o.runDir).filePath("qmp.sock"));
     m_shutdownReason.clear();
+    m_savedTo.clear();
     m_qmpReady = false;
+    m_startMs = QDateTime::currentMSecsSinceEpoch();
     m_proc.setProgram(m_o.qemu);
     m_proc.setArguments(a);
     QFile cmd(QDir(m_o.runDir).filePath("qemu.cmd")); // the exact command, to rerun by hand
@@ -137,7 +156,9 @@ void Machine::onFinished() {
     m_qmp.abort();
     while (!m_pending.isEmpty()) m_pending.dequeue();
     if (m_stopping) return;
-    if (m_shutdownReason == "guest-reset") {
+    if (!m_savedTo.isEmpty()) {
+        emit status("saved to " + m_savedTo + "; the Pi is off");
+    } else if (m_shutdownReason == "guest-reset") {
         emit status("the Pi rebooted; reading the card again");
         QString err;
         if (powerOn(&err)) return;
@@ -164,7 +185,61 @@ void Machine::connectQmp() {
     }
     // The greeting comes first; capabilities negotiation is the first command.
     m_qmp.write("{\"execute\":\"qmp_capabilities\"}\n");
-    m_pending.enqueue([this](const QJsonObject&) { m_qmpReady = true; });
+    m_pending.enqueue([this](const QJsonObject&) {
+        m_qmpReady = true;
+        if (m_restoring) finishRestore(0);
+    });
+}
+
+// The saved machine loads paused (it was saved paused): wait for the load,
+// then let it run.
+void Machine::finishRestore(int tries) {
+    qmp("query-status", {}, [this, tries](const QJsonObject& r) {
+        const QString st = r["return"].toObject()["status"].toString();
+        if (st == "paused" || st == "running") {
+            if (st == "paused") qmp("cont");
+            m_restoring = false;
+            emit status(QString("restored in %1 s").arg((QDateTime::currentMSecsSinceEpoch() - m_startMs) / 1000.0, 0, 'f', 1));
+        } else if (tries < 600 && running()) {
+            QTimer::singleShot(100, this, [this, tries] { finishRestore(tries + 1); });
+        } else if (running()) {
+            emit status("the saved machine did not load (" + st + "): see qemu.log");
+        }
+    });
+}
+
+void Machine::save(const QString& file, Done done) {
+    if (!running() || !m_qmpReady) { done(false, "the Pi is not running"); return; }
+    if (m_restoring) { done(false, "still restoring"); return; }
+    const QString path = QFileInfo(file).absoluteFilePath();
+    QFile::remove(path);
+    qmp("stop", {}, [this, path, done](const QJsonObject& r) {
+        if (r.contains("error")) { done(false, r["error"].toObject()["desc"].toString()); return; }
+        qmp("migrate", QJsonObject{{"uri", "file:" + path}}, [this, path, done](const QJsonObject& r) {
+            if (r.contains("error")) {
+                qmp("cont");
+                done(false, r["error"].toObject()["desc"].toString());
+                return;
+            }
+            pollMigration(0, [this, path, done](bool ok, const QString& msg) {
+                if (!ok) { qmp("cont"); done(false, msg); return; }
+                m_savedTo = path;
+                qmp("quit");
+                done(true, "saved to " + path + "; the Pi is off");
+            });
+        });
+    });
+}
+
+void Machine::pollMigration(int tries, Done done) {
+    qmp("query-migrate", {}, [this, tries, done](const QJsonObject& r) {
+        const QJsonObject m = r["return"].toObject();
+        const QString st = m["status"].toString();
+        if (st == "completed") done(true, {});
+        else if (st == "failed" || st == "cancelled") done(false, "saving failed: " + m["error-desc"].toString());
+        else if (tries > 1200 || !running()) done(false, "saving did not finish");
+        else QTimer::singleShot(100, this, [this, tries, done] { pollMigration(tries + 1, done); });
+    });
 }
 
 void Machine::qmp(const QString& command, const QJsonObject& args, Reply done) {

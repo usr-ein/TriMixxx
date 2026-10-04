@@ -31,6 +31,7 @@ constexpr Step kSteps[] = {
     {"Music library directory", "music library directory"},
     {"Doom", ": Doom"},
     {"Seal and power off", "sealing"},
+    {"Golden snapshot for agents", "golden snapshot"},
 };
 constexpr int kStepCount = int(sizeof(kSteps) / sizeof(kSteps[0]));
 

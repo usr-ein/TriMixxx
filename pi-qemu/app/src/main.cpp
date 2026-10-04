@@ -19,6 +19,7 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
+#include <QTcpServer>
 #include <QTextStream>
 #include <QTimer>
 
@@ -67,7 +68,8 @@ int run(int argc, char** argv) {
     QCommandLineOption audio("audio", "none | speakers | wav:FILE  (none is silent)", "mode", "none");
     QCommandLineOption mac("mac", "eth0's MAC, written into the device tree", "mac", "02:54:4d:58:00:00");
     QCommandLineOption panel("panel", "framebuffer WIDTHxHEIGHTxDEPTH, the deck's panel", "geometry", "1280x800x16");
-    QCommandLineOption ssh("ssh", "host port for the Pi's ssh, on 127.0.0.1", "port", "2222");
+    QCommandLineOption ssh("ssh", "host port for the Pi's ssh, on 127.0.0.1 (default 2222; "
+                                  "with --private, a free one, written to <run dir>/ssh.port)", "port");
     QCommandLineOption net("net", "user | restricted | none", "mode", "user");
     QCommandLineOption accel("accel", "hvf (fast) | tcg (a real Cortex-A72 model, slow)", "accel", "hvf");
     QCommandLineOption serialLog("serial-log", "the S3's UART to this file instead (debugging)", "file");
@@ -75,9 +77,13 @@ int run(int argc, char** argv) {
     QCommandLineOption sticksDir("sticks", "folder of USB stick images (*.img) to offer", "dir",
                                  repoDir() + "/.cache/sticks");
     QCommandLineOption noControls("no-controls", "no controls window: the command line only");
+    QCommandLineOption restore("restore", "start from a saved machine (pi-qemu save FILE), not a boot; "
+                                          "the card must be the one it was saved with", "file");
+    QCommandLineOption privateRun("private", "leave ~/.pi-qemu/current alone: drive this deck with "
+                                             "PI_QEMU_CONTROL=<run dir>/control.sock (parallel decks)");
     QCommandLineOption tools("tools", "directory with qemu-system-aarch64 and dtmerge", "dir",
                              repoDir() + "/qemu/.build/bin");
-    p.addOptions({deck, display, audio, mac, panel, ssh, net, accel, serialLog, stick, sticksDir, noControls, tools});
+    p.addOptions({deck, display, audio, mac, panel, ssh, net, accel, serialLog, stick, sticksDir, noControls, privateRun, restore, tools});
     p.process(app);
     if (p.positionalArguments().size() != 2) p.showHelp(2);
 
@@ -94,7 +100,22 @@ int run(int argc, char** argv) {
     o.accel = p.value(accel);
     o.serialLog = p.value(serialLog);
     o.sticks = p.values(stick);
-    o.sshPort = p.value(ssh).toInt();
+    if (p.isSet(restore)) o.restore = QFileInfo(p.value(restore)).absoluteFilePath();
+    if (p.isSet(ssh)) {
+        o.sshPort = p.value(ssh).toInt();
+    } else if (p.isSet(privateRun)) {
+        // A deck of its own: any free port, for the asking. Taken from the
+        // kernel and let go just before QEMU binds it.
+        QTcpServer probe;
+        if (!probe.listen(QHostAddress::LocalHost, 0)) { fprintf(stderr, "pi-qemu: no free port\n"); return 1; }
+        o.sshPort = probe.serverPort();
+    } else {
+        o.sshPort = 2222;
+    }
+    {
+        QFile portFile(o.runDir + "/ssh.port");
+        if (portFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) portFile.write(QByteArray::number(o.sshPort) + "\n");
+    }
     QStringList g = p.value(panel).split('x');
     if (g.size() != 3) { fprintf(stderr, "pi-qemu: --panel WIDTHxHEIGHTxDEPTH\n"); return 2; }
     o.fbWidth = g[0].toInt(); o.fbHeight = g[1].toInt(); o.fbDepth = g[2].toInt();
@@ -115,7 +136,7 @@ int run(int argc, char** argv) {
     // Test hook: PI_QEMU_SNAPSHOT=file.png renders the control panel to a file
     // and quits, with no Pi started and no control socket taken from a running one.
     const QString shot = qEnvironmentVariable("PI_QEMU_SNAPSHOT");
-    if (shot.isEmpty() && !control.listen(o.runDir + "/control.sock", &err)) { fprintf(stderr, "pi-qemu: %s\n", qPrintable(err)); return 1; }
+    if (shot.isEmpty() && !control.listen(o.runDir + "/control.sock", !p.isSet(privateRun), &err)) { fprintf(stderr, "pi-qemu: %s\n", qPrintable(err)); return 1; }
 
     QObject::connect(&machine, &Machine::status, [&out](const QString& s) { out << "pi-qemu: " << s << Qt::endl; });
     QObject::connect(&machine, &Machine::poweredOff, [&] { sticks.forgetAll(); });

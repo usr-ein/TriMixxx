@@ -33,6 +33,7 @@ QString Control::help() {
         "  stick list | stick insert ID | stick unplug ID   (ID: diskN or an image file)\n"
         "The board:\n"
         "  status | power on | power off (pulls the plug) | screenshot FILE.png\n"
+        "  save FILE      the whole machine to FILE, then off (pi-qemu run --restore FILE CARD)\n"
         "Controls: ") + Wiring::controls().join(' ');
 }
 
@@ -48,9 +49,10 @@ Control::Control(Machine* m, S3* s3, Sticks* sticks, const Wiring* wiring, QObje
     });
 }
 
-bool Control::listen(const QString& path, QString* error) {
+bool Control::listen(const QString& path, bool claimCurrent, QString* error) {
     QLocalServer::removeServer(path);
     if (!m_server.listen(path)) { *error = m_server.errorString(); return false; }
+    if (!claimCurrent) return true;
     QDir().mkpath(QDir::home().filePath(".pi-qemu"));
     QString link = QDir::home().filePath(".pi-qemu/current");
     QFile::remove(link);
@@ -133,10 +135,12 @@ void Control::onLine(QLocalSocket* client, const QString& line) {
             reply(c, false, "stick list | stick insert ID | stick unplug ID");
         }
     } else if (cmd == "status") {
-        reply(c, true, QString("pi: %1\ns3 link: %2\ndeck wiring: %3")
+        reply(c, true, QString("pi: %1\ns3 link: %2\ndeck wiring: %3\nssh: ssh -p %4 sam1902@127.0.0.1\nrun dir: %5")
                            .arg(m_machine->running() ? "running" : "off")
                            .arg(m_s3->connected() ? "connected" : "waiting for the Pi")
-                           .arg(m_wiring->deck()));
+                           .arg(m_wiring->deck())
+                           .arg(m_machine->options().sshPort)
+                           .arg(m_machine->options().runDir));
     } else if (cmd == "power" && !w.isEmpty()) {
         if (w[0] == "off") { m_machine->pullPlug(); reply(c, true, "plug pulled"); }
         else if (w[0] == "on") { emit powerOnRequested(); reply(c, true, "powering on"); }
@@ -148,6 +152,12 @@ void Control::onLine(QLocalSocket* client, const QString& line) {
                            reply(c, !r.contains("error"),
                                  r.contains("error") ? r["error"].toObject()["desc"].toString() : file);
                        });
+    } else if (cmd == "save" && !w.isEmpty()) {
+        // A restore must find the same devices: a stick plugged in now would
+        // be missing from the machine that loads this.
+        for (const auto& st : m_sticks->list())
+            if (st.inserted) { reply(c, false, "unplug the USB sticks first: a saved machine has none"); return; }
+        m_machine->save(w[0], [this, c](bool ok, const QString& msg) { reply(c, ok, msg); });
     } else {
         reply(c, false, "unknown command; pi-qemu help");
     }
@@ -166,7 +176,10 @@ int runClientCommand(const QString& socket, const QStringList& words) {
         fprintf(stderr, "pi-qemu: no running deck (start one with: pi-qemu run CARD.img)\n");
         return 1;
     }
-    s.write(words.join(' ').toUtf8() + "\n");
+    // Files are named from where the command runs, not where the deck does.
+    QStringList w = words;
+    if (w.size() >= 2 && (w[0] == "screenshot" || w[0] == "save")) w[1] = QFileInfo(w[1]).absoluteFilePath();
+    s.write(w.join(' ').toUtf8() + "\n");
     s.flush();
     // Long enough for a long press or a stick's authorisation prompt.
     QByteArray line;
