@@ -1,0 +1,17 @@
+
+# ---- phase 1 (pi-qemu/PLAN.md §2.1): appended to Pi OS's config.txt ----------
+# The same file in every boot partition. Each picks its command line by the
+# partition config.txt was read from, after autoboot.txt: the release's way of
+# keeping both boot slots byte-identical (PLAN.md invariant 5).
+[boot_partition=1]
+cmdline=cmdline-r.txt
+[boot_partition=2]
+cmdline=cmdline-a.txt
+[boot_partition=3]
+cmdline=cmdline-b.txt
+[all]
+# GPIO 14/15 get the PL011, as on the decks (Bluetooth off), with a console on
+# it (115200 8N1) for a USB-serial adapter. pi-qemu then gives its own console
+# on a socket, as for a deck: instance.sh console NAME COMMAND.
+dtoverlay=disable-bt
+enable_uart=1

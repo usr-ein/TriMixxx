@@ -1,243 +1,731 @@
-# pi-qemu — trimixxx0, an emulated deck, and one image for every deck
+# pi-qemu: the plan
 
-**trimixxx0** is an emulated Raspberry Pi 4 — QEMU's `raspi4b` board, patched,
-running under the M1's hardware virtualisation — that boots the deck's own SD
-card image unmodified: the same Raspberry Pi kernel, device tree, initramfs and
-root filesystem. Its screen shows at the panel's resolution; it is played from
-a to-scale drawing of trimixxx2's top plate that speaks the S3's MIDI on the
-Pi's real UART. The card image it boots is the one the decks are flashed with
-once, and after that they update over the network into A/B slots.
+pi-qemu runs a deck's SD card on an emulated Raspberry Pi 4: the emulated deck,
+trimixxx0. That part works and is described in `README.md`. Part 2 of this file
+records why it is built the way it is.
 
-Status (2026-10-04): **prototype proven, nothing in the repo yet but this plan
-and `qemu/`.** §2 is what was measured. The QEMU build is reproducible:
-`qemu/build.sh`.
+**What comes next** is how the decks run a locked system and take updates over
+the air: A/B slots, chosen by the Pi firmware's own **tryboot** and installed by
+**RAUC**, rehearsed on the emulated deck before any deck sees them. Part 1 is
+that plan, phase by phase, written so that an agent can carry it out. Status on
+2026-10-08: phase 1's test card is built and passes its smoke test in pi-qemu.
+It waits for Sam to flash it (§2.2).
+
+| Read | For |
+|---|---|
+| this file, Part 1 | **what to do, in order**: tasks, files, tests, stop points |
+| `rauc-pi-4-report.md` | **how the system works**: diagrams as text, the update flow, the backend contract |
+| `rauc-pi-4-setup.md` | **design and evidence**: every configuration file, the research, the sources (App. A–C) |
+| `rauc-pi-4-report.html`, `rauc-pi-4-figures/` | the same report as a page and as images, for people |
+| `README.md` | how to run pi-qemu and the emulated decks today |
 
 ---
 
-## 1. Decisions
+# Part 1. A/B updates with RAUC and tryboot
 
-| # | Question | Decision |
-|---|---|---|
-| D1 | What is emulated | **The real board**: QEMU's `raspi4b` (BCM2711), with [rpi-qemu](https://github.com/fpgas-online/rpi-qemu)'s 41 patches (GENET Ethernet, PCIe root complex, the firmware's device-tree fix-ups, the watchdog Raspberry Pi OS trixie needs to boot at all) and ours (`qemu/trimixxx-patches.py`): HVF, a working PCIe link with xHCI behind it, SD card DMA, the full RAM. Not QEMU's generic `virt` machine, which cannot run the Pi's kernel. |
-| D2 | One image | **Byte-identical.** No second kernel, no virtio, no VM-only udev rules. `pi-qemu` does the VideoCore firmware's job on the host — `autoboot.txt`, `config.txt`, `cmdline.txt`, overlays, the MAC in the device tree — and hands QEMU the kernel, DTB and initramfs off the card. |
-| D3 | The S3 link | The Pi's own PL011, `ttyAMA0`, made `serial0` by `dtoverlay=disable-bt` and Raspberry Pi OS's own udev rule, exactly as on the deck. QEMU backs it with a Unix socket; the panel (or a real S3 on a USB-UART) is on the other end. |
-| D4 | Parameters | **hostname, accent, MAC.** The hostname also picks the deck's hardware files (`mixxx_config/units/<host>.json`, `pi-qemu/decks/<host>.json`), which ship in the image. |
-| D5 | MAC | **On a Pi, the board's own.** In an emulated deck, a dummy MAC (`02:54:4d:58:00:NN`, locally administered), written into the device tree's Ethernet node by `pi-qemu` exactly where the Pi firmware writes the real one. The fork announces it on Pro DJ Link and keys peers by it, so each emulated deck gets its own. |
-| D6 | trimixxx0 | A virtual trimixxx2: its wiring (the eighth pad, reversed hot cues and jog) and 1280×800 panel, its own accent (`#00C8FF` unless you prefer another) and dummy MAC. |
-| D7 | Deck data | **A data partition**, outside the A/B slots: the Mixxx database and analysis, `effects.xml`, `trimixxx-levels`, `~/Music`, ssh host keys, machine-id, Wi-Fi joined on the deck. Root is laid out so it can later be mounted read-only under overlayfs. |
-| D8 | Updates | **Flash once, then over the network.** Raspberry Pi's own A/B boot: `autoboot.txt` with `tryboot_a_b=1`, a new version written into the idle slot, tried once with `reboot "0 tryboot"`, kept only if it comes up healthy. The emulated deck honours the same, so an update is tried on trimixxx0 before a deck sees it. |
-| D9 | The panel | A local web page: the screen (QEMU's VNC over a websocket) set into trimixxx2's plate, every control and light. Served by `pi-qemu` (Go, one static binary per host OS). |
+## 1. Working on this plan
 
-## 2. What was measured (2026-10-04, M1, 16 GB, QEMU 11.1.0)
+### 1.1 Ground rules
 
-The stock **Raspberry Pi OS Lite trixie arm64 (2026-09-15)** card, unmodified
-but for a cloud-init user seed on its boot partition:
+They come from the repo's `CLAUDE.md` and the `trimixxx0` skill:
 
-| | Stock QEMU `raspi4b` | rpi-qemu, TCG | **rpi-qemu + ours, HVF** |
-|---|---|---|---|
-| Boots | no: refuses HVF; under TCG trixie's initramfs watchdog would reset it in a loop (fixed by rpi-qemu) | yes, 140 s first boot | **yes, 22 s to login** (first boot with cloud-init: ~60 s) |
-| CPU (Python loop, 3 M iterations) | — | 2.26 s | **0.17 s** (M1 native: 0.16 s; a Pi 4 ≈ 0.5–0.6 s) |
-| Kernel | | `6.18.50+rpt-rpi-v8`, "Raspberry Pi 4 Model B" | same; all 4 cores, booted at EL1 |
-| `/dev/serial0` | | → `ttyAMA0`, by Raspberry Pi OS's own rule | same |
-| Ethernet | | eth0 = `bcmgenet`, DHCP | same; MAC random until the DT carries one (D5) |
-| USB | | DWC2 only (USB 2) | **xHCI on the PCIe root port, like the VL805**: USB audio as card 0 (`snd-usb-audio`, as the UCA222), a stick at 5 Gb/s as `sda`; keyboard and tablet on DWC2 |
-| SD card | | PIO | **ADMA**; `dpkg --verify` over every package file: no corruption; ~6 MB/s read |
-| RAM | | ~0.9 GiB visible | **1.8 GiB** of the board's 2 GiB |
-| Screen | | firmware framebuffer, 1280×800 | same; X on `fbdev`, Mesa 26.2.2 **llvmpipe** (the deck: the same Mesa on V3D) |
-| Mixxx 2.5 (stock) | | | **runs**: LateNight skin, GL waveforms, track analysis (120 BPM found), playback to the Mac's speakers; 56 % of one core playing, X 7 % |
+- **Work from a git worktree.** Run `pi-qemu/worktree.sh prepare` first, and
+  `pi-qemu/worktree.sh release` at the end.
+- **Reach emulated decks only through `pi-qemu/instance.sh`**, under a name of
+  your own. Never a bare `pi-qemu COMMAND`, and never an upload script on its
+  own: without `HOST` they default to a real deck.
+- **Real decks are off limits until phase 6:** `trimixxx-pi` (trimixxx1),
+  `trimixxx-pi-2` / `trimixxx2`.
+  - trimixxx3 is Sam's bench Pi. It's fine to use from phase 1 on.
+- **Commits:** as `Samuel Prevost <usr_ein@pm.me>`. A change inside a submodule
+  is committed there first, then bumped here. Never `git add -A`.
+- **On MBP-NJ** (Sam's Mac), the emulated decks trust
+  `~/.ssh/with_pass/rsa_sam`:
+  - prefix `SSH_KEY=$HOME/.ssh/with_pass/rsa_sam` to `instance.sh up` and
+    `image/build.sh`;
+  - run `ssh-add -l` first. ssh-agent forgets the key at every reboot, and
+    only Sam can load it again (it needs his passphrase).
+- **Record what you learn.**
+  - Results go into this file, in the phase's results table.
+  - Answers to points marked **unverified** go into `rauc-pi-4-setup.md`.
+  - A design change goes into both `rauc-pi-4-setup.md` and
+    `rauc-pi-4-report.md`.
 
-Seen along the way: QEMU's user-mode network ran into **Little Snitch**, which
-held a new QEMU binary's first UDP packet waiting for a decision and froze the
-guest with it (QEMU sends from the vCPU thread). Little Snitch is now off on this
-Mac; on a laptop that runs it, allow the rebuilt binary or start with
-`--net restricted`.
+### 1.2 Stop points: ask Sam first
 
-## 3. Deck and emulated deck, layer by layer
-
-| Layer | Deck | trimixxx0 |
-|---|---|---|
-| Card image: firmware files, kernel, DTBs, initramfs, root filesystem | the image | **the same image** |
-| Boot | VideoCore firmware reads `autoboot.txt`/`config.txt` | `pi-qemu` reads the same files and does the same |
-| CPU | Cortex-A72, 1.8 GHz | M1 cores through HVF (`--accurate`: a real Cortex-A72 model under TCG, ~4× slower than a Pi) |
-| RAM | 4 GiB | 2 GiB (QEMU's board; 4 GiB is a further patch) |
-| S3 link | PL011 on GPIO 14/15 | the same PL011, on a socket |
-| Audio | UCA222 on the VL805 | QEMU USB audio on xHCI on PCIe (48 kHz only: see §6) |
-| DJ sticks | USB sticks, `dj-usb` | stick images hot-plugged on xHCI, `dj-usb` |
-| eth0 | GENET | GENET, with the dummy MAC; unplugged, bridged to the Mac's CDJ port, or shared with other emulated decks |
-| Screen | DSI panel through vc4 KMS, X `modesetting`, V3D | firmware framebuffer at the panel's size and depth, X `fbdev`, llvmpipe |
-| Touch | Goodix | QEMU USB tablet (absolute pointer — what `deck-poke` already tests with) |
-| Not there | | Wi-Fi/Bluetooth, the EEPROM, the backlight, V3D/HVS/DSI |
-
-The honest limit: **trimixxx0 tests behaviour, not performance or the GPU.**
-Xruns, frame rate, boot time and temperature are measured on a deck; a V3D
-driver bug only shows there.
-
-## 4. `pi-qemu`, the firmware on the host
-
-QEMU's `raspi4b` boots a kernel it is handed; on a Pi, the VideoCore firmware
-chooses it. `pi-qemu` does that part, reading the card image directly:
-
-1. `autoboot.txt` on partition 1 → which boot partition (slot A or B, or the
-   `[tryboot]` one if a tryboot reboot was asked for).
-2. That partition's `config.txt` (with `[pi4]`, `[all]`, `include`, …):
-   `kernel=`, `initramfs`, `cmdline=`, `dtparam=`, `dtoverlay=`. Overlays are
-   applied with Raspberry Pi's own `dtmerge`, built for the host, so parameters
-   work. **Graphics overlays are skipped** (`vc4-kms-*`, the DSI panel): there is
-   no V3D/HVS to drive, so the kernel uses the firmware framebuffer, set to the
-   deck's panel size and depth (1280×800, 16 bpp: the deck's own `/dev/fb0`
-   geometry, so even the boot splash fits).
-3. The firmware's device-tree edits: the MAC (D5), and a `/hypervisor` node so
-   `systemd-detect-virt` says it is a VM — the one honest marker, for the few
-   units that drive hardware the board does not have (the EEPROM check).
-4. `cmdline.txt` with the DTB's own bootargs in front and `console=serial0`
-   resolved, as the firmware does. (Found the hard way: Raspberry Pi OS's first
-   boot changes the card's disk ID and rewrites `cmdline.txt`, so it has to be
-   read off the card at every boot.)
-5. Reboots: QEMU is run with reboots turned into a pause, so `pi-qemu` sees the
-   reboot, reads which partition and whether `tryboot` was asked (a small QEMU
-   patch exposes both), and starts the board again from step 1 — A/B updates
-   behave as on a Pi.
-
-The rest of `pi-qemu`: the panel (§5), sticks, Ethernet, `ssh`, `console`,
-`pack` (below).
-
-## 5. The panel
-
-Unchanged from the first plan in substance. It is a virtual S3 on the Pi's
-UART, byte-compatible with `firmwares/trimixxx-midi/src/main.cpp`
-(`MidiMap.hpp` generates its table). The page shows the screen and draws
-trimixxx2's top plate to scale from `ref_sizes/dims_v2_model.md`, with each pad
-bound to a ring node and labelled through the unit file. It covers:
-
-- Mouse, trackpad and keyboard, including chords: PLAY or CUE held through power-on, and the panic chord.
-- Pointer on the screen as touch.
-- Power on, pull the plug, reset.
-- USB sticks in and out, the Ethernet cable in and out.
-- Screenshots and a MIDI monitor.
-- An actual-size view.
-
-A real S3 on a USB-UART can take the socket instead (`--s3 /dev/cu.…`).
-
-**Sound:** the emulated deck's output goes to the Mac's speakers. The panel
-starts muted with a visible switch; `pi-qemu run` takes `--audio
-none|speakers|wav:<file>` and defaults to `none` unless the panel is open.
-
-## 6. QEMU work still to do
-
-Carried in `qemu/trimixxx-patches.py`, each small:
-
-| | What | Why |
-|---|---|---|
-| Q1 | 4 GiB board (revision `c03115`, the firmware's memory layout) | the deck has 4 GiB |
-| Q2 | Reboot partition and `tryboot` flag visible over QMP | A/B updates in the emulator (§4.5) |
-Done (patches 7–16):
-
-- **Q3, the UCA222.** usb-audio names itself "USB Audio CODEC", runs at
-  44.1 kHz, and takes the 44- and 45-frame packets that rate sends. It used to
-  drop them silently. `soundconfig.xml` works unchanged.
-- **Snapshots** (`pi-qemu save FILE`, `run --restore FILE`): a deck restores
-  in about 3–4 s against about 50 s for a boot. That needed saved state for:
-  - usb-audio and usb-net, which were marked unmigratable;
-  - the PCIe root port and GENET, which silently had none, so a restored Pi
-    lost its USB controller;
-  - a USB device's chosen configuration;
-
-  plus loading an xHCI that has no MSI-X. Agents' instances start from the
-  golden snapshot (`instance.sh`, README.md).
-- **Q4, a fast SD card.** It went ~4 MB/s → ~800 MB/s read and ~400 MB/s
-  write. Multi-block transfers moved one byte per call; the image was accessed
-  one 512-byte block at a time; ADMA ran 5 descriptors per main-loop round.
-  This took a boot from ~50 s to ~5 s.
-
-Then offer the PCIe, SD, RAM and HVF fixes to rpi-qemu, so there is less to
-carry. Portability: the build links Homebrew libraries, so `pack` bundles them
-next to the binary (and re-signs it with the hypervisor entitlement); on Linux,
-the same script builds against distro packages.
-
-## 7. The card layout (decks and trimixxx0 alike)
-
-| # | Label | FS | Size | Holds | Written by |
-|---|---|---|---|---|---|
-| 1 | `bootsel` | FAT | 64 MiB | `autoboot.txt`, `trimixxx.conf` (hostname, accent; MAC only in an emulated deck) | flash, the update agent's commit |
-| 2 | `boot-a` | FAT | 512 MiB | slot A: firmware, kernel, initramfs, DTBs, overlays, `config.txt`, `cmdline.txt` → `root-a` | flash / update |
-| 3 | `boot-b` | FAT | 512 MiB | slot B, the same → `root-b` | update |
-| 5 | `root-a` | ext4 | 8 GiB | slot A root (read-only later, overlayfs) | flash / update |
-| 6 | `root-b` | ext4 | 8 GiB | slot B root | update |
-| 7 | `data` | ext4 | the rest | `/data` (D7) | first boot (made and seeded) |
-
-MBR with an extended partition (4) or GPT: P1 checks which the Pi 4's
-bootloader accepts for `boot_partition` beyond 4, and picks.
-
-`/data` is mounted early; `~/.mixxx`, `~/Music`, `/etc/ssh/ssh_host_*`,
-`/var/lib/trimixxx` and NetworkManager's own connections live there. On an image
-change the identity service refreshes the config files inside `~/.mixxx` from
-the image (skin, mapping, `mixxx.cfg`, `soundconfig.xml`) and leaves the state.
-
-## 8. Building the image
-
-It's an emulated Pi that builds it, so there is no Docker chroot and no loop
-device:
-
-1. Fetch the pinned Raspberry Pi OS Lite trixie arm64 image and check its
-   checksum.
-2. Seed cloud-init on its boot partition: the user, your keys, passwordless
-   sudo, the build hostname. Cloud-init is the mechanism the image already uses,
-   and this was proven in the prototype.
-3. Boot it with `pi-qemu` (headless, `--audio none`). Provision it over ssh with
-   `provision.sh`, which is `fresh-install.md` §1–2 as code, then the deck's own
-   deploy scripts with `HOST=trimixxx-build`. Then the identity service, the
-   data-partition mounts, and the update agent.
-4. Seal it: identity back to the default, host keys and machine-id gone, caches
-   cleared.
-5. Inside the same emulated Pi, write the release artifacts from the sealed
-   root: `boot.vfat` and `root.ext4` (`mkfs.ext4 -d`), and a whole-card image
-   in the §7 layout. Copy them out over ssh with a manifest of every package
-   version and every file hash, and `/etc/trimixxx-release`.
-
-| Artifact | For |
+| What | Why |
 |---|---|
-| `trimixxx-<v>.img.zst` | the one or two physical flashes per deck |
-| `trimixxx-<v>.update` (boot + root + manifest) | network updates (`pi-qemu push <deck>`) |
-| the same card, as a `.qcow2` | an emulated deck (`pi-qemu create trimixxx0`) |
+| Flashing an SD card | Needs `sudo` (or Raspberry Pi Imager) and Sam's hands. Name the disk with `diskutil list external` and have Sam confirm it; never guess |
+| Any hands-on step | Inserting a card, cabling, power-cycling trimixxx3 |
+| Changing a board's EEPROM (`rpi-eeprom-update`, `rpi-eeprom-config --apply`) | Persistent hardware state |
+| Replacing the shared golden snapshot (`instance.sh golden`), or rebuilding `.cache/build/trimixxx0.img` | Every agent's emulated deck starts from them |
+| Creating, moving or using the RAUC signing key | Sam decides where the private key lives |
+| A hang test on the **committed** slot (phase 1, T9) | It can loop the Pi until the card is fixed on the Mac |
+| Anything on a real deck, and phase 6 as a whole | Gig equipment |
+| Pushing | Sam pushes |
 
-## 9. Updating a deck over the network
+### 1.3 Invariants
 
-`pi-qemu push trimixxx2 trimixxx-<v>.update`:
+Everything built must keep these true. They are what makes updates safe.
 
-1. Streams the bundle over ssh to `trimixxx-update` on the deck.
-2. That writes the idle slot's boot and root, points its `cmdline.txt` at its
-   own root, then runs `reboot "0 tryboot"`.
-3. On the tried boot, a health check confirms the MIDI bridge, the launcher's
-   mode, Mixxx's controller and the sound card. Only then does it rewrite
-   `autoboot.txt` to make the new slot the default.
-4. Anything less, including a hang (the hardware watchdog catches that), and the
-   next boot is the old slot.
+1. **The running slot is never written.** Only the idle slot's boot and
+   system partitions are written, and only by RAUC.
+2. **`autoboot.txt` is the only file written outside RAUC's slots.**
+   - It is always generated whole, never edited.
+   - It is written to a temporary file, `fsync`ed, renamed over the old one,
+     and the directory is synced.
+   - Only the backend writes it.
+3. **A slot becomes the default (`[all] boot_partition`) only through
+   `rauc status mark-good`, on a trial start of that slot,** after the health
+   check passed. The device tree's `tryboot` reads 1 on such a start.
+4. **The health check acts only on a trial start, and runs after
+   NetworkManager and sshd.** On failure it runs `rauc status mark-bad`, then
+   reboots. It can never stop the committed slot from starting.
+5. **Both boot slots hold byte-identical files.** `config.txt`'s
+   `[boot_partition=N]` picks `cmdline-a.txt` or `cmdline-b.txt`; nothing is
+   patched at install time.
+6. **Each slot's command line carries `rauc.slot=A` or `rauc.slot=B`.** It never
+   carries `resize`, or a first-boot `init=` hook.
+7. **The card's MBR disk signature is fixed and never changes.**
+8. **Nothing per-deck lives in the slots.** Identity lives on p7 (`/data`,
+   read-only) and is applied at start by the identity unit.
+9. **RAUC's data directory is p8 (`/var/lib/rauc`, read-write).**
+10. **Bundles are `format=plain`** while the image carries RAUC 1.13.
+11. **pi-qemu copies only firmware behaviour that is documented or was measured
+    on trimixxx3.** Where the two disagree, the hardware wins.
+12. **The dev card stays writable.** The release-only switches are
+    `overlayroot=tmpfs` and the slot command lines. The `/data` and
+    `/var/lib/rauc` mounts are `nofail`, and do nothing where those partitions
+    don't exist.
 
-The same command against `trimixxx0` tries the update in the emulator first.
+### 1.4 The target, in one page
 
-## 10. Phases
+The card is MBR, with the fixed disk signature `0x5d0bc1ec` (the first 32 bits
+of sha256("trimixxx"), set in `release/Makefile`), so `<id>` below is
+`5d0bc1ec`:
 
-| Phase | Builds | Done when |
+| # | Label | FS | Size | Holds |
+|---|---|---|---|---|
+| p1 | bootsel | FAT32 | 64 MiB | `autoboot.txt` |
+| p2 | boot-A | FAT32 | 512 MiB | firmware, kernel, initramfs, DTBs, overlays, `config.txt`, `cmdline-a.txt`, `cmdline-b.txt` |
+| p3 | boot-B | FAT32 | 512 MiB | the same files |
+| p4 | extended | | | p5–p8 |
+| p5 | rootfs-A | SquashFS (RAUC `type=raw`) | 4 GiB | the system |
+| p6 | rootfs-B | SquashFS | 4 GiB | the next system |
+| p7 | trimixxx-data | ext4 | 64 MiB | `trimixxx.conf` (deck name), `NetworkManager/*.nmconnection`, `ssh/ssh_host_*` |
+| p8 | trimixxx-state | ext4 | the rest, for a 32 GB card | RAUC's data directory and bundles |
+
+The exact files are in `rauc-pi-4-setup.md` §3: `autoboot.txt`, the
+`config.txt` additions, the command lines (§3.2), `system.conf` and the
+manifest (§3.5).
+
+### 1.5 Where things go
+
+These paths are proposals; keep them unless there's a reason not to.
+
+| Path | What |
+|---|---|
+| `pi-qemu/release/Dockerfile` | debian:trixie with genimage, rauc, squashfs-tools, dosfstools, mtools, e2fsprogs, fdisk, zstd, xz-utils, openssl, make. **Built** |
+| `pi-qemu/release/genimage-phase1.cfg`, `pi-qemu/release/phase1/` | phase 1's test card, and its files. **Built** |
+| `pi-qemu/release/genimage.cfg` | the release card, and the boot, bootsel, data and state images |
+| `pi-qemu/release/boot/` | `autoboot.txt` (**built**, shared with phase 1), `config-release.txt` (the additions), `cmdline-a.txt.in`, `cmdline-b.txt.in` |
+| `pi-qemu/release/exclude.txt` | the seal: what a release leaves out of the system |
+| `pi-qemu/release/manifest.raucm.in` | the bundle manifest |
+| `pi-qemu/release/Makefile` | `phase1` (**built**), `release`, `card`, `ship`; run as `make -C pi-qemu/release …` (`make release` in the docs). Each target builds the container, then runs again inside it |
+| `pi-qemu/release/out/<v>/` | outputs, gitignored: `trimixxx-<v>.img`, `trimixxx-<v>.raucb`, `manifest.txt` |
+| `pi-qemu/.cache/decks/<deck>/` | per-deck secrets, gitignored: `trimixxx.conf`, `NetworkManager/`, `ssh/` |
+| `pi_config/rauc/` | `system.conf`, `keyring.pem` (the public certificate), `rpi-tryboot` (backend), `trimixxx-health.service`, `trimixxx-health` (the checks) |
+| `pi_config/trimixxx-identity.service`, `pi_config/trimixxx-identity` | the identity unit |
+| `pi-qemu/deploy/base.sh` | installs `overlayroot`, `rauc` and `rauc-service`; adds the initramfs modules |
+| `pi-qemu/app/src/firmware.{h,cpp}`, `machine.{h,cpp}` | tryboot in pi-qemu |
+| `pi-qemu/qemu/trimixxx-patches.py` | the QEMU patch for the firmware's reboot flags |
+| `pi-qemu/instance.sh` | `up --from` accepts cards of any size |
+
+---
+
+## 2. Phase 1: firmware facts on trimixxx3
+
+**Goal.** Measure, on real hardware, every firmware behaviour the design rests
+on and the documentation leaves open:
+- whether `[boot_partition=N]` works on a Pi 4;
+- tryboot, armed both ways;
+- power-off;
+- a missing or broken `autoboot.txt`;
+- the watchdog during a trial;
+- whether a hang on the committed slot can fall back.
+
+pi-qemu then copies what was measured (phase 2).
+
+**What Sam provides:**
+- The spare Pi 4. It has no screen; that's fine.
+- An SD card of 8 GB or more. It gets erased.
+- An Ethernet cable from the Pi to the Mac.
+- Power cycles on request.
+- Optional: a 3.3 V USB-serial adapter on GPIO 14 (TX), 15 (RX) and GND,
+  which shows the bootloader's own log.
+
+### 2.1 The test card (built)
+
+```sh
+SSH_KEY=$HOME/.ssh/with_pass/rsa_sam make -C pi-qemu/release phase1   # on MBP-NJ; about 15 s
+```
+
+That writes `pi-qemu/release/out/phase1/trimixxx3-phase1.img` (5.26 GiB), the
+release layout with one Linux root shared by every slot. The slot that started
+is told apart by `rauc.slot=` on `/proc/cmdline` and by the device tree.
+
+| # | FS, label | Size | Holds |
+|---|---|---|---|
+| p1 | FAT32 `BOOTSEL` | 256 MiB | `autoboot.txt`, **plus Pi OS's boot files, `cmdline-r.txt`, `cmdline.txt` (`R-nofilter`) and the seed**. If the bootloader ignores `autoboot.txt` (too old), the Pi still starts from p1, as `rauc.slot=R`, and can be reached |
+| p2 | FAT32 `bootfs` | 512 MiB | Pi OS's boot files, `config.txt`, `cmdline-a.txt`, `cmdline-b.txt`, `cmdline.txt` (`A-nofilter`), the seed |
+| p3 | FAT32 `bootfs-b` | 512 MiB | the same, except `cmdline.txt` (`B-nofilter`) |
+| p4 | extended | | |
+| p5 | ext4 `rootfs` | 4 GiB | Pi OS's root |
+
+`release/Makefile` makes it from the pinned stock image
+(`pi-qemu/.cache/2026-09-15-raspios-trixie-arm64-lite.img`), in the release
+container, without privileges:
+- **Boot files:** Pi OS's, copied out with `mcopy`. Its `cmdline.txt` is left
+  out: it ends in `resize`, which grows the root and rewrites the disk
+  signature.
+- **`config.txt`:** Pi OS's, plus `release/phase1/config.txt`:
+  ```
+  [boot_partition=1]
+  cmdline=cmdline-r.txt
+  [boot_partition=2]
+  cmdline=cmdline-a.txt
+  [boot_partition=3]
+  cmdline=cmdline-b.txt
+  [all]
+  dtoverlay=disable-bt
+  enable_uart=1
+  ```
+  `disable-bt` puts the PL011 on GPIO 14/15, as on the decks. pi-qemu gives a
+  card its console socket (`instance.sh console NAME COMMAND`) only when
+  `serial0` is the PL011.
+- **Command lines.** They differ only in the slot they name and the boot
+  partition they mount: `cmdline-b.txt` has `B` and `-03`, `cmdline-r.txt`
+  has `R` and `-01`, and the `cmdline.txt` files have `A-nofilter`,
+  `B-nofilter` and `R-nofilter`.
+  ```
+  console=serial0,115200 console=tty1 root=PARTUUID=5d0bc1ec-05 rootfstype=ext4 fsck.repair=yes rootwait rauc.slot=A systemd.mount-extra=PARTUUID=5d0bc1ec-02:/boot/firmware:vfat
+  ```
+- **The seed.** Pi OS reads cloud-init's seed from `/boot/firmware`
+  (`seedfrom: file:///boot/firmware`, and cloud-init waits for that mount), so
+  every boot partition carries it:
+  - Pi OS's own `meta-data` and `network-config`, which is empty;
+  - `release/phase1/user-data.in`: hostname `trimixxx3`, and user `sam1902`
+    as `image/build.sh` makes it (groups, the `SSH_KEY`, passwordless sudo,
+    the password hash from `image/secrets.env`). It turns ssh on, then creates
+    `/etc/cloud/cloud-init.disabled`, so later starts skip cloud-init.
+- **The root:** copied with `dd`, checked with `e2fsck`, grown to 4 GiB with
+  `resize2fs`, then edited with `debugfs`:
+  - `/etc/fstab` holds `proc` and
+    `PARTUUID=5d0bc1ec-05 / ext4 defaults,noatime 0 1`. `/boot/firmware`
+    comes from `systemd.mount-extra=`.
+  - Two NetworkManager keyfiles from `release/phase1/`, owned by root, mode
+    0600, in `/etc/NetworkManager/system-connections/`:
+    - `eth0-link-local`: eth0, link-local IPv4 and IPv6, like the decks'
+      eth0;
+    - `pi-qemu-home`: DHCP on `usb0`, pi-qemu's management NIC. A Pi has no
+      `usb0`.
+  - `rpi-eeprom-update.service` is masked. Pi OS runs
+    `rpi-eeprom-update -s -a` at every start, which would stage an EEPROM
+    update without asking (§1.2).
+- **genimage** (`genimage-phase1.cfg`): MBR, disk signature `0x5d0bc1ec`, p1
+  at 8 MiB, 4 MiB alignment, p4 extended, p5 logical.
+
+**What building it taught:**
+- **Netplan can't express "DHCP, else link-local".** `dhcp4: true` with
+  `link-local: [ipv4, ipv6]` renders `ipv4.method=auto` with no fallback. On a
+  cable with no DHCP server, NetworkManager then leaves eth0 without IPv4.
+- **Pi OS's NetworkManager rewrites netplan's profiles.** cloud-init's eth0
+  profile came back as `/etc/netplan/90-NM-*.yaml` with `match: {}`, which
+  takes whichever NIC appears first. `image/build.sh` met the same rewrite.
+  Keyfiles in `/etc/NetworkManager` are NetworkManager's own and are left
+  alone. The release's identity unit uses keyfiles too.
+- **NetworkManager's automatic profile for `usb0` is link-local**, not DHCP.
+  That's why every emulated deck carries `pi-qemu-home`.
+- **cloud-init leaves the network alone when it's given no config.** Pi OS
+  sets `disable_fallback_netcfg: true`.
+- **Pi OS's journal is volatile**, so `journalctl --list-boots` shows one boot.
+  The helpers below use `boot_id`.
+- **Pi OS makes a swap file at first start.** That leaves 940 MB free on the
+  4 GiB root.
+
+**Smoke test in pi-qemu: passed on 2026-10-08,** with a copy rounded up to
+8 GiB and `instance.sh up p1 --from …`:
+- **Timing:** the first start reached ssh in 8 s, cloud-init included. The
+  second start took 3.8 s.
+- **Slot:** `rauc.slot=A-nofilter`, as expected: pi-qemu doesn't know
+  `[boot_partition=N]` until phase 2.
+- **System:** `/boot/firmware` is p2; the hostname is `trimixxx3`; sudo, ssh
+  and avahi work.
+- **Network:** eth0 has `169.254.207.237`, and `usb0` has QEMU's `10.0.2.15`.
+  `/etc/netplan` stays empty.
+- **Health:** no unit failed, and `rpi-eeprom-update` stays masked.
+
+### 2.2 Flash and connect (Sam)
+
+Sam flashes the card. The agent runs no disk command. On the Mac:
+
+1. **Find the card.** Put it in, then run `diskutil list external physical`.
+   The card is the `/dev/diskN` of its size. Check it twice: `dd` erases
+   whatever disk it's given.
+2. **Write the image:**
+   ```sh
+   diskutil unmountDisk /dev/diskN
+   sudo dd if=$HOME/Documents/CustomDJ/pi-qemu/release/out/phase1/trimixxx3-phase1.img of=/dev/rdiskN bs=4m status=progress
+   diskutil eject /dev/diskN
+   ```
+   - After `dd`, macOS mounts the card's three FAT volumes. It may also say it
+     can't read the fourth (the ext4 root): choose "Ignore", then eject.
+   - Raspberry Pi Imager works too ("Use custom"). Answer **No** to OS
+     customisation: it would write its own seed onto p1.
+3. **Cable** the Pi's Ethernet to the Mac. With no DHCP server, both sides take
+   link-local addresses, and avahi announces `trimixxx3.local`. The Mac's
+   Wi-Fi can stay on.
+4. **Power on.** The first start takes 1–2 minutes: cloud-init, host keys, the
+   swap file.
+5. **Connect:** `ssh -o StrictHostKeyChecking=accept-new sam1902@trimixxx3.local`.
+   The key must be in the agent.
+
+**If `trimixxx3.local` doesn't answer:**
+- run `dns-sd -G v4v6 trimixxx3.local`;
+- or `ping6 -c2 ff02::1%<the Mac's Ethernet interface>` to find the Pi's
+  `fe80::` address;
+- or use the console: a 3.3 V USB-serial adapter on GPIO 14 (TX), 15 (RX) and
+  GND, at 115200 8N1, logging in as `sam1902` with the password.
+
+macOS Internet Sharing doesn't help here: eth0 is link-local only and never
+asks for DHCP.
+
+### 2.3 The tests
+
+On the Pi, define:
+```sh
+dt() { od -An -tu4 --endian=big "/proc/device-tree/chosen/bootloader/$1" 2>/dev/null | tr -d ' '; }
+where() { echo "slot=$(grep -o 'rauc.slot=[^ ]*' /proc/cmdline | cut -d= -f2) partition=$(dt partition) tryboot=$(dt tryboot) boot=$(cut -c1-8 /proc/sys/kernel/random/boot_id)"; }
+```
+
+| # | Steps | Expected |
 |---|---|---|
-| P0 | Capture what only lives on the decks (trimixxx1's `config.txt`/panel, both MACs, `apt-mark showmanual`, `asound.state`) | the repo can recreate both decks |
-| P1 | `qemu/build.sh` (done), `pi-qemu run` with the firmware emulation of §4.1–4 | the stock card boots to login from `pi-qemu run`, at 1280×800, muted |
-| P2 | The deck stack in trimixxx0 through today's scripts (`HOST=trimixxx0`) | the TriMixxx skin, the bridge on `ttyAMA0`, `deck-poke`/`deck-shot` work |
-| P3 | The panel | a set played by hand, boot gestures, POWER |
-| P4 | Identity at boot, the §7 layout, the data partition | one card comes up as trimixxx0 or trimixxx2 from `trimixxx.conf` alone |
-| P5 | The image pipeline (§8) and Q1–Q3 | an image built with no deck attached passes P3's set |
-| P6 | Flash once, `pi-qemu push`, the update agent, tryboot in the emulator (Q2) | trimixxx2 runs a flashed card, then takes an update over the network; then trimixxx1 |
-| P7 | Optional: several emulated decks on one virtual Pro DJ Link network; end-to-end tests driving the panel over QMP | — |
+| T0 | First start | `slot=A partition=2 tryboot=0`. Record: `vcgencmd bootloader_version`, `vcgencmd bootloader_config`, `ls /proc/device-tree/chosen/bootloader/` with every value (`xxd` each file), `sudo vclog --msg`, `cat /proc/cmdline` |
+| T0b | If T0 shows `slot=R`, or a bootloader older than 2022-12-01 | **Stop, ask Sam.** Update the EEPROM from the running system (`sudo rpi-eeprom-update -a`, then a reboot) and run T0 again. If T0 shows `A-nofilter`, `[boot_partition=N]` isn't honoured: record it, and go to "If a result breaks the design" |
+| T1 | `sudo reboot '0 tryboot'` | `slot=B partition=3 tryboot=1` |
+| T2 | `sudo reboot` | `slot=A partition=2 tryboot=0` |
+| T3 | `sudo vcmailbox 0x00038064 4 0 1`; read it back with `sudo vcmailbox 0x00030064 4 0 0`; then `sudo reboot` | `slot=B tryboot=1` |
+| T4 | Arm (as in T3), `sudo poweroff`, Sam power-cycles | `slot=A` (the flag doesn't survive power-off) |
+| T5 | During a trial (`slot=B`), Sam power-cycles | `slot=A` |
+| T6 | From A: mount p1 and rename `autoboot.txt`, then reboot. Then also rename p1's `start4.elf`, and reboot again. Restore both afterwards | First reboot: partition 0 means the first bootable FAT, so expect `slot=R` (p1 is bootable). Second: `partition=2` (the walk). Record both |
+| T7 | `autoboot.txt` made empty, then filled with garbage; reboot after each; restore | Record what starts |
+| T8 | Add `kernel_watchdog_timeout=60` to `config.txt` on p2 and p3 and `break=premount` to `cmdline-b.txt`, then `sudo reboot '0 tryboot'`. Optional, without `kernel_watchdog_timeout`, which needs a power cycle to end | B hangs in the initramfs; the watchdog resets it within about 90 s; `slot=A`. Without the setting, it's expected to hang forever, because Pi OS's initramfs disarms the watchdog. Remove the edits afterwards |
+| T9 | **Ask Sam first.** In p2's `config.txt`, under `[boot_partition=2]`: `kernel_watchdog_timeout=60` and `kernel_watchdog_partition=3`. Add `break=premount` to `cmdline-a.txt`, then reboot | If B starts (`partition=3 tryboot=0`), the firmware can fall back after a commit. If A keeps looping, Sam takes the card out and removes `break=premount` from `cmdline-a.txt` on the Mac (the FAT volume `bootfs`) |
+| T10 | Optional, ask Sam: EEPROM `BOOT_WATCHDOG_TIMEOUT` / `BOOT_WATCHDOG_PARTITION` | Only if T9 failed |
+| T11 | Time from power-on to ssh, for A and for a trial of B | Record |
 
-## 11. Risks
+**Results.** Fill this in:
 
-- **GPU.** llvmpipe instead of V3D; graphics overlays skipped (§4). Capping
-  Mesa at OpenGL 3.1 in the emulator catches "needs more than the Pi has".
-- **CPU.** The M1 is newer than the A72. `--accurate` (TCG with the real A72
-  model) is there to catch an illegal instruction, slowly.
-- **Out-of-tree QEMU.** rpi-qemu's series and ours are not upstream. Both are
-  pinned, and the build fails loudly if a bump moves the code.
-- **The first flash moves the decks to the A/B layout.** Back up
-  (`pi-qemu backup`) first, and use a spare card for the first one.
-- **Secrets** (Wi-Fi password, keys) are inside the image, so images stay
-  private.
-- **Little Snitch** or any outbound filter on a host (§2).
+| Test | Observed | Notes |
+|---|---|---|
+| T0 | | bootloader version: |
+| T1 | | |
+| T2 | | |
+| T3 | | |
+| T4 | | |
+| T5 | | |
+| T6 | | |
+| T7 | | |
+| T8 | | |
+| T9 | | |
+| T11 | | |
+
+Also record the raw `/proc/device-tree/chosen/bootloader/` dump for a normal
+start and for a trial. pi-qemu copies those property names and values.
+
+**If a result breaks the design:**
+- **`[boot_partition=N]` isn't honoured.** Fall back to RAUC's documented
+  slot post-install hook, writing the slot's `cmdline.txt` (as Rtone's backend
+  does). Invariant 5 then changes; update `rauc-pi-4-setup.md` §3.2.
+- **The watchdog doesn't cover a trial.** Find out why before going on: the
+  watchdog is what turns a hung trial into a fallback.
+- **T9 works.** Phase 4 adds the reconcile step (§5.2).
+
+**Done when** every row has an observed result, the unverified points in
+`rauc-pi-4-setup.md` App. A are settled, and any design change is written down.
+
+---
+
+## 3. Phase 2: tryboot in pi-qemu
+
+**Goal.** The emulated deck reproduces phase 1's results, so updates can be
+rehearsed on the Mac.
+
+### 3.1 QEMU patch (`qemu/trimixxx-patches.py`, then `qemu/build.sh`)
+
+- **`hw/misc/bcm2835_property.c`:**
+  - Handle the firmware message `0x00038064` (SET_REBOOT_FLAGS): store the
+    value in a new `uint32_t reboot_flags` in `BCM2835PropertyState`.
+  - Handle `0x00030064` (GET_REBOOT_FLAGS) by returning it.
+  - Today both fall through to "unimplemented".
+- **Expose `reboot_flags` as a QOM property** (`reboot-flags`) so QMP's
+  `qom-get` can read it.
+- **For snapshots,** put it in a VMState *subsection* whose `.needed` returns
+  `reboot_flags != 0`. Existing golden snapshots then still restore.
+- **`hw/misc/bcm2835_powermgt.c`:** expose `rsts` as a read-only QOM property.
+  The partition the kernel asks for (`reboot N`) is in it: partition bit *i*
+  is RSTS bit *2i* (bits 0, 2, … 10), and 63 means halt (0x555).
+- **Find both objects' QOM paths** with `qom-list` on a running instance, and
+  record them in the patch's comment.
+
+### 3.2 Machine (`app/src/machine.{h,cpp}`)
+
+- **Replace `-no-reboot` with `-action reboot=shutdown,shutdown=pause`.**
+- **On the QMP `SHUTDOWN` event with reason `guest-reset`:**
+  - `qom-get` the reboot flags and `rsts`, then `quit`;
+  - decode the requested partition;
+  - power on again with `FirmwareOptions{tryboot = flags & 1, requestedPartition}`.
+- **On `guest-shutdown`:** `quit`, then `poweredOff`, as today.
+- **A power-on from the panel or CLI** passes no flag and no requested
+  partition: a power cycle forgets both, as on a Pi.
+- **The restore path is unchanged:** a saved machine is only used at first
+  power-on.
+
+### 3.3 Firmware step (`app/src/firmware.{h,cpp}`)
+
+- **Filters.**
+  - `[boot_partition=N]` is true when `config.txt` is read from partition N.
+  - `[partition=N]` is true when the requested partition is N.
+  - `[tryboot]` stays as it is.
+  - Any other filter is false (`[0x<serial>]` too, unless an emulated serial
+    is added).
+  - Check the AND rules against the documentation: filters of different kinds
+    AND together, and `[all]` resets.
+- **Choosing the boot partition:**
+  - a requested partition (`reboot N`) wins;
+  - otherwise `autoboot.txt`'s `boot_partition`, from `[all]`, overridden by
+    `[tryboot]` when the flag is set;
+  - 0 or no file means the first bootable FAT partition;
+  - "Bootable" means FAT holding `start4.elf`;
+  - an unbootable choice behaves as phase 1's T6 and T7 measured.
+- **With the flag set and no `tryboot_a_b=1`,** read `tryboot.txt` instead of
+  `config.txt`.
+- **Device tree:** create `/chosen/bootloader` with the properties and values
+  phase 1 recorded, written as 32-bit big-endian cells (`fdtput -t u`). That
+  means at least `tryboot`, `partition`, `boot-mode`, the reset-status
+  property and `capabilities`.
+
+### 3.4 `instance.sh`
+
+- `up NAME --from CARD` clones the card, then rounds the clone up to the next
+  power of two with `truncate`. The file stays sparse.
+- Plain `pi-qemu run` keeps its size check.
+
+### 3.5 Tests
+
+**Boot phase 1's card in pi-qemu**, and repeat T0–T3 and T6–T9:
+- power cycles: `instance.sh ctl p1 power off`, then `power on`;
+- results must match phase 1's table, or the difference is written down as an
+  emulator limit.
+
+**Regressions:**
+- `instance.sh up x` still restores the golden snapshot in about 4 s;
+- `instance.sh deploy x config` still works;
+- the panel and `ctl` commands still work.
+
+**Stop point:** only if the golden snapshot no longer restores does it need
+remaking, and that's Sam's call (§1.2).
+
+**Done when** phase 1's emulatable rows give the same results in pi-qemu.
+
+---
+
+## 4. Phase 3: a locked card
+
+**Goal.** From a tagged commit, `make release` builds a card that boots
+read-only in pi-qemu, with its slots, `/data` and state partition. RAUC comes
+in phase 4.
+
+### 4.1 Changes to the deck's system
+
+They go into the normal build, so the dev deck carries them too, inert.
+
+- **`pi-qemu/deploy/base.sh`:**
+  - install `overlayroot`, `rauc` and `rauc-service`;
+  - add `squashfs` and `overlay` to `/etc/initramfs-tools/modules`, then run
+    `update-initramfs -u`.
+- **fstab entries** (in `pi_config`'s system step):
+  ```
+  LABEL=trimixxx-data   /data          ext4  ro,noatime,nofail  0 2
+  LABEL=trimixxx-state  /var/lib/rauc  ext4  noatime,nofail     0 2
+  ```
+- **The identity unit** (`trimixxx-identity.service`). It runs early:
+  `After=local-fs.target`, `Before=NetworkManager.service ssh.service`. It
+  does nothing when `/data/trimixxx.conf` is missing (the dev card). Otherwise
+  it does the following, writing only into the RAM layer:
+  - sets the hostname from `trimixxx.conf`;
+  - copies `/data/NetworkManager/*.nmconnection` into
+    `/run/NetworkManager/system-connections/`, mode 0600;
+  - copies `/data/ssh/ssh_host_*` into `/etc/ssh/`;
+  - links the deck's pre-rendered Mixxx files into `~/.mixxx`.
+
+  The copies go into NetworkManager's volatile directory and sshd's default
+  host key path, so neither NetworkManager nor sshd is reconfigured, and the
+  dev card keeps its network and ssh.
+- **Pre-render every deck.** `mixxx_config/upload.sh` renders each
+  `units/<deck>.json` (wiring, accent) into the image, under
+  `/usr/share/trimixxx/decks/<deck>/`, instead of only the build host's.
+- **Core dumps:** a `coredump.conf` drop-in with `Storage=none`.
+- **Swap: zram only.** Change `pi_config/trimixxx-swap-sizes.conf`. A swap file
+  on a read-only root would land in RAM. Ask Sam whether the dev deck may lose
+  its swap file too (one shared setting), or the release sets it alone.
+- **Mask `rpi-eeprom-update.service`.** EEPROM updates become a deliberate
+  step (phase 6).
+
+### 4.2 Release tooling (`pi-qemu/release/`)
+
+**`make release VERSION=v`** does the following, in order:
+
+1. **Checks** that the tree is clean and the commit is tagged `v<VERSION>`.
+2. **Builds the system** with `image/build.sh trimixxx-release`.
+   - That's a card for a neutral hostname. It doesn't touch the shared golden
+     snapshot, which only happens for `trimixxx0`.
+   - Its base stage is cached after the first build.
+3. **Takes out the root tree.** A privileged container loop-mounts the card's
+   root partition read-only.
+   - Check first that Docker Desktop allows it.
+   - Fallback: boot a clone with `instance.sh`, stream
+     `sudo tar --one-file-system --xattrs --acls -C / -cpf - .` over ssh, and
+     read it with `mksquashfs - rootfs.squashfs -tar`.
+4. **Seals it** with `exclude.txt`:
+   - the hostname and `/etc/ssh/ssh_host_*`;
+   - `/etc/machine-id`, emptied but not deleted (a mksquashfs pseudo-file);
+   - the systemd random seed;
+   - `/etc/NetworkManager/system-connections/*` (the build's `pi-qemu-home`);
+   - `/var/lib/cloud`, logs, apt caches, shell histories, `/tmp`.
+5. **Writes `/etc/trimixxx-release`** with the version.
+6. **Builds the images with genimage:**
+   - `rootfs.squashfs`: zstd, xattrs kept.
+   - `boot.vfat`: the card's boot files, plus `config-release.txt` appended to
+     `config.txt`, plus the `[0x<serial>]` screen sections built from
+     `units/*.json`, plus `cmdline-a.txt` and `cmdline-b.txt` with the disk
+     signature filled in. No `cmdline.txt`.
+   - `bootsel.vfat` with `autoboot.txt`.
+   - Empty `data.ext4` and `state.ext4`, labelled `trimixxx-data` and
+     `trimixxx-state`.
+   - `trimixxx-<v>.img`: the layout in §1.4, sized for the smallest 32 GB card.
+     Slot B and the data partition are empty.
+7. **Writes `manifest.txt`:** the commit, a sha256 for every output, and
+   `dpkg -l` from the root.
+
+**`make card DECK=name VERSION=v`** copies the release card and fills p7 from
+`pi-qemu/.cache/decks/<name>/`:
+- `trimixxx.conf`;
+- `NetworkManager/*.nmconnection`;
+- `ssh/ssh_host_*`.
+
+Generate any missing host keys with `ssh-keygen -A -f`, and keep them: they
+make `known_hosts` survive a reflash.
+
+### 4.3 Tests
+
+```sh
+make -C pi-qemu/release card DECK=trimixxx0 VERSION=0.0.1   # an identity for the emulated deck
+pi-qemu/instance.sh up rel --from pi-qemu/release/out/0.0.1/trimixxx0-0.0.1.img
+```
+
+**Locked boot.** Checks:
+- `findmnt /` shows overlay;
+- a file created under `/etc` is gone after a reboot;
+- `touch /data/x` fails, and `/var/lib/rauc` is writable;
+- `/boot/firmware` is p2, read-only;
+- `/proc/cmdline` has `rauc.slot=A`;
+- the device tree's `partition` is 2;
+- the hostname comes from `/data`;
+- `instance.sh ready rel` passes.
+
+**RAM measurement.**
+- Mixxx needs tracks to analyse. Build a small FAT stick image of test tracks
+  (`.cache/sticks/` is empty on MBP-NJ) and insert it.
+- Load one track after another, and read the RAM layer's usage with
+  `df /media/root-rw` (overlayroot's mount; check the name).
+- Extrapolate to a 4-hour set (about 80 tracks), and record the result in
+  `rauc-pi-4-setup.md` §3.3.
+
+**Done when** a tag gives a card that passes these checks, with the RAM
+measurement recorded.
+
+---
+
+## 5. Phase 4: RAUC on the deck
+
+### 5.1 Signing key
+
+**Stop point:** Sam decides where the private key lives, for example
+`~/.config/trimixxx/rauc/`. Generate it once:
+
+```sh
+openssl req -x509 -newkey rsa:4096 -nodes -days 36500 \
+  -keyout key.pem -out cert.pem -subj "/CN=TriMixxx releases"
+```
+
+Commit `cert.pem` as `pi_config/rauc/keyring.pem`. The key never enters the
+repo.
+
+### 5.2 Device files
+
+They live in `pi_config/rauc/` and are deployed by the system step.
+
+- **`/etc/rauc/system.conf`**, exactly as `rauc-pi-4-setup.md` §3.5.
+- **`/usr/lib/rauc/rpi-tryboot`**, adapted from
+  `Rtone/raspberrypi-firmware-rauc-bootloader-backend` (LGPL-2.1). Keep its
+  licence header and note where it came from. Its behaviour:
+  - it implements the contract table in `rauc-pi-4-report.md` §5;
+  - to write `autoboot.txt`, it mounts p1 at `/run/rauc/bootsel` and unmounts
+    it afterwards;
+  - it writes the file whole (invariant 2);
+  - it arms the flag with `vcmailbox 0x00038064 4 0 1`;
+  - it detects a trial from `/proc/device-tree/chosen/bootloader/{tryboot,partition}`;
+  - stdout carries only the tokens RAUC expects; success is exit 0.
+
+  It also gets a `repair` subcommand, for normal (non-trial) starts. If
+  `autoboot.txt` is missing or invalid, it rewrites the file for the running,
+  committed slot.
+- **`trimixxx-health.service` and `trimixxx-health`:**
+  - `ExecCondition=` tests that the device tree's `tryboot` is non-zero.
+    On normal starts it runs `rpi-tryboot repair` instead.
+  - `After=NetworkManager.service ssh.service`, plus the session that starts
+    Mixxx. `TimeoutStartSec=180`.
+  - The checks are those of `instance.sh`'s `mixxx_ready()`:
+    - the `ttymidi` bridge is running;
+    - the current Mixxx's `/tmp/mixxx/mixxx.log` has
+      `Started stream successfully` and `Opening controller: "TriMixxx"`;
+    - `/etc/trimixxx-release` matches the version RAUC installed in the booted
+      slot.
+  - Success: `rauc status mark-good`.
+  - Failure: `rauc status mark-bad`, then `FailureAction=reboot`.
+- **If phase 1's T9 showed a fallback after commit:**
+  - each slot's `config.txt` block sets `kernel_watchdog_partition` to the
+    other slot;
+  - a reconcile step handles "started the other slot without a trial": it
+    marks the committed slot bad, and commits the running one if it's
+    healthy.
+
+### 5.3 Bundles and shipping
+
+- **`make release` also builds `trimixxx-<v>.raucb`.**
+  - The manifest comes from `manifest.raucm.in`: `compatible=trimixxx-pi4`,
+    the version, `build=` from `git describe`, `format=plain`,
+    `[image.rootfs] filename=rootfs.squashfs` and
+    `[image.boot] filename=boot.vfat`.
+  - It's signed with `rauc bundle --cert --key` in the container.
+  - Stage the input directory inside the container, with plain files only
+    (RAUC 1.13).
+- **`make ship DECK=name VERSION=v`** runs:
+  1. `scp` the bundle to `name:/var/lib/rauc/`;
+  2. `ssh name sudo rauc install …`;
+  3. `ssh name sudo reboot`;
+  4. wait for ssh to come back;
+  5. `ssh name rauc status`.
+
+  For emulated decks, run it inside `pi-qemu/instance.sh run NAME -- …`.
+
+### 5.4 The fault matrix in QEMU
+
+Run it on an A/B deck started from release *v1*, shipping *v2*:
+
+| # | Fault | How | Expected |
+|---|---|---|---|
+| F1 | Damaged bundle | install a truncated copy | refused; nothing written; `rauc status` unchanged |
+| F2 | Power lost during install | `instance.sh ctl ab power off` mid-install, then `power on` | A; B not marked good |
+| F3 | Power lost after install, before the reboot | power off, then on | A |
+| F4 | Health check fails | ship a v2 whose Mixxx mapping is missing | trial → mark-bad → reboot → A |
+| F5 | Panic on the trial | ship a v2 whose initramfs lacks `squashfs` | `panic=10` → A |
+| F6 | Hang on the trial | ship a v2 whose cmdline has `break=premount` | watchdog → A |
+| F7 | `autoboot.txt` broken (power lost during a commit) | corrupt it from a running deck, then reboot | firmware boots p2; `repair` restores it |
+| F8 | Rollback | `rauc status mark-active other`, then reboot | trial of the old version → commit |
+| F9 | Normal update | ship v2 | B committed; A keeps v1 |
+
+**Done when** F1 to F9 pass in QEMU.
+
+---
+
+## 6. Phase 5: trimixxx3 end to end
+
+1. Make the per-deck card with `make card DECK=trimixxx3`.
+   - Secrets go in `pi-qemu/.cache/decks/trimixxx3/`.
+   - The bench works over the direct Ethernet cable (eth0 is link-local on
+     the decks anyway), so Wi-Fi is optional.
+2. Sam flashes the card.
+3. The checks of §4.3 on the hardware.
+4. Ship two releases with `make ship DECK=trimixxx3`.
+5. F1 to F9 on the hardware. Sam pulls the power where the matrix says so.
+
+The bench needs a USB sound card, because the health check requires Mixxx's
+sound stream. An HDMI screen is optional.
+
+**Done when** F1 to F9 pass on trimixxx3.
+
+---
+
+## 7. Phase 6: the decks (only with Sam)
+
+For each deck, one at a time, on a spare card first:
+1. **Capture what lives only on the deck:**
+   - trimixxx1's `config.txt` and panel;
+   - the MAC addresses;
+   - `apt-mark showmanual`;
+   - `asound.state`;
+   - any Mixxx state worth keeping.
+2. **Update the bootloader** on the deck's current OS: `rpi-eeprom-update -a`.
+3. **Record its serial** in `units/<deck>.json`.
+4. Run `make card`. **Sam flashes** the card.
+5. Verify the deck, then ship one release over the air.
+
+**Done when** every deck has taken a release over the air.
+
+---
+
+# Part 2. pi-qemu foundations (built)
+
+Why pi-qemu is built the way it is. The sections of the old plan on the card
+layout and network updates (D7, D8, §7, §9) are replaced by Part 1.
+
+| # | Decision |
+|---|---|
+| D1 | **The real board.** QEMU's `raspi4b` (BCM2711), with two sets of patches. [rpi-qemu](https://github.com/fpgas-online/rpi-qemu)'s 41 cover GENET, the PCIe root complex, the firmware's device-tree fix-ups and the watchdog trixie needs to boot. Ours (`qemu/trimixxx-patches.py`) cover HVF, PCIe with xHCI behind it, SD card DMA, the full RAM, the deck's sound card at 44.1 kHz, saved state for every device, and a fast SD card. Not QEMU's generic `virt` machine, which can't run the Pi's kernel |
+| D2 | **One image, byte-identical.** pi-qemu does the VideoCore firmware's job on the host and hands QEMU the kernel, DTB and initramfs off the card. That job covers `autoboot.txt`, `config.txt` with its filters and overlays (through Raspberry Pi's own `dtmerge`), `cmdline.txt`, and the device-tree edits. Graphics overlays are skipped; the kernel uses the firmware framebuffer at the panel's size |
+| D3 | **The S3 link** is the Pi's own PL011 (`ttyAMA0`, made `serial0` by `dtoverlay=disable-bt`), backed by a Unix socket. The panel or the CLI is the S3 |
+| D4 | **Per-deck parameters:** hostname, accent, MAC. The hostname picks `mixxx_config/units/<host>.json` |
+| D5 | **MAC:** a Pi uses its own; an emulated deck gets `02:54:4d:58:00:NN`, written into the device tree where the firmware writes the real one |
+| D6 | **trimixxx0** is a virtual trimixxx2: its wiring and 1280×800 panel |
+| D9 | **The panel** is a desktop window in Qt (the plan said a web page) |
+
+**Measured** in 2026-10, on an M1:
+- the stock trixie card boots to login in about 5 s (from about 50 s, before
+  the SD fixes);
+- a golden snapshot restores in 3–4 s;
+- the CPU runs at M1-native speed through HVF;
+- the board has 1.8 GiB of its 2 GiB;
+- the SD card reads at about 800 MB/s and writes at about 400 MB/s;
+- USB audio appears as card 0, and sticks as `sda` at 5 Gb/s.
+
+**Done in QEMU:**
+- the UCA222 sound card;
+- saved state for every device (snapshots);
+- the fast SD card.
+
+**Still open:**
+- **Q1**, a 4 GiB board (the decks have 4 GB);
+- the reboot flags and `tryboot` (phase 2 above);
+- offering the PCIe, SD, RAM and HVF fixes to rpi-qemu.
+
+**Risks:**
+- **GPU:** llvmpipe, not V3D. The emulated deck tests behaviour, not the GPU
+  or timing.
+- **CPU:** the M1 is newer than the A72. TCG (`--accel tcg`) emulates a real
+  Cortex-A72 to catch illegal instructions, slowly.
+- **Out-of-tree QEMU:** both patch sets are pinned, and the build fails loudly
+  if the code moves.
+- **Little Snitch**, or any outbound filter, can hold a new QEMU binary's
+  first packet and freeze the guest. Allow `qemu-system-aarch64`.

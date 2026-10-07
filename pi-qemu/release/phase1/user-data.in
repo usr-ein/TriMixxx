@@ -1,0 +1,20 @@
+#cloud-config
+# trimixxx3, Sam's bench Pi (pi-qemu/PLAN.md §2.1): the user image/build.sh
+# gives a deck, so the same key and password reach it. `make phase1` fills in
+# the password's hash and the key.
+hostname: trimixxx3
+manage_etc_hosts: true
+users:
+  - name: sam1902
+    groups: [users, adm, dialout, audio, netdev, video, plugdev, input, gpio, spi, i2c, render, sudo]
+    shell: /bin/bash
+    lock_passwd: false
+    passwd: '@PASSWD@'
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - @SSH_KEY@
+ssh_pwauth: false
+runcmd:
+  - [systemctl, enable, --now, ssh]
+  # Provisioned once: later starts skip cloud-init, as a release card will.
+  - [touch, /etc/cloud/cloud-init.disabled]

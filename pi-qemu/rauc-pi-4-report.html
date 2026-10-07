@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- The visual report for rauc-pi-4-setup.md (the plan). Opens in any browser;
+     fonts come from Google Fonts. The diagrams also exist as PNGs in
+     rauc-pi-4-figures/, and as text in rauc-pi-4-report.md. -->
+<title>TriMixxx A/B Updates</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400..700;1,8..60,400..700&display=swap">
+<style>
+/* Layout: a field manual for the deck. One reading column with section numbers hung in the margin; diagrams use the full 1040px sheet. */
+:root {
+  --paper: #F2F5F6;
+  --sheet: #FFFFFF;
+  --ink: #142029;
+  --ink-2: #4E5C67;
+  --rule: #D2DAE0;
+  --code-bg: #E6ECEF;
+  --accent: #0A72A0;        /* trimixxx0's cyan, deepened for paper: slot A, the running slot */
+  --accent-tint: #DCEEF6;
+  --signal: #AD5205;        /* the deck's BPM amber: slot B, trial starts */
+  --signal-tint: #FBEBDC;
+  --violet: #5B4BB8;        /* RAUC's own partition */
+  --violet-tint: #E7E3F8;
+  --good: #1F7A4A;
+  --good-tint: #DCEFE4;
+  --bad: #B3361F;
+  --bad-tint: #F7E0DA;
+  --font-display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Source Serif 4", "Iowan Old Style", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #0D1317;
+    --sheet: #131B20;
+    --ink: #E1E8EC;
+    --ink-2: #9AA8B2;
+    --rule: #28343C;
+    --code-bg: #1B252B;
+    --accent: #52C3EB;
+    --accent-tint: #10303D;
+    --signal: #F2A14E;
+    --signal-tint: #3A2914;
+    --violet: #A99BF0;
+    --violet-tint: #262043;
+    --good: #5BC58F;
+    --good-tint: #133022;
+    --bad: #F2826D;
+    --bad-tint: #3B1D17;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #0D1317;
+  --sheet: #131B20;
+  --ink: #E1E8EC;
+  --ink-2: #9AA8B2;
+  --rule: #28343C;
+  --code-bg: #1B252B;
+  --accent: #52C3EB;
+  --accent-tint: #10303D;
+  --signal: #F2A14E;
+  --signal-tint: #3A2914;
+  --violet: #A99BF0;
+  --violet-tint: #262043;
+  --good: #5BC58F;
+  --good-tint: #133022;
+  --bad: #F2826D;
+  --bad-tint: #3B1D17;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.62;
+  font-optical-sizing: auto;
+  padding-inline: clamp(16px, 4vw, 48px);
+  padding-block: clamp(28px, 5vw, 64px) 96px;
+}
+.doc { max-width: 1040px; margin-inline: auto; display: grid; gap: clamp(44px, 6vw, 68px); }
+p, ul, ol, dl { margin: 0; }
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+code { font-family: var(--font-mono); font-size: .84em; background: var(--code-bg); padding: .08em .34em; border-radius: 3px; overflow-wrap: anywhere; }
+b, strong { font-weight: 650; }
+
+/* masthead */
+.masthead { display: grid; gap: 16px; padding-bottom: 28px; border-bottom: 3px solid var(--ink); }
+.eyebrow { font-family: var(--font-display); font-weight: 600; font-size: .85rem; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-2); }
+h1 { margin: 0; font-family: var(--font-display); font-weight: 700; font-size: clamp(2.8rem, 7.5vw, 4.8rem); line-height: .92; text-transform: uppercase; letter-spacing: .005em; text-wrap: balance; }
+h1 .ab { color: var(--accent); }
+.lede { font-size: clamp(1.1rem, 2vw, 1.27rem); line-height: 1.5; max-width: 62ch; }
+.meta { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 28px; font-family: var(--font-display); font-size: 1rem; color: var(--ink-2); }
+.meta b { color: var(--ink); font-weight: 600; margin-right: 6px; letter-spacing: .04em; text-transform: uppercase; font-size: .85rem; }
+
+/* the one boxed summary */
+.label { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: .86rem; letter-spacing: .13em; text-transform: uppercase; color: var(--accent); }
+.answer { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: clamp(20px, 3.5vw, 36px); display: grid; gap: 16px; }
+.answer > p { max-width: 74ch; }
+.rules, .plain { list-style: none; padding: 0; display: grid; gap: 10px; max-width: 74ch; }
+.rules li, .plain li { position: relative; padding-left: 22px; }
+.rules li::before, .plain li::before { content: ""; position: absolute; left: 0; top: .78em; width: 11px; height: 2px; background: var(--ink-2); }
+
+/* contents */
+.toc { display: grid; gap: 10px; }
+.toc ol { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); column-gap: 32px; }
+.toc a { display: flex; gap: 12px; align-items: baseline; padding-block: 7px; border-bottom: 1px solid var(--rule); color: var(--ink); text-decoration: none; font-family: var(--font-display); font-size: 1.12rem; font-weight: 500; }
+.toc a:hover { color: var(--accent); }
+.toc .n { min-width: 1.6em; color: var(--ink-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* sections */
+.sec { display: grid; grid-template-columns: minmax(0, 1fr); column-gap: 32px; scroll-margin-top: 20px; }
+.sec-num { display: none; font-family: var(--font-display); font-weight: 700; font-size: 3.6rem; line-height: .86; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.sec-body { display: grid; gap: 18px; min-width: 0; }
+.sec-body > p, .sec-body > ul { max-width: 70ch; }
+h2 { margin: 0; font-family: var(--font-display); font-weight: 600; font-size: clamp(1.8rem, 3.6vw, 2.3rem); line-height: 1.06; text-wrap: balance; }
+.h-num { color: var(--ink-2); margin-right: .4em; }
+h3 { margin: 12px 0 0; font-family: var(--font-display); font-weight: 600; font-size: 1.1rem; letter-spacing: .07em; text-transform: uppercase; text-wrap: balance; }
+@media (min-width: 900px) {
+  .sec { grid-template-columns: 64px minmax(0, 1fr); }
+  .sec-num { display: block; padding-top: 2px; }
+  .h-num { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
+
+/* tables */
+.table-wrap { overflow-x: auto; border-top: 2px solid var(--ink); }
+table { width: 100%; border-collapse: collapse; font-size: .95rem; line-height: 1.45; }
+table.t-wide { min-width: 700px; }
+table.t-mid { min-width: 540px; }
+th { text-align: left; font-family: var(--font-display); font-weight: 600; font-size: .82rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); padding: 10px 18px 8px 0; border-bottom: 1px solid var(--rule); vertical-align: bottom; }
+td { padding: 11px 18px 11px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th:last-child, td:last-child { padding-right: 0; }
+td.k { font-family: var(--font-display); font-weight: 600; font-size: 1.04rem; line-height: 1.25; min-width: 150px; }
+.chip { display: inline-block; font-family: var(--font-display); font-weight: 600; font-size: .76rem; letter-spacing: .09em; text-transform: uppercase; border: 1px solid currentColor; border-radius: 3px; padding: 0 6px; white-space: nowrap; }
+.chip.std { color: var(--good); }
+.chip.set { color: var(--accent); }
+.chip.own { color: var(--signal); }
+.chip.same { color: var(--good); }
+.chip.diff { color: var(--signal); }
+.chip.a { color: var(--accent); }
+
+/* code */
+pre { margin: 0; background: var(--code-bg); border-radius: 6px; padding: 16px 20px; overflow-x: auto; font-family: var(--font-mono); font-size: .88rem; line-height: 1.65; }
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+pre .cm { color: var(--ink-2); }
+.cmds { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.cmd { display: grid; gap: 8px; align-content: start; }
+.cmd .label { color: var(--ink-2); }
+
+/* figures */
+figure { margin: 0; display: grid; gap: 10px; }
+.dia-wrap { overflow-x: auto; background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: clamp(10px, 2vw, 20px); }
+svg.dia { display: block; width: 100%; height: auto; min-width: 680px; color: var(--ink); }
+figcaption { font-size: .92rem; line-height: 1.5; color: var(--ink-2); max-width: 80ch; }
+figcaption b { font-family: var(--font-display); font-weight: 600; letter-spacing: .04em; text-transform: uppercase; font-size: .86rem; color: var(--ink); margin-right: 6px; }
+
+.dia text { font-family: var(--font-display); fill: var(--ink); }
+.dia .t { font-size: 15px; font-weight: 600; }
+.dia .t2 { font-size: 14px; font-weight: 600; }
+.dia .ts { font-size: 12.5px; font-weight: 500; fill: var(--ink-2); }
+.dia .th { font-size: 11.5px; font-weight: 600; letter-spacing: .12em; fill: var(--ink-2); }
+.dia .tm { font-family: var(--font-mono); font-size: 11.5px; }
+.dia .tm-strong { font-size: 13px; font-weight: 500; }
+.dia .tm-sig { fill: var(--signal); }
+.dia .tm-good { fill: var(--good); }
+.dia .tl { font-size: 13px; font-weight: 500; fill: var(--ink-2); }
+.dia .tl-signal { font-size: 13px; font-weight: 600; fill: var(--signal); }
+.dia .tl-good { font-size: 13px; font-weight: 600; fill: var(--good); }
+.dia .tl-bad { font-size: 13px; font-weight: 600; fill: var(--bad); }
+.dia .tv-good { fill: var(--good); font-weight: 600; }
+.dia .tv-sig { fill: var(--signal); font-weight: 600; }
+.dia .bx { fill: var(--sheet); stroke: var(--ink-2); stroke-width: 1.2; }
+.dia .bx-lock { fill: var(--sheet); stroke: var(--ink); stroke-width: 2.2; }
+.dia .bx-a { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.4; }
+.dia .bx-b { fill: var(--signal-tint); stroke: var(--signal); stroke-width: 1.4; stroke-dasharray: 5 3; }
+.dia .bx-ours { fill: var(--sheet); stroke: var(--signal); stroke-width: 1.4; stroke-dasharray: 5 3; }
+.dia .bx-note { fill: var(--sheet); stroke: var(--signal); stroke-width: 1.2; stroke-dasharray: 3 3; }
+.dia .bx-ram { fill: var(--sheet); stroke: var(--ink-2); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.dia .bx-good { fill: var(--good-tint); stroke: var(--good); stroke-width: 1.4; }
+.dia .bx-trial { fill: var(--signal-tint); stroke: var(--signal); stroke-width: 1.4; }
+.dia .bx-data { fill: var(--code-bg); stroke: var(--ink); stroke-width: 1.3; }
+.dia .bx-state { fill: var(--violet-tint); stroke: var(--violet); stroke-width: 1.4; }
+.dia .seg { fill: var(--sheet); stroke: var(--ink-2); stroke-width: 1.2; }
+.dia .seg-a { fill: var(--accent-tint); stroke: var(--accent); stroke-width: 1.4; }
+.dia .seg-b { fill: var(--signal-tint); stroke: var(--signal); stroke-width: 1.4; stroke-dasharray: 5 3; }
+.dia .seg-d { fill: var(--code-bg); stroke: var(--ink); stroke-width: 1.4; }
+.dia .seg-s { fill: var(--violet-tint); stroke: var(--violet); stroke-width: 1.4; }
+.dia .ln { fill: none; stroke: var(--ink); stroke-width: 1.4; }
+.dia .ln-thin { fill: none; stroke: var(--ink-2); stroke-width: 1; }
+.dia .ln-life { fill: none; stroke: var(--rule); stroke-width: 1.2; stroke-dasharray: 4 4; }
+.dia .ln-read { fill: none; stroke: var(--ink-2); stroke-width: 1.2; stroke-dasharray: 4 3; }
+.dia .ln-signal { fill: none; stroke: var(--signal); stroke-width: 1.5; stroke-dasharray: 6 4; }
+.dia .ln-sig-solid { fill: none; stroke: var(--signal); stroke-width: 1.5; }
+.dia .ln-good { fill: none; stroke: var(--good); stroke-width: 1.8; }
+.dia .ln-bad { fill: none; stroke: var(--bad); stroke-width: 1.6; stroke-dasharray: 6 4; }
+.dia .mk-ink { fill: var(--ink); }
+.dia .mk-thin { fill: var(--ink-2); }
+.dia .mk-signal { fill: var(--signal); }
+.dia .mk-good { fill: var(--good); }
+.dia .mk-bad { fill: var(--bad); }
+
+/* phases */
+.phases { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; counter-reset: ph; }
+.phase { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 16px 18px; display: grid; gap: 8px; align-content: start; counter-increment: ph; }
+.phase .ph-n { font-family: var(--font-display); font-weight: 700; font-size: 1.7rem; line-height: 1; color: var(--ink-2); }
+.phase .ph-n::before { content: counter(ph); }
+.phase .ph-t { font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; line-height: 1.2; }
+.phase p { font-size: .94rem; line-height: 1.5; }
+.phase .done { color: var(--ink-2); }
+.phase .done b { color: var(--good); font-family: var(--font-display); letter-spacing: .06em; text-transform: uppercase; font-size: .8rem; margin-right: 4px; }
+
+.foot { border-top: 3px solid var(--ink); padding-top: 20px; display: grid; gap: 12px; }
+.sources { padding-left: 1.1em; display: grid; gap: 8px; font-size: .92rem; color: var(--ink-2); max-width: 90ch; }
+</style>
+</head>
+<body>
+<main class="doc">
+
+  <header class="masthead">
+    <p class="eyebrow">TriMixxx · Plan · 7 October 2026</p>
+    <h1>TriMixxx <span class="ab">A/B</span> Updates</h1>
+    <p class="lede">How the decks boot a locked system, take updates over the air with RAUC and the Pi's own tryboot, and fall back by themselves when an update goes wrong. Also how the emulated deck on your Mac mirrors the real one, so every update is rehearsed before a deck sees it.</p>
+    <ul class="meta">
+      <li><b>Decks</b>trimixxx1, trimixxx2, more to come</li>
+      <li><b>Bench</b>trimixxx3, the spare Pi 4</li>
+      <li><b>Emulated</b>trimixxx0, in pi-qemu</li>
+      <li><b>Full plan</b><code>pi-qemu/rauc-pi-4-setup.md</code></li>
+    </ul>
+  </header>
+
+  <section class="answer" aria-labelledby="answer-h">
+    <h2 class="label" id="answer-h">In one minute</h2>
+    <ul class="rules">
+      <li><b>Two copies of the system</b> sit on every SD card: slot A and slot B. The deck runs one. An update writes only the other.</li>
+      <li><b>The Pi's firmware chooses the slot</b> from a tiny file, <code>autoboot.txt</code>. A new slot is started once, on trial, with the firmware's one-shot <em>tryboot</em> flag.</li>
+      <li><b>A health check decides.</b> If Mixxx, the sound card and the S3 link come up, RAUC marks the new slot good and it becomes the default. If anything fails, the next restart runs the old slot again, with nobody touching the deck.</li>
+      <li><b>The running system can't be changed.</b> It's SquashFS, with a RAM layer on top that is gone at every restart. The deck's name and Wi-Fi live on a separate locked partition.</li>
+      <li><b>RAUC, the standard A/B updater packaged by Debian,</b> does the installing. The emulated deck runs the same card and the same updates, so you rehearse on the Mac first.</li>
+    </ul>
+  </section>
+
+  <nav class="toc" aria-label="Contents">
+    <p class="label">Contents</p>
+    <ol>
+      <li><a href="#s1"><span class="n">1</span>The card</a></li>
+      <li><a href="#s2"><span class="n">2</span>How a deck starts</a></li>
+      <li><a href="#s3"><span class="n">3</span>The running system</a></li>
+      <li><a href="#s4"><span class="n">4</span>One update, as states</a></li>
+      <li><a href="#s5"><span class="n">5</span>Who does what during an update</a></li>
+      <li><a href="#s6"><span class="n">6</span>The emulated deck and the real one</a></li>
+      <li><a href="#s7"><span class="n">7</span>How you work with it</a></li>
+      <li><a href="#s8"><span class="n">8</span>When something goes wrong</a></li>
+      <li><a href="#s9"><span class="n">9</span>Standard parts and our own</a></li>
+      <li><a href="#s10"><span class="n">10</span>The plan, phase by phase</a></li>
+    </ol>
+  </nav>
+
+  <!-- 1 the card -->
+  <section class="sec" id="s1" aria-labelledby="s1-h">
+    <div class="sec-num" aria-hidden="true">1</div>
+    <div class="sec-body">
+      <h2 id="s1-h"><span class="h-num">1</span>The card</h2>
+      <p>Today a deck's card has two partitions, both writable. The new card has eight, each with one job.</p>
+      <figure>
+        <div class="dia-wrap">
+          <svg class="dia" viewBox="0 0 960 240" role="img" aria-label="The SD card's partitions in order. p1 bootsel, 64 MiB, holds autoboot.txt and changes only at commit. p2 boot-A and p3 boot-B are FAT boot slots. p4 is an extended partition containing p5 rootfs-A and p6 rootfs-B, both SquashFS, p7 data with the deck's identity, read-only, and p8 state for RAUC's bookkeeping. While slot A runs, p2 and p5 are never written; RAUC writes only p3 and p6.">
+            <path class="ln-thin" d="M381,58 V48 H949 V58"/>
+            <text class="ts" x="665" y="40" text-anchor="middle">p4 · extended partition: a container for p5 to p8</text>
+
+            <rect class="seg" x="110" y="62" width="70" height="60"/>
+            <text class="t" x="145" y="88" text-anchor="middle">p1</text>
+            <text class="ts" x="145" y="108" text-anchor="middle">bootsel</text>
+            <rect class="seg-a" x="180" y="62" width="100" height="60"/>
+            <text class="t" x="230" y="88" text-anchor="middle">p2 boot-A</text>
+            <text class="ts" x="230" y="108" text-anchor="middle">FAT</text>
+            <rect class="seg-b" x="280" y="62" width="100" height="60"/>
+            <text class="t" x="330" y="88" text-anchor="middle">p3 boot-B</text>
+            <text class="ts" x="330" y="108" text-anchor="middle">FAT</text>
+            <rect class="seg-a" x="380" y="62" width="170" height="60"/>
+            <text class="t" x="465" y="88" text-anchor="middle">p5 rootfs-A</text>
+            <text class="ts" x="465" y="108" text-anchor="middle">SquashFS</text>
+            <rect class="seg-b" x="550" y="62" width="170" height="60"/>
+            <text class="t" x="635" y="88" text-anchor="middle">p6 rootfs-B</text>
+            <text class="ts" x="635" y="108" text-anchor="middle">SquashFS</text>
+            <rect class="seg-d" x="720" y="62" width="90" height="60"/>
+            <text class="t" x="765" y="88" text-anchor="middle">p7 data</text>
+            <text class="ts" x="765" y="108" text-anchor="middle">ext4</text>
+            <rect class="seg-s" x="810" y="62" width="140" height="60"/>
+            <text class="t" x="880" y="88" text-anchor="middle">p8 state</text>
+            <text class="ts" x="880" y="108" text-anchor="middle">ext4</text>
+
+            <text class="th" x="12" y="150">SIZE</text>
+            <text class="th" x="12" y="172">MOUNTED</text>
+            <text class="th" x="12" y="194">WRITTEN</text>
+            <line class="ln-thin" x1="12" y1="133" x2="950" y2="133"/>
+
+            <text class="ts" x="145" y="150" text-anchor="middle">64 MiB</text>
+            <text class="ts" x="230" y="150" text-anchor="middle">512 MiB</text>
+            <text class="ts" x="330" y="150" text-anchor="middle">512 MiB</text>
+            <text class="ts" x="465" y="150" text-anchor="middle">4 GiB</text>
+            <text class="ts" x="635" y="150" text-anchor="middle">4 GiB</text>
+            <text class="ts" x="765" y="150" text-anchor="middle">64 MiB</text>
+            <text class="ts" x="880" y="150" text-anchor="middle">rest of the card</text>
+
+            <text class="ts" x="145" y="172" text-anchor="middle">no</text>
+            <text class="ts" x="230" y="172" text-anchor="middle">/boot/firmware</text>
+            <text class="ts" x="330" y="172" text-anchor="middle">no</text>
+            <text class="ts" x="465" y="172" text-anchor="middle">/  (read-only)</text>
+            <text class="ts" x="635" y="172" text-anchor="middle">no</text>
+            <text class="ts" x="765" y="172" text-anchor="middle">/data (ro)</text>
+            <text class="ts" x="880" y="172" text-anchor="middle">/var/lib/rauc</text>
+
+            <text class="ts" x="145" y="194" text-anchor="middle">at commit</text>
+            <text class="ts tv-good" x="230" y="194" text-anchor="middle">never</text>
+            <text class="ts tv-sig" x="330" y="194" text-anchor="middle">by RAUC</text>
+            <text class="ts tv-good" x="465" y="194" text-anchor="middle">never</text>
+            <text class="ts tv-sig" x="635" y="194" text-anchor="middle">by RAUC</text>
+            <text class="ts" x="765" y="194" text-anchor="middle">when unlocked</text>
+            <text class="ts" x="880" y="194" text-anchor="middle">by RAUC</text>
+
+            <rect class="seg-a" x="12" y="214" width="16" height="16"/>
+            <text class="tl" x="34" y="227">slot A: running, read-only</text>
+            <rect class="seg-b" x="230" y="214" width="16" height="16"/>
+            <text class="tl" x="252" y="227">slot B: idle, the next update goes here</text>
+            <rect class="seg-d" x="520" y="214" width="16" height="16"/>
+            <text class="tl" x="542" y="227">the deck's identity, locked</text>
+            <rect class="seg-s" x="720" y="214" width="16" height="16"/>
+            <text class="tl" x="742" y="227">RAUC's bookkeeping</text>
+          </svg>
+        </div>
+        <figcaption><b>Figure 1</b>The card while slot A runs. A slot is a boot partition plus its system partition (A = p2 + p5, B = p3 + p6). The running slot is never written; an update writes only the idle one. Not to scale. Real cards can be any size; only the emulator's card file must be a power of two, and it's sparse, so that costs no disk space.</figcaption>
+      </figure>
+      <ul class="plain">
+        <li><b>p1 on its own:</b> the file that picks the slot lives outside both slots, so installing a slot can never damage it. Raspberry Pi's own A/B example uses the same arrangement.</li>
+        <li><b>p7 data</b> holds only what makes a deck itself: its name, its Wi-Fi and its ssh host keys. Updates never touch it, and it stays read-only until you unlock it with <code>mount -o remount,rw /data</code>.</li>
+        <li><b>p8 state</b> is RAUC's own writable space: its install records, and the bundles you copy over.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 2 boot -->
+  <section class="sec" id="s2" aria-labelledby="s2-h">
+    <div class="sec-num" aria-hidden="true">2</div>
+    <div class="sec-body">
+      <h2 id="s2-h"><span class="h-num">2</span>How a deck starts</h2>
+      <p>There's no BIOS and no GRUB on a Pi. Its bootloader lives in a chip on the board and follows text files on the card. The A/B choice happens in the first two steps.</p>
+      <figure>
+        <div class="dia-wrap">
+          <svg class="dia" viewBox="0 0 820 580" role="img" aria-label="The start-up path. The bootloader in the EEPROM reads autoboot.txt on p1. By default it starts boot partition p2; when the one-shot trial flag is set, it starts p3 instead. In either boot partition, start4.elf reads config.txt, whose boot_partition filter picks cmdline-a.txt or cmdline-b.txt. Those point at rootfs p5 or p6, with rauc.slot A or B. Linux then starts with a RAM layer over the read-only SquashFS system, then systemd starts Mixxx, and on a trial start the health check decides.">
+            <defs>
+              <marker id="f2-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-ink"/></marker>
+              <marker id="f2-sig" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-signal"/></marker>
+            </defs>
+            <path class="ln-thin" d="M134,16 H128 V332 H134"/>
+            <text class="t" x="16" y="34">Pi firmware</text>
+            <text class="ts" x="16" y="53">reads text files</text>
+            <text class="ts" x="16" y="70">on FAT partitions</text>
+            <path class="ln-thin" d="M134,398 H128 V568 H134"/>
+            <text class="t" x="16" y="416">Linux</text>
+            <text class="ts" x="16" y="435">kernel, initramfs,</text>
+            <text class="ts" x="16" y="452">then the system</text>
+
+            <rect class="bx" x="290" y="16" width="220" height="54" rx="4"/>
+            <text class="t" x="400" y="39" text-anchor="middle">Bootloader</text>
+            <text class="ts" x="400" y="58" text-anchor="middle">EEPROM chip on the board</text>
+
+            <rect class="bx-note" x="572" y="16" width="236" height="74" rx="4"/>
+            <text class="tl-signal" x="690" y="38" text-anchor="middle">trial flag · one start only</text>
+            <text class="tm tm-sig" x="690" y="58" text-anchor="middle">reboot '0 tryboot'</text>
+            <text class="ts" x="690" y="78" text-anchor="middle">cleared when used · gone at power-off</text>
+            <line class="ln-signal" x1="572" y1="43" x2="514" y2="43" marker-end="url(#f2-sig)"/>
+            <text class="tl" x="543" y="34" text-anchor="middle">read once</text>
+
+            <line class="ln" x1="400" y1="70" x2="400" y2="107" marker-end="url(#f2-ink)"/>
+            <text class="tl" x="410" y="93">reads</text>
+
+            <rect class="bx" x="255" y="110" width="290" height="72" rx="4"/>
+            <text class="t" x="400" y="133" text-anchor="middle">p1 · bootsel</text>
+            <text class="tm" x="400" y="152" text-anchor="middle">autoboot.txt</text>
+            <text class="ts" x="400" y="171" text-anchor="middle">default 2 · [tryboot] 3</text>
+
+            <line class="ln" x1="330" y1="182" x2="254" y2="245" marker-end="url(#f2-ink)"/>
+            <text class="tl" x="262" y="212" text-anchor="end">default</text>
+            <line class="ln-signal" x1="470" y1="182" x2="546" y2="245" marker-end="url(#f2-sig)"/>
+            <text class="tl-signal" x="538" y="212">trial flag set</text>
+
+            <rect class="bx-a" x="142" y="248" width="220" height="84" rx="4"/>
+            <text class="t" x="252" y="271" text-anchor="middle">p2 · boot-A</text>
+            <text class="ts" x="252" y="290" text-anchor="middle">start4.elf reads config.txt</text>
+            <text class="tm" x="252" y="308" text-anchor="middle">[boot_partition=2]</text>
+            <text class="tm" x="252" y="324" text-anchor="middle">→ cmdline-a.txt</text>
+
+            <rect class="bx-b" x="438" y="248" width="220" height="84" rx="4"/>
+            <text class="t" x="548" y="271" text-anchor="middle">p3 · boot-B</text>
+            <text class="ts" x="548" y="290" text-anchor="middle">the same files, the same config.txt</text>
+            <text class="tm" x="548" y="308" text-anchor="middle">[boot_partition=3]</text>
+            <text class="tm" x="548" y="324" text-anchor="middle">→ cmdline-b.txt</text>
+
+            <line class="ln" x1="252" y1="332" x2="252" y2="395" marker-end="url(#f2-ink)"/>
+            <text class="tm" x="262" y="358">root=…-05</text>
+            <text class="tm" x="262" y="374">rauc.slot=A</text>
+            <line class="ln-signal" x1="548" y1="332" x2="548" y2="395" marker-end="url(#f2-sig)"/>
+            <text class="tm tm-sig" x="558" y="358">root=…-06</text>
+            <text class="tm tm-sig" x="558" y="374">rauc.slot=B</text>
+
+            <rect class="bx-a" x="142" y="398" width="220" height="56" rx="4"/>
+            <text class="t" x="252" y="421" text-anchor="middle">p5 · rootfs-A</text>
+            <text class="ts" x="252" y="441" text-anchor="middle">SquashFS · version 1.0.0</text>
+            <rect class="bx-b" x="438" y="398" width="220" height="56" rx="4"/>
+            <text class="t" x="548" y="421" text-anchor="middle">p6 · rootfs-B</text>
+            <text class="ts" x="548" y="441" text-anchor="middle">SquashFS · version 1.0.1</text>
+
+            <line class="ln" x1="252" y1="454" x2="252" y2="485" marker-end="url(#f2-ink)"/>
+            <line class="ln-signal" x1="548" y1="454" x2="548" y2="485" marker-end="url(#f2-sig)"/>
+            <rect class="bx" x="142" y="488" width="516" height="80" rx="4"/>
+            <text class="t" x="400" y="511" text-anchor="middle">Linux starts</text>
+            <text class="ts" x="400" y="531" text-anchor="middle">the initramfs lays a RAM layer (overlayroot) over the read-only SquashFS</text>
+            <text class="ts" x="400" y="550" text-anchor="middle">systemd starts Mixxx · on a trial start, the health check decides</text>
+          </svg>
+        </div>
+        <figcaption><b>Figure 2</b>The bootloader reads <code>autoboot.txt</code> and picks a boot partition. Both boot partitions hold the same files. One <code>config.txt</code> filter, <code>[boot_partition=N]</code>, picks the command line that names the matching system partition. The trial flag changes only the first choice, and only for one start. All of this is Raspberry Pi's documented mechanism, used as documented.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 3 running system -->
+  <section class="sec" id="s3" aria-labelledby="s3-h">
+    <div class="sec-num" aria-hidden="true">3</div>
+    <div class="sec-body">
+      <h2 id="s3-h"><span class="h-num">3</span>The running system</h2>
+      <p>Programs see an ordinary filesystem and work unchanged. Underneath, nothing they write reaches the card.</p>
+      <figure>
+        <div class="dia-wrap">
+          <svg class="dia" viewBox="0 0 920 318" role="img" aria-label="The running deck. Programs see one filesystem at slash: a RAM layer that receives every write, capped at half the RAM and emptied at each restart, over the SquashFS system slot, which is read-only even for root. Separate partitions are mounted beside it: the running boot slot at /boot/firmware read-only, RAUC's state at /var/lib/rauc read-write, and /data read-only, which the identity unit, sshd and NetworkManager read.">
+            <defs>
+              <marker id="f3-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-ink"/></marker>
+            </defs>
+            <rect class="bx" x="300" y="14" width="320" height="44" rx="4"/>
+            <text class="t" x="460" y="41" text-anchor="middle">/ as every program sees it</text>
+            <line class="ln" x1="460" y1="93" x2="460" y2="61" marker-end="url(#f3-ink)"/>
+            <text class="tl" x="470" y="81">one view</text>
+
+            <rect class="bx-ram" x="300" y="94" width="320" height="58"/>
+            <text class="t" x="460" y="118" text-anchor="middle">RAM layer (tmpfs)</text>
+            <text class="ts" x="460" y="138" text-anchor="middle">every write lands here · at most half the RAM · gone at restart</text>
+            <rect class="bx-a" x="300" y="152" width="320" height="58"/>
+            <text class="t" x="460" y="176" text-anchor="middle">System slot (SquashFS)</text>
+            <text class="ts" x="460" y="196" text-anchor="middle">read-only, even for root · exactly the release</text>
+
+            <rect class="bx" x="20" y="100" width="200" height="44" rx="4"/>
+            <text class="t2" x="120" y="127" text-anchor="middle">Mixxx saves its library</text>
+            <line class="ln" x1="220" y1="122" x2="297" y2="122" marker-end="url(#f3-ink)"/>
+            <text class="tl" x="259" y="114" text-anchor="middle">writes</text>
+            <rect class="bx" x="20" y="160" width="200" height="44" rx="4"/>
+            <text class="t2" x="120" y="187" text-anchor="middle">Mixxx loads its skin</text>
+            <line class="ln" x1="220" y1="182" x2="297" y2="182" marker-end="url(#f3-ink)"/>
+            <text class="tl" x="259" y="174" text-anchor="middle">reads</text>
+
+            <text class="tl" x="790" y="30" text-anchor="middle">separate partitions</text>
+            <rect class="bx-a" x="680" y="40" width="220" height="50" rx="4"/>
+            <text class="t" x="790" y="62" text-anchor="middle">/boot/firmware</text>
+            <text class="ts" x="790" y="80" text-anchor="middle">the running boot slot · read-only</text>
+            <rect class="bx-state" x="680" y="104" width="220" height="50" rx="4"/>
+            <text class="t" x="790" y="126" text-anchor="middle">/var/lib/rauc</text>
+            <text class="ts" x="790" y="144" text-anchor="middle">p8 · RAUC records, bundles · rw</text>
+            <rect class="bx-data" x="680" y="168" width="220" height="50" rx="4"/>
+            <text class="t" x="790" y="190" text-anchor="middle">/data</text>
+            <text class="ts" x="790" y="208" text-anchor="middle">p7 · identity · read-only</text>
+
+            <rect class="bx" x="680" y="254" width="220" height="50" rx="4"/>
+            <text class="t2" x="790" y="275" text-anchor="middle">Identity unit · sshd · Wi-Fi</text>
+            <text class="ts" x="790" y="293" text-anchor="middle">read name, host keys, networks</text>
+            <line class="ln" x1="790" y1="254" x2="790" y2="221" marker-end="url(#f3-ink)"/>
+            <text class="tl" x="800" y="242">reads</text>
+          </svg>
+        </div>
+        <figcaption><b>Figure 3</b>The read-only system at work. The RAM layer is Debian's <code>overlayroot</code>, the same mechanism <code>raspi-config</code> uses. The kernel caps it at half the RAM (2 GB on a deck). If that ever filled, writes would fail; nothing would crash. Its real writers are small and capped: Mixxx's logs (2 × 32 MiB), the journal, and Mixxx's library. The library's growth over a long set gets measured on the emulated deck.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 4 states -->
+  <section class="sec" id="s4" aria-labelledby="s4-h">
+    <div class="sec-num" aria-hidden="true">4</div>
+    <div class="sec-body">
+      <h2 id="s4-h"><span class="h-num">4</span>One update, as states</h2>
+      <figure>
+        <div class="dia-wrap">
+          <svg class="dia" viewBox="0 0 820 330" role="img" aria-label="The states of an update. Running A, then B installed after rauc install, which writes B and arms the trial flag. A reboot gives a trial start of B. If the health check passes, mark-good makes B the default, and A keeps the previous version for rollback. If the check fails, the system hangs or panics, or the power goes, the next start runs A, because the trial flag is already gone.">
+            <defs>
+              <marker id="f4-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-ink"/></marker>
+              <marker id="f4-good" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-good"/></marker>
+              <marker id="f4-bad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-bad"/></marker>
+            </defs>
+            <rect class="bx-good" x="16" y="36" width="170" height="66" rx="6"/>
+            <text class="t" x="101" y="63" text-anchor="middle">Running A</text>
+            <text class="ts" x="101" y="83" text-anchor="middle">A is the default</text>
+
+            <line class="ln" x1="186" y1="69" x2="317" y2="69" marker-end="url(#f4-ink)"/>
+            <text class="tm" x="252" y="59" text-anchor="middle">rauc install</text>
+            <text class="ts" x="252" y="88" text-anchor="middle">writes B, arms the flag</text>
+
+            <rect class="bx" x="320" y="36" width="170" height="66" rx="6"/>
+            <text class="t" x="405" y="63" text-anchor="middle">B installed</text>
+            <text class="ts" x="405" y="83" text-anchor="middle">flag armed for one start</text>
+
+            <line class="ln" x1="490" y1="69" x2="625" y2="69" marker-end="url(#f4-ink)"/>
+            <text class="tm" x="558" y="59" text-anchor="middle">reboot</text>
+            <text class="ts" x="558" y="88" text-anchor="middle">a plain reboot will do</text>
+
+            <rect class="bx-trial" x="628" y="36" width="176" height="66" rx="6"/>
+            <text class="t" x="716" y="63" text-anchor="middle">Trial start of B</text>
+            <text class="ts" x="716" y="83" text-anchor="middle">health check running</text>
+
+            <line class="ln-good" x1="716" y1="102" x2="716" y2="243" marker-end="url(#f4-good)"/>
+            <text class="tl-good" x="726" y="162">check passes</text>
+            <text class="tm tm-good" x="726" y="180">mark-good</text>
+
+            <rect class="bx-good" x="628" y="246" width="176" height="66" rx="6"/>
+            <text class="t" x="716" y="273" text-anchor="middle">Running B</text>
+            <text class="ts" x="716" y="293" text-anchor="middle">B is the default · A kept</text>
+
+            <path class="ln-bad" d="M660,102 V214 H101 V105" marker-end="url(#f4-bad)"/>
+            <text class="tl-bad" x="348" y="238" text-anchor="middle">check fails · hang · panic · power cut</text>
+            <text class="ts" x="348" y="256" text-anchor="middle">the flag is already gone, so the next start runs A</text>
+          </svg>
+        </div>
+        <figcaption><b>Figure 4</b>The default changes only on the green arrow, after a passed check on a real start. Every red path ends on slot A, which the update never touched. After a commit, A still holds the previous version: rolling back is one more trial, the other way round.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 5 sequence -->
+  <section class="sec" id="s5" aria-labelledby="s5-h">
+    <div class="sec-num" aria-hidden="true">5</div>
+    <div class="sec-body">
+      <h2 id="s5-h"><span class="h-num">5</span>Who does what during an update</h2>
+      <p>The same update, step by step. You type two commands; everything else follows from RAUC calling the backend.</p>
+      <figure>
+        <div class="dia-wrap">
+          <svg class="dia" viewBox="0 0 940 570" role="img" aria-label="Sequence of an update. You run rauc install. RAUC tells the backend set-state B bad, writes p3 and p6, then calls set-primary B. The backend writes the tryboot section of autoboot.txt pointing at partition 3 and arms the firmware's trial flag with vcmailbox. You run sudo reboot. The firmware reads autoboot.txt's tryboot section, starts p3 once and clears the flag. The health check confirms the MIDI bridge, Mixxx and sound, then calls rauc status mark-good. RAUC calls set-state B good, and the backend rewrites autoboot.txt so partition 3 is the default: the commit.">
+            <defs>
+              <marker id="f5-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-ink"/></marker>
+              <marker id="f5-sig" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-signal"/></marker>
+              <marker id="f5-good" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-good"/></marker>
+              <marker id="f5-thin" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-thin"/></marker>
+            </defs>
+            <!-- lanes -->
+            <rect class="bx" x="10" y="12" width="120" height="44" rx="4"/>
+            <text class="t2" x="70" y="31" text-anchor="middle">You</text>
+            <text class="ts" x="70" y="48" text-anchor="middle">on the Mac, over ssh</text>
+            <rect class="bx" x="170" y="12" width="120" height="44" rx="4"/>
+            <text class="t2" x="230" y="31" text-anchor="middle">RAUC</text>
+            <text class="ts" x="230" y="48" text-anchor="middle">on the deck</text>
+            <rect class="bx-ours" x="330" y="12" width="120" height="44" rx="4"/>
+            <text class="t2" x="390" y="31" text-anchor="middle">rpi-tryboot</text>
+            <text class="ts" x="390" y="48" text-anchor="middle">our backend</text>
+            <rect class="bx" x="490" y="12" width="120" height="44" rx="4"/>
+            <text class="t2" x="550" y="31" text-anchor="middle">autoboot.txt</text>
+            <text class="ts" x="550" y="48" text-anchor="middle">on p1</text>
+            <rect class="bx" x="650" y="12" width="120" height="44" rx="4"/>
+            <text class="t2" x="710" y="31" text-anchor="middle">Pi firmware</text>
+            <text class="ts" x="710" y="48" text-anchor="middle">bootloader, start4.elf</text>
+            <rect class="bx-ours" x="810" y="12" width="120" height="44" rx="4"/>
+            <text class="t2" x="870" y="31" text-anchor="middle">Health check</text>
+            <text class="ts" x="870" y="48" text-anchor="middle">our systemd unit</text>
+            <line class="ln-life" x1="70" y1="56" x2="70" y2="562"/>
+            <line class="ln-life" x1="230" y1="56" x2="230" y2="562"/>
+            <line class="ln-life" x1="390" y1="56" x2="390" y2="562"/>
+            <line class="ln-life" x1="550" y1="56" x2="550" y2="562"/>
+            <line class="ln-life" x1="710" y1="56" x2="710" y2="562"/>
+            <line class="ln-life" x1="870" y1="56" x2="870" y2="562"/>
+
+            <!-- install -->
+            <line class="ln" x1="70" y1="88" x2="227" y2="88" marker-end="url(#f5-ink)"/>
+            <text class="tm" x="150" y="81" text-anchor="middle">rauc install …raucb</text>
+            <line class="ln" x1="230" y1="124" x2="387" y2="124" marker-end="url(#f5-ink)"/>
+            <text class="tm" x="310" y="117" text-anchor="middle">set-state B bad</text>
+            <rect class="bx-b" x="172" y="140" width="116" height="28" rx="4"/>
+            <text class="ts" x="230" y="158" text-anchor="middle">writes p3 + p6</text>
+            <line class="ln" x1="230" y1="198" x2="387" y2="198" marker-end="url(#f5-ink)"/>
+            <text class="tm" x="310" y="191" text-anchor="middle">set-primary B</text>
+            <line class="ln-sig-solid" x1="390" y1="234" x2="547" y2="234" marker-end="url(#f5-sig)"/>
+            <text class="tm tm-sig" x="470" y="227" text-anchor="middle">[tryboot] → 3</text>
+            <line class="ln-sig-solid" x1="390" y1="270" x2="707" y2="270" marker-end="url(#f5-sig)"/>
+            <text class="ts tv-sig" x="630" y="263" text-anchor="middle">arm the flag (vcmailbox)</text>
+
+            <!-- reboot -->
+            <line class="ln" x1="70" y1="312" x2="707" y2="312" marker-end="url(#f5-ink)"/>
+            <text class="tm" x="150" y="305" text-anchor="middle">sudo reboot</text>
+            <line class="ln-read" x1="710" y1="348" x2="553" y2="348" marker-end="url(#f5-thin)"/>
+            <text class="ts" x="630" y="341" text-anchor="middle">reads [tryboot]: p3</text>
+            <rect class="bx-trial" x="625" y="362" width="170" height="28" rx="4"/>
+            <text class="ts" x="710" y="380" text-anchor="middle">starts p3 once, clears the flag</text>
+
+            <!-- check and commit -->
+            <rect class="bx-trial" x="800" y="408" width="136" height="28" rx="4"/>
+            <text class="ts" x="868" y="426" text-anchor="middle">bridge · Mixxx · sound OK</text>
+            <line class="ln-good" x1="870" y1="466" x2="233" y2="466" marker-end="url(#f5-good)"/>
+            <text class="tm tm-good" x="630" y="459" text-anchor="middle">rauc status mark-good</text>
+            <line class="ln-good" x1="230" y1="504" x2="387" y2="504" marker-end="url(#f5-good)"/>
+            <text class="tm tm-good" x="310" y="497" text-anchor="middle">set-state B good</text>
+            <line class="ln-good" x1="390" y1="542" x2="547" y2="542" marker-end="url(#f5-good)"/>
+            <text class="tm tm-good" x="470" y="535" text-anchor="middle">[all] → 3 · commit</text>
+          </svg>
+        </div>
+        <figcaption><b>Figure 5</b>Time runs downwards. Dashed boxes are the only two parts we write: the backend and the health check. RAUC calls the backend with five documented commands, and the backend only ever rewrites one small file and arms one firmware flag. Amber is the trial, green is the commit.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <!-- 6 emulated vs real -->
+  <section class="sec" id="s6" aria-labelledby="s6-h">
+    <div class="sec-num" aria-hidden="true">6</div>
+    <div class="sec-body">
+      <h2 id="s6-h"><span class="h-num">6</span>The emulated deck and the real one</h2>
+      <p>On a real deck, the Pi's firmware reads the card. On the Mac, pi-qemu reads the same card and plays the firmware's part, then hands QEMU the kernel. Below that line, both run the same software.</p>
+      <figure>
+        <div class="dia-wrap">
+          <svg class="dia" viewBox="0 0 960 600" role="img" aria-label="Real deck and emulated deck side by side. Real: an SD card with the 8 partitions; the EEPROM bootloader reads autoboot.txt and holds the trial flag; start4.elf reads config.txt, overlays and the command line; a Raspberry Pi 4. Emulated: a card file on the Mac with the same 8 partitions; pi-qemu's firmware step reads the same autoboot.txt and gets the trial flag from QEMU over QMP; pi-qemu applies the same config.txt rules and writes the bootloader device-tree properties; QEMU's raspi4b board on the Mac's cores. Both then run the same software: kernel, initramfs, SquashFS system, RAUC, the backend, the health check and Mixxx. Around the board, the real deck has the S3 board, the UCA222, the DSI panel and Wi-Fi; the emulated deck has a virtual S3 on a socket, QEMU USB audio, a framebuffer screen and a USB network adapter for ssh.">
+            <defs>
+              <marker id="f6-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-ink"/></marker>
+            </defs>
+            <text class="t" x="235" y="28" text-anchor="middle">Real deck · trimixxx1, 2, 3</text>
+            <text class="t" x="725" y="28" text-anchor="middle">Emulated deck · pi-qemu on the Mac</text>
+
+            <rect class="bx" x="20" y="44" width="430" height="50" rx="4"/>
+            <text class="t" x="235" y="66" text-anchor="middle">SD card</text>
+            <text class="ts" x="235" y="84" text-anchor="middle">p1 to p8, any card size</text>
+            <rect class="bx" x="510" y="44" width="430" height="50" rx="4"/>
+            <text class="t" x="725" y="66" text-anchor="middle">Card file on the Mac</text>
+            <text class="ts" x="725" y="84" text-anchor="middle">the same p1 to p8 · sparse, rounded up to a power of two</text>
+            <text class="tl-good" x="480" y="66" text-anchor="middle">same</text>
+            <text class="tl-good" x="480" y="82" text-anchor="middle">layout</text>
+
+            <line class="ln" x1="235" y1="94" x2="235" y2="121" marker-end="url(#f6-ink)"/>
+            <line class="ln" x1="725" y1="94" x2="725" y2="121" marker-end="url(#f6-ink)"/>
+
+            <rect class="bx" x="20" y="124" width="430" height="62" rx="4"/>
+            <text class="t" x="235" y="147" text-anchor="middle">EEPROM bootloader</text>
+            <text class="ts" x="235" y="165" text-anchor="middle">reads p1 autoboot.txt</text>
+            <text class="ts" x="235" y="181" text-anchor="middle">holds the trial flag in firmware memory, gone at power-off</text>
+            <rect class="bx-ours" x="510" y="124" width="430" height="62" rx="4"/>
+            <text class="t" x="725" y="147" text-anchor="middle">pi-qemu firmware step (our C++)</text>
+            <text class="ts" x="725" y="165" text-anchor="middle">reads the same autoboot.txt from the card file</text>
+            <text class="ts" x="725" y="181" text-anchor="middle">gets the trial flag from QEMU's mailbox over QMP</text>
+            <text class="tl-good" x="480" y="150" text-anchor="middle">same</text>
+            <text class="tl-good" x="480" y="166" text-anchor="middle">rules</text>
+
+            <line class="ln" x1="235" y1="186" x2="235" y2="213" marker-end="url(#f6-ink)"/>
+            <line class="ln" x1="725" y1="186" x2="725" y2="213" marker-end="url(#f6-ink)"/>
+
+            <rect class="bx" x="20" y="216" width="430" height="62" rx="4"/>
+            <text class="t" x="235" y="239" text-anchor="middle">start4.elf</text>
+            <text class="ts" x="235" y="257" text-anchor="middle">config.txt filters, overlays, device tree</text>
+            <text class="ts" x="235" y="273" text-anchor="middle">loads kernel, initramfs, cmdline-a or -b</text>
+            <rect class="bx-ours" x="510" y="216" width="430" height="62" rx="4"/>
+            <text class="t" x="725" y="239" text-anchor="middle">pi-qemu, from the same files</text>
+            <text class="ts" x="725" y="257" text-anchor="middle">the same config.txt rules · overlays applied with dtmerge</text>
+            <text class="ts" x="725" y="273" text-anchor="middle">writes /chosen/bootloader as the firmware does</text>
+            <text class="tl-good" x="480" y="242" text-anchor="middle">same</text>
+            <text class="tl-good" x="480" y="258" text-anchor="middle">files</text>
+
+            <line class="ln" x1="235" y1="278" x2="235" y2="305" marker-end="url(#f6-ink)"/>
+            <line class="ln" x1="725" y1="278" x2="725" y2="305" marker-end="url(#f6-ink)"/>
+
+            <rect class="bx" x="20" y="308" width="430" height="50" rx="4"/>
+            <text class="t" x="235" y="330" text-anchor="middle">Raspberry Pi 4</text>
+            <text class="ts" x="235" y="348" text-anchor="middle">Cortex-A72 · 4 GB · the real watchdog</text>
+            <rect class="bx" x="510" y="308" width="430" height="50" rx="4"/>
+            <text class="t" x="725" y="330" text-anchor="middle">QEMU raspi4b</text>
+            <text class="ts" x="725" y="348" text-anchor="middle">the Mac's cores through HVF · 2 GB · a model of the watchdog</text>
+            <text class="tl-signal" x="480" y="337" text-anchor="middle">differs</text>
+
+            <line class="ln" x1="235" y1="358" x2="235" y2="385" marker-end="url(#f6-ink)"/>
+            <line class="ln" x1="725" y1="358" x2="725" y2="385" marker-end="url(#f6-ink)"/>
+
+            <rect class="bx-good" x="20" y="388" width="920" height="58" rx="4"/>
+            <text class="t" x="480" y="411" text-anchor="middle">The same software</text>
+            <text class="ts" x="480" y="431" text-anchor="middle">kernel · initramfs · SquashFS system · RAUC · rpi-tryboot backend · health check · Mixxx</text>
+
+            <text class="th" x="480" y="472" text-anchor="middle">AROUND THE BOARD</text>
+            <rect class="bx" x="20" y="480" width="430" height="104" rx="4"/>
+            <text class="ts" x="235" y="504" text-anchor="middle">the S3 board on the Pi's UART</text>
+            <text class="ts" x="235" y="524" text-anchor="middle">UCA222 USB sound card</text>
+            <text class="ts" x="235" y="544" text-anchor="middle">DSI panel, drawn by the GPU</text>
+            <text class="ts" x="235" y="564" text-anchor="middle">Wi-Fi for home · eth0 for the CDJs</text>
+            <rect class="bx" x="510" y="480" width="430" height="104" rx="4"/>
+            <text class="ts" x="725" y="504" text-anchor="middle">a virtual S3 on a socket, played from the panel or the CLI</text>
+            <text class="ts" x="725" y="524" text-anchor="middle">QEMU USB audio, silent or recorded to a WAV</text>
+            <text class="ts" x="725" y="544" text-anchor="middle">a framebuffer screen, drawn by llvmpipe</text>
+            <text class="ts" x="725" y="564" text-anchor="middle">a USB network adapter for ssh · eth0 for the CDJs</text>
+          </svg>
+        </div>
+        <figcaption><b>Figure 6</b>Dashed boxes are pi-qemu's work: our C++, copying documented firmware behaviour. Everything from the kernel down is byte for byte what a deck runs. That's why an update rehearsed here behaves the same on a deck, apart from what only real hardware can show (below).</figcaption>
+      </figure>
+
+      <div class="table-wrap">
+        <table class="t-wide">
+          <thead><tr><th scope="col"></th><th scope="col">Real deck</th><th scope="col">Emulated deck</th><th scope="col"></th></tr></thead>
+          <tbody>
+            <tr><td class="k">Card</td><td>SD card, any size</td><td>A file on the Mac, sparse, rounded to a power of two</td><td><span class="chip same">same layout</span></td></tr>
+            <tr><td class="k">Chooses the slot</td><td>EEPROM bootloader</td><td>pi-qemu's firmware step, reading the same <code>autoboot.txt</code></td><td><span class="chip same">same rules</span></td></tr>
+            <tr><td class="k">Trial flag</td><td>Firmware memory; set by <code>reboot '0 tryboot'</code> or <code>vcmailbox</code>; gone at power-off</td><td>QEMU's mailbox (a small patch), read by pi-qemu at each reboot; gone at <code>power off</code></td><td><span class="chip same">same behaviour</span></td></tr>
+            <tr><td class="k">Kernel, initramfs, system, RAUC, backend, health check</td><td colspan="2">The same files, from the same release</td><td><span class="chip same">identical</span></td></tr>
+            <tr><td class="k">CPU and RAM</td><td>Cortex-A72, 4 GB</td><td>Mac cores, 2 GB</td><td><span class="chip diff">differs</span></td></tr>
+            <tr><td class="k">Screen</td><td>DSI panel through the GPU</td><td>Framebuffer, software rendering</td><td><span class="chip diff">differs</span></td></tr>
+            <tr><td class="k">Network</td><td>Wi-Fi at home, eth0 for CDJs</td><td>A USB network adapter for ssh, eth0</td><td><span class="chip diff">differs</span></td></tr>
+            <tr><td class="k">Pulling the plug</td><td>Real power loss, real SD card behaviour</td><td><code>instance.sh ctl … power off</code>: the file keeps what was written</td><td><span class="chip diff">differs</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>What only the bench deck can show</h3>
+      <ul class="plain">
+        <li>Whether a Pi 4's real <code>start4.elf</code> honours <code>[boot_partition=N]</code> (documented, still unverified on a Pi 4).</li>
+        <li>What the real bootloader does with a broken <code>autoboot.txt</code>, its version, and its settings.</li>
+        <li>Real watchdog timing, and an SD card losing power mid-write.</li>
+      </ul>
+      <p>So trimixxx3 goes first. Its results set how pi-qemu emulates the firmware, not the other way round.</p>
+    </div>
+  </section>
+
+  <!-- 7 workflow -->
+  <section class="sec" id="s7" aria-labelledby="s7-h">
+    <div class="sec-num" aria-hidden="true">7</div>
+    <div class="sec-body">
+      <h2 id="s7-h"><span class="h-num">7</span>How you work with it</h2>
+      <figure>
+        <div class="dia-wrap">
+          <svg class="dia" viewBox="0 0 960 352" role="img" aria-label="The workflow. From the repo, image/build.sh builds the system in QEMU. Day to day it goes to the writable dev deck, where instance.sh deploy changes it in seconds. From tagged commits only, make release seals and locks it, and genimage and rauc produce a signed update bundle and an 8-partition card image. The bundle is rehearsed on the emulated A/B deck, then on trimixxx3, then shipped to the decks over the air with make ship. The card image, with each deck's data added by make card, is flashed once with an SD card reader.">
+            <defs>
+              <marker id="f7-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-ink"/></marker>
+            </defs>
+            <rect class="bx" x="16" y="30" width="150" height="52" rx="4"/>
+            <text class="t" x="91" y="52" text-anchor="middle">Repo</text>
+            <text class="ts" x="91" y="71" text-anchor="middle">your commits</text>
+            <line class="ln" x1="166" y1="56" x2="211" y2="56" marker-end="url(#f7-ink)"/>
+
+            <rect class="bx" x="214" y="30" width="180" height="52" rx="4"/>
+            <text class="tm tm-strong" x="304" y="52" text-anchor="middle">image/build.sh</text>
+            <text class="ts" x="304" y="71" text-anchor="middle">the system, built in QEMU</text>
+            <line class="ln" x1="394" y1="56" x2="439" y2="56" marker-end="url(#f7-ink)"/>
+
+            <rect class="bx" x="442" y="30" width="180" height="52" rx="4"/>
+            <text class="t" x="532" y="52" text-anchor="middle">Dev deck (emulated)</text>
+            <text class="ts" x="532" y="71" text-anchor="middle">writable · 2 partitions</text>
+            <path class="ln" d="M622,43 C672,43 672,69 625,69" marker-end="url(#f7-ink)"/>
+            <text class="tm" x="680" y="52">instance.sh deploy</text>
+            <text class="ts" x="680" y="70">change, test, repeat · seconds</text>
+
+            <line class="ln" x1="304" y1="82" x2="304" y2="149" marker-end="url(#f7-ink)"/>
+            <text class="tl" x="314" y="120">tagged commits only</text>
+
+            <rect class="bx-lock" x="214" y="152" width="180" height="72" rx="4"/>
+            <text class="tm tm-strong" x="304" y="180" text-anchor="middle">make release</text>
+            <text class="ts" x="304" y="200" text-anchor="middle">seal · lock · genimage · rauc</text>
+            <line class="ln" x1="394" y1="176" x2="439" y2="158" marker-end="url(#f7-ink)"/>
+            <line class="ln" x1="394" y1="200" x2="439" y2="222" marker-end="url(#f7-ink)"/>
+
+            <rect class="bx" x="442" y="132" width="180" height="52" rx="4"/>
+            <text class="t" x="532" y="154" text-anchor="middle">Update bundle</text>
+            <text class="tm" x="532" y="173" text-anchor="middle">.raucb · signed</text>
+            <rect class="bx" x="442" y="200" width="180" height="52" rx="4"/>
+            <text class="t" x="532" y="222" text-anchor="middle">Card image</text>
+            <text class="tm" x="532" y="241" text-anchor="middle">.img · 8 partitions</text>
+
+            <rect class="bx-trial" x="700" y="96" width="244" height="44" rx="4"/>
+            <text class="t2" x="822" y="115" text-anchor="middle">1 · Emulated A/B deck</text>
+            <text class="ts" x="822" y="132" text-anchor="middle">rehearse: install, trial, every fault</text>
+            <line class="ln" x1="822" y1="140" x2="822" y2="157" marker-end="url(#f7-ink)"/>
+            <rect class="bx" x="700" y="160" width="244" height="44" rx="4"/>
+            <text class="t2" x="822" y="179" text-anchor="middle">2 · trimixxx3, the bench Pi</text>
+            <text class="ts" x="822" y="196" text-anchor="middle">same commands · serial console</text>
+            <line class="ln" x1="822" y1="204" x2="822" y2="221" marker-end="url(#f7-ink)"/>
+            <rect class="bx-a" x="700" y="224" width="244" height="44" rx="4"/>
+            <text class="t2" x="822" y="243" text-anchor="middle">3 · The decks · make ship</text>
+            <text class="ts" x="822" y="260" text-anchor="middle">over the air: scp, rauc install, reboot</text>
+            <line class="ln" x1="622" y1="150" x2="697" y2="120" marker-end="url(#f7-ink)"/>
+
+            <rect class="bx" x="700" y="292" width="244" height="44" rx="4"/>
+            <text class="t2" x="822" y="311" text-anchor="middle">SD card, flashed once per deck</text>
+            <text class="ts" x="822" y="328" text-anchor="middle">make card adds that deck's /data</text>
+            <line class="ln" x1="622" y1="236" x2="697" y2="310" marker-end="url(#f7-ink)"/>
+          </svg>
+        </div>
+        <figcaption><b>Figure 7</b>Two paths from one build. Day to day nothing changes: you edit, deploy to the writable emulated deck, try it. When you tag a version, <code>make release</code> turns that same system into a locked card image and a signed update bundle. The bundle then goes to the emulated A/B deck, trimixxx3 and the decks, in that order. The emulated A/B deck starts from the previous release's card image.</figcaption>
+      </figure>
+
+      <div class="cmds">
+        <div class="cmd">
+          <p class="label">Day to day, unchanged</p>
+<pre><code>pi-qemu/instance.sh up dev
+pi-qemu/instance.sh deploy dev mixxx    <span class="cm"># or config, system…</span></code></pre>
+        </div>
+        <div class="cmd">
+          <p class="label">Make a release</p>
+<pre><code>git tag v1.0.1
+make release VERSION=1.0.1    <span class="cm"># out/1.0.1/: .img + .raucb</span></code></pre>
+        </div>
+        <div class="cmd">
+          <p class="label">Rehearse on the emulated A/B deck</p>
+<pre><code>pi-qemu/instance.sh up ab --from out/1.0.0/trimixxx-1.0.0.img
+pi-qemu/instance.sh run ab -- make ship DECK=ab VERSION=1.0.1
+pi-qemu/instance.sh ssh ab rauc status</code></pre>
+        </div>
+        <div class="cmd">
+          <p class="label">Ship to a deck, or roll back</p>
+<pre><code>make ship DECK=trimixxx2 VERSION=1.0.1
+<span class="cm"># = scp the bundle, rauc install, reboot</span>
+ssh trimixxx2 sudo rauc status mark-active other
+ssh trimixxx2 sudo reboot      <span class="cm"># rollback: a trial of the old slot</span></code></pre>
+        </div>
+      </div>
+      <p>A new deck needs one physical flash: <code>make card DECK=trimixxx4</code> writes its name, Wi-Fi and ssh keys into that card's <code>/data</code>, and you flash it with Raspberry Pi Imager. Every later version arrives over the air.</p>
+    </div>
+  </section>
+
+  <!-- 8 faults -->
+  <section class="sec" id="s8" aria-labelledby="s8-h">
+    <div class="sec-num" aria-hidden="true">8</div>
+    <div class="sec-body">
+      <h2 id="s8-h"><span class="h-num">8</span>When something goes wrong</h2>
+      <p>Every one of these is rehearsed on the emulated deck first, then on trimixxx3.</p>
+      <div class="table-wrap">
+        <table class="t-wide">
+          <thead><tr><th scope="col">What goes wrong</th><th scope="col">What catches it</th><th scope="col">Where the deck ends up</th></tr></thead>
+          <tbody>
+            <tr><td>The bundle arrives damaged, or isn't yours</td><td>RAUC checks the signature before writing anything</td><td><span class="chip a">still on A</span></td></tr>
+            <tr><td>The power goes during the install</td><td>Only the idle slot was being written</td><td><span class="chip a">A</span></td></tr>
+            <tr><td>The power goes after the install, before the reboot</td><td>The trial flag doesn't survive a power-off</td><td><span class="chip a">A</span> · install again</td></tr>
+            <tr><td>The new system doesn't boot (kernel panic, missing root)</td><td><code>panic=10</code> and <code>rootwait=20</code> restart it; the flag is gone</td><td><span class="chip a">A</span></td></tr>
+            <tr><td>The new system freezes</td><td>The hardware watchdog, armed from the firmware on (<code>kernel_watchdog_timeout</code>)</td><td><span class="chip a">A</span></td></tr>
+            <tr><td>It boots, but Mixxx, the sound card or the S3 link fails</td><td>The health check: <code>mark-bad</code>, then a restart</td><td><span class="chip a">A</span></td></tr>
+            <tr><td>The power goes while committing</td><td>The one fragile moment: a few bytes on FAT. Written whole, synced; a broken <code>autoboot.txt</code> makes the firmware boot p2; a check at start repairs it</td><td>either slot, both good</td></tr>
+            <tr><td>A committed slot breaks later (SD corruption)</td><td>Nothing automatic: tryboot's one weak spot. The bench tests whether the firmware's watchdog-partition setting can cover it</td><td>reflash</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- 9 standard vs own -->
+  <section class="sec" id="s9" aria-labelledby="s9-h">
+    <div class="sec-num" aria-hidden="true">9</div>
+    <div class="sec-body">
+      <h2 id="s9-h"><span class="h-num">9</span>Standard parts and our own</h2>
+      <p>Almost everything is either a standard component or a setting of one. The custom parts are few, small, and each exists for a stated reason.</p>
+      <div class="table-wrap">
+        <table class="t-wide">
+          <thead><tr><th scope="col">Job</th><th scope="col">What does it</th><th scope="col"></th><th scope="col">Why we write any of it</th></tr></thead>
+          <tbody>
+            <tr><td class="k">Choose the slot, trial start, fall back</td><td>Pi firmware: <code>autoboot.txt</code> and tryboot</td><td><span class="chip std">standard</span></td><td>—</td></tr>
+            <tr><td class="k">Command line per slot</td><td><code>config.txt</code> <code>[boot_partition=N]</code></td><td><span class="chip std">standard</span></td><td>Saves the install hook other setups need</td></tr>
+            <tr><td class="k">Check, install and record updates</td><td>RAUC 1.13, from Debian</td><td><span class="chip std">standard</span></td><td>—</td></tr>
+            <tr><td class="k">Read-only system, RAM layer</td><td>SquashFS and Debian's <code>overlayroot</code></td><td><span class="chip std">standard</span></td><td>—</td></tr>
+            <tr><td class="k">Restart on hangs and panics</td><td>Firmware and systemd watchdogs, kernel <code>panic=</code></td><td><span class="chip set">settings</span></td><td>—</td></tr>
+            <tr><td class="k">Wi-Fi, ssh keys, the lock on <code>/data</code></td><td>Standard NetworkManager keyfiles and OpenSSH host keys, copied into RAM at start; an fstab mount</td><td><span class="chip set">settings</span></td><td>—</td></tr>
+            <tr><td class="k">Build the card and the bundle</td><td>genimage, mksquashfs, <code>rauc bundle</code></td><td><span class="chip set">config files</span></td><td>One <code>genimage.cfg</code>, one Dockerfile, one manifest, driven by <code>make release</code></td></tr>
+            <tr><td class="k">Connect RAUC to the Pi firmware</td><td><code>rpi-tryboot</code>, ~60 lines</td><td><span class="chip own">ours</span></td><td>RAUC 1.13 has no Pi firmware backend yet. Adapted from Rtone's script, in production on dozens of devices. Deleted when RAUC's own (in review, aimed at 1.17) ships</td></tr>
+            <tr><td class="k">Decide the deck is healthy</td><td>A systemd unit that calls <code>rauc status mark-good</code></td><td><span class="chip own">ours</span></td><td>RAUC's documented pattern; only the checks are ours, the ones <code>instance.sh ready</code> makes today</td></tr>
+            <tr><td class="k">Who this deck is</td><td>One small unit at start</td><td><span class="chip own">ours</span></td><td>Picking per-deck app config (name, wiring, accent) has no standard tool</td></tr>
+            <tr><td class="k">A/B in the emulator</td><td>pi-qemu's firmware step, one QEMU patch</td><td><span class="chip own">ours</span></td><td>QEMU runs no Pi firmware; pi-qemu exists to be it</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Why tryboot and not U-Boot: U-Boot would protect only the kernel and the system. It would write to the card at every boot, has no watchdog on the Pi, and adds boot time. Tryboot puts the firmware, device tree and <code>config.txt</code> under A/B too, and it's where Raspberry Pi, Ubuntu and RAUC itself are heading. The full comparison, with sources, is in the plan's appendix C.</p>
+    </div>
+  </section>
+
+  <!-- 10 phases -->
+  <section class="sec" id="s10" aria-labelledby="s10-h">
+    <div class="sec-num" aria-hidden="true">10</div>
+    <div class="sec-body">
+      <h2 id="s10-h"><span class="h-num">10</span>The plan, phase by phase</h2>
+      <ol class="phases">
+        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">Firmware checks on trimixxx3</p><p>A small three-partition card settles every unverified firmware fact: the <code>[boot_partition=N]</code> filter, tryboot, power-off, a broken <code>autoboot.txt</code>, the watchdog.</p><p class="done"><b>Done when</b>each one has a measured answer.</p></li>
+        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">Tryboot in pi-qemu</p><p>The QEMU patch for the trial flag; firmware-step filters, tryboot, <code>/chosen/bootloader</code>, partition walk, cards of any size.</p><p class="done"><b>Done when</b>the phase 1 card behaves the same in pi-qemu as on trimixxx3.</p></li>
+        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">A locked card</p><p>The read-only system (overlayroot, initramfs modules), the <code>/data</code> and state mounts, the identity unit; <code>make release</code> builds the card with genimage in Docker.</p><p class="done"><b>Done when</b>a tag gives a card that boots locked in QEMU, and the RAM layer is measured over a set.</p></li>
+        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">RAUC on the deck</p><p>The signing key, <code>system.conf</code>, the backend, the health check; <code>make release</code> adds the bundle, <code>make ship</code> sends it.</p><p class="done"><b>Done when</b>the whole fault table passes in QEMU.</p></li>
+        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">trimixxx3 end to end</p><p>Its card, flashed once; two releases shipped over the air.</p><p class="done"><b>Done when</b>the fault table passes on hardware.</p></li>
+        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">The decks</p><p>Bootloader updated, backed up, reflashed once each.</p><p class="done"><b>Done when</b>every deck has taken a release over the air.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <p class="label">Sources</p>
+    <ul class="sources">
+      <li>The full plan, with every configuration file and the research: <code>pi-qemu/rauc-pi-4-setup.md</code>.</li>
+      <li>Raspberry Pi: <a href="https://www.raspberrypi.com/documentation/computers/config_txt.html">config.txt</a> (<code>autoboot.txt</code>, <code>[tryboot]</code>, <code>[boot_partition=N]</code>), <a href="https://www.raspberrypi.com/documentation/computers/raspberry-pi.html">the bootloader and tryboot</a>, <a href="https://github.com/raspberrypi/rpi-eeprom/blob/master/firmware-2711/release-notes.md">EEPROM release notes</a>.</li>
+      <li>RAUC: <a href="https://rauc.readthedocs.io/en/latest/">documentation</a>, <a href="https://github.com/rauc/rauc/pull/1599">native Raspberry Pi backend (in review)</a>, <a href="https://github.com/rauc/meta-rauc-community/pull/181">meta-rauc's tryboot draft</a>.</li>
+      <li>Integrations: <a href="https://github.com/Rtone/raspberrypi-firmware-rauc-bootloader-backend">Rtone's tryboot backend</a>, <a href="https://github.com/geekdojo/rasputin-os">rasputin-os</a>, <a href="https://github.com/home-assistant/operating-system/pull/2914">Home Assistant OS on the Pi 5</a>, <a href="https://discourse.ubuntu.com/t/call-for-testing-a-b-boot-on-raspberry-pi/64173">Ubuntu's A/B boot</a>.</li>
+      <li>U-Boot: <a href="https://github.com/cdsteinkuehler/br2rauc">br2rauc</a>, <a href="https://github.com/rauc/meta-rauc-community/blob/master/meta-rauc-raspberrypi/recipes-bsp/rpi-u-boot-scr/files/boot.cmd.in">meta-rauc's boot script</a>, <a href="https://www.get-edi.io/Debian-Bullseye-Upgrade-for-the-Raspberry-Pi/">edi-pi's move to tryboot</a>.</li>
+    </ul>
+  </footer>
+
+</main>
+</body>
+</html>
