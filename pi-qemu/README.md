@@ -178,8 +178,26 @@ purpose, because macOS caps unix socket paths at 104 bytes. `up --window`
 shows its screen and panel. `up --boot` boots it instead of restoring it
 (~5 s to ssh, Mixxx playing ~1 s later).
 `up --fresh` starts again from the golden snapshot, and `up --from CARD`
-boots a card of your own. The script's header documents the rest. Every
-command prints or says what it runs, so you can do any of it by hand.
+boots a card of your own, of any size: the instance's copy is rounded up to
+the power of two QEMU's SD card needs, and stays sparse. The script's header
+documents the rest. Every command prints or says what it runs, so you can do
+any of it by hand.
+
+The emulated board starts as a Pi 4 does, measured on a real one
+(PLAN.md, phase 1):
+- **The boot partition.** `autoboot.txt` picks it, with `[tryboot]` on a
+  trial. With no `autoboot.txt`, it's the first FAT partition holding a
+  `start.elf`. A guest's `reboot N` asks for a partition.
+- **A trial (tryboot).** It's armed by
+  `sudo systemctl reboot --reboot-argument="0 tryboot"` or
+  `sudo vcmailbox 0x00038064 4 0 1`, used once, and forgotten at a power-off.
+  A guest reboot pauses QEMU so pi-qemu can read it.
+- **`config.txt`.** It takes `[boot_partition=N]`, `[partition=N]` and
+  `[tryboot]`.
+- **`/proc/device-tree/chosen/bootloader`** has the real firmware's values:
+  `partition`, `tryboot`, and the rest.
+- **`kernel_watchdog_timeout`** leaves the watchdog running, so a start that
+  hangs before systemd resets the board.
 
 Each instance takes 2 GB of RAM; four at once is about the limit on a 16 GB Mac.
 
@@ -273,10 +291,9 @@ idempotent. It never reboots, and says when a reboot is needed. Its steps:
 4. seals it, and for trimixxx0 refreshes the golden snapshot.
 
 Everything up to and including `base` is cached in `.cache/base/` while its
-inputs stay the same (`REBUILD_BASE=1` forces it). A real deck could be
-flashed from a card built for its hostname. PLAN.md lists what is still
-missing for that: per-card identity, root growing to fill the SD card, home
-Wi-Fi, and the A/B layout for network updates.
+inputs stay the same (`REBUILD_BASE=1` forces it). The cards the decks will run
+from, read-only and updated A/B over the network, come from such a build
+(PLAN.md Part 1).
 
 ## Workflows
 

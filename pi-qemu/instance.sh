@@ -228,6 +228,11 @@ up)
     if [ -n "$from" ]; then # a card of your own: booted, no snapshot
         [ -f "$from" ] || die "no card at $from"
         rm -f "$D/state"; clone "$from" "$D/card.img"
+        # QEMU's SD card is a power of two; a real card is any size. The clone
+        # is rounded up, and stays sparse.
+        size=$(wc -c < "$D/card.img" | tr -d ' '); p2=1
+        while [ "$p2" -lt "$size" ]; do p2=$((p2 * 2)); done
+        [ "$p2" = "$size" ] || truncate -s "$p2" "$D/card.img"
     elif [ "$fresh" = 1 ] || [ ! -f "$D/card.img" ]; then
         [ -f "$GOLDEN.img" ] || die "no golden card: instance.sh golden [CARD]"
         rm -f "$D/state"; clone "$GOLDEN.img" "$D/card.img"

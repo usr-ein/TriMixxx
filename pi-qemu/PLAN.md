@@ -8,8 +8,9 @@ records why it is built the way it is.
 the air: A/B slots, chosen by the Pi firmware's own **tryboot** and installed by
 **RAUC**, rehearsed on the emulated deck before any deck sees them. Part 1 is
 that plan, phase by phase, written so that an agent can carry it out. Status on
-2026-10-08: **phase 1 is done.** Its results are in §2.3. Next comes phase 2, tryboot in
-pi-qemu. trimixxx3 runs the test card on bootloader 2026-05-17.
+2026-10-08: **phases 1 and 2 are done**: the firmware measured on trimixxx3
+(§2.3), and pi-qemu starting as it does (§3.5). Phase 3, a locked card, is
+under way.
 
 | Read | For |
 |---|---|
@@ -501,6 +502,31 @@ rehearsed on the Mac.
 remaking, and that's Sam's call (§1.2).
 
 **Done when** phase 1's emulatable rows give the same results in pi-qemu.
+
+**Done on 2026-10-08.** Phase 1's card, in pi-qemu:
+
+| Test | pi-qemu | trimixxx3 |
+|---|---|---|
+| T0 | `slot=A partition=2 tryboot=0`; `/chosen/bootloader` holds the measured values | the same |
+| T1–T3 | B (trial), A, B (trial); 10 s per reboot | the same; 38 s |
+| T4, T5 | A | A |
+| T6a, T6b | R; then nothing starts, and pi-qemu says why | R; then a black screen |
+| T6c, T7 | A | A |
+| T8 | A, 75 s after the reboot command | A, 118 s |
+| T9 | A, in a loop | the same |
+| T10 | not emulated: the EEPROM's watchdog acts in firmware pi-qemu doesn't run | B |
+
+**Regressions.**
+- The golden snapshot restores in 3 s with the patched QEMU, so it wasn't
+  remade.
+- A dev deck reboots in 16 s, through the new pause.
+- `deploy config` and the `ctl` commands work.
+
+**Found on the way.**
+- On macOS 27 with Xcode 26.4, QEMU's configure needs Xcode's SDK
+  (`SDKROOT`, now set in `qemu/build.sh`), as `app/build.sh` already knew.
+- mtools' `mren` writes names that fit 8.3 in capitals (`START4.ELF`). FAT
+  doesn't mind.
 
 ---
 

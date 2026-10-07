@@ -15,6 +15,11 @@
 
 extern std::atomic<pid_t> g_qemuPid;
 
+// The QOM paths of what QEMU's patched devices expose (qemu/trimixxx-patches.py,
+// 18 and 19): the mailbox's reboot flags and the power manager's reset status.
+static const char* kPropertyPath = "/machine/soc/peripherals/property";
+static const char* kPowerMgtPath = "/machine/soc/peripherals/powermgt";
+
 Machine::Machine(MachineOptions o, QObject* parent) : QObject(parent), m_o(std::move(o)) {
     connect(&m_proc, &QProcess::finished, this, &Machine::onFinished);
     connect(&m_qmp, &QLocalSocket::readyRead, this, &Machine::onQmpBytes);
@@ -39,10 +44,19 @@ bool Machine::powerOn(QString* error) {
                          "(truncate -s 8G %1)").arg(m_o.card).arg(n);
         return false;
     }
-    FirmwareOptions fo{false, m_o.mac, m_o.fbWidth, m_o.fbHeight, m_o.fbDepth, m_o.dtmerge, m_o.runDir};
+    FirmwareOptions fo;
+    fo.tryboot = m_nextTryboot;
+    fo.requestedPartition = m_nextPartition;
+    fo.mac = m_o.mac;
+    fo.fbWidth = m_o.fbWidth, fo.fbHeight = m_o.fbHeight, fo.fbDepth = m_o.fbDepth;
+    fo.dtmerge = m_o.dtmerge;
+    fo.runDir = m_o.runDir;
+    m_nextTryboot = false; // used once, as the firmware uses them
+    m_nextPartition = 0;
     BootPlan p;
     if (!prepareBoot(card, fo, &p, error)) return false;
-    emit status(QString("booting partition %1").arg(p.partition));
+    for (const QString& note : p.notes) emit status(note);
+    emit status(QString("booting partition %1%2").arg(p.partition).arg(fo.tryboot ? " (a trial: tryboot)" : ""));
     if (!p.skipped.isEmpty())
         emit status("not emulated, left out: " + p.skipped.join(", ") + " (the kernel uses the framebuffer)");
 
@@ -60,8 +74,13 @@ bool Machine::powerOn(QString* error) {
         "-qmp", "unix:" + QDir(m_o.runDir).filePath("qmp.sock") + ",server=on,wait=off",
         // A second monitor, only for handing QEMU a USB stick's descriptor (add-fd).
         "-qmp", "unix:" + QDir(m_o.runDir).filePath("qmp-fd.sock") + ",server=on,wait=off",
-        "-monitor", "none", "-no-reboot",
+        "-monitor", "none",
+        // A reset or power-off request pauses QEMU instead: onGuestStopped().
+        "-action", "reboot=shutdown,shutdown=pause",
     };
+    // kernel_watchdog_timeout: the watchdog left running, as the firmware does.
+    if (p.bootWatchdog > 0)
+        a << "-global" << QString("bcm2835-powermgt.boot-watchdog=%1").arg(p.bootWatchdog);
     if (!p.initramfs.isEmpty()) a << "-initrd" << p.initramfs;
 
     // QEMU's first -serial is the PL011, the second the mini UART. The S3 is
@@ -148,7 +167,32 @@ bool Machine::powerOn(QString* error) {
 }
 
 void Machine::pullPlug() {
+    m_nextTryboot = false;
+    m_nextPartition = 0;
     if (running()) m_proc.kill();
+}
+
+// The guest asked for a reset (a reboot, a watchdog) or a power-off, and QEMU
+// paused. For a reset, read what the firmware keeps across it -- the reboot
+// flags (bit 0: tryboot) and the partition in the reset status (`reboot N`:
+// partition bit i in RSTS bit 2i; 63 is a halt) -- then quit; onFinished()
+// powers on again with them.
+void Machine::onGuestStopped() {
+    if (m_shutdownReason == "guest-shutdown") { qmp("quit"); return; }
+    if (m_shutdownReason != "guest-reset") return;
+    qmp("qom-get", QJsonObject{{"path", kPropertyPath}, {"property", "reboot-flags"}},
+        [this](const QJsonObject& r) {
+            const quint32 flags = quint32(r["return"].toDouble());
+            qmp("qom-get", QJsonObject{{"path", kPowerMgtPath}, {"property", "rsts"}},
+                [this, flags](const QJsonObject& r) {
+                    const quint32 rsts = quint32(r["return"].toDouble());
+                    int part = 0;
+                    for (int i = 0; i < 6; i++) part |= int((rsts >> (2 * i)) & 1) << i;
+                    m_nextTryboot = flags & 1;
+                    m_nextPartition = part == 63 ? 0 : part;
+                    qmp("quit");
+                });
+        });
 }
 
 void Machine::onFinished() {
@@ -261,8 +305,12 @@ void Machine::onQmpBytes() {
         m_qmpBuf.remove(0, nl + 1);
         if (m.contains("QMP")) continue; // greeting
         if (m.contains("event")) {
-            if (m["event"].toString() == "SHUTDOWN")
+            // The first reason counts: the quit that follows a guest's
+            // request reports one of its own.
+            if (m["event"].toString() == "SHUTDOWN" && m_shutdownReason.isEmpty()) {
                 m_shutdownReason = m["data"].toObject()["reason"].toString();
+                onGuestStopped();
+            }
             continue;
         }
         if (!m_pending.isEmpty()) m_pending.dequeue()(m);

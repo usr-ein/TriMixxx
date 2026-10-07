@@ -93,6 +93,19 @@ std::optional<QByteArray> Card::readFile(int partition, const QString& path) {
     return std::nullopt;
 }
 
+bool Card::exists(int partition, const QString& path) {
+    for (const auto& p : m_parts) {
+        if (p.number != partition) continue;
+        QProcess mdir;
+        auto env = QProcessEnvironment::systemEnvironment();
+        env.insert("MTOOLS_SKIP_CHECK", "1");
+        mdir.setProcessEnvironment(env);
+        mdir.start("mdir", {"-b", "-i", QString("%1@@%2").arg(m_file.fileName()).arg(p.offset), "::/" + path});
+        return mdir.waitForFinished(30000) && mdir.exitStatus() == QProcess::NormalExit && mdir.exitCode() == 0;
+    }
+    return false;
+}
+
 // The boot ROM's fallback: the first partition mtools can read as FAT.
 int Card::firstFat() {
     for (const auto& p : m_parts) {

@@ -1,8 +1,12 @@
 #pragma once
 // The emulated Raspberry Pi 4: the firmware step, then the patched QEMU, and
-// QMP to drive it (power, USB hot-plug). A guest reboot stops QEMU (-no-reboot)
-// and the board starts again from the firmware step, so a changed card --
-// cmdline.txt, config.txt, an A/B switch -- is read exactly as on a Pi.
+// QMP to drive it (power, USB hot-plug). A guest reboot pauses QEMU (-action
+// reboot=shutdown,shutdown=pause): pi-qemu reads what the firmware would keep
+// across it -- the reboot flags (tryboot) and the partition Linux asked for --
+// stops QEMU, and starts the board again from the firmware step with them. So
+// a changed card (cmdline.txt, config.txt, autoboot.txt) is read exactly as on
+// a Pi, and an A/B trial starts as on one. A power-on from the panel or the CLI
+// forgets both, as a power cycle does.
 
 #include <QJsonObject>
 #include <QLocalSocket>
@@ -52,6 +56,7 @@ signals:
 
 private:
     void onFinished();
+    void onGuestStopped();
     void connectQmp();
     void onQmpBytes();
     void finishRestore(int tries);
@@ -63,6 +68,8 @@ private:
     QByteArray     m_qmpBuf;
     QQueue<Reply>  m_pending;
     QString        m_shutdownReason;
+    bool           m_nextTryboot = false;  // for the power-on after a guest reset
+    int            m_nextPartition = 0;
     bool           m_qmpReady = false;
     bool           m_stopping = false;
     bool           m_restoring = false;  // QEMU is loading m_o.restore

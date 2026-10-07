@@ -24,6 +24,8 @@ public:
 
     // A file off partition n's FAT filesystem ("overlays/disable-bt.dtbo").
     std::optional<QByteArray> readFile(int partition, const QString& path);
+    // Whether partition n is FAT and holds that file, without reading it.
+    bool exists(int partition, const QString& path);
     // The first partition carrying a FAT filesystem: the boot ROM's fallback.
     int firstFat();
 

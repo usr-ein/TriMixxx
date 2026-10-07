@@ -707,4 +707,126 @@ edit("audio/wavaudio.c",
      'static int wav_init_out(HWVoiceOut *hw, struct audsettings *as)',
      '/*\n * The RIFF and data lengths in the header, kept right after every write: the\n * file is a valid WAV at every moment. They used to be written only by\n * wav_fini_out(), which QEMU does not run at exit -- the WAV of any run that\n * ended said it held nothing.\n */\nstatic void wav_store_lengths(WAVVoiceOut *wav)\n{\n    uint8_t len[4];\n    uint32_t datalen = wav->total_samples * wav->hw.info.bytes_per_frame;\n\n    le_store(len, datalen + 36, 4);\n    if (fseek(wav->f, 4, SEEK_SET) || fwrite(len, 4, 1, wav->f) != 1) {\n        goto out;\n    }\n    le_store(len, datalen, 4);\n    if (fseek(wav->f, 40, SEEK_SET) || fwrite(len, 4, 1, wav->f) != 1) {\n        goto out;\n    }\nout:\n    if (fseek(wav->f, 0, SEEK_END)) {\n        error_report("wav: fseek to the end failed: %s", strerror(errno));\n    }\n}\n\nstatic int wav_init_out(HWVoiceOut *hw, struct audsettings *as)')
 
+# ---- 18. the reboot flags: tryboot ---------------------------------------------------
+# `vcmailbox 0x00038064 4 0 1`, or Linux asked to `reboot "0 tryboot"`, sets bit 0:
+# the next start is a trial (pi-qemu/PLAN.md, phase 1, T1 and T3). The firmware
+# keeps the flags until that start or a power-off. Here they live in the mailbox's
+# property device, and pi-qemu reads them over QMP (`reboot-flags`) when the guest
+# resets, then powers on again accordingly. Saved with the machine only while set,
+# so snapshots made before this patch still load.
+edit("include/hw/misc/bcm2835_property.h",
+     "    bool pending;\n};",
+     "    bool pending;\n    uint32_t reboot_flags; /* SET_REBOOT_FLAGS; bit 0: tryboot */\n};")
+edit("hw/misc/bcm2835_property.c",
+     """        default:
+            qemu_log_mask(LOG_UNIMP,
+                          "bcm2835_property: unhandled tag 0x%08x\\n", tag);""",
+     """        case RPI_FWREQ_GET_REBOOT_FLAGS:
+            stl_le_phys(&s->dma_as, value + 12, s->reboot_flags);
+            resplen = 4;
+            break;
+        case RPI_FWREQ_SET_REBOOT_FLAGS:
+            /* A Pi 4 answers 0, as measured on trimixxx3. */
+            s->reboot_flags = ldl_le_phys(&s->dma_as, value + 12);
+            stl_le_phys(&s->dma_as, value + 12, 0);
+            resplen = 4;
+            break;
+        default:
+            qemu_log_mask(LOG_UNIMP,
+                          "bcm2835_property: unhandled tag 0x%08x\\n", tag);""")
+edit("hw/misc/bcm2835_property.c",
+     """static const VMStateDescription vmstate_bcm2835_property = {
+    .name = TYPE_BCM2835_PROPERTY,
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .fields = (const VMStateField[]) {
+        VMSTATE_MACADDR(macaddr, BCM2835PropertyState),
+        VMSTATE_UINT32(addr, BCM2835PropertyState),
+        VMSTATE_BOOL(pending, BCM2835PropertyState),
+        VMSTATE_END_OF_LIST()
+    }
+};""",
+     """static bool bcm2835_property_reboot_flags_needed(void *opaque)
+{
+    BCM2835PropertyState *s = opaque;
+
+    return s->reboot_flags != 0;
+}
+
+static const VMStateDescription vmstate_bcm2835_property_reboot_flags = {
+    .name = TYPE_BCM2835_PROPERTY "/reboot-flags",
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .needed = bcm2835_property_reboot_flags_needed,
+    .fields = (const VMStateField[]) {
+        VMSTATE_UINT32(reboot_flags, BCM2835PropertyState),
+        VMSTATE_END_OF_LIST()
+    }
+};
+
+static const VMStateDescription vmstate_bcm2835_property = {
+    .name = TYPE_BCM2835_PROPERTY,
+    .version_id = 1,
+    .minimum_version_id = 1,
+    .fields = (const VMStateField[]) {
+        VMSTATE_MACADDR(macaddr, BCM2835PropertyState),
+        VMSTATE_UINT32(addr, BCM2835PropertyState),
+        VMSTATE_BOOL(pending, BCM2835PropertyState),
+        VMSTATE_END_OF_LIST()
+    },
+    .subsections = (const VMStateDescription * const []) {
+        &vmstate_bcm2835_property_reboot_flags,
+        NULL
+    }
+};""")
+edit("hw/misc/bcm2835_property.c",
+     "    sysbus_init_irq(SYS_BUS_DEVICE(s), &s->mbox_irq);\n",
+     "    sysbus_init_irq(SYS_BUS_DEVICE(s), &s->mbox_irq);\n"
+     "    object_property_add_uint32_ptr(obj, \"reboot-flags\", &s->reboot_flags,\n"
+     "                                   OBJ_PROP_FLAG_READ);\n")
+
+# ---- 19. the reset status, and the watchdog the firmware leaves running -------------
+# `rsts` holds the partition Linux asked for (`reboot N`: partition bit i in RSTS bit
+# 2i): readable over QMP, for pi-qemu's next power-on. `boot-watchdog` (seconds) is
+# what the firmware does for config.txt's kernel_watchdog_timeout: the watchdog left
+# running at power-on, for as long as it counts (about 16 s), so Linux finds it
+# running and keeps it fed until watchdog.open_timeout. Pi OS's initramfs (rpi_wd)
+# then leaves it armed, and a start that hangs before systemd resets (phase 1, T8).
+edit("hw/misc/bcm2835_powermgt.c",
+     '#include "system/runstate.h"\n',
+     '#include "system/runstate.h"\n#include "hw/core/qdev-properties.h"\n')
+edit("include/hw/misc/bcm2835_powermgt.h",
+     "    QEMUTimer wdt_timer;\n",
+     "    QEMUTimer wdt_timer;\n    uint32_t boot_watchdog; /* seconds; 0: the watchdog starts stopped */\n")
+edit("hw/misc/bcm2835_powermgt.c",
+     """    timer_init_ns(&s->wdt_timer, QEMU_CLOCK_VIRTUAL,
+                  bcm2835_powermgt_wdt_expired, s);
+""",
+     """    timer_init_ns(&s->wdt_timer, QEMU_CLOCK_VIRTUAL,
+                  bcm2835_powermgt_wdt_expired, s);
+    object_property_add_uint32_ptr(obj, "rsts", &s->rsts, OBJ_PROP_FLAG_READ);
+""")
+edit("hw/misc/bcm2835_powermgt.c",
+     """    memset(s->asb_regs, 0, sizeof(s->asb_regs));
+    timer_del(&s->wdt_timer);
+}""",
+     """    memset(s->asb_regs, 0, sizeof(s->asb_regs));
+    timer_del(&s->wdt_timer);
+    if (s->boot_watchdog) {
+        s->rstc |= V_RSTC_RESET;
+        s->wdog = V_WDOG_TIME_SET;
+        bcm2835_powermgt_wdt_arm(s);
+    }
+}
+
+static const Property bcm2835_powermgt_props[] = {
+    DEFINE_PROP_UINT32("boot-watchdog", BCM2835PowerMgtState, boot_watchdog, 0),
+};""")
+edit("hw/misc/bcm2835_powermgt.c",
+     """    device_class_set_legacy_reset(dc, bcm2835_powermgt_reset);
+    dc->vmsd = &vmstate_bcm2835_powermgt;""",
+     """    device_class_set_legacy_reset(dc, bcm2835_powermgt_reset);
+    device_class_set_props(dc, bcm2835_powermgt_props);
+    dc->vmsd = &vmstate_bcm2835_powermgt;""")
+
 print("trimixxx-patches: applied")

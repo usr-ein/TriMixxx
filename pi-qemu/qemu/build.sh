@@ -13,6 +13,11 @@ set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK="$HERE/.build"
+# The SDK of the selected toolchain (xcode-select), as in ../app/build.sh: a
+# bare `cc` can take the Command Line Tools' SDK instead, and once that is newer
+# than Xcode's linker (CLT 27's against Xcode 26.4's), configure fails its first
+# test: "tapi error: malformed file ... unknown architecture".
+export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 
 QEMU_VERSION=11.1.0
 QEMU_SHA256=6ee1d1a61f68212476b27108c26da5f449dc09b626d42f8279ba0dc2e08fa858
