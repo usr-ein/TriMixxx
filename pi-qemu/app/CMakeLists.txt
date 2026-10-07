@@ -24,6 +24,10 @@ add_executable(pi-qemu
     src/buildwindow.cpp
 )
 
+# pi-qemu's icon, for its windows and its Dock tile (main.cpp): icons/trimixxx.ico,
+# rendered from icons/trimixxx.svg by icons/make-ico.py.
+qt_add_resources(pi-qemu icons PREFIX / BASE icons FILES icons/trimixxx.ico)
+
 # The S3 firmware's MIDI table is the single source of truth for every address:
 # compile it in rather than copy it.
 target_include_directories(pi-qemu PRIVATE

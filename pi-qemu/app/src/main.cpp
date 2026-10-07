@@ -19,6 +19,7 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
+#include <QIcon>
 #include <QTcpServer>
 #include <QTextStream>
 #include <QTimer>
@@ -50,6 +51,7 @@ QString repoDir() { return QDir::cleanPath(PI_QEMU_SOURCE_DIR); }
 int run(int argc, char** argv) {
     QApplication app(argc, argv);
     QApplication::setApplicationName("pi-qemu");
+    QApplication::setWindowIcon(QIcon(":/trimixxx.ico")); // its windows', and its Dock tile
     ::socketpair(AF_UNIX, SOCK_STREAM, 0, g_sigFd);
     QSocketNotifier sigNotifier(g_sigFd[0], QSocketNotifier::Read);
     QObject::connect(&sigNotifier, &QSocketNotifier::activated, &app, [] {
@@ -174,6 +176,7 @@ int main(int argc, char** argv) {
     if (argc >= 2 && QString(argv[1]) == "run") return run(argc, argv);
     if (argc == 3 && QString(argv[1]) == "build-log") { // a window on image/build.sh's log
         QApplication app(argc, argv);
+        QApplication::setWindowIcon(QIcon(":/trimixxx.ico"));
         BuildWindow w(QString::fromLocal8Bit(argv[2]));
         w.show();
         w.raise();

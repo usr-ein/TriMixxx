@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>TriMixxx</title>
+  <desc>The first draft of pi-qemu's icon (trimixxx.svg is the icon): the green phosphor T on a whole old CRT TV, with scanlines and horizontal glitch lines. The T is the IBM PC's 8x8 BIOS glyph, in the colours of pi_config/trimixxx_logo_crt.svg.</desc>
+  <defs>
+    <!-- The T on a 13-unit grid: rows FC B4 30 30 30 30 78 of the IBM PC's
+         8x8 font, centred on the tube. -->
+    <path id="T" d="M69 94h78v26h-13v-13h-13v65h13v13h-52v-13h13v-65h-13v13h-13z"/>
+    <!-- The beam: colour fringes either side, mint phosphor on top. -->
+    <g id="beam">
+      <use href="#T" fill="#ff2f5e" opacity="0.45" transform="translate(-3,0)"/>
+      <use href="#T" fill="#2fd2ff" opacity="0.45" transform="translate(3,0)"/>
+      <use href="#T" fill="#a6ffc8"/>
+    </g>
+    <!-- The tube's face: rounded corners, edges bowed outwards. -->
+    <path id="tube" d="M52 82Q108 78 164 82Q179 82 179 97Q183 140 179 183Q179 198 164 198Q108 202 52 198Q37 198 37 183Q33 140 37 97Q37 82 52 82z"/>
+    <clipPath id="glass"><use href="#tube"/></clipPath>
+    <!-- Glitch bands: A and C are slivers echoed sideways, B is torn out
+         of the picture and put back 9 units to the left. -->
+    <clipPath id="bandA"><rect y="98" width="256" height="4"/></clipPath>
+    <clipPath id="bandB"><rect y="146" width="256" height="6"/></clipPath>
+    <clipPath id="bandC"><rect y="172" width="256" height="2"/></clipPath>
+    <mask id="tear" maskUnits="userSpaceOnUse" x="0" y="0" width="256" height="256">
+      <rect width="256" height="256" fill="#fff"/>
+      <rect y="146" width="256" height="6" fill="#000"/>
+    </mask>
+    <pattern id="scanlines" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect width="4" height="2" fill="#000" opacity="0.42"/>
+    </pattern>
+
+    <linearGradient id="wood" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#94613a"/>
+      <stop offset="0.5" stop-color="#734628"/>
+      <stop offset="1" stop-color="#4c2c16"/>
+    </linearGradient>
+    <linearGradient id="chrome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f1f3f5"/>
+      <stop offset="0.5" stop-color="#a9afb7"/>
+      <stop offset="1" stop-color="#5d636b"/>
+    </linearGradient>
+    <linearGradient id="plastic" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#26292d"/>
+      <stop offset="1" stop-color="#121416"/>
+    </linearGradient>
+    <radialGradient id="knob" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="0.6" stop-color="#b4b9c0"/>
+      <stop offset="1" stop-color="#6b7178"/>
+    </radialGradient>
+    <radialGradient id="phosphor" cx="0.46" cy="0.44" r="0.72">
+      <stop offset="0" stop-color="#103322"/>
+      <stop offset="0.6" stop-color="#081d11"/>
+      <stop offset="1" stop-color="#020805"/>
+    </radialGradient>
+    <linearGradient id="roll" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7dffb0" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#7dffb0" stop-opacity="0.1"/>
+      <stop offset="1" stop-color="#7dffb0" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="reflection" gradientUnits="userSpaceOnUse" cx="42" cy="86" r="92">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.24"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+
+    <filter id="bloom" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"/></filter>
+    <filter id="halo" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.5"/></filter>
+    <filter id="smear" x="-10%" y="-400%" width="120%" height="900%"><feGaussianBlur stdDeviation="1.6"/></filter>
+    <filter id="shadow" x="-20%" y="-200%" width="140%" height="500%"><feGaussianBlur stdDeviation="3.5"/></filter>
+  </defs>
+
+  <!-- shadow on the table -->
+  <ellipse cx="128" cy="231" rx="98" ry="6" fill="#000" opacity="0.35" filter="url(#shadow)"/>
+
+  <!-- rabbit ears -->
+  <path d="M124 62L76 24M132 62L180 18" stroke="#1d1209" stroke-width="7" stroke-linecap="round"/>
+  <path d="M124 62L76 24M132 62L180 18" stroke="url(#chrome)" stroke-width="3.5" stroke-linecap="round"/>
+  <g fill="url(#knob)" stroke="#1d1209" stroke-width="2.5">
+    <circle cx="76" cy="24" r="6.5"/>
+    <circle cx="180" cy="18" r="6.5"/>
+  </g>
+  <path d="M110 68A18 13 0 0 1 146 68z" fill="#2a2d31" stroke="#1d1209" stroke-width="3"/>
+
+  <!-- legs, cabinet -->
+  <path d="M52 208L68 208 60 230 46 230zM188 208L204 208 210 230 196 230z" fill="#2a1a0e" stroke="#1d1209" stroke-width="3" stroke-linejoin="round"/>
+  <rect x="20" y="66" width="216" height="148" rx="24" fill="url(#wood)" stroke="#1d1209" stroke-width="3.5"/>
+  <rect x="24" y="69" width="208" height="141" rx="21" fill="none" stroke="#c08a58" stroke-width="1.5" opacity="0.55"/>
+
+  <!-- the screen: surround, chrome trim, tube -->
+  <rect x="30" y="76" width="156" height="128" rx="19" fill="url(#plastic)" stroke="url(#chrome)" stroke-width="2.5"/>
+  <use href="#tube" fill="url(#phosphor)"/>
+  <g clip-path="url(#glass)">
+    <rect x="30" y="133" width="160" height="39" fill="url(#roll)"/>
+    <use href="#T" fill="#1fae5e" opacity="0.9" filter="url(#bloom)"/>
+    <use href="#T" fill="#4fe08b" opacity="0.7" filter="url(#halo)"/>
+    <use href="#beam" mask="url(#tear)"/>
+    <g clip-path="url(#bandB)"><use href="#beam" transform="translate(-9,0)"/></g>
+    <g clip-path="url(#bandA)" opacity="0.75"><use href="#T" fill="#eafff2" transform="translate(10,0)"/></g>
+    <g clip-path="url(#bandC)" opacity="0.55"><use href="#T" fill="#f4fff8" transform="translate(7,0)"/></g>
+    <!-- blip lines across the picture -->
+    <rect x="30" y="146" width="160" height="2" fill="#7dffb0" opacity="0.8" filter="url(#smear)"/>
+    <rect x="30" y="146" width="160" height="1.2" fill="#d8ffe6" opacity="0.55"/>
+    <rect x="30" y="173" width="160" height="1" fill="#bdffd6" opacity="0.35"/>
+    <rect x="30" y="125" width="160" height="3" fill="#000" opacity="0.5"/>
+    <rect x="30" y="76" width="160" height="128" fill="url(#scanlines)"/>
+    <path d="M41 134C41 104 44 86 66 86L134 86C96 89 62 98 41 134z" fill="url(#reflection)"/>
+  </g>
+  <use href="#tube" fill="none" stroke="#000" stroke-width="2" opacity="0.6"/>
+
+  <!-- controls: channel, volume, power lamp, speaker -->
+  <rect x="192" y="76" width="34" height="128" rx="10" fill="url(#plastic)" stroke="#1d1209" stroke-width="1.5"/>
+  <circle cx="209" cy="100" r="12" fill="#0d0e10"/>
+  <circle cx="209" cy="100" r="9.5" fill="url(#knob)"/>
+  <path d="M209 100L202.5 93.5" stroke="#26292d" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="209" cy="132" r="10" fill="#0d0e10"/>
+  <circle cx="209" cy="132" r="7.5" fill="url(#knob)"/>
+  <path d="M209 132L214 127" stroke="#26292d" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="209" cy="156" r="5" fill="#7dffb0" opacity="0.35" filter="url(#halo)"/>
+  <circle cx="209" cy="156" r="2.6" fill="#7dffb0"/>
+  <g fill="#050607">
+    <circle cx="202" cy="172" r="2"/><circle cx="209" cy="172" r="2"/><circle cx="216" cy="172" r="2"/>
+    <circle cx="202" cy="180" r="2"/><circle cx="209" cy="180" r="2"/><circle cx="216" cy="180" r="2"/>
+    <circle cx="202" cy="188" r="2"/><circle cx="209" cy="188" r="2"/><circle cx="216" cy="188" r="2"/>
+  </g>
+</svg>

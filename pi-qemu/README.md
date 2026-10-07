@@ -18,6 +18,7 @@ in [PLAN.md](PLAN.md).
 | Path | What it is |
 |---|---|
 | `app/` | `pi-qemu` itself (C++/Qt): the firmware step, QEMU, the S3, the panel, the CLI |
+| `app/icons/` | its icon: `trimixxx.svg`, and the `.ico` compiled in, made from it by `make-ico.py` |
 | `qemu/build.sh`, `qemu/trimixxx-patches.py` | builds the pinned, patched QEMU |
 | `image/build.sh` | builds a deck's card from the stock Raspberry Pi OS image |
 | `deploy.sh`, `deploy/base.sh` | sets up or updates any deck over ssh, real or emulated |

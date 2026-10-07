@@ -17,4 +17,13 @@ cmake -S "$HERE" -B "$HERE/build" -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
     -DCMAKE_PREFIX_PATH=/opt/homebrew/opt/qt -DCMAKE_OSX_SYSROOT="$SDK" \
     -DCMAKE_CXX_FLAGS="-nostdinc++ -isystem $SDK/usr/include/c++/v1" >/dev/null
 ninja -C "$HERE/build"
+# The binary's own icon, as Finder shows it: its windows and Dock tile already
+# get icons/trimixxx.ico from the copy compiled in (CMakeLists.txt). Set after
+# every build, since a link can write a fresh file without it; and cosmetic, so
+# it never fails one.
+osascript -l JavaScript -e 'ObjC.import("AppKit")
+function run(argv) {
+    return $.NSWorkspace.sharedWorkspace.setIconForFileOptions(
+        $.NSImage.alloc.initWithContentsOfFile(argv[0]), argv[1], 0)
+}' "$HERE/icons/trimixxx.ico" "$HERE/build/pi-qemu" >/dev/null 2>&1 || true
 echo "==> $HERE/build/pi-qemu"
