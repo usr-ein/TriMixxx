@@ -376,7 +376,7 @@ figcaption b { font-family: var(--font-display); font-weight: 600; letter-spacin
 
             <rect class="bx-note" x="572" y="16" width="236" height="74" rx="4"/>
             <text class="tl-signal" x="690" y="38" text-anchor="middle">trial flag · one start only</text>
-            <text class="tm tm-sig" x="690" y="58" text-anchor="middle">reboot '0 tryboot'</text>
+            <text class="tm tm-sig" x="690" y="58" text-anchor="middle">--reboot-argument="0 tryboot"</text>
             <text class="ts" x="690" y="78" text-anchor="middle">cleared when used · gone at power-off</text>
             <line class="ln-signal" x1="572" y1="43" x2="514" y2="43" marker-end="url(#f2-sig)"/>
             <text class="tl" x="543" y="34" text-anchor="middle">read once</text>
@@ -711,7 +711,7 @@ figcaption b { font-family: var(--font-display); font-weight: 600; letter-spacin
           <tbody>
             <tr><td class="k">Card</td><td>SD card, any size</td><td>A file on the Mac, sparse, rounded to a power of two</td><td><span class="chip same">same layout</span></td></tr>
             <tr><td class="k">Chooses the slot</td><td>EEPROM bootloader</td><td>pi-qemu's firmware step, reading the same <code>autoboot.txt</code></td><td><span class="chip same">same rules</span></td></tr>
-            <tr><td class="k">Trial flag</td><td>Firmware memory; set by <code>reboot '0 tryboot'</code> or <code>vcmailbox</code>; gone at power-off</td><td>QEMU's mailbox (a small patch), read by pi-qemu at each reboot; gone at <code>power off</code></td><td><span class="chip same">same behaviour</span></td></tr>
+            <tr><td class="k">Trial flag</td><td>Firmware memory; set by <code>systemctl reboot --reboot-argument="0 tryboot"</code> or <code>vcmailbox</code>; gone at power-off</td><td>QEMU's mailbox (a small patch), read by pi-qemu at each reboot; gone at <code>power off</code></td><td><span class="chip same">same behaviour</span></td></tr>
             <tr><td class="k">Kernel, initramfs, system, RAUC, backend, health check</td><td colspan="2">The same files, from the same release</td><td><span class="chip same">identical</span></td></tr>
             <tr><td class="k">CPU and RAM</td><td>Cortex-A72, 4 GB</td><td>Mac cores, 2 GB</td><td><span class="chip diff">differs</span></td></tr>
             <tr><td class="k">Screen</td><td>DSI panel through the GPU</td><td>Framebuffer, software rendering</td><td><span class="chip diff">differs</span></td></tr>
@@ -842,8 +842,8 @@ ssh trimixxx2 sudo reboot      <span class="cm"># rollback: a trial of the old s
             <tr><td>The new system doesn't boot (kernel panic, missing root)</td><td><code>panic=10</code> and <code>rootwait=20</code> restart it; the flag is gone</td><td><span class="chip a">A</span></td></tr>
             <tr><td>The new system freezes</td><td>The hardware watchdog, armed from the firmware on (<code>kernel_watchdog_timeout</code>)</td><td><span class="chip a">A</span></td></tr>
             <tr><td>It boots, but Mixxx, the sound card or the S3 link fails</td><td>The health check: <code>mark-bad</code>, then a restart</td><td><span class="chip a">A</span></td></tr>
-            <tr><td>The power goes while committing</td><td>The one fragile moment: a few bytes on FAT. Written whole, synced; a broken <code>autoboot.txt</code> makes the firmware boot p2; a check at start repairs it</td><td>either slot, both good</td></tr>
-            <tr><td>A committed slot breaks later (SD corruption)</td><td>Nothing automatic: tryboot's one weak spot. The bench tests whether the firmware's watchdog-partition setting can cover it</td><td>reflash</td></tr>
+            <tr><td>The power goes while committing</td><td>The one fragile moment: a few bytes on FAT. A copy goes to the state partition first, then the file, whole and synced. A broken <code>autoboot.txt</code> starts p2 (measured on trimixxx3); a check at start restores the copy, and returns to B if B was committed</td><td>the committed slot</td></tr>
+            <tr><td>A committed slot breaks later (SD corruption)</td><td>Nothing automatic: tryboot's one weak spot. Measured: the firmware's watchdog-partition setting doesn't switch slots; the bootloader's own watchdog does, but only before Linux starts</td><td>a hand, or a reflash</td></tr>
           </tbody>
         </table>
       </div>
@@ -884,8 +884,8 @@ ssh trimixxx2 sudo reboot      <span class="cm"># rollback: a trial of the old s
     <div class="sec-body">
       <h2 id="s10-h"><span class="h-num">10</span>The plan, phase by phase</h2>
       <ol class="phases">
-        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">Firmware checks on trimixxx3</p><p>A small three-partition card settles every unverified firmware fact: the <code>[boot_partition=N]</code> filter, tryboot, power-off, a broken <code>autoboot.txt</code>, the watchdog.</p><p class="done"><b>Done when</b>each one has a measured answer.</p></li>
-        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">Tryboot in pi-qemu</p><p>The QEMU patch for the trial flag; firmware-step filters, tryboot, <code>/chosen/bootloader</code>, partition walk, cards of any size.</p><p class="done"><b>Done when</b>the phase 1 card behaves the same in pi-qemu as on trimixxx3.</p></li>
+        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">Firmware checks on trimixxx3</p><p>A test card with the release's layout settled every firmware fact on 2026-10-08: the <code>[boot_partition=N]</code> filter, tryboot, power-off, a broken <code>autoboot.txt</code>, the watchdog. The decks need a current bootloader first.</p><p class="done"><b>Done when</b>each one has a measured answer.</p></li>
+        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">Tryboot in pi-qemu</p><p>The QEMU patch for the trial flag; firmware-step filters, tryboot, <code>/chosen/bootloader</code>, the boot partition and watchdog rules as measured, cards of any size.</p><p class="done"><b>Done when</b>the phase 1 card behaves the same in pi-qemu as on trimixxx3.</p></li>
         <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">A locked card</p><p>The read-only system (overlayroot, initramfs modules), the <code>/data</code> and state mounts, the identity unit; <code>make release</code> builds the card with genimage in Docker.</p><p class="done"><b>Done when</b>a tag gives a card that boots locked in QEMU, and the RAM layer is measured over a set.</p></li>
         <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">RAUC on the deck</p><p>The signing key, <code>system.conf</code>, the backend, the health check; <code>make release</code> adds the bundle, <code>make ship</code> sends it.</p><p class="done"><b>Done when</b>the whole fault table passes in QEMU.</p></li>
         <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">trimixxx3 end to end</p><p>Its card, flashed once; two releases shipped over the air.</p><p class="done"><b>Done when</b>the fault table passes on hardware.</p></li>

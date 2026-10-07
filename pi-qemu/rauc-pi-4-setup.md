@@ -342,8 +342,9 @@ documented firmware behaviour, so nothing invented reaches the card.
      instead of `-no-reboot`, reads both values at each reboot, and starts the
      board again.
 
-   This is `PLAN.md`'s Q2. It makes `vcmailbox` and `reboot '0 tryboot'`
-   behave as on a Pi.
+   This is `PLAN.md`'s Q2. It makes `vcmailbox` and a reboot to `"0 tryboot"`
+   behave as on a Pi. On trixie that reboot is
+   `systemctl reboot --reboot-argument="0 tryboot"`.
 4. **Write `/chosen/bootloader/{tryboot,partition,boot-mode,pm_rsts,capabilities}`**
    into the device tree, as the firmware does. The backend and the health
    check read them. Today pi-qemu writes none, and
@@ -383,7 +384,7 @@ The fault matrix to run before the bench or any deck sees a change:
 | Health check fails | a bundle with a broken Mixxx config | trial → mark-bad → restart → A |
 | Kernel panic on the trial | a bundle with a broken initramfs | `panic=10` → restart → A |
 | Hang on the trial | a bundle whose session never starts | watchdog → restart → A |
-| Plug pulled during the commit | power off at mark-good | either slot starts; the start-up check repairs `autoboot.txt` |
+| Plug pulled during the commit | power off at mark-good | A damaged `autoboot.txt` starts A (measured, PLAN.md T6c and T7). The backend's `repair` restores its copy, and reboots into B if B was committed (PLAN.md §5.2) |
 | Rollback | `rauc status mark-active other`, then reboot | trial of the old version → commit |
 
 ### 4.4 What QEMU cannot prove
@@ -543,9 +544,9 @@ an afternoon and settles every unverified point the design rests on:
 | `[boot_partition=N]` picks the command line on a Pi 4 | p2 → `cmdline-a.txt`, p3 → `cmdline-b.txt` |
 | `reboot '0 tryboot'` and `vcmailbox 0x00038064 4 0 1` | next start on p3; `/proc/device-tree/chosen/bootloader/tryboot` = 1; any later reboot → p2 |
 | Power-off after arming | p2 |
-| `autoboot.txt` deleted, then truncated | p2 (partition walk) |
+| `autoboot.txt` deleted, then truncated | p2. **Measured:** p2, because partition 0 is the first FAT partition with firmware, not because of the partition walk. So p1 must hold none (T6b, T6c, T7) |
 | `kernel_watchdog_timeout` and a hang in the initramfs | reset, then p2 |
-| `kernel_watchdog_partition` or EEPROM `BOOT_WATCHDOG_PARTITION`, then a hang on the **committed** slot | Does the reset start the other slot? If it does, tryboot covers U-Boot's one real advantage (App. C.2) |
+| `kernel_watchdog_partition` or EEPROM `BOOT_WATCHDOG_PARTITION`, then a hang on the **committed** slot | Does the reset start the other slot? If it does, tryboot covers U-Boot's one real advantage (App. C.2). **Measured:** not for a hang in Linux (T9); the EEPROM's does for a failure before Linux, to a fixed partition (T10) |
 
 The results go back into this file and into pi-qemu's emulation (§4.2).
 
@@ -584,7 +585,9 @@ The tasks, commands, tests and stop points for each phase are in `PLAN.md`.
   the docs in 2026-09. Ours is about 60 bytes either way.
 - **Should the dev card boot from SquashFS later?** Not for now: Sam wants it
   writable.
-- **Should the decks set the EEPROM's boot watchdog?** On trimixxx3,
+- **Should the decks set the EEPROM's boot watchdog?** **Decided: yes** (Sam,
+  2026-10-08), with `BOOT_WATCHDOG_TIMEOUT=45` and `BOOT_WATCHDOG_PARTITION=2`,
+  and a reconcile step in the backend for the fallback (PLAN.md §5.2). On trimixxx3,
   `BOOT_WATCHDOG_TIMEOUT=45` with `BOOT_WATCHDOG_PARTITION=3` turned a
   corrupt `start4.elf` on p2 into a start of p3 (PLAN.md T10). But the
   partition is fixed, so it only helps while A is the committed slot.
@@ -619,7 +622,9 @@ There is no BIOS and no GRUB. `config.txt` does the job of `grub.cfg`, and
   tryboot flag, reverting to the default partition".
 
 **The tryboot flag**
-- Set by `sudo reboot '0 tryboot'`. "All Raspberry Pi models support tryboot".
+- Set by `sudo reboot '0 tryboot'`, which on trixie is
+  `sudo systemctl reboot --reboot-argument="0 tryboot"` (measured). "All
+  Raspberry Pi models support tryboot".
   On a Pi 4 rev 1.0/1.1 "the EEPROM must not be write protected".
 - The kernel can also arm it without restarting: `vcmailbox 0x00038064 4 0 1`,
   the SET_REBOOT_FLAGS firmware message, sent through `/dev/vcio`.
@@ -688,9 +693,13 @@ before its first flash (§5.1).
   - Raspberry Pi's engineer recommends keeping a journal on the data
     partition, and checking `autoboot.txt` at start.
   - Others write a new file, `fsync` it, then rename.
-  - If `autoboot.txt` is missing or invalid, the firmware falls back to the
-    first bootable FAT partition (partition 0 / `PARTITION_WALK`). That's p2,
-    so the deck still starts.
+  - If `autoboot.txt` is missing or invalid, the firmware uses partition 0,
+    the first FAT partition holding a `start.elf`. With no firmware on p1,
+    that's p2, so the deck still starts (measured, PLAN.md T6c and T7).
+    `PARTITION_WALK` isn't involved; it only applies to a requested partition.
+    With firmware files on p1 but no `start4.elf`, the deck stays dark (T6b).
+  - It starts p2 whichever slot was committed, which is why the backend
+    keeps a copy of `autoboot.txt` on the state partition (PLAN.md §5.2).
   - If `autoboot.txt` is **valid** but names an unbootable partition, nothing
     recovers it. So only a slot that has already started is ever committed.
 - **GPT on a Pi 4.** Choosing a boot partition other than the first "never

@@ -97,6 +97,15 @@ Everything built must keep these true. They are what makes updates safe.
     `overlayroot=tmpfs` and the slot command lines. The `/data` and
     `/var/lib/rauc` mounts are `nofail`, and do nothing where those partitions
     don't exist.
+13. **p1 holds `autoboot.txt` and no firmware: never a `start*.elf`.** A
+    missing, empty or garbled `autoboot.txt` then starts p2 (phase 1, T6c and
+    T7). With firmware files on p1, the same damage can leave a deck dark
+    (T6b).
+14. **Every board runs a current bootloader before its first A/B card:**
+    2026-05-17 on trimixxx3. One from before 2022-12-01 doesn't know
+    `tryboot_a_b`, reads `autoboot.txt` without its sections, and starts slot
+    B (T0). Its EEPROM also sets the boot watchdog (Sam, 2026-10-08):
+    `BOOT_WATCHDOG_TIMEOUT=45`, `BOOT_WATCHDOG_PARTITION=2`.
 
 ### 1.4 The target, in one page
 
@@ -106,7 +115,7 @@ of sha256("trimixxx"), set in `release/Makefile`), so `<id>` below is
 
 | # | Label | FS | Size | Holds |
 |---|---|---|---|---|
-| p1 | bootsel | FAT32 | 64 MiB | `autoboot.txt` |
+| p1 | bootsel | FAT32 | 64 MiB | `autoboot.txt` only (invariant 13) |
 | p2 | boot-A | FAT32 | 512 MiB | firmware, kernel, initramfs, DTBs, overlays, `config.txt`, `cmdline-a.txt`, `cmdline-b.txt` |
 | p3 | boot-B | FAT32 | 512 MiB | the same files |
 | p4 | extended | | | p5–p8 |
@@ -136,6 +145,7 @@ These paths are proposals; keep them unless there's a reason not to.
 | `pi-qemu/.cache/decks/<deck>/` | per-deck secrets, gitignored: `trimixxx.conf`, `NetworkManager/`, `ssh/` |
 | `pi_config/rauc/` | `system.conf`, `keyring.pem` (the public certificate), `rpi-tryboot` (backend), `trimixxx-health.service`, `trimixxx-health` (the checks) |
 | `pi_config/trimixxx-identity.service`, `pi_config/trimixxx-identity` | the identity unit |
+| `pi_config/eth0-link-local.nmconnection` | eth0's profile on every deck, replacing cloud-init's netplan one (phase 3); phase 1's card already uses it |
 | `pi-qemu/deploy/base.sh` | installs `overlayroot`, `rauc` and `rauc-service`; adds the initramfs modules |
 | `pi-qemu/app/src/firmware.{h,cpp}`, `machine.{h,cpp}` | tryboot in pi-qemu |
 | `pi-qemu/qemu/trimixxx-patches.py` | the QEMU patch for the firmware's reboot flags |
@@ -367,6 +377,16 @@ on bootloader 2026-05-17 (hex, as stored):
   watchdog is what turns a hung trial into a fallback.
 - **T9 works.** Phase 4 adds the reconcile step (§5.2).
 
+**Outcome:**
+- `[boot_partition=N]` is honoured (T0).
+- The watchdog covers a trial (T8).
+- T9 didn't work, so phase 4 adds no reconcile step.
+
+What did change the design:
+- T0: the bootloader requirement, invariant 14;
+- T6b and T6c: what p1 may hold, invariant 13;
+- T6 and T7: `repair` can't trust the running slot (§5.2).
+
 **Done when** every row has an observed result, the unverified points in
 `rauc-pi-4-setup.md` App. A are settled, and any design change is written down.
 
@@ -384,6 +404,9 @@ rehearsed on the Mac.
     value in a new `uint32_t reboot_flags` in `BCM2835PropertyState`.
   - Handle `0x00030064` (GET_REBOOT_FLAGS) by returning it.
   - Today both fall through to "unimplemented".
+  - Linux sends the same message when asked to `reboot "0 tryboot"`, which is
+    why phase 1's T1 and T3 behaved alike. On trixie that command is
+    `systemctl reboot --reboot-argument="0 tryboot"`.
 - **Expose `reboot_flags` as a QOM property** (`reboot-flags`) so QMP's
   `qom-get` can read it.
 - **For snapshots,** put it in a VMState *subsection* whose `.needed` returns
@@ -417,19 +440,41 @@ rehearsed on the Mac.
     is added).
   - Check the AND rules against the documentation: filters of different kinds
     AND together, and `[all]` resets.
-- **Choosing the boot partition:**
-  - a requested partition (`reboot N`) wins;
-  - otherwise `autoboot.txt`'s `boot_partition`, from `[all]`, overridden by
-    `[tryboot]` when the flag is set;
-  - 0 or no file means the first bootable FAT partition;
-  - "Bootable" means FAT holding `start4.elf`;
-  - an unbootable choice behaves as phase 1's T6 and T7 measured.
+- **Choosing the boot partition**, as phase 1 measured it:
+  - A requested partition (`reboot N`) wins.
+  - Otherwise `autoboot.txt`'s `boot_partition` applies, from `[all]`,
+    overridden by `[tryboot]` when the flag is set (T1–T3).
+  - A missing, empty or garbled `autoboot.txt` means partition 0: the first
+    FAT partition holding a `start.elf`, the documentation's test for
+    bootable. Phase 1's p1 is one (T6a, `slot=R`); the release's isn't (T6c
+    and T7 start p2).
+  - A partition chosen that way that has no `start4.elf` starts nothing: no
+    kernel, a black screen (T6b). The real bootloader then cycles through its
+    other boot devices.
+  - A *requested* partition with no `start4.elf` is passed over for the next
+    one that has it (`PARTITION_WALK`, on by default). That's documented, not
+    measured.
+- **`kernel=`** naming a missing file falls back to `kernel8.img` (T10).
 - **With the flag set and no `tryboot_a_b=1`,** read `tryboot.txt` instead of
   `config.txt`.
-- **Device tree:** create `/chosen/bootloader` with the properties and values
-  phase 1 recorded, written as 32-bit big-endian cells (`fdtput -t u`). That
-  means at least `tryboot`, `partition`, `boot-mode`, the reset-status
-  property and `capabilities`.
+- **Device tree:** create `/chosen/bootloader` with the nine properties and
+  values in §2.3's table. Numbers are 32-bit big-endian cells
+  (`fdtput -t u`), and `name` and `version` are strings.
+  - `boot-mode` is 1 and `capabilities` is `0x7f`.
+  - `partition` and `tryboot` are as chosen.
+  - `rsts` read `0x1000` after a reboot, a power-on and a watchdog reset
+    alike, so a constant will do.
+- **Watchdog**, as phase 1 measured it:
+  - `kernel_watchdog_timeout=N` in `config.txt` appends
+    `watchdog.open_timeout=N` to the command line, as the firmware does
+    (T8).
+  - Pi OS's initramfs script `rpi_wd` then leaves the watchdog armed, and
+    QEMU's BCM2835 watchdog resets a guest that hangs before systemd starts.
+    Without the setting, `rpi_wd` disarms the watchdog.
+  - That reset is a plain guest reset with no flag, so A starts (T8).
+  - `kernel_watchdog_partition` changes nothing (T9).
+  - The EEPROM's boot watchdog (T10) acts in firmware that pi-qemu doesn't
+    run, so it isn't emulated.
 
 ### 3.4 `instance.sh`
 
@@ -439,8 +484,11 @@ rehearsed on the Mac.
 
 ### 3.5 Tests
 
-**Boot phase 1's card in pi-qemu**, and repeat T0–T3 and T6–T9:
+**Boot phase 1's card in pi-qemu**, and repeat T0–T9, except T0b and T10
+(the EEPROM, not emulated):
 - power cycles: `instance.sh ctl p1 power off`, then `power on`;
+- while the guest hangs in its initramfs, ssh can't reach it, but
+  `instance.sh console p1 …` can: the card carries `disable-bt`;
 - results must match phase 1's table, or the difference is written down as an
   emulator limit.
 
@@ -488,13 +536,32 @@ They go into the normal build, so the dev deck carries them too, inert.
   The copies go into NetworkManager's volatile directory and sshd's default
   host key path, so neither NetworkManager nor sshd is reconfigured, and the
   dev card keeps its network and ssh.
+- **eth0's profile becomes a keyfile.** `pi_config` ships
+  `eth0-link-local.nmconnection`, as phase 1's card does: link-local, bound
+  to `eth0`, the same on every deck, so it's part of the image.
+  - Today eth0's profile is cloud-init's, rewritten by NetworkManager into
+    `/etc/netplan/90-NM-*.yaml` with `match: {}`. That's measured on the dev
+    card and on phase 1's card. It takes whichever Ethernet NIC comes up
+    first, and `prolink-eth0.sh` then makes it link-local.
+  - A dev-deck change: try it on an emulated deck first, with wlan0
+    untouched.
+- **Per-deck profiles move to the identity:**
+  - **`trimixxx-hotspot`:** its SSID is the hostname, and its channel comes
+    from a per-deck table in `wifi-fallback/install.sh`. `make card` writes it
+    into `/data/NetworkManager/`, from the deck's name and a channel moved
+    into `units/<deck>.json`.
+  - **`pi-qemu-home`** (DHCP on `usb0`) belongs to trimixxx0. Without it the
+    emulated deck has no ssh, because NetworkManager's own profile for `usb0`
+    is link-local (phase 1).
 - **Pre-render every deck.** `mixxx_config/upload.sh` renders each
   `units/<deck>.json` (wiring, accent) into the image, under
   `/usr/share/trimixxx/decks/<deck>/`, instead of only the build host's.
 - **Core dumps:** a `coredump.conf` drop-in with `Storage=none`.
 - **Swap: zram only.** Change `pi_config/trimixxx-swap-sizes.conf`. A swap file
   on a read-only root would land in RAM. Ask Sam whether the dev deck may lose
-  its swap file too (one shared setting), or the release sets it alone.
+  its swap file too (one shared setting), or the release sets it alone. Pi
+  OS's swap file is `/var/swap`, 2 GiB on the dev card; the release leaves it
+  out (§4.2).
 - **Mask `rpi-eeprom-update.service`.** EEPROM updates become a deliberate
   step (phase 6).
 - **The boot splash shows the slot** (Sam's request, 2026-10-08). The logo
@@ -535,8 +602,13 @@ They go into the normal build, so the dev deck carries them too, inert.
    - the hostname and `/etc/ssh/ssh_host_*`;
    - `/etc/machine-id`, emptied but not deleted (a mksquashfs pseudo-file);
    - the systemd random seed;
-   - `/etc/NetworkManager/system-connections/*` (the build's `pi-qemu-home`);
+   - `/etc/NetworkManager/system-connections/*`: the build's `pi-qemu-home`
+     and `trimixxx-hotspot`, both per-deck identity (§4.1);
+   - `/etc/netplan/*`: cloud-init's and NetworkManager's leftovers, which
+     eth0's keyfile replaces;
+   - `/var/swap`, Pi OS's 2 GiB swap file;
    - `/var/lib/cloud`, logs, apt caches, shell histories, `/tmp`.
+     `/etc/cloud/cloud-init.disabled` stays.
 5. **Writes `/etc/trimixxx-release`** with the version.
 6. **Builds the images with genimage:**
    - `rootfs.squashfs`: zstd, xattrs kept.
@@ -544,7 +616,8 @@ They go into the normal build, so the dev deck carries them too, inert.
      `config.txt`, plus the `[0x<serial>]` screen sections built from
      `units/*.json`, plus `cmdline-a.txt` and `cmdline-b.txt` with the disk
      signature filled in. No `cmdline.txt`.
-   - `bootsel.vfat` with `autoboot.txt`.
+   - `bootsel.vfat` with `autoboot.txt` only. `make release` fails if it holds
+     any `*.elf` (invariant 13).
    - Empty `data.ext4` and `state.ext4`, labelled `trimixxx-data` and
      `trimixxx-state`.
    - `trimixxx-<v>.img`: the layout in §1.4, sized for the smallest 32 GB card.
@@ -555,7 +628,8 @@ They go into the normal build, so the dev deck carries them too, inert.
 **`make card DECK=name VERSION=v`** copies the release card and fills p7 from
 `pi-qemu/.cache/decks/<name>/`:
 - `trimixxx.conf`;
-- `NetworkManager/*.nmconnection`;
+- `NetworkManager/*.nmconnection`: Wi-Fi, the hotspot (generated), and, for
+  trimixxx0, `pi-qemu-home`;
 - `ssh/ssh_host_*`.
 
 Generate any missing host keys with `ssh-keygen -A -f`, and keep them: they
@@ -564,7 +638,7 @@ make `known_hosts` survive a reflash.
 ### 4.3 Tests
 
 ```sh
-make -C pi-qemu/release card DECK=trimixxx0 VERSION=0.0.1   # an identity for the emulated deck
+make -C pi-qemu/release card DECK=trimixxx0 VERSION=0.0.1   # the emulated deck's identity, pi-qemu-home included
 pi-qemu/instance.sh up rel --from pi-qemu/release/out/0.0.1/trimixxx0-0.0.1.img
 ```
 
@@ -578,6 +652,10 @@ pi-qemu/instance.sh up rel --from pi-qemu/release/out/0.0.1/trimixxx0-0.0.1.img
 - the hostname comes from `/data`;
 - the splash shows `A` and the version (`instance.sh shot rel` during the
   first seconds);
+- p1 holds only `autoboot.txt`;
+- `/etc/netplan` is empty, eth0 is link-local through its keyfile, and the
+  hotspot's profile comes from `/data`;
+- `instance.sh console rel` answers;
 - `instance.sh ready rel` passes.
 
 **RAM measurement.**
@@ -622,11 +700,20 @@ They live in `pi_config/rauc/` and are deployed by the system step.
   - it writes the file whole (invariant 2);
   - it arms the flag with `vcmailbox 0x00038064 4 0 1`;
   - it detects a trial from `/proc/device-tree/chosen/bootloader/{tryboot,partition}`;
+  - it never runs `reboot '0 tryboot'`, which trixie's systemd refuses (T1);
   - stdout carries only the tokens RAUC expects; success is exit 0.
 
-  It also gets a `repair` subcommand, for normal (non-trial) starts. If
-  `autoboot.txt` is missing or invalid, it rewrites the file for the running,
-  committed slot.
+  **A copy of `autoboot.txt`.** The backend keeps a copy of every
+  `autoboot.txt` it writes, in `/var/lib/rauc/autoboot.txt`. It writes and
+  syncs the copy before p1's: ext4 has the journal FAT lacks, as Raspberry
+  Pi's engineer advises (`rauc-pi-4-setup.md` App. A.4).
+
+  **The `repair` subcommand** runs on normal (non-trial) starts. A damaged
+  `autoboot.txt` always starts p2, even when B was committed (phase 1, T6c
+  and T7). So:
+  - if p1's file is missing or invalid, `repair` restores the copy;
+  - if the copy names B, it then reboots into B;
+  - if there's no copy, it writes one for the running slot.
 - **`trimixxx-health.service` and `trimixxx-health`:**
   - `ExecCondition=` tests that the device tree's `tryboot` is non-zero.
     On normal starts it runs `rpi-tryboot repair` instead.
@@ -640,12 +727,25 @@ They live in `pi_config/rauc/` and are deployed by the system step.
       slot.
   - Success: `rauc status mark-good`.
   - Failure: `rauc status mark-bad`, then `FailureAction=reboot`.
-- **If phase 1's T9 showed a fallback after commit:**
-  - each slot's `config.txt` block sets `kernel_watchdog_partition` to the
-    other slot;
-  - a reconcile step handles "started the other slot without a trial": it
-    marks the committed slot bad, and commits the running one if it's
-    healthy.
+  - What resets a trial that never gets this far:
+    - until systemd starts, the kernel watchdog (phase 1, T8);
+    - after that, systemd itself, which holds `/dev/watchdog0` on Pi OS
+      (check its `RuntimeWatchdogSec`), so a hung PID 1 resets too;
+    - a trial stuck anywhere else ends at this unit's timeout.
+- **Reconcile after a boot-watchdog fallback.** The decks set the EEPROM's
+  boot watchdog (invariant 14). When the committed slot fails before Linux
+  starts, the bootloader starts p2 after 45 s (phase 1, T10).
+  - **How it shows:** a normal start (`tryboot` 0) of a slot other than the
+    one a valid `autoboot.txt` commits. A deliberate `reboot N` looks the
+    same.
+  - **What runs:** the health unit, as for a trial.
+  - **If the running slot passes:** `rauc status mark-bad other`, then commit
+    the running slot.
+  - **If it fails:** nothing changes, and a hand is needed.
+  - **What it covers:** A is the fallback, as for a damaged `autoboot.txt`,
+    so this rescues decks whose committed slot is B.
+  - **What still loops** until a hand fixes it: a committed A that fails
+    before Linux, and any committed slot that hangs after Linux starts (T9).
 
 ### 5.3 Bundles and shipping
 
@@ -677,18 +777,22 @@ Run it on an A/B deck started from release *v1*, shipping *v2*:
 | F3 | Power lost after install, before the reboot | power off, then on | A |
 | F4 | Health check fails | ship a v2 whose Mixxx mapping is missing | trial → mark-bad → reboot → A |
 | F5 | Panic on the trial | ship a v2 whose initramfs lacks `squashfs` | `panic=10` → A |
-| F6 | Hang on the trial | ship a v2 whose cmdline has `break=premount` | watchdog → A |
-| F7 | `autoboot.txt` broken (power lost during a commit) | corrupt it from a running deck, then reboot | firmware boots p2; `repair` restores it |
+| F6 | Hang on the trial | ship a v2 whose cmdline has `break=premount` | watchdog → A, about 2 min (118 s on trimixxx3, T8) |
+| F7a | `autoboot.txt` broken (power lost during a commit), A committed | corrupt it on a running deck, then reboot | p2 starts (T6c, T7); `repair` restores the file |
+| F7b | The same, B committed | after F9 | p2 (A) starts; `repair` restores the copy, then reboots into B |
 | F8 | Rollback | `rauc status mark-active other`, then reboot | trial of the old version → commit |
 | F9 | Normal update | ship v2 | B committed; A keeps v1. The splash shows `B trial` and v2 during the trial, then `B` and v2 |
+| F10 | The committed slot hangs | `break=premount` on its command line | it keeps restarting: the known gap (T9). Checks that pi-qemu copies the hardware; fix it by hand |
+| F11 | Boot-watchdog fallback, B committed | `systemctl reboot --reboot-argument=2`. pi-qemu runs no firmware that could hang, so this leaves the deck as the watchdog would | A passes the health check; B marked bad; A committed |
 
-**Done when** F1 to F9 pass in QEMU.
+**Done when** F1 to F11 behave as listed in QEMU.
 
 ---
 
 ## 6. Phase 5: trimixxx3 end to end
 
 1. Make the per-deck card with `make card DECK=trimixxx3`.
+   - Its bootloader is already 2026-05-17 (phase 1, T0b).
    - Secrets go in `pi-qemu/.cache/decks/trimixxx3/`.
    - The bench works over the direct Ethernet cable (eth0 is link-local on
      the decks anyway), so Wi-Fi is optional.
@@ -698,9 +802,9 @@ Run it on an A/B deck started from release *v1*, shipping *v2*:
 5. F1 to F9 on the hardware. Sam pulls the power where the matrix says so.
 
 The bench needs a USB sound card, because the health check requires Mixxx's
-sound stream. An HDMI screen is optional.
+sound stream. Its HDMI screen shows the splash's slot label (F9).
 
-**Done when** F1 to F9 pass on trimixxx3.
+**Done when** F1 to F9 pass on trimixxx3. F10 was phase 1's T9.
 
 ---
 
@@ -712,8 +816,22 @@ For each deck, one at a time, on a spare card first:
    - the MAC addresses;
    - `apt-mark showmanual`;
    - `asound.state`;
+   - the EEPROM's config and version (`rpi-eeprom-config`,
+     `vcgencmd bootloader_version`);
+   - its NetworkManager profiles (`/etc/netplan/90-NM-*.yaml`,
+     `/etc/NetworkManager/system-connections/`): its Wi-Fi goes into the
+     identity;
    - any Mixxx state worth keeping.
-2. **Update the bootloader** on the deck's current OS: `rpi-eeprom-update -a`.
+2. **Update the bootloader, and check it** (invariant 14).
+   - On the deck's current OS, `/boot/firmware` is p1, so the stock
+     `sudo rpi-eeprom-update -a` and a reboot work.
+   - `vcgencmd bootloader_version` must then show 2026-05-17 or later.
+   - Set the boot watchdog with `rpi-eeprom-config --apply`:
+     `BOOT_WATCHDOG_TIMEOUT=45`, `BOOT_WATCHDOG_PARTITION=2`. First check in
+     `sudo vclog --msg` that the deck reaches `Starting ARM` well within
+     45 s (trimixxx3: 15.7 s).
+   - Once the A/B card is in, an EEPROM update is staged on p1 with `BOOTFS=`
+     (`rauc-pi-4-setup.md` App. A.4).
 3. **Record its serial** in `units/<deck>.json`.
 4. Run `make card`. **Sam flashes** the card.
 5. Verify the deck, then ship one release over the air.

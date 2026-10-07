@@ -21,7 +21,7 @@ Nothing described here is built yet. Where this file and `PLAN.md` differ,
 | Term | Meaning |
 |---|---|
 | **Slot A / slot B** | One complete copy of the system: a FAT boot partition plus a SquashFS system partition. A = p2 + p5, B = p3 + p6 |
-| **bootsel** | p1, a small FAT partition holding only `autoboot.txt`, the file that picks the slot |
+| **bootsel** | p1, a small FAT partition holding only `autoboot.txt`, the file that picks the slot. No firmware may live there: then a damaged `autoboot.txt` still starts A (measured) |
 | **Committed slot** | The slot named by `[all] boot_partition` in `autoboot.txt`; it starts by default |
 | **Trial start** | One start of the other slot, made by the firmware's one-shot **tryboot** flag |
 | **Commit** | Rewriting `autoboot.txt` so the slot that passed its trial becomes the default |
@@ -69,7 +69,7 @@ MBR, fixed disk signature 0x5d0bc1ec (<id> = 5d0bc1ec)
 
 ```mermaid
 flowchart TD
-  FLAG["Trial flag, one start only<br/>set by: reboot '0 tryboot', or vcmailbox 0x00038064 4 0 1<br/>cleared when used, lost at power-off"]
+  FLAG["Trial flag, one start only<br/>set by: systemctl reboot --reboot-argument='0 tryboot', or vcmailbox 0x00038064 4 0 1<br/>cleared when used, lost at power-off"]
   BL["EEPROM bootloader (chip on the board)"]
   P1["p1 bootsel: autoboot.txt<br/>[all] tryboot_a_b=1, boot_partition=2<br/>[tryboot] boot_partition=3"]
   P2["p2 boot-A: start4.elf reads config.txt<br/>[boot_partition=2] cmdline=cmdline-a.txt"]
@@ -210,10 +210,10 @@ sequenceDiagram
 
 | RAUC calls | When | Backend behaviour |
 |---|---|---|
-| `get-primary` | `rauc status` | print the bootname of `[all] boot_partition` (2 → A, 3 → B) |
+| `get-primary` | `rauc status` | print the bootname of `[all] boot_partition` (2 → A, 3 → B), from the backend's copy in `/var/lib/rauc` if p1's file is damaged |
 | `set-state X bad` | start of an install; `mark-bad` | nothing to undo: `[all]` still names the old slot. Exit 0 |
 | `set-primary X` | end of an install; `mark-active` | write `autoboot.txt` with `[tryboot] boot_partition=` X's boot partition, then arm the flag |
-| `set-state X good` | `mark-good` | if X is running on trial (device tree `tryboot` = 1, `partition` = X's), commit. Otherwise do nothing |
+| `set-state X good` | `mark-good` | if X is running on trial (device tree `tryboot` = 1, `partition` = X's), commit: write the copy in `/var/lib/rauc`, then `autoboot.txt`. Otherwise do nothing |
 | `get-state X` | `rauc status` | `good` for the running slot, `bad` for the other |
 | `get-current` | never in 1.13, because `rauc.slot=` wins | bootname from `/chosen/bootloader/partition` |
 
@@ -314,8 +314,8 @@ Every row is rehearsed on the emulated deck first, then on trimixxx3.
 | New system doesn't boot | `panic=10`, `rootwait=20`; the flag is gone | A |
 | New system freezes | hardware watchdog armed from the firmware (`kernel_watchdog_timeout`) | A |
 | It boots, but Mixxx, the sound card or the S3 link fails | health check: `mark-bad`, then a reboot | A |
-| Power lost during the commit | file written whole and synced; if `autoboot.txt` is broken the firmware boots p2; a start-up check repairs it | either slot, both good |
-| A committed slot breaks later | tryboot's one weak spot. Phase 1 tests whether `kernel_watchdog_partition` can cover it | reflash |
+| Power lost during the commit | a copy written first on the state partition, then `autoboot.txt` whole and synced. A broken `autoboot.txt` starts p2 (measured); the start-up `repair` restores the copy, and reboots into B if B was committed | the committed slot |
+| A committed slot breaks later | tryboot's one weak spot. Measured: `kernel_watchdog_partition` doesn't switch slots, so a hang in Linux loops. The decks set the EEPROM's boot watchdog: a failure before Linux then starts A after 45 s, and the backend commits A if it passes the health check | A when B was committed; otherwise a hand, or a reflash |
 
 ---
 
