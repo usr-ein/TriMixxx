@@ -350,7 +350,7 @@ The detail (tasks, commands, tests, stop points) is in `PLAN.md`.
 |---|---|---|
 | 1 | Firmware facts on trimixxx3 | every unverified firmware point has a measured answer |
 | 2 | Tryboot in pi-qemu | the phase 1 card behaves the same in pi-qemu as on trimixxx3 |
-| 3 | A locked card | a tag gives a card that boots locked in QEMU; the RAM layer is measured over a set |
+| 3 | A locked card | a tag gives a card that boots locked in QEMU, its splash showing the slot (`A`/`B`, `trial`) and the version; the RAM layer is measured over a set |
 | 4 | RAUC on the deck | the whole fault table passes in QEMU |
 | 5 | trimixxx3 end to end | the fault table passes on hardware |
 | 6 | The decks (only with Sam) | every deck has taken a release over the air |

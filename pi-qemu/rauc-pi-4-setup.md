@@ -75,7 +75,7 @@ sha256("trimixxx"), set in `release/Makefile`), so `<id>` below is `5d0bc1ec`:
 
 | # | Label | FS | Size | Holds | Mounted | Written |
 |---|---|---|---|---|---|---|
-| p1 | bootsel | FAT32 | 64 MiB | `autoboot.txt` only | not mounted (the backend mounts it to commit) | at commit: one small file |
+| p1 | bootsel | FAT32 | 64 MiB | `autoboot.txt` only, and never any `start*.elf`: then a missing, empty or garbled `autoboot.txt` starts p2 (measured, PLAN.md T6c and T7) | not mounted (the backend mounts it to commit) | at commit: one small file |
 | p2 | boot-A | FAT32 | 512 MiB | firmware, kernel, initramfs, DTBs, overlays, `config.txt`, `cmdline-a.txt`, `cmdline-b.txt` | the running slot read-only at `/boot/firmware` | by RAUC, idle slot only |
 | p3 | boot-B | FAT32 | 512 MiB | the same files | | |
 | p4 | (extended) | | | container for 5–8 | | |
@@ -559,7 +559,7 @@ The tasks, commands, tests and stop points for each phase are in `PLAN.md`.
 |---|---|---|---|
 | 1 | Firmware checks on trimixxx3 (§7) | The results table above, filled in | Every **unverified** firmware point in App. A has a measured answer |
 | 2 | Tryboot in pi-qemu (§4.2) | QEMU reboot-flags patch; firmware step: filters, tryboot, `/chosen/bootloader`, partition walk, any-size cards | Phase 1's card boots in pi-qemu, and the same checks give the same results as on trimixxx3 |
-| 3 | A locked card (§3, §5) | overlayroot, initramfs modules, `/data` and state mounts, the identity unit; `Dockerfile`, `genimage.cfg`, exclude list, `make release` and `make card` | A tag produces a card that boots locked in QEMU, and the RAM layer's growth over a set's worth of tracks is measured (§3.3) |
+| 3 | A locked card (§3, §5) | overlayroot, initramfs modules, `/data` and state mounts, the identity unit, the boot splash's slot label (`A`/`B`, `trial`, the version); `Dockerfile`, `genimage.cfg`, exclude list, `make release` and `make card` | A tag produces a card that boots locked in QEMU, and the RAM layer's growth over a set's worth of tracks is measured (§3.3) |
 | 4 | RAUC on the deck (§3.5) | Signing key, `system.conf`, the backend, the health check, the bundle in `make release`, `make ship` | The whole fault matrix (§4.3) passes in QEMU |
 | 5 | trimixxx3 end to end | Its card, two shipped releases | The fault matrix passes on hardware |
 | 6 | The decks | Each deck commissioned and reflashed once (§5.1) | Every deck has taken one release over the air |
@@ -584,6 +584,13 @@ The tasks, commands, tests and stop points for each phase are in `PLAN.md`.
   the docs in 2026-09. Ours is about 60 bytes either way.
 - **Should the dev card boot from SquashFS later?** Not for now: Sam wants it
   writable.
+- **Should the decks set the EEPROM's boot watchdog?** On trimixxx3,
+  `BOOT_WATCHDOG_TIMEOUT=45` with `BOOT_WATCHDOG_PARTITION=3` turned a
+  corrupt `start4.elf` on p2 into a start of p3 (PLAN.md T10). But the
+  partition is fixed, so it only helps while A is the committed slot.
+  **Unverified:** whether a conditional EEPROM section can point it at the
+  other slot. The kernel-stage equivalent, `kernel_watchdog_partition`,
+  didn't switch slots (T9).
 
 ---
 
@@ -643,7 +650,7 @@ matches it.
 | tryboot | 2020-10-28 (beta) |
 | `[tryboot]` filter and `tryboot_a_b` | 2022-10-18 beta, default since 2022-12-01 |
 | Fix: tryboot flag lost with secure boot | 2024-04-15 |
-| `[boot_partition=N]` in `config.txt` | start4.elf from about 2025-03 (rpi-update); trixie's firmware is newer. **Unverified on a Pi 4** |
+| `[boot_partition=N]` in `config.txt` | start4.elf from about 2025-03 (rpi-update); trixie's firmware is newer. **Verified on a Pi 4** (trimixxx3, 2026-10-08): p2 → `cmdline-a.txt`, p3 → `cmdline-b.txt` |
 | `PARTITION_WALK` (missing or invalid boot partition → try the next) | 2025-02-11, on by default since 2025-08-13 |
 | `BOOT_WATCHDOG_TIMEOUT` / `BOOT_WATCHDOG_PARTITION` | 2025-07-03 |
 | Current default release | 2026-09-23 |
@@ -651,6 +658,22 @@ matches it.
 One meta-rauc contributor saw the tryboot flag fail with a 2021-04 bootloader
 and work with a 2023-01 one. That's why every deck gets the current bootloader
 before its first flash (§5.1).
+
+**Measured on trimixxx3** (PLAN.md §2.3, 2026-10-08):
+- **A hung trial falls back.** With `kernel_watchdog_timeout=60`, the firmware
+  passes `watchdog.open_timeout=60`, Pi OS's `rpi_wd` keeps the watchdog
+  armed, and a trial stuck in the initramfs was reset to A (T8). After a
+  commit, the same hang just restarts the committed slot (T9).
+- **A 2021-04-29 bootloader starts slot B.** It reads `autoboot.txt` but not
+  its sections, so the last `boot_partition=` (3, from `[tryboot]`) wins. A
+  release card on such a board would start its empty slot B. Updating the
+  bootloader first (§5.1) is a hard requirement, not a precaution.
+- **Updated to 2026-05-17**, every A/B rule behaved as documented: `[all]`
+  gives p2, `[tryboot]` gives p3 for one start, and the device tree's
+  `partition` and `tryboot` say which.
+- **Arming:** `vcmailbox 0x00038064 4 0 1` works, and `0x00030064` reads it
+  back. On trixie, systemd 257 refuses `reboot '0 tryboot'` ("Too many
+  arguments"). The form is `systemctl reboot --reboot-argument="0 tryboot"`.
 
 **EEPROM settings for development**
 - `BOOT_UART=1` logs the bootloader's decisions on GPIO 14/15.
@@ -677,6 +700,11 @@ before its first flash (§5.1).
 - **`rpi-eeprom-update`** stages files on `/boot/firmware`, which is now the
   active slot. A `recovery.bin` on p2 broke booting (rpi-eeprom #499). Mask the
   service in the release image and update EEPROMs deliberately (§5.1).
+  - The Pi 4's ROM runs `recovery.bin` from p1.
+  - On an A/B card, stage the update there:
+    `mount /dev/mmcblk0p1 /mnt; BOOTFS=/mnt rpi-eeprom-update -a`.
+    That's measured on trimixxx3.
+  - Then `BOOTFS=/mnt rpi-eeprom-update -r` clears the leftovers.
 - **Pi OS's initramfs disarms the hardware watchdog** (`rpi_wd`) unless
   `kernel_watchdog_timeout` is set in `config.txt`. Set it, so that a trial
   that hangs early still resets.

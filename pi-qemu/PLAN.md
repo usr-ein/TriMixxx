@@ -8,8 +8,8 @@ records why it is built the way it is.
 the air: A/B slots, chosen by the Pi firmware's own **tryboot** and installed by
 **RAUC**, rehearsed on the emulated deck before any deck sees them. Part 1 is
 that plan, phase by phase, written so that an agent can carry it out. Status on
-2026-10-08: phase 1's test card is built and passes its smoke test in pi-qemu.
-It waits for Sam to flash it (§2.2).
+2026-10-08: **phase 1 is done.** Its results are in §2.3. Next comes phase 2, tryboot in
+pi-qemu. trimixxx3 runs the test card on bootloader 2026-05-17.
 
 | Read | For |
 |---|---|
@@ -312,36 +312,52 @@ where() { echo "slot=$(grep -o 'rauc.slot=[^ ]*' /proc/cmdline | cut -d= -f2) pa
 |---|---|---|
 | T0 | First start | `slot=A partition=2 tryboot=0`. Record: `vcgencmd bootloader_version`, `vcgencmd bootloader_config`, `ls /proc/device-tree/chosen/bootloader/` with every value (`xxd` each file), `sudo vclog --msg`, `cat /proc/cmdline` |
 | T0b | If T0 shows `slot=R`, or a bootloader older than 2022-12-01 | **Stop, ask Sam.** Update the EEPROM from the running system (`sudo rpi-eeprom-update -a`, then a reboot) and run T0 again. If T0 shows `A-nofilter`, `[boot_partition=N]` isn't honoured: record it, and go to "If a result breaks the design" |
-| T1 | `sudo reboot '0 tryboot'` | `slot=B partition=3 tryboot=1` |
+| T1 | `sudo systemctl reboot --reboot-argument="0 tryboot"` (trixie's systemd refuses `reboot '0 tryboot'`) | `slot=B partition=3 tryboot=1` |
 | T2 | `sudo reboot` | `slot=A partition=2 tryboot=0` |
 | T3 | `sudo vcmailbox 0x00038064 4 0 1`; read it back with `sudo vcmailbox 0x00030064 4 0 0`; then `sudo reboot` | `slot=B tryboot=1` |
 | T4 | Arm (as in T3), `sudo poweroff`, Sam power-cycles | `slot=A` (the flag doesn't survive power-off) |
 | T5 | During a trial (`slot=B`), Sam power-cycles | `slot=A` |
 | T6 | From A: mount p1 and rename `autoboot.txt`, then reboot. Then also rename p1's `start4.elf`, and reboot again. Restore both afterwards | First reboot: partition 0 means the first bootable FAT, so expect `slot=R` (p1 is bootable). Second: `partition=2` (the walk). Record both |
 | T7 | `autoboot.txt` made empty, then filled with garbage; reboot after each; restore | Record what starts |
-| T8 | Add `kernel_watchdog_timeout=60` to `config.txt` on p2 and p3 and `break=premount` to `cmdline-b.txt`, then `sudo reboot '0 tryboot'`. Optional, without `kernel_watchdog_timeout`, which needs a power cycle to end | B hangs in the initramfs; the watchdog resets it within about 90 s; `slot=A`. Without the setting, it's expected to hang forever, because Pi OS's initramfs disarms the watchdog. Remove the edits afterwards |
+| T8 | Add `kernel_watchdog_timeout=60` to `config.txt` on p2 and p3 and `break=premount` to `cmdline-b.txt`, then `sudo systemctl reboot --reboot-argument="0 tryboot"`. Optional, without `kernel_watchdog_timeout`, which needs a power cycle to end | B hangs in the initramfs; the watchdog resets it within about 90 s; `slot=A`. Without the setting, it's expected to hang forever, because Pi OS's initramfs disarms the watchdog. Remove the edits afterwards |
 | T9 | **Ask Sam first.** In p2's `config.txt`, under `[boot_partition=2]`: `kernel_watchdog_timeout=60` and `kernel_watchdog_partition=3`. Add `break=premount` to `cmdline-a.txt`, then reboot | If B starts (`partition=3 tryboot=0`), the firmware can fall back after a commit. If A keeps looping, Sam takes the card out and removes `break=premount` from `cmdline-a.txt` on the Mac (the FAT volume `bootfs`) |
 | T10 | Optional, ask Sam: EEPROM `BOOT_WATCHDOG_TIMEOUT` / `BOOT_WATCHDOG_PARTITION` | Only if T9 failed |
 | T11 | Time from power-on to ssh, for A and for a trial of B | Record |
 
-**Results.** Fill this in:
+**Results**, measured on trimixxx3 on 2026-10-08:
 
 | Test | Observed | Notes |
 |---|---|---|
-| T0 | | bootloader version: |
-| T1 | | |
-| T2 | | |
-| T3 | | |
-| T4 | | |
-| T5 | | |
-| T6 | | |
-| T7 | | |
-| T8 | | |
-| T9 | | |
-| T11 | | |
+| T0 | **Bootloader 2021-04-29: `slot=B partition=3 tryboot=0`.** After T0b, on 2026-05-17: `slot=A partition=2 tryboot=0` | The 2021 bootloader reads `autoboot.txt` but not its sections, so the last `boot_partition=` (3) wins. The firmware honours `[boot_partition=N]`: it read `cmdline-b.txt`, then `cmdline-a.txt` (`vclog`: `boot-part: 3`, then `2`). Board: Pi 4B rev 1.2, 4 GB |
+| T0b | Done with Sam's OK. Bootloader 2021-04-29 → 2026-05-17 (capabilities `0x1f` → `0x7f`), VL805 `138a1` → `138c0`; one reboot, 46 s | The ROM runs `recovery.bin` from p1. `rpi-eeprom-update -a` stages it on `/boot/firmware`, which is p2 or p3 on this card, so it was staged with `sudo mount /dev/mmcblk0p1 /mnt; sudo BOOTFS=/mnt rpi-eeprom-update -a`. It renamed itself `RECOVERY.000`. `BOOTFS=/mnt rpi-eeprom-update -r` then cleared p1 |
+| T1 | `slot=B partition=3 tryboot=1`, back in 39 s | `sudo reboot '0 tryboot'` fails on trixie: systemd 257 says "Too many arguments". `--reboot-argument=` works |
+| T2 | `slot=A partition=2 tryboot=0`, 38 s | The flag lasts one start |
+| T3 | `SET_REBOOT_FLAGS 1` read back as `1`; then a plain reboot gives `slot=B partition=3 tryboot=1`, 38 s | Arming through the mailbox works: the backend's way |
+| T4 | Armed (read back `1`), `systemctl poweroff`, power pulled and restored: `slot=A partition=2 tryboot=0` | The flag doesn't survive a power-off |
+| T5 | Power pulled during a B trial: back on `slot=A partition=2 tryboot=0` | `rsts` reads `00001000` after a cold start too, so it doesn't tell a power-on from a reboot. Linux took 11.4 s (kernel 3.0 s, userspace 8.3 s) |
+| T6 | No `autoboot.txt`: `slot=R partition=1 tryboot=0`, p1 at `/boot/firmware`. Then no `start4.elf` on p1 either: **no start at all**, a black screen; restored on the Mac | **Breaks the design** (§A.4 of `rauc-pi-4-setup.md`). With no `autoboot.txt` the bootloader uses partition 0, the first FAT partition, and `PARTITION_WALK` only searches when a partition was requested. A release card's p1 holds only `autoboot.txt`, so losing it would leave a deck unbootable. **T6c settles it** (below) |
+| T6c | p1 like the release's: no `start*.elf` at all, no `autoboot.txt`: **`slot=A partition=2 tryboot=0`**, in 37 s | The design holds. Partition 0 resolves to the first FAT partition with firmware. T6b failed because p1 still held other `start*.elf` files, so it looked bootable. Rule: **a release's p1 holds no `start*.elf`** (it holds only `autoboot.txt`). No EEPROM setting needed |
+| T7 | On a release-like p1 (no `start*.elf`): an empty `autoboot.txt` gives `slot=A partition=2 tryboot=0`, and so do 512 random bytes | A damaged `autoboot.txt` (missing, empty or garbage) falls back to A |
+| T8 | A B trial with `break=premount`, and `kernel_watchdog_timeout=60` on p2 and p3: hung at `(initramfs)`, the watchdog reset the board, back on `slot=A partition=2 tryboot=0` 118 s after the reboot command | The firmware passes `watchdog.open_timeout=60`, so Pi OS's initramfs script `rpi_wd` leaves the watchdog armed. Without `kernel_watchdog_timeout` it disarms it (read in the script, not run). Once up, systemd holds `/dev/watchdog0`. `rsts` still reads `00001000` |
+| T9 | `kernel_watchdog_timeout=60` and `kernel_watchdog_partition=3` in A's `[boot_partition=2]`, and `break=premount` for A: the watchdog fired about 60 s into the hang, and **A started again** and hung again, a loop. Fixed on the Mac | The documented `kernel_watchdog_partition` didn't send the reset to B. The firmware doesn't rescue a committed slot that hangs after Linux starts, so phase 4 adds no reconcile step for it |
+| T10 | EEPROM `BOOT_WATCHDOG_TIMEOUT=45` and `BOOT_WATCHDOG_PARTITION=3`. A's `start4.elf` truncated to 64 KiB: the boot watchdog reset the board after 45 s and **B started**, `slot=B partition=3 tryboot=0`, at +82 s | The boot watchdog covers failures before Linux starts. A `kernel=` naming a missing file is no such failure: the firmware falls back to `kernel8.img`. Its partition is a fixed number, not "the other slot" (open question in `rauc-pi-4-setup.md` §9). The EEPROM config is back to its defaults |
+| T11 | Reboot command to ssh: 38 s for A, 39 s for a B trial. From reset: 15.7 s in the firmware before Linux starts, kernel 2.5 s, userspace 8.3 s | A trial adds no time. The firmware spends its time on HDMI probing and SD reads |
 
 Also record the raw `/proc/device-tree/chosen/bootloader/` dump for a normal
-start and for a trial. pi-qemu copies those property names and values.
+start and for a trial. pi-qemu copies those property names and values. Measured
+on bootloader 2026-05-17 (hex, as stored):
+
+| Property | Normal start (A) | Trial (B) |
+|---|---|---|
+| `boot-mode` | `00000001` | `00000001` |
+| `build-timestamp` | `6a0a134e` | `6a0a134e` |
+| `capabilities` | `0000007f` | `0000007f` |
+| `name` | `"bootloader"` | `"bootloader"` |
+| `partition` | `00000002` | `00000003` |
+| `rsts` | `00001000` (`00001020` on the start right after the EEPROM update) | `00001000` |
+| `tryboot` | `00000000` | `00000001` |
+| `update-timestamp` | `6aa88f02` | `6aa88f02` |
+| `version` | `"224877da90f82a72dbcc9db10bcf059259f54680"` | the same |
 
 **If a result breaks the design:**
 - **`[boot_partition=N]` isn't honoured.** Fall back to RAUC's documented
@@ -481,6 +497,24 @@ They go into the normal build, so the dev deck carries them too, inert.
   its swap file too (one shared setting), or the release sets it alone.
 - **Mask `rpi-eeprom-update.service`.** EEPROM updates become a deliberate
   step (phase 6).
+- **The boot splash shows the slot** (Sam's request, 2026-10-08). The logo
+  (`pi_config/trimixxx-splash.*`) gets a label under it:
+  - `A` or `B`;
+  - `trial` while a new release is on probation (the device tree's `tryboot`
+    is 1);
+  - the release's version.
+
+  It's the splash's own way, with nothing new on the deck:
+  - `splash-render.py` pre-renders one blob per label: `A`, `B`, `A trial`,
+    `B trial`, the version baked in when the release is built.
+  - `trimixxx-splash.sh` picks the blob at start, from `rauc.slot=` on
+    `/proc/cmdline` and the device tree. The choice is made on the deck, so
+    both boot slots stay byte-identical (invariant 5).
+  - One image serves every deck, so `make release` renders each set for every
+    panel in `units/*.json` (trimixxx1's 1024×600, trimixxx2's 1280×800). The
+    script takes the set whose geometry matches the framebuffer it finds, as
+    it already checks today.
+  - The dev card has no `rauc.slot=` and keeps today's plain logo.
 
 ### 4.2 Release tooling (`pi-qemu/release/`)
 
@@ -542,6 +576,8 @@ pi-qemu/instance.sh up rel --from pi-qemu/release/out/0.0.1/trimixxx0-0.0.1.img
 - `/proc/cmdline` has `rauc.slot=A`;
 - the device tree's `partition` is 2;
 - the hostname comes from `/data`;
+- the splash shows `A` and the version (`instance.sh shot rel` during the
+  first seconds);
 - `instance.sh ready rel` passes.
 
 **RAM measurement.**
@@ -644,7 +680,7 @@ Run it on an A/B deck started from release *v1*, shipping *v2*:
 | F6 | Hang on the trial | ship a v2 whose cmdline has `break=premount` | watchdog → A |
 | F7 | `autoboot.txt` broken (power lost during a commit) | corrupt it from a running deck, then reboot | firmware boots p2; `repair` restores it |
 | F8 | Rollback | `rauc status mark-active other`, then reboot | trial of the old version → commit |
-| F9 | Normal update | ship v2 | B committed; A keeps v1 |
+| F9 | Normal update | ship v2 | B committed; A keeps v1. The splash shows `B trial` and v2 during the trial, then `B` and v2 |
 
 **Done when** F1 to F9 pass in QEMU.
 
