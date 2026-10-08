@@ -1,5 +1,6 @@
 #include "board/controlserver.h"
 
+#include "board/link.h"
 #include "board/machine.h"
 #include "board/sticks.h"
 #include "s3/controls.h"
@@ -22,6 +23,10 @@ QString ControlServer::help() {
                           "USB sticks (two slots, read-only):\n"
                           "  stick list | stick insert ID | stick unplug ID\n"
                           "      ID: diskN, an image file, a folder, or a .stick file describing one\n"
+                          "Its eth0, the CDJ port:\n"
+                          "  link                   its link (the network it shares with other decks), and\n"
+                          "                         the player it announces there\n"
+                          "  link plug | link unplug   its cable in or out\n"
                           "The board:\n"
                           "  status | power on | power off (pulls the plug) | screenshot FILE.png\n"
                           "  save FILE      the whole machine to FILE, then off (run --restore FILE CARD)\n");
@@ -97,12 +102,33 @@ void ControlServer::onLine(QLocalSocket* client, const QString& line) {
             reply(c, false, "stick list | stick insert ID | stick unplug ID");
         }
     } else if (cmd == "status") {
-        reply(c, true, QString("pi: %1\ns3 link: %2\ndeck wiring: %3\nssh: ssh -p %4 sam1902@127.0.0.1\nrun dir: %5")
+        const Link* link = m_machine->options().link;
+        reply(c, true, QString("pi: %1\ns3 link: %2\ndeck wiring: %3\neth0: %4\nssh: ssh -p %5 sam1902@127.0.0.1\nrun dir: %6")
                            .arg(m_machine->running() ? "running" : "off")
                            .arg(m_s3->connected() ? "connected" : "waiting for the Pi")
                            .arg(m_wiring->deck())
+                           .arg(link ? QString("on link %1 as %2%3").arg(link->net(), link->member(),
+                                                                       link->plugged() ? "" : ", unplugged")
+                                     : QString("on no link"))
                            .arg(m_machine->options().sshPort)
                            .arg(m_machine->options().runDir));
+    } else if (cmd == "link") {
+        Link* link = m_machine->options().link;
+        if (w.isEmpty()) {
+            reply(c, true, link ? linkStatus(*link) : QString("link: none (eth0 is on a cable to an empty switch)"));
+        } else if (!link) {
+            reply(c, false, "eth0 is on no link: run --link NET (deck up --link NET)");
+        } else if (w[0] == "plug" || w[0] == "unplug") {
+            // The cable: frames stop at the switch, and the Pi's PHY loses its
+            // link (QEMU's set_link), as when a DJ pulls it out.
+            const bool in = w[0] == "plug";
+            if (in) m_machine->qmp("set_link", QJsonObject{{"name", "link"}, {"up", true}});
+            link->setPlugged(in);
+            if (!in) m_machine->qmp("set_link", QJsonObject{{"name", "link"}, {"up", false}});
+            reply(c, true, QString("%1: eth0 %2 link %3").arg(link->member(), in ? "plugged into" : "unplugged from", link->net()));
+        } else {
+            reply(c, false, "link | link plug | link unplug");
+        }
     } else if (cmd == "power" && !w.isEmpty()) {
         if (w[0] == "off") { m_machine->pullPlug(); reply(c, true, "plug pulled"); }
         else if (w[0] == "on") { emit powerOnRequested(); reply(c, true, "powering on"); }
@@ -123,6 +149,19 @@ void ControlServer::onLine(QLocalSocket* client, const QString& line) {
     } else {
         reply(c, false, "unknown command; send help for the list");
     }
+}
+
+// One "key: value" a line, as `status`; `player:` is what deck up waits for.
+QString ControlServer::linkStatus(const Link& link) {
+    QStringList others;
+    for (const links::Member& m : links::members(link.net()))
+        if (!m.listener && m.name != link.member()) others << m.name + (m.live ? "" : " (gone)");
+    const Link::Heard h = link.heard();
+    return QString("link: %1\nmember: %2, %3\nplayer: %4\nothers: %5\nframes: %6 out, %7 in, %8 dropped")
+        .arg(link.net(), link.member(), link.plugged() ? "plugged in" : "unplugged")
+        .arg(h.number ? QString("%1 at %2, %3").arg(h.number).arg(h.ip, h.mac) : QString("none heard"))
+        .arg(others.isEmpty() ? QString("none") : others.join(' '))
+        .arg(link.framesOut()).arg(link.framesIn()).arg(link.dropped());
 }
 
 void ControlServer::play(QLocalSocket* client, const s3::Sequence& s, int from) {

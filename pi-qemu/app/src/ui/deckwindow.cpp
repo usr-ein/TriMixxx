@@ -206,7 +206,8 @@ private:
 
 DeckWindow::DeckWindow(Machine* m, VirtualS3* s3, Sticks* sticks, const Wiring* wiring, QWidget* parent)
     : QWidget(parent), m_machine(m), m_s3(s3), m_sticks(sticks), m_wiring(wiring) {
-    setWindowTitle(QString(kTool) + " — " + wiring->deck() + " controls");
+    const QString name = m->options().name;
+    setWindowTitle(QString(kTool) + " — " + (name.isEmpty() ? QString() : name + ": ") + wiring->deck() + " controls");
     QPalette pal = palette();
     pal.setColor(QPalette::Window, kPlate);
     pal.setColor(QPalette::WindowText, kText);

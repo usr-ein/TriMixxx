@@ -132,6 +132,36 @@ pi-qemu deck where NAME                   # the pointer's position
   - `tx:` is what Mixxx sent back to the S3 (the LEDs). It growing after a
     press shows Mixxx handled it.
 
+## Several decks on one network (Pro DJ Link)
+
+Decks started with the same `--link NET` share a network on their eth0s, as
+CDJs in a booth share a switch: they see each other over Pro DJ Link, browse
+each other's sticks, and load and play each other's tracks. Without `--link`
+a deck's eth0 is on an empty switch.
+
+```sh
+pi-qemu deck up NAME-a --link NAME-net      # says: NAME-a: player 4 at 169.254.x.y, MAC on link NAME-net
+pi-qemu deck up NAME-b --link NAME-net      # NAME-b: player 3 (it saw NAME-a holding 4)
+pi-qemu link devices NAME-net               # the players heard on it: number, name, address, MAC, deck
+pi-qemu deck stick NAME-a insert SANDISK-E02C   # a rekordbox stick in NAME-a...
+pi-qemu deck press NAME-b push               # ...is "4 <label>" in NAME-b's library: push, browse, push to load
+pi-qemu deck link NAME-a                    # what it announces, who else is on its link
+pi-qemu deck link NAME-a unplug             # pull its cable (the Pi sees its link go down); plug puts it back
+pi-qemu link capture NAME-net out.pcap 30   # every frame on the link for 30 s, for Wireshark or `prolink pcap`
+```
+
+- **A link's name is global on the Mac**, like a deck's: name it after your
+  task, put only your own decks on it, and never `--link` a name another agent
+  uses (`pi-qemu link list` shows every link and its decks).
+- `up --link` takes about 15-35 s: a restored deck takes its own MAC, waits
+  its turn on the link, and claims a player number; `up` waits for that and
+  prints it. Decks on one link may be started in parallel.
+- The link stays with the deck through `stop`/`up`; `up NAME --link none`
+  (on a stopped deck) takes it off.
+- Plain sticks (no rekordbox export) are not served over the network yet;
+  use a rekordbox stick such as `SANDISK-E02C` (read-only, nothing copied).
+- `rm` your decks when done: each takes its socket off the link with it.
+
 ## Deploy your own code onto it
 
 ```sh

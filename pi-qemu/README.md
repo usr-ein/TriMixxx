@@ -22,7 +22,7 @@ The emulated deck is called **trimixxx0**: a virtual trimixxx2, wired by
 in [PLAN.md](PLAN.md).
 
 ```sh
-pi-qemu help                  # the groups: deck, image, release, worktree
+pi-qemu help                  # the groups: deck, link, image, release, worktree
 pi-qemu deck                  # a group's verbs
 pi-qemu deck up --help        # one verb, in full
 ```
@@ -37,7 +37,7 @@ named.
 | Path | What it is |
 |---|---|
 | `build.sh` | builds the pinned, patched QEMU and `pi-qemu`, and puts `pi-qemu` on PATH |
-| `app/` | `pi-qemu` itself (C++/Qt), one directory per part under `app/src/`: `board/` (the emulated Pi: the firmware step, QEMU, USB sticks, its control socket), `s3/` (the deck's controller: MIDI both ways, the wiring), `ui/` (the windows), `decks/` (a deck to act on, emulated or real), `pipeline/` (deploying, image builds, releases), `worktree/`, `cli/` (the command line), `util/`; and `tests/` (ctest) |
+| `app/` | `pi-qemu` itself (C++/Qt), one directory per part under `app/src/`: `board/` (the emulated Pi: the firmware step, QEMU, USB sticks, its link, its control socket), `s3/` (the deck's controller: MIDI both ways, the wiring), `ui/` (the windows), `decks/` (a deck to act on, emulated or real), `pipeline/` (deploying, image builds, releases), `worktree/`, `cli/` (the command line), `util/`; and `tests/` (ctest) |
 | `app/icons/` | its icon: `trimixxx.svg`, and the `.ico` compiled in, made from it by `make-ico.py` |
 | `qemu/trimixxx-patches.py` | our patches to QEMU, applied by `build.sh` |
 | `deploy/` | the deploy steps, `NNN_name.sh` and `NNN_name.pi.sh`, and their contract, `lib.sh` |
@@ -102,6 +102,7 @@ board itself (`pi-qemu run --help` lists its options):
 | `--stick FILE.img` | a USB stick image plugged in from power-on |
 | `--deck NAME` | whose wiring the panel follows (`mixxx_config/units/NAME.json`) |
 | `--ssh PORT` | the Pi's ssh on 127.0.0.1:PORT (default: a free port) |
+| `--link NET` | eth0 on the link NET, shared with other boards (`deck up --link` sets it, and `--name`, `--mac`) |
 
 ### The panel
 
@@ -172,6 +173,9 @@ the board's run directory, `card.run/`:
   (the Pi's console: `nc -U console.sock`), `qmp.sock` and `qmp-fd.sock`
   (QEMU's monitor) and `s3.sock` (the S3's UART).
 
+A deck on a link also has `link` in its directory (the link's name), and its
+socket on the link is `~/.pi-qemu/links/NET/NAME.sock`.
+
 Inside the Pi:
 - Mixxx logs to `/tmp/mixxx/mixxx.log` and `/tmp/mixxx/stderr.log`; the
   previous run's are kept as `.1`;
@@ -219,6 +223,66 @@ The emulated board starts as a Pi 4 does, measured on a real one
 
 Each emulated deck takes 2 GB of RAM; four at once is about the limit on a
 16 GB Mac.
+
+## Decks on one network: Pro DJ Link
+
+Decks started on the same **link** have their eth0s on one network, as the
+players in a booth share a switch. They see each other over Pro DJ Link,
+browse each other's media, and load and play each other's tracks. A deck on
+no link (the default) has its eth0 on a cable to an empty switch, so other
+people's and agents' decks never meet yours.
+
+```sh
+pi-qemu deck up a --link booth --window    # a: player 4 on link booth
+pi-qemu deck up b --link booth --window    # b: player 3 (it saw a holding 4)
+pi-qemu deck stick a insert SANDISK-E02C   # a rekordbox stick into deck a...
+pi-qemu deck press b push                  # ...is a source in b's library: "4 <its label>"
+pi-qemu link devices booth                 # who announces what, heard from the Mac
+```
+
+- **On a link, each deck is a device of its own.** Its eth0 MAC comes from
+  its NAME (`02:54:4d:..`), so it gets its own link-local address and claims
+  its own player number, as a real deck does. `up` waits for that number and
+  says it: `b: player 3 at 169.254.237.243, 02:54:4d:f0:62:70 on link booth`.
+- **A restored deck is a clone until then.** Every deck wakes from the golden
+  snapshot with the same MAC, address and player number. So it wakes with its
+  cable out, takes its own MAC, waits for Mixxx to let go of the golden
+  deck's address, and only then is plugged in: nothing on the link ever hears
+  the clone. A booted deck (`--boot`, `--from`) has its own MAC from the start,
+  through the device tree, and after every reboot.
+- **The link stays with the deck** through `stop` and `up`, until
+  `up NAME --link OTHER` (or `--link none`) on a stopped deck.
+- **Decks can start together** (`deck up a --link booth & deck up b --link booth &`).
+  Restored decks take turns on a link: each is plugged in and claims its
+  number only once the one before it has (`b: waiting for the deck before
+  it...`). A Mixxx whose Pro DJ Link library is new enough also settles two
+  players claiming one number at the same moment by address (lib/prolink).
+- **A deck that comes up unbrowsable gets its Mixxx restarted once.** An
+  observer (a player number outside 1-4, as 7) can be neither browsed nor
+  browse; a Pro DJ Link library from before its rebind fix could end up one
+  when its address changed. `up` says so when it happens.
+- `deck link NAME` says what the deck announces and who else is on its
+  link. `deck link NAME unplug` pulls its cable (frames stop, and the Pi sees
+  its link go down), and `plug` puts it back.
+
+From the Mac, without touching any deck:
+
+```sh
+pi-qemu link list                       # every link, and the decks on it
+pi-qemu link devices booth              # the players announcing themselves: number, name, address, MAC, deck
+pi-qemu link capture booth booth.pcap   # every frame into a pcap until ^C, for Wireshark or `prolink pcap`
+```
+
+**How it works** (`app/src/board/link.*`). A link is a directory,
+`~/.pi-qemu/links/NET/`, with one Unix datagram socket per deck on it,
+`NAME.sock`. Each deck's QEMU gets one end of a socketpair as GENET's network
+(`-netdev dgram,local.type=fd`); the deck's `pi-qemu run` holds the other end
+and forwards: the frames its Pi sends go to the other decks' sockets, and
+theirs to its Pi. It learns which deck has which MAC, as a switch does, and
+floods broadcasts and unknown MACs. A deck never hears its own frames back,
+and nothing leaves the Mac: the sockets are files, not ports. QEMU's own
+multicast hub (`-netdev dgram` to a group) cannot send on macOS: it binds the
+group's address, which BSD refuses to send from.
 
 ## Deploying
 

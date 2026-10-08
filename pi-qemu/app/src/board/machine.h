@@ -18,6 +18,8 @@
 #include <functional>
 #include <sys/types.h>
 
+class Link;
+
 // QEMU's pid while it runs: for a signal handler that must stop it before
 // pi-qemu goes (commands/run.cpp). It is also in <run dir>/qemu.pid, for
 // whoever has to stop a pi-qemu that was killed outright (deck kill).
@@ -35,6 +37,8 @@ struct MachineOptions {
     int     sshPort = 2222;
     QStringList sticks;         // image files plugged in at power-on
     QString restore;            // a saved machine (pi-qemu save) to start from, once
+    QString name;               // the board's: QEMU's window title
+    Link*   link = nullptr;     // eth0 on a link (board/link.h), else on an empty switch
 };
 
 class Machine : public QObject {

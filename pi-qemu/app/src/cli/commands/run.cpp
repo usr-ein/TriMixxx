@@ -5,6 +5,7 @@
 #include "cli/commands/commands.h"
 
 #include "board/controlserver.h"
+#include "board/link.h"
 #include "board/machine.h"
 #include "board/sticks.h"
 #include "s3/virtuals3.h"
@@ -24,6 +25,7 @@
 #include <QTimer>
 
 #include <csignal>
+#include <memory>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -92,6 +94,15 @@ int run(cli::Args& a) {
     Wiring wiring;
     QString err;
     if (!wiring.load(paths::units(), a.value("deck", "trimixxx0"), &err)) fail(err);
+    // Before the Machine, so it outlives every QEMU that holds its end.
+    o.name = a.value("name");
+    std::unique_ptr<Link> link;
+    if (a.has("link")) {
+        link = std::make_unique<Link>(a.value("link"), o.name.isEmpty() ? QFileInfo(card).completeBaseName() : o.name);
+        if (!link->open(&err)) fail(err);
+        link->setPlugged(!a.has("unplugged"));
+        o.link = link.get();
+    }
     Machine machine(o);
     VirtualS3 s3(machine.s3Socket());
     Sticks sticks(&machine, a.value("sticks", paths::cache() + "/sticks"));
@@ -127,6 +138,9 @@ int run(cli::Args& a) {
     }
     out << kTool << ": card " << o.card << "\n         run dir " << o.runDir
         << "\n         sound " << (o.audio == "none" ? "OFF" : o.audio)
+        << "\n         eth0 " << (link ? QString("on link %1 as %2%3").arg(link->net(), link->member(),
+                                                                         link->plugged() ? "" : " (unplugged)")
+                                         : QString("on no link"))
         << "\n         ssh -p " << o.sshPort << " sam1902@127.0.0.1"
         << "\n         control socket " << o.runDir << "/control.sock" << Qt::endl;
     // A board that cannot start says so and, headless, exits: whoever started
@@ -168,7 +182,13 @@ void addRun(cli::Registry& r) {
             {"no-controls", {}, "no control panel: driven through the control socket only"},
             {"audio", "MODE", "none | speakers | wav:FILE; none, which is silent"},
             {"ssh", "PORT", "the Pi's ssh on 127.0.0.1:PORT; default a free port, in <run dir>/ssh.port"},
-            {"net", "MODE", "user | restricted | none; user"},
+            {"net", "MODE", "user | restricted | none; user (the management NIC: ssh, apt)"},
+            {"link", "NET", "eth0 on the link NET, the network every board started with the\n"
+                            "same NET shares (~/.pi-qemu/links/NET/); else on an empty switch"},
+            {"unplugged", {}, "with --link: frames go nowhere until the control socket's `link plug`;\n"
+                              "the Pi still sees a link (what a restored deck waits in)"},
+            {"name", "NAME", "the board's name: on its link (default the card's file name)\n"
+                             "and in its windows' titles"},
             {"mac", "MAC", "eth0's MAC, written into the device tree"},
             {"panel", "WxHxD", "the framebuffer, as the deck's panel; 1280x800x16"},
             {"accel", "ACCEL", "hvf (fast) | tcg (a real Cortex-A72 model, slow); hvf"},

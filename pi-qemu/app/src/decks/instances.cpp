@@ -1,5 +1,6 @@
 #include "decks/instances.h"
 
+#include "board/link.h"
 #include "decks/controlclient.h"
 #include "decks/readiness.h"
 #include "util/fail.h"
@@ -20,6 +21,9 @@
 #include <QTextStream>
 
 #include <csignal>
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
 
 namespace {
 
@@ -38,6 +42,32 @@ void killQemu(const QString& runDir) {
     }
     QFile::remove(runDir + "/qemu.pid");
 }
+
+// One deck at a time plugs into a link and claims its number there, for as
+// long as this lives. Two decks claiming together can both take the same
+// number with a Mixxx whose Pro DJ Link library predates the tie-break
+// (lib/prolink, claim_one) -- the golden deck's may -- and nothing settles it
+// afterwards. flock: a deck up that dies lets go with its process.
+class ClaimTurn {
+public:
+    ClaimTurn(const QString& net, const QString& deck) {
+        QDir().mkpath(links::dir(net));
+        m_fd = ::open(QFile::encodeName(links::dir(net) + "/.claim.lock").constData(), O_CREAT | O_RDWR | O_CLOEXEC, 0644);
+        if (m_fd < 0 || ::flock(m_fd, LOCK_EX | LOCK_NB) == 0) return;
+        print() << deck << ": waiting for the deck before it to claim its number on link " << net << "\n";
+        QElapsedTimer t;
+        t.start();
+        while (::flock(m_fd, LOCK_EX | LOCK_NB) != 0 && t.elapsed() < 180000) proc::sleep(250);
+    }
+    ~ClaimTurn() {
+        if (m_fd >= 0) ::close(m_fd); // and with it the lock
+    }
+    ClaimTurn(const ClaimTurn&) = delete;
+    ClaimTurn& operator=(const ClaimTurn&) = delete;
+
+private:
+    int m_fd = -1;
+};
 
 QString tail(const QString& file, int lines) {
     QFile f(file);
@@ -60,6 +90,11 @@ QStringList Instance::all() {
 }
 
 bool Instance::exists() const { return QFileInfo::exists(m_dir); }
+
+QString Instance::link() const {
+    QFile f(m_dir + "/link");
+    return f.open(QIODevice::ReadOnly) ? QString::fromUtf8(f.readAll()).trimmed() : QString();
+}
 
 qint64 Instance::pid() const {
     const qint64 p = readPid(m_dir + "/pid");
@@ -133,7 +168,8 @@ void Instance::up(const Up& o) {
     if (running()) {
         // Reused as it is: one start serves every later call, but not
         // silently with other settings than asked for.
-        if (o.window || o.fresh || o.boot || !o.from.isEmpty() || !o.runArgs.isEmpty())
+        if (o.window || o.fresh || o.boot || !o.from.isEmpty() || !o.runArgs.isEmpty() ||
+            (!o.link.isEmpty() && o.link != (link().isEmpty() ? "none" : link())))
             fail(m_name + " is already running: its options cannot change now. " + tool("deck rm " + m_name) +
                  " (or deck stop " + m_name + "), then up again");
         print() << m_name << " is already up: ssh port " << sshPort() << ", pid " << pid() << "\n"
@@ -143,6 +179,8 @@ void Instance::up(const Up& o) {
     }
     if (!QFileInfo::exists(paths::tools() + "/qemu-system-aarch64"))
         fail("no QEMU in " + paths::tools() + ": run pi-qemu/build.sh");
+    if (!o.link.isEmpty() && o.link != "none" && !links::validName(o.link))
+        fail("a link's name is letters, digits, - and _: not " + o.link, 2);
     requireUsableKey(paths::sshKey());
     QDir().mkpath(m_dir);
     const QString golden = paths::golden();
@@ -163,7 +201,13 @@ void Instance::up(const Up& o) {
         if (QFileInfo::exists(golden + ".state")) files::clone(golden + ".state", state());
     }
 
-    QStringList args;
+    // The link is the deck's cable: it stays where it was put, through stops
+    // and resumes, until another --link moves it.
+    if (o.link == "none") QFile::remove(m_dir + "/link");
+    else if (!o.link.isEmpty()) files::write(m_dir + "/link", (o.link + "\n").toUtf8());
+    const QString net = link();
+
+    QStringList args{"--name", m_name};
     if (!o.window) args << "--no-controls" << "--display" << "none";
     // The saved machine leaves `state` before pi-qemu starts, and is deleted
     // once it is up or has failed: it belongs to the card as it was, and the
@@ -179,6 +223,11 @@ void Instance::up(const Up& o) {
         args << "--restore" << restoring;
     }
     auto forget = qScopeGuard([&] { if (!restoring.isEmpty()) QFile::remove(restoring); });
+    const QString mac = links::macFor(m_name);
+    if (!net.isEmpty()) {
+        args << "--link" << net << "--mac" << mac;
+        if (!restoring.isEmpty()) args << "--unplugged";
+    }
     args << o.runArgs;
 
     QElapsedTimer t;
@@ -189,12 +238,111 @@ void Instance::up(const Up& o) {
         // The machine wakes with the clock it was saved with: give it now.
         ssh().capture(QString("sudo date -u -s @%1 >/dev/null").arg(QDateTime::currentSecsSinceEpoch()));
     }
+    if (!net.isEmpty()) {
+        if (restoring.isEmpty()) {
+            // Its Mixxx is still starting: it claims a number later.
+            print() << m_name << ": on link " << net << " as " << mac << "\n";
+        } else {
+            // Its turn first, then a new identity, then the cable at once: the
+            // session that claims a number must watch the link while it does,
+            // or it finds it empty and takes a number already held.
+            ClaimTurn turn(net, m_name);
+            identify(mac);
+            plug();
+            announce(30);
+        }
+    }
     print() << m_name << " is up (" << (restoring.isEmpty() ? "booted" : "restored") << " in " << t.elapsed() / 1000
-          << " s): ssh port " << sshPort() << ", pid " << pid() << (o.window ? ", with windows" : "") << "\n"
+          << " s): ssh port " << sshPort() << ", pid " << pid() << (o.window ? ", with windows" : "")
+          << (net.isEmpty() ? QString() : ", eth0 on link " + net) << "\n"
           << "  " << tool("deck ssh " + m_name) << "\n"
           << "  " << tool("deck status " + m_name) << "\n"
           << "  console log: " << runDir() << "/console.log\n"
           << "  when done: " << tool("deck rm " + m_name) << "   (or deck stop " << m_name << " to keep it, suspended)\n";
+}
+
+// A restored deck is the golden one until this: same MAC, same link-local
+// address, same player number. Its eth0 takes the deck's own MAC (so its own
+// link-local address: NetworkManager seeds that from the MAC), with the cable
+// still out; then this waits for Mixxx's Pro DJ Link session, which looks at
+// the network every 2 s, to let go of the old address -- its sockets bound to
+// it close -- so that what goes on the link once it is plugged in is a new
+// session, claiming a number as itself. `ip link`, not the profile's cloned
+// MAC: NetworkManager keeps the MAC it finds, the profile stays as deployed,
+// and a reboot gets the same MAC from the device tree (run --mac).
+void Instance::identify(const QString& mac) {
+    const QString script = QString(R"SH(set -u
+mac=%1
+[ "$(cat /sys/class/net/eth0/address)" = "$mac" ] && exit 0
+old=$(ip -4 -o addr show dev eth0 | awk '{sub("/.*", "", $4); print $4; exit}')
+sudo nmcli device disconnect eth0 >/dev/null 2>&1
+sudo ip link set eth0 down && sudo ip link set eth0 address "$mac" && sudo ip link set eth0 up || exit 1
+sudo nmcli device connect eth0 >/dev/null || exit 1
+[ -n "$old" ] || exit 0
+for i in $(seq 60); do
+    ss -Huna src "$old" | grep -q . || exit 0
+    sleep 0.1
+done
+echo "something still holds $old after 6 s" >&2
+)SH").arg(mac);
+    proc::Options o;
+    o.quiet = true;
+    o.timeoutMs = 30000;
+    const proc::Result r = ssh().capture(script, o);
+    if (!r.ok()) fail(m_name + ": could not give eth0 its MAC (" + mac + "): " + QString::fromUtf8(r.out + r.err).trimmed());
+    if (!r.err.isEmpty()) QTextStream(stderr) << m_name << ": " << QString::fromUtf8(r.err).trimmed() << "\n";
+}
+
+// Its cable in; what it announces from then on is heard afresh.
+void Instance::plug() {
+    const control::Reply r = control::send(controlSocket(), "link plug", 10000);
+    if (!r.ok) fail(m_name + ": could not plug it into link " + link() + ": " + r.text);
+}
+
+// What the deck's own keep-alives on its link say ("4 at 169.254.x.y, MAC"),
+// once they say anything; empty after `seconds`.
+QString Instance::heardPlayer(int seconds) {
+    QElapsedTimer t;
+    t.start();
+    while (t.elapsed() < seconds * 1000LL) {
+        const control::Reply r = control::send(controlSocket(), "link", 10000);
+        for (const QString& line : r.text.split('\n'))
+            if (line.startsWith("player: ") && !line.endsWith("none heard")) return line.mid(8);
+        checkAlive();
+        proc::sleep(500);
+    }
+    return {};
+}
+
+// Until the deck's keep-alives name a player: its Pro DJ Link session takes
+// about 8 s from a new address to a number (watching the network, then the
+// claim). A deck that comes out of it unbrowsable -- an observer outside 1-4,
+// or silent -- gets its Mixxx restarted once: a library from before the fix in
+// lib/prolink's session.rs could lose UDP 111 to the session it was replacing,
+// and then stays an observer, which can neither be browsed nor browse. A deck
+// just restored has nothing to lose to a restart.
+void Instance::announce(int seconds) {
+    QString player = heardPlayer(seconds);
+    int number = player.section(' ', 0, 0).toInt();
+    if (number < 1 || number > 4) {
+        print() << m_name << ": "
+                << (player.isEmpty() ? QString("no player heard from it")
+                                     : "player " + player + ": an observer, which can be neither browsed nor browse")
+                << "; restarting its Mixxx\n";
+        ssh().capture("sudo systemctl restart getty@tty1");
+        readiness::waitMixxx(ssh(), 120, m_name, [this] { checkAlive(); });
+        plug();
+        player = heardPlayer(seconds);
+        number = player.section(' ', 0, 0).toInt();
+    }
+    if (player.isEmpty())
+        print() << m_name << ": on link " << link() << ", no player heard from it in " << seconds
+                << " s (is Mixxx running? " << tool("deck ssh " + m_name + " 'grep prolink /tmp/mixxx/stderr.log | tail'")
+                << ")\n";
+    else
+        print() << m_name << ": player " << player << " on link " << link()
+                << (number >= 1 && number <= 4 ? QString() : QString(" -- an observer: every number in 1-4 is taken?"))
+                << "\n";
 }
 
 void Instance::pullPlug() {
@@ -257,6 +405,7 @@ void Instance::kill() {
 
 void Instance::remove() {
     pullPlug();
+    if (!link().isEmpty()) links::forget(link(), m_name); // left behind if its pi-qemu was killed outright
     if (!QDir(m_dir).removeRecursively()) fail("cannot delete " + m_dir);
     print() << m_name << " removed\n";
 }

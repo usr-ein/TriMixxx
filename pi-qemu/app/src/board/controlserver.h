@@ -8,6 +8,7 @@
 #include <QObject>
 
 namespace s3 { struct Sequence; }
+class Link;
 class Machine;
 class VirtualS3;
 class Sticks;
@@ -27,6 +28,7 @@ signals:
 private:
     void onLine(QLocalSocket* client, const QString& line);
     void reply(QLocalSocket* client, bool ok, const QString& text);
+    static QString linkStatus(const Link& link);
     void play(QLocalSocket* client, const s3::Sequence& s, int from);
 
     QLocalServer  m_server;

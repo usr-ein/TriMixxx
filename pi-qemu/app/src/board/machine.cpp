@@ -2,6 +2,7 @@
 
 #include "board/card.h"
 #include "board/firmware.h"
+#include "board/link.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -9,6 +10,8 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QTimer>
+
+#include <fcntl.h>
 
 std::atomic<pid_t> g_qemuPid{0};
 
@@ -103,11 +106,17 @@ bool Machine::powerOn(QString* error) {
     else a << "-audiodev" << "none,id=snd"; // silent; the guest still has its sound card
     a << "-device" << "usb-audio,bus=xhci.0,audiodev=snd";
 
-    // eth0 (GENET) is the deck's CDJ port: link-local, nobody on it yet (a
-    // cable to an empty switch). The deck reaches home -- ssh, apt -- over
-    // wlan0, which the board cannot emulate, so a USB Ethernet adapter on the
-    // xHCI takes that role, its MAC one above eth0's.
+    // eth0 (GENET) is the deck's CDJ port: link-local, on a link shared with
+    // other emulated decks (board/link.h), or nobody on it (a cable to an
+    // empty switch). The deck reaches home -- ssh, apt -- over wlan0, which
+    // the board cannot emulate, so a USB Ethernet adapter on the xHCI takes
+    // that role, its MAC one above eth0's.
     a << "-nic" << "none";
+    if (m_o.link) {
+        m_o.link->drain();
+        a << "-netdev" << QString("dgram,id=link,local.type=fd,local.str=%1").arg(m_o.link->qemuFd())
+          << "-global" << "bcm2838-genet.netdev=link";
+    }
     if (m_o.net != "none") {
         QStringList mac = m_o.mac.split(':');
         mac[5] = QString("%1").arg((mac[5].toInt(nullptr, 16) + 1) & 0xff, 2, 16, QChar('0'));
@@ -116,6 +125,7 @@ bool Machine::powerOn(QString* error) {
         a << "-netdev" << netdev
           << "-device" << "usb-net,bus=xhci.0,netdev=home,mac=" + mac.join(':');
     }
+    if (!m_o.name.isEmpty()) a << "-name" << m_o.name;
     if (m_o.display == "window") a << "-display" << "cocoa,zoom-to-fit=on";
     else a << "-display" << "none";
     // The first free VNC display from :1, so decks running side by side all get one.
@@ -150,6 +160,12 @@ bool Machine::powerOn(QString* error) {
         QStringList quoted{m_o.qemu};
         for (const QString& x : a) quoted << (x.contains(' ') ? "'" + x + "'" : x);
         cmd.write(quoted.join(" \\\n  ").toUtf8() + "\n");
+    }
+    // The link's end has to reach QEMU across exec: close-on-exec is cleared
+    // in QEMU's process alone, so no other child of ours holds the Pi's wire.
+    if (m_o.link) {
+        const int fd = m_o.link->qemuFd();
+        m_proc.setChildProcessModifier([fd] { ::fcntl(fd, F_SETFD, 0); });
     }
     m_proc.setStandardOutputFile(QDir(m_o.runDir).filePath("qemu.log"));
     m_proc.setProcessChannelMode(QProcess::MergedChannels);

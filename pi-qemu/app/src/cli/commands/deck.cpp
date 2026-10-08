@@ -37,6 +37,7 @@ int up(cli::Args& a) {
     o.fresh = a.has("fresh");
     o.boot = a.has("boot");
     if (a.has("from")) o.from = QFileInfo(a.value("from")).absoluteFilePath();
+    o.link = a.value("link");
     o.runArgs = a.afterDashes();
     i.up(o);
     return 0;
@@ -51,8 +52,9 @@ int list(cli::Args& a) {
         const qint64 pid = i.pid();
         const QString state = pid ? QString("running (pid %1)").arg(pid)
                                   : QFileInfo::exists(i.state()) ? "suspended" : "stopped";
+        const QString link = i.link();
         print() << n.leftJustified(20) << " ssh port " << (pid ? QString::number(i.sshPort()) : "-").leftJustified(5)
-              << " " << state << "\n";
+              << " " << state << (link.isEmpty() ? QString() : ", eth0 on link " + link) << "\n";
     }
     return 0;
 }
@@ -127,7 +129,7 @@ int control(cli::Args& a, const QString& verb) {
     return 0;
 }
 
-// leds, stick, power, save, status: only an emulated deck has these.
+// leds, stick, power, save, status, link: only an emulated deck has these.
 int board(cli::Args& a, const QString& verb) {
     EmulatedDeck d(a.take("NAME"));
     QStringList words{verb};
@@ -227,12 +229,21 @@ void addDeck(cli::Registry& r) {
                 "booted with Mixxx running. A stopped NAME resumes; one that is running is only\n"
                 "reported, so call it freely. Headless and silent unless --window; RUN_ARGS go\n"
                 "to `run` as they are, e.g. -- --audio wav:/abs/out.wav (never --audio\n"
-                "speakers unless the person at the laptop asked for sound).",
+                "speakers unless the person at the laptop asked for sound).\n"
+                "\n"
+                "--link NET cables its eth0 to the link NET, which every deck started with the\n"
+                "same NET shares: they see each other over Pro DJ Link, browse each other's\n"
+                "media and load each other's tracks, as players on one switch do. The deck\n"
+                "keeps its link through stop and up, until --link none. On a link a deck has\n"
+                "its own eth0 MAC (from its NAME), so its own link-local address and player\n"
+                "number; restored, it is plugged in only once it is itself, and up waits for\n"
+                "the player number it claims (`pi-qemu link devices NET` shows them all).",
         .options = {
             {"window", {}, "the Pi's screen and the deck's controls in windows"},
             {"fresh", {}, "start over from the golden pair (its card is replaced)"},
             {"boot", {}, "boot its card rather than resume a saved machine"},
             {"from", "CARD", "a card of your own (a clone of it), booted"},
+            {"link", "NET", "its eth0 on the link NET, shared with every deck on NET; none: on none"},
         },
         .run = up,
     });
@@ -356,6 +367,9 @@ void addDeck(cli::Registry& r) {
     });
 
     // ---- an emulated deck's own ----
+    r.add({.group = "deck", .name = "link", .synopsis = "NAME [plug|unplug]",
+           .summary = "its eth0's link: the player it announces, who else is there; its cable in or out",
+           .run = [](cli::Args& a) { return board(a, "link"); }});
     r.add({.group = "deck", .name = "leds", .synopsis = "NAME", .summary = "what the deck's lights show now (JSON)",
            .run = [](cli::Args& a) { return board(a, "leds"); }});
     r.add({.group = "deck", .name = "stick", .synopsis = "NAME list | insert ID | unplug ID",

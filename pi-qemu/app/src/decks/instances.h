@@ -11,6 +11,7 @@
 //               qemu.log, console.sock and console.log
 //   ssh_config  Host NAME and deck: 127.0.0.1, its port, the key the cards trust
 //   bin/        ssh and scp through ssh_config (the alias `deck` for deploy steps)
+//   link        the link its eth0 is on (board/link.h), if any: kept for every up
 //   pid, command, pi-qemu.log    the pi-qemu run behind it
 //
 // Starting is a restore, not a boot: a new instance gets clones of the golden
@@ -19,6 +20,12 @@
 // Mixxx running -- in seconds. `stop` saves an instance the same way. A
 // restore needs the card it was saved with, so a saved machine is used once:
 // it is gone the moment it starts, and the card goes on from there.
+//
+// On a link, a deck is a device of its own: its eth0 MAC comes from its name
+// (links::macFor), and so do its link-local address and its player number.
+// A restored deck wakes up as the golden one, so it starts unplugged, takes
+// its own MAC, and is plugged in once Mixxx has let go of the golden deck's
+// address: nothing on the link ever hears the clone.
 
 #include "util/sshtarget.h"
 
@@ -42,6 +49,7 @@ public:
     SshTarget ssh() const { return {m_name, m_dir + "/ssh_config"}; }
 
     bool   exists() const;
+    QString link() const;   // the link its eth0 is on; empty for none
     qint64 pid() const;     // pi-qemu's while it runs; 0 otherwise
     bool   running() const { return pid() != 0; }
     int    sshPort() const; // 0 if unknown
@@ -50,6 +58,7 @@ public:
     struct Up {
         bool        window = false, fresh = false, boot = false;
         QString     from;    // a card of its own, booted
+        QString     link;    // its eth0's link: NET, "none" for none; empty: as it was
         QStringList runArgs; // for pi-qemu run, as they are
         QString     deck = "trimixxx0"; // whose wiring its controls follow
         int         sshWait = 300;      // seconds: a stock card's first boot takes longer
@@ -70,6 +79,10 @@ private:
     void pullPlug();          // pi-qemu and its QEMU stopped, whatever it takes
     void suspend();
     void writeSshConfig(int port);
+    void identify(const QString& mac); // a restored deck's eth0 becomes its own
+    void plug();                       // its cable into its link
+    QString heardPlayer(int seconds);  // what its keep-alives on the link say, once they do
+    void announce(int seconds);        // until they name a player it can be browsed as
 
     QString m_name, m_dir;
 };
