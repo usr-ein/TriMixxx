@@ -6,6 +6,11 @@
 #                                    the release, its version its tag's: out/1.0.0/
 #                                    trimixxx-1.0.0.img (the card, every deck's),
 #                                    trimixxx-1.0.0.raucb (the update), manifest.txt
+#   pi-qemu/release/prepare-deck.sh trimixxx2 trimixxx-pi-2 [--eeprom]
+#                                    before a deck's first card, from the system it
+#                                    runs: its serial into its unit file, its ssh host
+#                                    keys kept, its bootloader checked (--eeprom:
+#                                    updated, with the boot watchdog). See the script
 #   make -C pi-qemu/release card DECK=trimixxx2 VERSION=1.0.0
 #                                    that card with the deck's identity on p7:
 #                                    out/1.0.0/trimixxx2-1.0.0.img, to flash
@@ -142,6 +147,7 @@ card:
 	    chmod 600 "$$d/NetworkManager/home-wifi.nmconnection"; \
 	fi; \
 	[ '$(DECK)' != trimixxx0 ] || cp phase1/pi-qemu-home.nmconnection "$$d/NetworkManager/"; \
+	for k in "$$d"/ssh/ssh_host_*_key.pub; do echo "$(DECK)'s host key: $$(ssh-keygen -lf "$$k")"; done; \
 	rm -f 'out/$(VERSION)/$(DECK)-$(VERSION).img'; \
 	cp -c 'out/$(VERSION)/trimixxx-$(VERSION).img' 'out/$(VERSION)/$(DECK)-$(VERSION).img'; \
 	$(CONTAINER) -e DECK='$(DECK)' -e VERSION='$(VERSION)' \
@@ -321,6 +327,9 @@ release:
 	$(call say,the card: boot files and genimage)
 	mcopy -snm -i "$$card@@$$((boot_start * 512))" '::*' $(WORK)/boot/
 	rm -f $(WORK)/boot/{cmdline.txt,user-data,network-config,meta-data,config.txt.pre-trimixxx,cmdline.txt.pre-trimixxx}
+	# Each deck's own lines (its panel), under its board's serial: one card for
+	# every deck (boot/deck-sections.py, from mixxx_config/units/<deck>.json).
+	python3 boot/deck-sections.py /repo/mixxx_config/units >> $(WORK)/boot/config.txt
 	cat boot/config-release.txt >> $(WORK)/boot/config.txt
 	$(call slot_cmdline,A,05,02) > $(WORK)/boot/cmdline-a.txt
 	$(call slot_cmdline,B,06,03) > $(WORK)/boot/cmdline-b.txt

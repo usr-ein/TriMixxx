@@ -199,9 +199,9 @@ starts:
 | What | Where | Mechanism |
 |---|---|---|
 | Wi-Fi | `/data/NetworkManager/` | Standard NetworkManager keyfiles. The identity unit copies them into `/run/NetworkManager/system-connections/`, NetworkManager's own volatile directory, so NetworkManager isn't reconfigured and the dev card (no `/data`) keeps its network. Keyfiles, not netplan: Pi OS's NetworkManager rewrites netplan's profiles into ones that match every NIC (phase 1, PLAN.md §2.1). Changing Wi-Fi means unlocking `/data` |
-| ssh host keys | `/data/ssh/` | Standard OpenSSH host keys, copied by the identity unit into `/etc/ssh/` (in RAM) before sshd starts. Generated on the Mac when the deck's card is made (§5.1), so `known_hosts` survives reflashing |
+| ssh host keys | `/data/ssh/` | Standard OpenSSH host keys, copied by the identity unit into `/etc/ssh/` (in RAM) before sshd starts. The deck's own, taken from its system before its first card (`prepare-deck.sh`, §5.1), else made on the Mac with its card; kept either way, so `known_hosts` survives reflashing |
 | Deck name → hostname, wiring, accent | `/data/trimixxx.conf`, one line: the deck's name | The identity unit (§6) sets the hostname and links that deck's pre-rendered Mixxx files into place. `units/apply.py` runs at build time for every deck, instead of at deploy time for one |
-| The deck's screen (DSI panel or HDMI) | `config.txt` | `[0x<serial>]` sections built from each deck's `units/<deck>.json`, which gains a `serial`. Alternative: the board's own EEPROM `[config.txt]` section (App. A.3) |
+| The deck's screen (DSI panel or HDMI) | `config.txt` | `[0x<serial>]` sections built from each deck's `units/<deck>.json`, which gains a `serial` (`release/boot/deck-sections.py`). Checked on trimixxx3: the firmware reads its own section and skips another board's (PLAN.md §7). Alternative: the board's own EEPROM `[config.txt]` section (App. A.3) |
 | machine-id | none | systemd's standard behaviour on a read-only root: a new one at each start. NetworkManager uses `dhcp-client-id=mac`, so the router keeps giving the same address |
 
 ### 3.5 RAUC configuration, the backend and the health check
@@ -440,25 +440,30 @@ what trimixxx3 shows, not the other way round.
 
 ### 5.1 Once per deck: commissioning
 
-1. **Bootloader.** On the deck's current OS, run `sudo rpi-eeprom-update -a`
-   and reboot.
-   - The bootloader must be from 2022-12 or later; aim for the 2026-09
-     default.
-   - Check its settings with `rpi-eeprom-config`: `PARTITION_WALK` (on by
-     default), `BOOT_WATCHDOG_TIMEOUT`, and on the bench `BOOT_UART=1`.
-2. **Record the board's serial** in `units/<deck>.json`, for its screen
-   section (§3.4).
-3. **Back up** anything that lives only on the deck (PLAN.md P0).
-4. **Make the deck's card:** `make card DECK=trimixxx3`. That's the release's
+1. **Prepare it, on the system it runs today:**
+   `pi-qemu/release/prepare-deck.sh <deck> <ssh alias> --eeprom` (PLAN.md §7).
+   - The bootloader must be from 2022-12 or later. `--eeprom` updates it to
+     the newest image the deck's `rpi-eeprom` has, with the boot watchdog
+     (`BOOT_WATCHDOG_TIMEOUT=45`, `BOOT_WATCHDOG_PARTITION=2`), and checks
+     both after the reboot that flashes it.
+   - The board's serial goes into `units/<deck>.json`, for its own section of
+     the release's `config.txt` (§3.4).
+   - Its ssh host keys become its identity's, and its boot files, EEPROM
+     config and network profiles are kept on the Mac for reference.
+2. **Build the release** after that, from a commit tagged `pi/vX.Y.Z`: the
+   serials are written into its `config.txt`.
+3. **Make the deck's card:** `make card DECK=<deck>`. That's the release's
    card image with this deck's `/data` filled in:
    - its name;
-   - its Wi-Fi as a NetworkManager keyfile;
-   - ssh host keys generated on the Mac.
+   - the home Wi-Fi (from `image/secrets.env`) and its own hotspot, as
+     NetworkManager keyfiles;
+   - its ssh host keys: the deck's own, kept by step 1, else new ones made on
+     the Mac.
 
    The secrets stay on the Mac in a gitignored directory. Only this file
    carries them; bundles never do.
-5. **Flash it once**, with Raspberry Pi Imager ("Use custom") or
-   `bmaptool copy`, and start the deck. It runs slot A, committed.
+4. **Flash it once**, with Raspberry Pi Imager ("Use custom") or `dd`
+   (PLAN.md §2.2), and start the deck. It runs slot A, committed.
 
 ### 5.2 Every release
 

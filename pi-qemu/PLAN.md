@@ -11,7 +11,8 @@ that plan, phase by phase, written so that an agent can carry it out. Status on
 2026-10-08: **phases 1 to 5 are done**: the firmware measured on trimixxx3
 (§2.3), pi-qemu starting as it does (§3.5), a locked card (§4.3), RAUC's
 updates through the whole fault table on the emulated deck (§5.4), and the
-same on trimixxx3 (§6). Phase 6, the decks, is Sam's.
+same on trimixxx3 (§6). Phase 6, the decks, is Sam's, and ready: its
+steps, and the tools built for them, are in §7.
 
 | Read | For |
 |---|---|
@@ -152,6 +153,9 @@ These paths are proposals; keep them unless there's a reason not to.
 | `pi-qemu/release/manifest.raucm.in` | the bundle manifest |
 | `pi-qemu/release/Makefile` | `phase1`, `release`, `card`, `ship`, `faults` (**built**); run as `make -C pi-qemu/release …` (`make release` in the docs). Each target builds the container, then runs again inside it |
 | `pi-qemu/release/signing-key.pem` | the key that signs bundles, public on purpose (§5.1) |
+| `pi-qemu/release/boot/deck-sections.py` | each deck's `[0x<serial>]` section of the release's `config.txt`, from `mixxx_config/units/*.json` |
+| `pi-qemu/release/prepare-deck.sh` | readies a deck for its first card from its current system: serial, host keys, bootloader (§7) |
+| `mixxx_config/units/trimixxx3.json` | the bench Pi's unit: its serial and hotspot channel |
 | `pi-qemu/release/out/<v>/` | outputs, gitignored: `trimixxx-<v>.img`, `trimixxx-<v>.raucb`, `manifest.txt` |
 | `pi-qemu/.cache/decks/<deck>/` | per-deck secrets, gitignored: `trimixxx.conf`, `NetworkManager/`, `ssh/` |
 | `pi_config/rauc/` | `system.conf`, `keyring.pem` (the certificate), `rpi-tryboot` (backend) |
@@ -663,9 +667,9 @@ Sam's ssh key (`tag.gpgSign`).
 6. **Builds the images with genimage:**
    - `rootfs.squashfs`: zstd, xattrs kept.
    - `boot.vfat`: the card's boot files, plus `config-release.txt` appended to
-     `config.txt`, plus the `[0x<serial>]` screen sections built from
-     `units/*.json`, plus `cmdline-a.txt` and `cmdline-b.txt` with the disk
-     signature filled in. No `cmdline.txt`.
+     `config.txt`, plus each deck's `[0x<serial>]` section, from
+     `units/*.json` (`boot/deck-sections.py`, §7), plus `cmdline-a.txt` and
+     `cmdline-b.txt` with the disk signature filled in. No `cmdline.txt`.
    - `bootsel.vfat` with `autoboot.txt` only. `make release` fails if it holds
      any `*.elf` (invariant 13).
    - Empty `data.ext4` and `state.ext4`, labelled `trimixxx-data` and
@@ -1041,36 +1045,67 @@ doesn't have cabled.
 
 ## 7. Phase 6: the decks (only with Sam)
 
-For each deck, one at a time, on a spare card first:
-1. **Capture what lives only on the deck:**
-   - trimixxx1's `config.txt` and panel;
-   - the MAC addresses;
-   - `apt-mark showmanual`;
-   - `asound.state`;
-   - the EEPROM's config and version (`rpi-eeprom-config`,
-     `vcgencmd bootloader_version`);
-   - its NetworkManager profiles (`/etc/netplan/90-NM-*.yaml`,
-     `/etc/NetworkManager/system-connections/`): its Wi-Fi goes into the
-     identity;
-   - any Mixxx state worth keeping.
-2. **Update the bootloader, and check it** (invariant 14).
-   - On the deck's current OS, `/boot/firmware` is p1, so the stock
-     `sudo rpi-eeprom-update -a` and a reboot work.
-   - `vcgencmd bootloader_version` must then show 2026-05-17 or later.
-   - Set the boot watchdog with `rpi-eeprom-config --apply`:
-     `BOOT_WATCHDOG_TIMEOUT=45`, `BOOT_WATCHDOG_PARTITION=2`. First check in
-     `sudo vclog --msg` that the deck reaches `Starting ARM` well within
-     45 s (trimixxx3: 15.7 s).
-   - Once the A/B card is in, an EEPROM update is staged on p1 with `BOOTFS=`
-     (`rauc-pi-4-setup.md` App. A.4).
-3. **Record its serial** in `units/<deck>.json`.
-   - **Not built yet:** `make release` doesn't write the `[0x<serial>]` screen
-     sections from `units/*.json` (§4.2, step 6). Today's release
-     `config.txt` loads no panel overlay, so a deck's own panel (trimixxx2's
-     DSI one) would stay dark. A bare Pi on HDMI, like trimixxx3, doesn't
-     need them. Build them before the first deck's card.
-4. Run `make card`. **Sam flashes** the card.
-5. Verify the deck, then ship one release over the air.
+**Decided (Sam, 2026-10-08):** trimixxx1 and trimixxx2 are reflashed from
+scratch with release cards; nothing of their dev systems is kept but what
+`prepare-deck.sh` takes. Their bootloaders get updated first, while they still
+run those systems.
+
+**Built for it, and checked:**
+- **Each deck's own `config.txt` lines** (§4.2, step 6):
+  `release/boot/deck-sections.py` writes a `[0x<serial>]` section for every
+  `mixxx_config/units/<deck>.json` with a `serial`: its `panelOverlay`, and
+  any `configTxt` lines. On trimixxx3 (`units/trimixxx3.json`), a test
+  release's section set the activity LED to `heartbeat` and a decoy board's
+  section after it, with another serial, didn't apply: the real firmware
+  reads its own section only.
+- **`release/prepare-deck.sh DECK SSH_HOST [--eeprom]`**, run on the Mac
+  against the deck's current system. It:
+  - writes the board's serial into its unit file (the last 8 hex digits of
+    `/proc/device-tree/serial-number`, as `config.txt`'s filter wants them);
+  - keeps the deck's ssh host keys as its identity's, so `known_hosts` stays
+    right;
+  - checks the bootloader knows `tryboot_a_b` (2022-12-01 or later);
+  - keeps its boot files, EEPROM config, NetworkManager profiles and ALSA
+    state in `.cache/captures/`;
+  - shows its own `config.txt` lines, against a release's.
+
+  `--eeprom` writes the boot watchdog into the newest bootloader image the
+  deck's `rpi-eeprom` has (`rpi-eeprom-config --apply`), once `vclog` shows
+  Linux starting well within 45 s, reboots the deck to flash it, and checks
+  the version and the config. Run on an emulated dev deck: all of it but the
+  EEPROM, which QEMU doesn't have.
+
+**Tonight, for trimixxx1 (alias `trimixxx-pi`) and trimixxx2 (`trimixxx-pi-2`):**
+1. **Prepare each deck** on its current system, with the deck's ssh working:
+   ```sh
+   pi-qemu/release/prepare-deck.sh trimixxx1 trimixxx-pi --eeprom
+   pi-qemu/release/prepare-deck.sh trimixxx2 trimixxx-pi-2 --eeprom
+   ```
+   - Read what it shows. A line under "its own config.txt lines" that isn't
+     in the unit file yet goes there: a panel's `dtoverlay=` as
+     `panelOverlay`, anything else under `configTxt`. trimixxx1 has no unit
+     file today; the script makes one.
+   - A hostname NOTE means the card renames the deck: `trimixxx-pi` reaches
+     trimixxx1 by its IP, so only a reservation made by name would move.
+2. **Commit the unit files, tag, build the release** (about 10 minutes, the
+   caches being warm), and make each card:
+   ```sh
+   git add mixxx_config/units && git commit -m "units: the decks' serials"
+   git tag -m "TriMixxx X.Y.Z" pi/vX.Y.Z
+   make -C pi-qemu/release release SSH_KEY=$HOME/.ssh/with_pass/rsa_sam
+   make -C pi-qemu/release card DECK=trimixxx1
+   make -C pi-qemu/release card DECK=trimixxx2
+   ```
+   The release must come after step 1: the serials are written into its
+   `config.txt`. `make card` must come after it too: run first, it would make
+   new host keys.
+3. **Sam flashes** each deck's card (`out/X.Y.Z/<deck>-X.Y.Z.img`), as in
+   §2.2.
+4. **Check each deck:** its panel shows the splash's `A` label; ssh by its
+   alias answers without a host key warning; it joins the home Wi-Fi; Mixxx
+   opens the UCA222 and the S3.
+5. **Ship it one release over the air** (`make ship DECK=<alias>`, a release
+   built after this one), and see the trial committed.
 
 **Done when** every deck has taken a release over the air.
 

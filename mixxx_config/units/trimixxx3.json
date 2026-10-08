@@ -1,0 +1,6 @@
+{
+  "deck": "trimixxx3",
+  "about": "The bench Pi (pi-qemu/PLAN.md, phases 1 and 5): a bare Raspberry Pi 4 with no S3, on an HDMI screen of 1024x600 that needs no settings of its own, so the controls keep the canonical wiring and the release gives it no panel overlay. serial: its board's, for its own section of the release's config.txt (pi-qemu/release/boot/deck-sections.py). hotspotChannel: the next after trimixxx2's.",
+  "hotspotChannel": 8,
+  "serial": "0xb792f56d"
+}
