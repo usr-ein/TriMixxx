@@ -76,13 +76,18 @@ build_qemu() {
         mkdir -p "$src/build"
         (
             cd "$src/build"
+            # No ParavirtualizedGraphics (apple-gfx, for macOS guests): the
+            # macOS 27 SDK obsoletes the API QEMU 11.1 builds it with.
             if [ ! -f build.ninja ]; then
                 ../configure --python=/opt/homebrew/bin/python3.12 \
                     --target-list=aarch64-softmmu \
                     --extra-cflags=-I/opt/homebrew/include --extra-ldflags=-L/opt/homebrew/lib \
                     --enable-slirp --enable-cocoa --enable-hvf --enable-fdt=system --enable-vnc \
                     --enable-zstd --disable-fuse --disable-docs --disable-guest-agent \
-                    --disable-bsd-user --disable-sdl --disable-gtk --disable-werror
+                    --disable-bsd-user --disable-sdl --disable-gtk --disable-werror --disable-pvg
+            elif [ "$(./pyvenv/bin/meson introspect --buildoptions . |
+                      python3 -c 'import json, sys; print(next(o["value"] for o in json.load(sys.stdin) if o["name"] == "pvg"))')" != disabled ]; then
+                ./pyvenv/bin/meson configure -Dpvg=disabled . >/dev/null # a tree configured before that
             fi
             nice ninja qemu-system-aarch64
         )
