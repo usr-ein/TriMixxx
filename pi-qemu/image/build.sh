@@ -20,8 +20,10 @@
 # For trimixxx0 the build ends by refreshing the golden snapshot (instance.sh
 # golden): agents' emulated decks restore it rather than boot.
 #
-# The emulated deck is SILENT the whole time (pi-qemu's default), and has no
-# window: watch it with `pi-qemu screenshot FILE.png` if you want to. The deck
+# The emulated deck is SILENT the whole time (pi-qemu's default), has no
+# window, and leaves ~/.pi-qemu/current to the person's own deck (--private):
+# watch it with `PI_QEMU_CONTROL=pi-qemu/.cache/build/<deck>.run/control.sock
+# pi-qemu screenshot FILE.png` if you want to. The deck
 # itself is set up by ../deploy.sh, the same script that updates a real deck.
 set -euo pipefail
 
@@ -111,7 +113,7 @@ export PATH="$OUT/bin:$PATH"
 # ---- boot it --------------------------------------------------------------------
 PIQ_LOG="$OUT/pi-qemu.log"
 start_pi() {
-    "$PIQ/app/build/pi-qemu" run --no-controls --display none --ssh "$SSH_PORT" --deck "$DECK" "$CARD" \
+    "$PIQ/app/build/pi-qemu" run --private --no-controls --display none --ssh "$SSH_PORT" --deck "$DECK" "$CARD" \
         >> "$PIQ_LOG" 2>&1 &
     PIQ_PID=$!
 }
