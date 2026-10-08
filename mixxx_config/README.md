@@ -6,9 +6,11 @@ files map that device to Mixxx controls. Addresses match the firmware's
 [`lib/PiLink/MidiMap.hpp`](../firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp) exactly — **change both together.**
 
 The system side (systemd units, udev, USB automount) is in
-[`../pi_config`](../pi_config); `upload.sh` here touches only `~/.mixxx` plus the
-per-user font directory `~/.local/share/fonts`, and restarts Mixxx, so a mapping
-tweak can never disturb the deck's system config.
+[`../pi_config`](../pi_config); the config deploy step
+([`../pi-qemu/deploy/005_config.sh`](../pi-qemu/deploy/005_config.sh)) touches
+only `~/.mixxx`, the per-user font directory `~/.local/share/fonts` and every
+deck's rendering for a release card (`/usr/share/trimixxx/decks`), and restarts
+Mixxx, so a mapping tweak can never disturb the deck's system config.
 
 ## Files
 - `TriMixxx.midi.xml` — the deck mapping (inputs, LED outputs).
@@ -23,7 +25,7 @@ tweak can never disturb the deck's system config.
   binds mappings by device name, so renaming the port would orphan this one.
 - `TriMixxx_skin/` — single-deck CDJ-style skin for the 1024×600 touchscreen.
 - `fonts/` — MesloLGL Nerd Font (Regular + Bold), installed to the deck's
-  `~/.local/share/fonts` by `upload.sh`. Both `mixxx.cfg` (`[Library] Font`) and
+  `~/.local/share/fonts` by the config step. Both `mixxx.cfg` (`[Library] Font`) and
   the skin's stylesheet name this family, and Qt resolves families through
   fontconfig *by name*, so a missing font is never an error — it just silently
   falls back and the deck comes up looking subtly wrong. Only the two weights the
@@ -35,20 +37,21 @@ tweak can never disturb the deck's system config.
   Meslo is a *terminal* font (~13k codepoints), so it has no CJK, Arabic, Hebrew,
   Indic scripts or emoji. Those are handled by the Noto fallback chain in
   [`../pi_config/60-trimixxx-fonts.conf`](../pi_config), which is also what
-  installs them — the deck needs **both** uploads for a track title in Japanese
-  to render.
+  installs them — the deck needs **both** deploy steps, `config` and `system`,
+  for a track title in Japanese to render.
 - `soundconfig.xml` — audio device + buffer size. Mixxx keeps sound hardware in
-  its own file, *not* `mixxx.cfg`. Deployed by `upload.sh`; see the buffer note
-  below.
+  its own file, *not* `mixxx.cfg`. Deployed by the config step; see the buffer
+  note below.
 - `mixxx.cfg` — the rest of the Mixxx preferences as deployed. The fork never
   writes it back (no save on exit, nor from Preferences), so this file *is* the
   deck's settings: a change made in Preferences on the deck lasts until Mixxx
   exits, and a lasting one is made here and uploaded. Keep its `[Config]
   Version` at the fork's (2.5.6): an older one makes Mixxx treat every start as
   an upgrade, since the bumped version is never saved.
-- `upload.sh` — deploy all of the above to the deck. **Validates every XML before
-  anything leaves this machine**: Qt rejects a malformed skin silently and boots
-  the default one instead, with nothing in the log.
+- `../pi-qemu/deploy/005_config.sh` — the config deploy step, which puts all of
+  the above on the deck (`pi-qemu deck deploy TARGET config`). **Validates every
+  XML before anything leaves this machine**: Qt rejects a malformed skin silently
+  and boots the default one instead, with nothing in the log.
 - `serial_midi_bridge.py` — bridge/monitor the S3's UART on a Mac (or over SSH on
   the Pi) without ttymidi. `led_test.py` — send the LED feedback Mixxx would send,
   straight down the serial line, to test the return path with Mixxx out of the way.
@@ -63,8 +66,10 @@ own port, if that daemon is running).
 - macOS: `~/Library/Containers/org.mixxx.mixxx/Data/Library/Application Support/Mixxx/controllers/`
 - Windows: `%USERPROFILE%\Mixxx\controllers\`
 
-On the deck itself, `./upload.sh` does all of this. Requires Mixxx **2.4+** (the
-deck runs [our 2.5.6 fork](../mixxx)). One deck = `[Channel1]`.
+On the deck itself, the config step does all of this:
+`pi-qemu deck deploy --host trimixxx-pi config`, or
+`pi-qemu deck deploy NAME config` on an emulated deck. Requires Mixxx **2.4+**
+(the deck runs [our 2.5.6 fork](../mixxx)). One deck = `[Channel1]`.
 
 ## Control map
 | Control | MIDI | Mixxx |
@@ -217,13 +222,13 @@ may be. `skin.xml`'s own colours are not touched: the waveform's three bands
 (blue, yellow, white) are the same on every deck. A deck uploaded with a Mixxx
 build from before `deckaccent.h` gets the new stylesheet but keeps a lime
 selection and breadcrumb until the fork is rebuilt.
-`upload.sh` looks the deck's hostname up, and if there is a file, runs
+The config step looks the deck's hostname up, and if there is a file, runs
 `units/apply.py` on the way out: it renumbers the XML's note bindings and
 outputs (nothing else in the file changes), and fills the script's
 `// @unit-wiring` line, which `ringLed()` and the hot-cue handler consult. The
 files here stay canonical; a deck with no unit file gets them untouched.
-`../pi_config/deck-poke` reads the same file, so its named verbs still press
-the control they name.
+`pi-qemu deck press` (and `down`, `up`) reads the same file, so its named
+controls still press the control they name.
 
 The remap is Mixxx's alone. The launcher's boot gestures and Doom
 (`trimixxx-deckkeys`) read the same MIDI with the canonical table, so on a

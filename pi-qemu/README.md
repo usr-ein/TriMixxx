@@ -1,31 +1,49 @@
-# pi-qemu: a TriMixxx deck on your Mac
+# pi-qemu: the TriMixxx tool
 
-`pi-qemu` runs a deck's SD card on an emulated Raspberry Pi 4 (QEMU's
-`raspi4b`, accelerated by Apple's Hypervisor framework). It boots the real
-Raspberry Pi OS card with the real deck software: Mixxx, ttymidi, the launcher
-and the panel session. You get the Pi's 1280x800 screen in a window (click and
-drag like the touchscreen), and a control panel standing in for the deck's S3
-board. The panel sends MIDI to the Pi's UART exactly as the real S3 does.
-Everything the panel does can also be done from the command line, so scripts
-and AI agents can drive a deck too.
+`pi-qemu` is the one tool for TriMixxx decks, emulated and real:
+
+- **Emulated decks.** It runs a deck's SD card on an emulated Raspberry Pi 4
+  (QEMU's `raspi4b`, accelerated by Apple's Hypervisor framework), booting the
+  real Raspberry Pi OS card with the real deck software: Mixxx, ttymidi, the
+  launcher and the panel session. You get the Pi's 1280x800 screen in a window
+  (click and drag like the touchscreen), and a control panel standing in for
+  the deck's S3 board. The panel sends MIDI to the Pi's UART exactly as the
+  real S3 does.
+- **Any deck.** It drives a deck from the command line, emulated or real: its
+  controls, its touchscreen, its screen, Mixxx's recorder, a shell. Scripts
+  and AI agents use the same commands.
+- **Deploying.** It puts the repo's code onto a deck, step by numbered step
+  (`deploy/NNN_*.sh`).
+- **Cards and releases.** It builds a deck's card from stock Raspberry Pi OS,
+  and the locked A/B release card with its updates over the air.
 
 The emulated deck is called **trimixxx0**: a virtual trimixxx2, wired by
 `mixxx_config/units/trimixxx0.json`. Why things are built the way they are is
 in [PLAN.md](PLAN.md).
 
+```sh
+pi-qemu help                  # the groups: deck, image, release, worktree
+pi-qemu deck                  # a group's verbs
+pi-qemu deck up --help        # one verb, in full
+```
+
+Every verb that acts on a deck names it, as its **TARGET**: an emulated
+deck's NAME (`pi-qemu deck list`), or `--host ALIAS` for a real deck by its
+ssh alias. There is no default deck: nothing reaches a real deck unless it is
+named.
+
 ## What is in here
 
 | Path | What it is |
 |---|---|
-| `app/` | `pi-qemu` itself (C++/Qt): the firmware step, QEMU, the S3, the panel, the CLI |
+| `build.sh` | builds the pinned, patched QEMU and `pi-qemu`, and puts `pi-qemu` on PATH |
+| `app/` | `pi-qemu` itself (C++/Qt), one directory per part under `app/src/`: `board/` (the emulated Pi: the firmware step, QEMU, USB sticks, its control socket), `s3/` (the deck's controller: MIDI both ways, the wiring), `ui/` (the windows), `decks/` (a deck to act on, emulated or real), `pipeline/` (deploying, image builds, releases), `worktree/`, `cli/` (the command line), `util/`; and `tests/` (ctest) |
 | `app/icons/` | its icon: `trimixxx.svg`, and the `.ico` compiled in, made from it by `make-ico.py` |
-| `qemu/build.sh`, `qemu/trimixxx-patches.py` | builds the pinned, patched QEMU |
-| `image/build.sh` | builds a deck's card from the stock Raspberry Pi OS image |
-| `deploy.sh`, `deploy/base.sh` | sets up or updates any deck over ssh, real or emulated |
-| `instance.sh` | runs emulated decks side by side (agents, tests), from snapshots |
-| `worktree.sh` | readies a git worktree of the repo to build and deploy the deck's code |
-| `console.py` | runs commands on a deck over its serial console, without ssh |
-| `.cache/` (gitignored) | images, built cards, the golden snapshot, USB stick images |
+| `qemu/trimixxx-patches.py` | our patches to QEMU, applied by `build.sh` |
+| `deploy/` | the deploy steps, `NNN_name.sh` and `NNN_name.pi.sh`, and their contract, `lib.sh` |
+| `image/` | the stock card's pin (`stock.env`), its first-boot seed (`user-data.in`, `network-config`), and `secrets.env` (gitignored; `secrets.example.env` is the template) |
+| `release/` | the release container (`Dockerfile`, `container.sh`) and the release card's parts |
+| `.cache/` (gitignored) | images, built cards, the golden snapshot, decks' identities, USB stick images |
 
 ## Setting up a laptop
 
@@ -33,56 +51,57 @@ On an Apple Silicon Mac:
 
 ```sh
 brew install qemu mtools cmake ninja qt python@3.12 dtc   # QEMU's deps, mtools for FAT, Qt for the app
-pi-qemu/qemu/build.sh        # ~10 min the first time: QEMU 11.1.0 + patches, and dtmerge
-pi-qemu/app/build.sh         # pi-qemu -> pi-qemu/app/build/pi-qemu
+pi-qemu/build.sh             # ~10 min the first time: QEMU 11.1.0 + patches, dtmerge, then pi-qemu
 cp pi-qemu/image/secrets.example.env pi-qemu/image/secrets.env   # then set SAM1902_PASSWORD
 ```
 
-You also need Docker Desktop running (the deck's arm64 binaries are Docker
-builds) and an ssh key at `~/.ssh/no_pass/rsa_sam`, or `SSH_KEY=` pointing
-at another one. The key gets into the card at build time.
+`build.sh` puts `pi-qemu` on PATH as `~/.local/bin/pi-qemu` (from the main
+checkout; a worktree's own build is run by its path). `build.sh app` builds
+`pi-qemu` alone, with its tests.
 
-Then build the card. Most of the time goes to apt and the Docker builds of the
-deck's binaries; the base stage is cached for later runs:
+You also need Docker Desktop running (the deck's arm64 binaries are Docker
+builds) and the ssh key the cards trust: `~/.ssh/no_pass/rsa_sam`, else
+`~/.ssh/with_pass/rsa_sam` (in the agent: `ssh-add`), or `SSH_KEY=` pointing
+at another one. Its public half goes onto the card at build time.
+
+Then build the card. Most of the time goes to apt and the Docker builds of
+the deck's binaries; the base stage is cached for later runs:
 
 ```sh
-pi-qemu/image/build.sh            # -> pi-qemu/.cache/build/trimixxx0.img (+ the golden snapshot)
+pi-qemu image build              # -> pi-qemu/.cache/build/trimixxx0.img (+ the golden snapshot)
 ```
 
-A window shows the build as it goes: its steps, a progress bar and the log.
-`image/build.sh` opens it (`pi-qemu build-log pi-qemu/.cache/build/build.log`,
-the log it writes), and so does the release's `make release`, for the whole
-release. `BUILD_WINDOW=0` opens none.
+A window shows the build as it goes: its steps, a progress bar and the log
+(`pi-qemu build-log pi-qemu/.cache/build/trimixxx0.log`, the log it writes).
+`release build` opens one too, for the whole release. `--no-window` (or
+`BUILD_WINDOW=0`) opens none.
 
 ## Running your deck
 
+Your own deck is an emulated deck like any other, with windows:
+
 ```sh
-pi-qemu/app/build/pi-qemu run pi-qemu/.cache/build/trimixxx0.img
+pi-qemu deck up sam --window     # restored from the golden snapshot in ~3 s
+pi-qemu deck ssh sam
 ```
 
 Two windows open: the Pi's screen and the control panel. Log in on the
-console as `sam1902` with the password from `image/secrets.env`, or use ssh:
+console as `sam1902` with the password from `image/secrets.env`, or use
+`deck ssh`. `deck up sam --from CARD` boots a card of your own instead.
 
-```sh
-ssh -p 2222 -i ~/.ssh/no_pass/rsa_sam sam1902@127.0.0.1
-```
-
-**Sound is off unless you ask for it.** `--audio speakers` plays the deck's
-output on the Mac. `--audio wav:/abs/path/out.wav` records it to a file
-instead, which is how to check audio without hearing it.
-
-Useful options (`pi-qemu run --help` lists them all):
+**Sound is off unless you ask for it.** `pi-qemu deck up sam --window --
+--audio speakers` plays the deck's output on the Mac. `-- --audio
+wav:/abs/path/out.wav` records it to a file instead, which is how to check
+audio without hearing it. Whatever follows `--` goes to `pi-qemu run`, the
+board itself (`pi-qemu run --help` lists its options):
 
 | Option | |
 |---|---|
 | `--audio none\|speakers\|wav:FILE` | the deck's sound output (default none: silent) |
 | `--display window\|vnc\|none` | the Pi's screen; screenshots work in every mode |
-| `--no-controls` | no panel window: the command line only |
-| `--ssh PORT` | ssh port on 127.0.0.1 (default 2222) |
 | `--stick FILE.img` | a USB stick image plugged in from power-on |
 | `--deck NAME` | whose wiring the panel follows (`mixxx_config/units/NAME.json`) |
-| `--restore FILE` | start from a saved machine instead of booting (see Snapshots) |
-| `--private` | a deck of its own, beside yours: see "Several decks at once" |
+| `--ssh PORT` | the Pi's ssh on 127.0.0.1:PORT (default: a free port) |
 
 ### The panel
 
@@ -104,44 +123,54 @@ Useful options (`pi-qemu run --help` lists them all):
 
 ### Driving it from the command line
 
-While a deck runs, `pi-qemu COMMAND` talks to it (`pi-qemu help` lists them).
-For a deck started with `instance.sh`, the same commands are
-`pi-qemu/instance.sh ctl NAME COMMAND`:
+Everything the panel does, `pi-qemu deck` does too, on any deck: an emulated
+one through its virtual S3, a real one (`--host ALIAS`) straight into the MIDI
+port Mixxx opened for the deck's controller. The bytes are the same either
+way, on the deck's wiring, so they run the real mapping and scripts.
 
 ```sh
-pi-qemu press play              # press and release (80 ms; `press cue 500` holds it)
-pi-qemu down cue; pi-qemu up cue
-pi-qemu jog 3240                # a quarter turn clockwise (12960 ticks per turn)
-pi-qemu touch on                # the platter's touch sensor, for scratching
-pi-qemu browse -3               # the track encoder; + is up
-pi-qemu tempo 8192              # the fader, 0..16383; 8192 is the centre
-pi-qemu midi 90 3C 7F           # raw bytes on the UART
-pi-qemu leds                    # what the deck's lights show now, as JSON
-pi-qemu stick list | stick insert SAM3 | stick unplug SAM3
-pi-qemu status | power on | power off | screenshot shot.png
-pi-qemu save FILE               # the whole machine to FILE, then off
+pi-qemu deck press sam play          # press and release (80 ms; `press sam cue 500` holds it)
+pi-qemu deck down sam cue; pi-qemu deck up sam cue
+pi-qemu deck jog sam 3240            # a quarter turn clockwise (12960 ticks per turn)
+pi-qemu deck touch sam on            # the platter's touch sensor, for scratching
+pi-qemu deck browse sam -3           # the track encoder; + is up
+pi-qemu deck tempo sam center        # the fader, 0..16383; 8192 (center) is the middle
+pi-qemu deck midi sam 90 3C 7F       # raw bytes, as the S3's
+pi-qemu deck shot sam shot.png       # the screen: QEMU's own (emulated), scrot (real)
+pi-qemu deck tap sam 640 400         # the touchscreen, with xdotool: also longpress, swipe, flick, key, where
+pi-qemu deck record sam 10 mix.wav   # Mixxx's own recording of its main mix, fetched
 ```
 
 Control names: `tempo-range keylock loop8 loop4 loop-double loop-halve back
 hotcue1..4 slip sort play cue loop-in loop-out reloop push jog-touch`. They
-follow the deck's wiring, so `press hotcue1` sends whatever note trimixxx0's
-hot cue 1 is on.
+follow the deck's wiring, so `press sam hotcue1` sends whatever note
+trimixxx0's hot cue 1 is on.
 
-The command finds your deck through `~/.pi-qemu/current`, a link to the last
-plain (non-`--private`) deck started. `PI_QEMU_CONTROL=<run dir>/control.sock`
-points it at any other deck.
+An emulated deck also has its board:
+
+```sh
+pi-qemu deck leds sam                # what the deck's lights show now, as JSON
+pi-qemu deck stick sam list          # stick sam insert SAM3 | stick sam unplug SAM3
+pi-qemu deck status sam              # the Pi, the S3 link, its wiring, its ports
+pi-qemu deck power sam off           # pull the plug; power sam on
+pi-qemu deck save sam FILE           # the whole machine to FILE, then off
+pi-qemu deck console sam 'ip -br a'  # over the serial console, when ssh is down
+```
 
 ### Where things are
 
-A deck's run directory is next to its card (`trimixxx0.img` gets
-`trimixxx0.run/`). It holds:
+An emulated deck lives in `~/.pi-qemu/instances/NAME/` (kept short on
+purpose: macOS caps unix socket paths at 104 bytes): `card.img`, `state`
+while it is suspended, `ssh_config` and `bin/` (plain `ssh`/`scp` reaching it
+as NAME and as `deck`: `eval "$(pi-qemu deck env NAME)"`), `pi-qemu.log`, and
+the board's run directory, `card.run/`:
 - `qemu.cmd`: the exact QEMU command, to rerun by hand;
-- `qemu.log`;
+- `qemu.log`, and `qemu.pid` while it runs;
 - `console.log`: the Pi's serial console, from the first kernel line;
 - `ssh.port`;
-- the sockets `control.sock` (pi-qemu's CLI), `console.sock` (the Pi's console:
-  `nc -U console.sock`), `qmp.sock` and `qmp-fd.sock` (QEMU's monitor) and
-  `s3.sock` (the S3's UART).
+- the sockets `control.sock` (what `pi-qemu deck` talks to), `console.sock`
+  (the Pi's console: `nc -U console.sock`), `qmp.sock` and `qmp-fd.sock`
+  (QEMU's monitor) and `s3.sock` (the S3's UART).
 
 Inside the Pi:
 - Mixxx logs to `/tmp/mixxx/mixxx.log` and `/tmp/mixxx/stderr.log`; the
@@ -149,42 +178,28 @@ Inside the Pi:
 - its settings are in `~/.mixxx/`;
 - the launcher's log is `journalctl -u trimixxx-launchd`.
 
-## Several decks at once: `instance.sh`
+## Several decks at once
 
-`instance.sh` runs decks side by side, for agents and tests. Each one has its
-own copy of the card, ssh port, ssh alias and control socket. None of them
-touches your own deck, port 2222 or `~/.pi-qemu/current`. They are headless and
-silent unless asked.
+Emulated decks run side by side, for people, agents and tests. Each one has
+its own copy of the card, ssh port, ssh alias and control socket. They are
+headless and silent unless asked.
 
 ```sh
-pi-qemu/instance.sh up mine                 # restored from the golden snapshot in ~4 s
-pi-qemu/instance.sh ssh mine 'pgrep -a mixxx'
-pi-qemu/instance.sh ctl mine press play     # any pi-qemu command, for this deck
-pi-qemu/instance.sh shot mine /tmp/shot.png # its screen, with no window
-pi-qemu/instance.sh deploy mine config      # this checkout's deploy.sh onto it; waits for the new Mixxx
-pi-qemu/instance.sh run mine -- pi_config/upload.sh   # any script that uses HOST + plain ssh/scp
-pi-qemu/instance.sh ready mine              # wait until Mixxx plays, its controller open
-pi-qemu/instance.sh console mine 'ip -br a' # over the serial console when ssh is down
-pi-qemu/instance.sh stop mine               # suspend: saved, next `up` ~3 s
-pi-qemu/instance.sh rm mine                 # gone, card and all
-pi-qemu/instance.sh list
+pi-qemu deck up mine                 # restored from the golden snapshot in ~3 s
+pi-qemu deck ssh mine 'pgrep -a mixxx'
+pi-qemu deck deploy mine config      # this checkout's code onto it; waits for the new Mixxx
+pi-qemu deck ready mine              # wait until Mixxx runs, its sound and controller open
+pi-qemu deck stop mine               # suspend: saved, next `up` ~3 s
+pi-qemu deck rm mine                 # gone, card and all
+pi-qemu deck list
 ```
 
-`deploy` and `run` set `HOST` and put the instance's own `ssh`/`scp` first in
-`PATH`, inside one process. That is the safe way to point the repo's upload
-scripts at an instance: on their own they default to `HOST=trimixxx-pi`, a
-real deck, and in zsh `$HOST` is the Mac's own name. (`instance.sh env NAME`
-prints the same exports for a shell of your own.)
-
-An instance lives in `~/.pi-qemu/instances/NAME/`. That path is kept short on
-purpose, because macOS caps unix socket paths at 104 bytes. `up --window`
-shows its screen and panel. `up --boot` boots it instead of restoring it
-(~5 s to ssh, Mixxx playing ~1 s later).
-`up --fresh` starts again from the golden snapshot, and `up --from CARD`
-boots a card of your own, of any size: the instance's copy is rounded up to
-the power of two QEMU's SD card needs, and stays sparse. The script's header
-documents the rest. Every command prints or says what it runs, so you can do
-any of it by hand.
+`up --window` shows its screen and panel. `up --boot` boots it instead of
+restoring it (~7 s to ssh). `up --fresh` starts again from the golden
+snapshot, and `up --from CARD` boots a card of your own, of any size: the
+instance's copy is rounded up to the power of two QEMU's SD card needs, and
+stays sparse. `down` powers it off cleanly, `kill` pulls the plug (its QEMU
+too, even if pi-qemu was killed outright).
 
 The emulated board starts as a Pi 4 does, measured on a real one
 (PLAN.md, phase 1):
@@ -202,7 +217,65 @@ The emulated board starts as a Pi 4 does, measured on a real one
 - **`kernel_watchdog_timeout`** leaves the watchdog running, so a start that
   hangs before systemd resets the board.
 
-Each instance takes 2 GB of RAM; four at once is about the limit on a 16 GB Mac.
+Each emulated deck takes 2 GB of RAM; four at once is about the limit on a
+16 GB Mac.
+
+## Deploying
+
+`pi-qemu deck deploy TARGET [STEP...]` puts this checkout's code onto a deck,
+emulated or real, by the numbered steps in `deploy/`, all of them in order
+when none are named:
+
+| Step | What |
+|---|---|
+| `000_base.pi.sh` | pi_config/fresh-install.md 1–2: boot flags, ssh, background load, packages, autologin |
+| `001_ttymidi.sh` | the serial<->MIDI bridge (`mixxx_config/ttymidi`), built in Docker |
+| `002_system.sh` | `pi_config`: systemd units, session, splash, eth0, the Wi-Fi fallback, dj-usb |
+| `003_launcher.sh` | `trimixxx-launcher`: boot modes, SysEx daemon, deck keys, built in Docker |
+| `004_mixxx.sh` | the Mixxx fork, built in Docker, over apt's binary |
+| `005_config.sh` | `mixxx_config`: mapping, skin, fonts, mixxx.cfg, this deck's wiring |
+| `006_library.sh` | Mixxx's music library directory, once |
+| `007_doom.sh` | Doom |
+
+A step is named as `mixxx`, `004` or `004_mixxx`, and a new step is the next
+number. `deploy/lib.sh` has their contract:
+- a `.sh` step runs on the Mac and reaches the deck as `ssh deck`; a `.pi.sh`
+  step runs on the deck, as root;
+- each is idempotent: run again, it changes nothing where nothing changed
+  (a binary that is the same is left alone);
+- its exit status says what follows: a step that changed the boot flags has
+  the deck reboot before the next one; one that restarted the MIDI bridge or
+  the launcher has the session restarted at the end, since Mixxx opens their
+  ports only at its start. After a session restart, `deploy` waits until
+  Mixxx is ready.
+
+Steps that build in Docker need ~6 GB free on its disk: `deploy` checks
+first, and leaves freeing space to you.
+
+## Cards and releases
+
+`pi-qemu image build [DECK]` makes a deck's card from the stock image
+(`image/stock.env`):
+1. seeds cloud-init: user, key, password hash, hostname (`image/user-data.in`,
+   `network-config`);
+2. boots it as an emulated deck of its own, `build-DECK` (`deck ssh build-DECK`
+   reaches it while it builds);
+3. runs every deploy step over it;
+4. seals it into `.cache/build/DECK.img`, and for trimixxx0 refreshes the
+   golden snapshot.
+
+Everything up to and including `000_base` is cached in `.cache/base/` while
+its inputs stay the same (`--rebuild-base` forces it).
+
+The cards the decks run from, read-only and updated A/B over the network,
+come from such a build (PLAN.md Part 1, and [rauc-pi-4-setup.md](rauc-pi-4-setup.md)):
+
+```sh
+pi-qemu release build                # HEAD's pi/vX.Y.Z tag -> release/out/X.Y.Z/: the card, the bundle
+pi-qemu release card trimixxx2       # trimixxx2's card: the release card with its identity on p7
+pi-qemu deck ship --host trimixxx-pi-2   # the update onto a deck running a release card
+pi-qemu deck prepare --host trimixxx-pi-2 trimixxx2   # before a deck's first release card
+```
 
 ## Git worktrees
 
@@ -210,14 +283,14 @@ Several agents (or people) can work at once, each in a git worktree of the
 repo, each deploying its own code to its own emulated deck. The root
 `CLAUDE.md` is the workflow agents follow. Behind it:
 
-- **`pi-qemu/worktree.sh prepare`** sets up the worktree's submodules, which
+- **`pi-qemu worktree prepare`** sets up the worktree's submodules, which
   start as empty directories. `mixxx/` (and its `lib/prolink`) and
   `mixxx_config/ttymidi` become linked worktrees of your main checkout's
   submodule repositories, detached at the commits the worktree's branch
-  records. It takes seconds and downloads nothing. A branch made in a worktree's
-  `mixxx/` is a branch of your main `mixxx/` at once, so merging it there is
-  enough. `git submodule update` would instead clone a private copy that is
-  deleted with the worktree.
+  records. It takes seconds and downloads nothing. A branch made in a
+  worktree's `mixxx/` is a branch of your main `mixxx/` at once, so merging it
+  there is enough. `git submodule update` would instead clone a private copy
+  that is deleted with the worktree.
 - **Every checkout builds Mixxx in its own Docker build tree** (keyed by
   `mixxx/checkout-id.sh`). A tree builds from its own copy of the sources,
   which `mixxx/tree-sync.sh` updates by content before each build. ninja then
@@ -228,38 +301,38 @@ repo, each deploying its own code to its own emulated deck. The root
   - Builds queue on the shared compiler cache, so only one Mixxx compiles at a
     time: two agents deploying at once measured 87 s and 138 s.
   - Each tree takes about 4 GB of Docker's disk.
-- **`pi-qemu/worktree.sh release`**, before removing a worktree, empties its
+- **`pi-qemu worktree release`**, before removing a worktree, empties its
   Docker build trees and removes its submodule worktrees. Until then git
-  refuses to remove a worktree with checked-out submodules, short of `--force`,
-  which leaves the build trees behind. `release` refuses itself if they hold
-  uncommitted changes, or commits no branch has.
-  `pi-qemu/worktree.sh status` shows what a worktree has checked out.
+  refuses to remove a worktree with checked-out submodules, short of
+  `--force`, which leaves the build trees behind. `release` refuses itself if
+  they hold uncommitted changes, or commits no branch has.
+  `pi-qemu worktree status` shows what a worktree has checked out.
 
-`instance.sh deploy` from a worktree runs `prepare` itself when a step needs
-the submodules, and always deploys the code of the checkout its `instance.sh`
-is in.
+pi-qemu acts on the checkout it runs in: `deck deploy` from a worktree
+deploys that worktree's code, and runs `prepare` itself. The built QEMU, the
+caches, the golden snapshot and the releases are the main checkout's,
+whichever checkout pi-qemu runs in.
 
 ## Snapshots
 
-`pi-qemu save FILE` pauses the Pi, writes the whole machine (RAM and every
-device) to FILE, and stops it. `pi-qemu run --restore FILE CARD` brings that
-machine back in about 3 seconds, Mixxx already running, where a boot takes
-about 5 and Mixxx's start a little more. Rules:
+`pi-qemu deck save NAME FILE` pauses the Pi, writes the whole machine (RAM and
+every device) to FILE, and stops it. `pi-qemu run --restore FILE CARD` brings
+that machine back in about 3 seconds, Mixxx already running. Rules:
 
-- **The card must be the one it was saved with, unchanged.** Restore a card
-  copy taken at save time. After the restore, the card moves on and the
-  snapshot no longer fits it. `instance.sh` does this for you: clone both,
-  restore, delete the snapshot.
+- **The card must be the one it was saved with, unchanged.** After the
+  restore, the card moves on and the snapshot no longer fits it.
+  `deck up` and `deck stop` do this for you: a saved machine is used once,
+  and is gone the moment it starts.
 - **The same devices.** No USB sticks inserted when saving (`save` refuses),
   and the same `--net` mode. `--audio` and `--display` may differ.
 - **Same Mac architecture.** Some devices are saved in host byte order.
-- The Pi wakes up with the clock it was saved with. `instance.sh` sets it to
+- The Pi wakes up with the clock it was saved with. `deck up` sets it to
   now; by hand, use `ssh ... "sudo date -u -s @$(date -u +%s)"`.
 
 The **golden snapshot** (`.cache/golden/trimixxx0.img` + `.state`) is the
 built card, booted until Mixxx has its sound device open, then saved. Every
-new instance starts from it. `image/build.sh` refreshes it at the end of a
-trimixxx0 build; `instance.sh golden [CARD]` makes it from any card.
+new emulated deck starts from it. `image build trimixxx0` refreshes it at the
+end of the build; `deck golden [CARD]` makes it from any card.
 
 Making QEMU's `raspi4b` savable took patches 8–13 in
 `qemu/trimixxx-patches.py`. The USB sound card and USB network adapter had no
@@ -273,55 +346,16 @@ about 4 MB/s. It now reads at ~800 MB/s and writes at ~400 MB/s, which is
 what took a boot from ~50 s to ~5 s. No real card is that fast. The emulator
 is for testing the software, not the deck's timing.
 
-## Building cards and deploying
-
-`deploy.sh HOST [STEP...]` sets up or updates a deck over ssh. It works the
-same against a real deck (`trimixxx2`) and an emulated one, and it is
-idempotent. It never reboots, and says when a reboot is needed. Its steps:
-- `base`: fresh-install.md 1–2;
-- `ttymidi`;
-- `system`: `pi_config/upload.sh`;
-- `launcher`;
-- `mixxx`: the fork, built in Docker;
-- `config`: `mixxx_config/upload.sh`;
-- `library`;
-- `doom`.
-
-`image/build.sh [HOSTNAME]` makes a card from the stock image:
-1. seeds cloud-init: user, key, password hash, hostname;
-2. boots the card in pi-qemu;
-3. runs `deploy.sh` over it, step by step;
-4. seals it, and for trimixxx0 refreshes the golden snapshot.
-
-Everything up to and including `base` is cached in `.cache/base/` while its
-inputs stay the same (`REBUILD_BASE=1` forces it). The cards the decks will run
-from, read-only and updated A/B over the network, come from such a build
-(PLAN.md Part 1).
-
 ## Workflows
 
 ### Test a Mixxx change on the emulated deck
 
 ```sh
-pi-qemu/instance.sh up mix
-pi-qemu/instance.sh deploy mix mixxx        # Docker arm64 build, swaps /usr/bin/mixxx, waits for the new Mixxx
-pi-qemu/instance.sh ssh mix 'tail -50 /tmp/mixxx/mixxx.log'
-pi-qemu/instance.sh shot mix /tmp/after.png
+pi-qemu deck up mix
+pi-qemu deck deploy mix mixxx         # Docker arm64 build, swaps /usr/bin/mixxx, waits for the new Mixxx
+pi-qemu deck ssh mix 'tail -50 /tmp/mixxx/mixxx.log'
+pi-qemu deck shot mix /tmp/after.png
 ```
-
-For your own deck (port 2222), give it an alias in `~/.ssh/config`:
-
-```
-Host trimixxx0-local
-  HostName 127.0.0.1
-  Port 2222
-  User sam1902
-  IdentityFile ~/.ssh/no_pass/rsa_sam
-  StrictHostKeyChecking no
-  UserKnownHostsFile /dev/null
-```
-
-Then `pi-qemu/deploy.sh trimixxx0-local mixxx` deploys to it.
 
 The build goes by content. Every checkout has its own build tree in Docker's
 cache, with its own copy of the sources, and recompiles exactly the files
@@ -334,26 +368,25 @@ changed.
 ### Test a config, skin or mapping change
 
 ```sh
-pi-qemu/instance.sh deploy mix config       # mapping, skin, fonts, mixxx.cfg; ~10 s with the restart
-pi-qemu/instance.sh ctl mix press hotcue1
-pi-qemu/instance.sh ctl mix leds
-pi-qemu/instance.sh ssh mix 'sudo grep ^0: /proc/tty/driver/ttyAMA'   # rx: bytes the S3 sent
+pi-qemu deck deploy mix config        # mapping, skin, fonts, mixxx.cfg; ~10 s with the restart
+pi-qemu deck press mix hotcue1
+pi-qemu deck leds mix
+pi-qemu deck ssh mix 'sudo grep ^0: /proc/tty/driver/ttyAMA'   # rx: bytes the S3 sent
 ```
 
 `deploy mix system` (pi_config: systemd units, session, splash),
-`launcher` and `ttymidi` work the same way. `system` and `ttymidi` restart the
-serial-to-MIDI bridge. Mixxx only opens the S3's port when it starts, so
-`deploy.sh` then restarts the session, on a real deck too.
+`launcher` and `ttymidi` work the same way, on a real deck too
+(`--host ALIAS`).
 
 ### Play a track from a USB stick
 
 ```sh
-pi-qemu stick list                          # images in .cache/sticks/ and the Mac's USB disks
-pi-qemu stick insert SAM3                   # SAM3.img: a rekordbox export, read-only
-pi-qemu press push                          # the encoder push opens the library...
-pi-qemu browse 2; pi-qemu press push        # ...then moves and activates: enter the stick, a list, load a track
-pi-qemu shot pick.png                       # see where you are
-pi-qemu press play; pi-qemu leds            # "play": true
+pi-qemu deck stick mix list          # images in .cache/sticks/ and the Mac's USB disks
+pi-qemu deck stick mix insert SAM3   # SAM3.img: a rekordbox export, read-only
+pi-qemu deck press mix push          # the encoder push opens the library...
+pi-qemu deck browse mix 2; pi-qemu deck press mix push   # ...then moves and activates
+pi-qemu deck shot mix pick.png       # see where you are
+pi-qemu deck press mix play; pi-qemu deck leds mix       # "play": true
 ```
 
 An image of a real stick, with the same layout as the original (MBR, FAT32),
@@ -368,8 +401,8 @@ mv SAM3.cdr SAM3.img
 ### Check the audio without hearing it
 
 ```sh
-pi-qemu/instance.sh up snd -- --audio wav:/tmp/out.wav    # a new instance: rm an old one first
-# ... play something in the deck; the file is a valid WAV at any moment
+pi-qemu deck record mix 10 /tmp/mix.wav    # Mixxx's main mix, recorded by Mixxx; make it play first
+pi-qemu deck up snd -- --audio wav:/tmp/out.wav    # or everything the sound card plays, for a new deck
 python3 - <<'EOF'
 import wave, struct
 w = wave.open('/tmp/out.wav'); n = w.getnframes(); d = w.readframes(n)
@@ -388,8 +421,8 @@ one tone on both channels; `-c 2` plays left, then right. To bring Mixxx back:
 
 ```sh
 cat ~/.pi-qemu/instances/NAME/card.run/console.log    # the boot, from the first kernel line
-pi-qemu/instance.sh console NAME 'systemctl --failed' 'journalctl -b -p err | tail'
-pi-qemu/instance.sh shot NAME now.png
+pi-qemu deck console NAME 'systemctl --failed' 'journalctl -b -p err | tail'
+pi-qemu deck shot NAME now.png
 ```
 
 If ssh hangs as soon as QEMU starts, a Mac firewall (Little Snitch, or macOS's
@@ -399,15 +432,15 @@ own with stealth mode) may be holding QEMU's network sockets. Allow
 ### Rebuild the card after changing the deck's setup
 
 ```sh
-pi-qemu/image/build.sh                      # reuses the cached base; refreshes the golden snapshot
+pi-qemu image build                   # reuses the cached base; refreshes the golden snapshot
 ```
 
-Running decks keep their own cards; `instance.sh up NAME --fresh` takes the new one.
+Running decks keep their own cards; `deck up NAME --fresh` takes the new one.
 
 ## Troubleshooting
 
-- **`port 2222 is already in use`**: another plain deck is running. Use
-  `--ssh`, or `--private` for one that picks its own port.
+- **`... has a passphrase and is not in the ssh agent`**: `ssh-add` the key
+  pi-qemu names (after every reboot of the Mac).
 - **`QLocalServer::listen: Name error`**: a unix socket path longer than 104
   bytes. Use a shorter card path; instances live in `~/.pi-qemu` for this reason.
 - **The window does not take your keys**: click into it. A window opened from a
@@ -416,6 +449,6 @@ Running decks keep their own cards; `instance.sh up NAME --fresh` takes the new 
   `docker buildx prune -f --all --filter type=regular --filter until=90m` frees
   space and keeps the compile caches.
 - **A restore fails with "Unknown section" or similar**: the snapshot was made
-  by a QEMU built from different patches. Remake it with `instance.sh golden`.
+  by a QEMU built from different patches. Remake it with `pi-qemu deck golden`.
 - **`deploy` says Docker's disk is full**: see `docker system df`. Unused
   images (`docker image prune -a`) are usually most of it.

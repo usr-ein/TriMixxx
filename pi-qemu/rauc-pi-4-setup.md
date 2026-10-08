@@ -2,7 +2,7 @@
 
 The plan for how the decks run a locked system and take updates over the air,
 and how that is developed and rehearsed on the emulated deck. Written on
-2026-10-07. **Nothing here is built yet.**
+2026-10-07, and built since: `PLAN.md` has each phase's results.
 
 - **Decisions are settled** (§1).
 - **The design is §2 to §9.** Appendices A to C hold the research behind it,
@@ -62,7 +62,7 @@ and how that is developed and rehearsed on the emulated deck. Written on
 | Health check unit that calls `rauc status mark-good` | RAUC documents this pattern; what counts as healthy is deck-specific |
 | Identity unit: hostname and per-deck Mixxx config | No standard tool selects per-device application config |
 | Tryboot in pi-qemu: C++ firmware step, one QEMU mailbox patch | QEMU runs no Pi firmware. pi-qemu is the firmware, so it implements tryboot |
-| One `make release`: a Dockerfile, `genimage.cfg`, a RAUC manifest | Declarative files that drive standard image tools |
+| One `pi-qemu release build`: a Dockerfile, `genimage.cfg`, a RAUC manifest | Declarative files that drive standard image tools |
 
 ---
 
@@ -71,7 +71,7 @@ and how that is developed and rehearsed on the emulated deck. Written on
 ### 3.1 Card layout
 
 MBR with a fixed disk signature, `0x5d0bc1ec` (the first 32 bits of
-sha256("trimixxx"), set in `release/Makefile`), so `<id>` below is `5d0bc1ec`:
+sha256("trimixxx"), set in `release/container.sh`), so `<id>` below is `5d0bc1ec`:
 
 | # | Label | FS | Size | Holds | Mounted | Written |
 |---|---|---|---|---|---|---|
@@ -199,7 +199,7 @@ starts:
 | What | Where | Mechanism |
 |---|---|---|
 | Wi-Fi | `/data/NetworkManager/` | Standard NetworkManager keyfiles. The identity unit copies them into `/run/NetworkManager/system-connections/`, NetworkManager's own volatile directory, so NetworkManager isn't reconfigured and the dev card (no `/data`) keeps its network. Keyfiles, not netplan: Pi OS's NetworkManager rewrites netplan's profiles into ones that match every NIC (phase 1, PLAN.md §2.1). Changing Wi-Fi means unlocking `/data` |
-| ssh host keys | `/data/ssh/` | Standard OpenSSH host keys, copied by the identity unit into `/etc/ssh/` (in RAM) before sshd starts. The deck's own, taken from its system before its first card (`prepare-deck.sh`, §5.1), else made on the Mac with its card; kept either way, so `known_hosts` survives reflashing |
+| ssh host keys | `/data/ssh/` | Standard OpenSSH host keys, copied by the identity unit into `/etc/ssh/` (in RAM) before sshd starts. The deck's own, taken from its system before its first card (`pi-qemu deck prepare`, §5.1), else made on the Mac with its card; kept either way, so `known_hosts` survives reflashing |
 | Deck name → hostname, wiring, accent | `/data/trimixxx.conf`, one line: the deck's name | The identity unit (§6) sets the hostname and links that deck's pre-rendered Mixxx files into place. `units/apply.py` runs at build time for every deck, instead of at deploy time for one |
 | The deck's screen (DSI panel or HDMI) | `config.txt` | `[0x<serial>]` sections built from each deck's `units/<deck>.json`, which gains a `serial` (`release/boot/deck-sections.py`). Checked on trimixxx3: the firmware reads its own section and skips another board's (PLAN.md §7). Alternative: the board's own EEPROM `[config.txt]` section (App. A.3) |
 | machine-id | none | systemd's standard behaviour on a read-only root: a new one at each start. NetworkManager uses `dhcp-client-id=mac`, so the router keeps giving the same address |
@@ -327,8 +327,8 @@ these changes:
 
 | Emulated deck | Card | Use |
 |---|---|---|
-| **Dev deck** (today's trimixxx0) | `image/build.sh` card: 2 partitions, ext4, writable | Feature work: `instance.sh deploy NAME mixxx\|config\|system…` in seconds. Unchanged |
-| **A/B deck** (new) | `trimixxx-<v>.img` from `make release`: the 8-partition card, locked | Update work: RAUC, the backend, the health check, rollback, fault injection |
+| **Dev deck** (today's trimixxx0) | `pi-qemu image build` card: 2 partitions, ext4, writable | Feature work: `pi-qemu deck deploy NAME mixxx\|config\|system…` in seconds. Unchanged |
+| **A/B deck** (new) | `trimixxx-<v>.img` from `pi-qemu release build`: the 8-partition card, locked | Update work: RAUC, the backend, the health check, rollback, fault injection |
 
 **They run the same system.** Everything the release needs is installed by
 the normal build, so the dev deck carries it too:
@@ -387,33 +387,32 @@ documented firmware behaviour, so nothing invented reaches the card.
    a sparse copy (an APFS clone, then `truncate`), so a release card boots as
    it is.
 
-`instance.sh up NAME --from trimixxx-<v>.img` already boots any card. A golden
+`pi-qemu deck up NAME --from trimixxx-<v>.img` already boots any card. A golden
 snapshot of the A/B card can come later, if quick restores matter there.
 
 ### 4.3 The update-work loop
 
 ```
-git tag -m "TriMixxx 1.0.0" pi/v1.0.0 && make release   # card + bundle (§5.2), version 1.0.0
-make card DECK=trimixxx0 VERSION=1.0.0        # the emulated deck's identity
-pi-qemu/instance.sh up ab --from out/1.0.0/trimixxx0-1.0.0.img
-make release VERSION=1.0.1 REHEARSAL=1        # the change under test, untagged
-pi-qemu/instance.sh run ab -- make ship DECK=ab VERSION=1.0.1
-                                              # install, then a trial start of B;
-                                              # B committed once the health check passed
+git tag -m "TriMixxx 1.0.0" pi/v1.0.0 && pi-qemu release build   # card + bundle (§5.2), version 1.0.0
+pi-qemu release card trimixxx0 --version 1.0.0    # the emulated deck's identity
+pi-qemu deck up ab --from pi-qemu/release/out/1.0.0/trimixxx0-1.0.0.img
+pi-qemu release build --rehearsal 1.0.1           # the change under test, untagged
+pi-qemu deck ship ab --version 1.0.1              # install, then a trial start of B;
+                                                  # B committed once the health check passed
 ```
 
-`make ship` streams the bundle into the deck's `/var/lib/rauc` over ssh,
-installs it, reboots, and prints what the deck then runs. `instance.sh run ab
--- …` puts the instance's own ssh first in `PATH`, under the alias `ab`.
+`pi-qemu deck ship` streams the bundle into the deck's `/var/lib/rauc` over
+ssh, installs it, reboots, and prints what the deck then runs. It takes an
+emulated deck by its name, `ab` here, and a real one as `--host ALIAS`.
 
 The fault matrix to run before the bench or any deck sees a change.
-`make faults VERSION=1.0.1` builds its broken releases from the release under
-test. All of it passed on 2026-10-08 (PLAN.md §5.4, F1 to F11):
+`pi-qemu release faults --version 1.0.1` builds its broken releases from the
+release under test. All of it passed on 2026-10-08 (PLAN.md §5.4, F1 to F11):
 
 | Fault | How, in the emulator | Expected |
 |---|---|---|
 | Plug pulled during the install | power off without a sync, from the deck, while RAUC copies the root image | A starts; RAUC records B's write as `pending`, and B as bad |
-| Plug pulled after install, before reboot | `instance.sh kill`, then `up` | A starts: the flag dies with the power |
+| Plug pulled after install, before reboot | `pi-qemu deck kill`, then `deck up` | A starts: the flag dies with the power |
 | The trial can't take the next release | `-nonet` (NetworkManager masked) and `-nossh` (sshd masked) | trial → mark-bad → restart → A |
 | Kernel panic on the trial | `-noinitramfs` | `panic=10` → restart → A |
 | The initramfs gives up | `-panic`: `break=premount` | initramfs-tools' `panic=10` → restart → A |
@@ -441,7 +440,7 @@ what trimixxx3 shows, not the other way round.
 ### 5.1 Once per deck: commissioning
 
 1. **Prepare it, on the system it runs today:**
-   `pi-qemu/release/prepare-deck.sh <deck> <ssh alias> --eeprom` (PLAN.md §7).
+   `pi-qemu deck prepare --host <ssh alias> <deck> --eeprom` (PLAN.md §7).
    - The bootloader must be from 2022-12 or later. `--eeprom` updates it to
      the newest image the deck's `rpi-eeprom` has, with the boot watchdog
      (`BOOT_WATCHDOG_TIMEOUT=45`, `BOOT_WATCHDOG_PARTITION=2`), and checks
@@ -452,8 +451,8 @@ what trimixxx3 shows, not the other way round.
      config and network profiles are kept on the Mac for reference.
 2. **Build the release** after that, from a commit tagged `pi/vX.Y.Z`: the
    serials are written into its `config.txt`.
-3. **Make the deck's card:** `make card DECK=<deck>`. That's the release's
-   card image with this deck's `/data` filled in:
+3. **Make the deck's card:** `pi-qemu release card <deck>`. That's the
+   release's card image with this deck's `/data` filled in:
    - its name;
    - the home Wi-Fi (from `image/secrets.env`) and its own hotspot, as
      NetworkManager keyfiles;
@@ -467,10 +466,10 @@ what trimixxx3 shows, not the other way round.
 
 ### 5.2 Every release
 
-1. **Tag the commit** `pi/v1.0.1`, then run `make release`: the version is the
-   tag's. It refuses a dirty tree, and runs:
-   - `image/build.sh` (existing) at that commit, giving the writable card with
-     everything installed;
+1. **Tag the commit** `pi/v1.0.1`, then run `pi-qemu release build`: the
+   version is the tag's. It refuses a dirty tree, and runs:
+   - `pi-qemu image build trimixxx-release`, the dev card's own build, at that
+     commit, giving the writable card with everything installed;
    - **one Docker container**, pinned by a `Dockerfile`: debian:trixie with
      genimage, rauc, squashfs-tools, dosfstools, mtools and e2fsprogs. It runs
      privileged to loop-mount that card read-only, then runs `genimage` with
@@ -483,7 +482,8 @@ what trimixxx3 shows, not the other way round.
      `cmdline-b.txt`, all checked in;
    - `bootsel.vfat`: `autoboot.txt`;
    - `trimixxx-<v>.img`: the 8-partition card with its fixed disk signature.
-     B and `/data` are left empty; `make card` fills `/data` per deck;
+     B and `/data` are left empty; `pi-qemu release card` fills `/data` per
+     deck;
    - `trimixxx-<v>.raucb`: built with genimage's `rauc` image type, or
      `rauc bundle`, from the manifest in §3.5 and the self-signed key.
 
@@ -492,8 +492,8 @@ what trimixxx3 shows, not the other way round.
 2. **Rehearse in QEMU:** §4.3, against the previous release's card.
 3. **Bench:** the same commands against trimixxx3, watching the bootloader on
    its serial line.
-4. **Ship:** the same commands against each deck. `make ship DECK=trimixxx2
-   VERSION=1.0.1` runs these:
+4. **Ship:** the same commands against each deck. `pi-qemu deck ship --host
+   trimixxx2 --version 1.0.1` runs these:
    ```
    ssh trimixxx2 'sudo sh -c "cat > /var/lib/rauc/trimixxx-1.0.1.raucb"' < out/1.0.1/trimixxx-1.0.1.raucb
    ssh trimixxx2 sudo rauc install /var/lib/rauc/trimixxx-1.0.1.raucb   # then deletes the bundle
@@ -529,16 +529,16 @@ what trimixxx3 shows, not the other way round.
 | Command line per slot | `config.txt` `[boot_partition=N]` (Raspberry Pi docs) | no | Removes the install hook other setups need |
 | Check, install and record updates | RAUC 1.13 (Debian) | no | — |
 | Connect RAUC to the Pi firmware | RAUC's custom backend interface | **yes, ~100 lines, adapted from Rtone (LGPL)** | RAUC 1.13 has no Pi firmware backend. Deleted once RAUC with `bootloader=raspberrypi` (PR #1599, aimed at 1.17) is in the image |
-| Confirm a boot | `rauc status mark-good` from a systemd unit (RAUC's documented pattern) | **the checks only** | What "healthy" means is deck-specific: the checks `instance.sh ready` makes today |
+| Confirm a boot | `rauc status mark-good` from a systemd unit (RAUC's documented pattern) | **the checks only** | What "healthy" means is deck-specific: the checks `pi-qemu deck ready` makes today |
 | Read-only system, RAM layer | SquashFS + Debian `overlayroot` (what `raspi-config` uses) + `/etc/initramfs-tools/modules` | no | — |
 | Resets on hangs and panics | Firmware `kernel_watchdog_timeout`, systemd `RuntimeWatchdogSec`, kernel `panic=` | no (settings) | — |
 | Mount the running boot slot | systemd `systemd.mount-extra=` | no (setting) | — |
 | Wi-Fi, ssh keys, the `/data` lock | Standard NetworkManager keyfiles and OpenSSH host keys (copied into RAM by the identity unit), an fstab `ro` mount, `mount -o remount` | no (formats and settings) | — |
 | Who this deck is | — | **yes, one small unit** | Choosing per-device app config (hostname, wiring, accent) has no standard tool. It's the one TriMixxx-specific step at start |
-| Build card images and bundles | genimage + mksquashfs + `rauc bundle` (Debian) | **one `genimage.cfg`, one `Dockerfile`, one manifest, `make release`** | Declarative files. The only script is the Make target that runs them |
-| Build the system itself | `image/build.sh` + `deploy.sh` | existing | Unchanged: it already builds the dev card |
+| Build card images and bundles | genimage + mksquashfs + `rauc bundle` (Debian) | **one `genimage.cfg`, one `Dockerfile`, one manifest, `pi-qemu release build`** | Declarative files. The script that runs them is `release/container.sh`, in the release container |
+| Build the system itself | `pi-qemu image build` + the deploy steps (`deploy/NNN_*.sh`) | existing | Unchanged: it already builds the dev card |
 | A/B in the emulator | pi-qemu (our firmware emulation) + QEMU | **yes, C++ and one QEMU patch** | QEMU has no Pi firmware, and pi-qemu exists to be it. Everything it does copies documented firmware behaviour |
-| Ship | `ssh`, `rauc install`, `reboot` | no | `make ship` only runs those commands |
+| Ship | `ssh`, `rauc install`, `reboot` | no | `pi-qemu deck ship` only runs those commands |
 
 **New files, in all**
 - On the deck:
@@ -554,11 +554,11 @@ what trimixxx3 shows, not the other way round.
   - `genimage.cfg`;
   - a manifest template;
   - an exclude list;
-  - three Make targets (`release`, `card`, `ship`).
+  - three pi-qemu commands, `release build`, `release card` and `deck ship`,
+    with their container half, `release/container.sh`.
 - In pi-qemu: the changes in §4.2.
 
-No per-component upload scripts are added. The existing ones stay the dev
-loop's tools.
+No deploy steps are added. The existing ones stay the dev loop's tools.
 
 ---
 
@@ -600,8 +600,8 @@ The tasks, commands, tests and stop points for each phase are in `PLAN.md`.
 |---|---|---|---|
 | 1 | Firmware checks on trimixxx3 (§7) | The results table above, filled in | Every **unverified** firmware point in App. A has a measured answer |
 | 2 | Tryboot in pi-qemu (§4.2) | QEMU reboot-flags patch; firmware step: filters, tryboot, `/chosen/bootloader`, partition walk, any-size cards | Phase 1's card boots in pi-qemu, and the same checks give the same results as on trimixxx3 |
-| 3 | A locked card (§3, §5) | overlayroot, initramfs modules, `/data` and state mounts, the identity unit, the boot splash's slot label (`A`/`B`, `trial`, the version); `Dockerfile`, `genimage.cfg`, exclude list, `make release` and `make card` | A tag produces a card that boots locked in QEMU, and the RAM layer's growth over a set's worth of tracks is measured (§3.3) |
-| 4 | RAUC on the deck (§3.5) | Signing key, `system.conf`, the backend, the health check, the bundle in `make release`, `make ship` | The whole fault matrix (§4.3) passes in QEMU |
+| 3 | A locked card (§3, §5) | overlayroot, initramfs modules, `/data` and state mounts, the identity unit, the boot splash's slot label (`A`/`B`, `trial`, the version); `Dockerfile`, `genimage.cfg`, exclude list, `pi-qemu release build` and `release card` | A tag produces a card that boots locked in QEMU, and the RAM layer's growth over a set's worth of tracks is measured (§3.3) |
+| 4 | RAUC on the deck (§3.5) | Signing key, `system.conf`, the backend, the health check, the bundle in `release build`, `deck ship` | The whole fault matrix (§4.3) passes in QEMU |
 | 5 | trimixxx3 end to end | Its card, two shipped releases | The fault matrix passes on hardware |
 | 6 | The decks | Each deck commissioned and reflashed once (§5.1) | Every deck has taken one release over the air |
 

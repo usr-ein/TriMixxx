@@ -32,7 +32,7 @@ Where this file and `PLAN.md` differ, `PLAN.md` wins.
 | **rpi-tryboot** | Our RAUC custom bootloader backend (~100 lines of shell, adapted from Rtone's) |
 | **Health check** | Our systemd unit that, on a trial start, runs `rauc status mark-good` if the deck can take the next release (it's on a network and sshd runs), or `mark-bad` |
 | **Identity unit** | Our systemd unit that applies the deck's name, wiring and accent from `/data` |
-| **Dev deck** | The writable emulated deck (`image/build.sh` card) used for feature work, as today |
+| **Dev deck** | The writable emulated deck (`pi-qemu image build`'s card) used for feature work, as today |
 | **A/B deck** | An emulated deck booted from a release card image, used for update work |
 | **trimixxx3** | The spare Pi 4, used as the bench deck |
 
@@ -253,7 +253,7 @@ flowchart TB
 | CPU and RAM | Cortex-A72, 4 GB | Mac cores, 2 GB | differs |
 | Screen | DSI panel, GPU | framebuffer, llvmpipe | differs |
 | Network | Wi-Fi at home; eth0 for CDJs | USB NIC for ssh; eth0 | differs |
-| Pulling the plug | real power loss | `instance.sh ctl NAME power off` | differs |
+| Pulling the plug | real power loss | `pi-qemu deck power NAME off` | differs |
 
 **Only real hardware (trimixxx3) can show** what the real `start4.elf` and
 EEPROM do: `[boot_partition=N]` on a Pi 4, a broken `autoboot.txt`, the
@@ -268,39 +268,40 @@ first; pi-qemu then copies what was measured.**
 
 ```mermaid
 flowchart LR
-  REPO["Repo: commits"] --> BUILD["image/build.sh<br/>system built in QEMU"]
+  REPO["Repo: commits"] --> BUILD["pi-qemu image build<br/>system built in QEMU"]
   BUILD --> DEV["Dev deck (emulated)<br/>writable, 2 partitions"]
-  DEV -->|"instance.sh deploy: change, test, repeat"| DEV
-  BUILD -->|tagged commits only| REL["make release<br/>seal, lock, genimage, rauc bundle"]
+  DEV -->|"pi-qemu deck deploy: change, test, repeat"| DEV
+  BUILD -->|tagged commits only| REL["pi-qemu release build<br/>seal, lock, genimage, rauc bundle"]
   REL --> BUNDLE["trimixxx-v.raucb (signed)"]
   REL --> IMG["trimixxx-v.img (8 partitions)"]
   BUNDLE --> AB["1. Emulated A/B deck: rehearse, fault matrix"]
   AB --> BENCH["2. trimixxx3 bench Pi"]
-  BENCH --> DECKS["3. Decks: make ship"]
-  IMG -->|"make card DECK=name adds /data"| SD["SD card, flashed once per deck"]
+  BENCH --> DECKS["3. Decks: pi-qemu deck ship"]
+  IMG -->|"pi-qemu release card NAME adds /data"| SD["SD card, flashed once per deck"]
   IMG -.->|previous release| AB
 ```
 
 ```sh
 # day to day (unchanged)
-pi-qemu/instance.sh up dev
-pi-qemu/instance.sh deploy dev mixxx          # or config, system, launcher...
+pi-qemu deck up dev
+pi-qemu deck deploy dev mixxx                 # or config, system, launcher...
 
 # a release
 git tag -m "TriMixxx 1.0.1" pi/v1.0.1
-make release                                  # the tag's version: out/1.0.1/: trimixxx-1.0.1.img + .raucb + manifest
+pi-qemu release build                         # the tag's version: out/1.0.1/: trimixxx-1.0.1.img + .raucb + manifest
 
 # rehearse on the emulated A/B deck (started from the previous release's card)
-pi-qemu/instance.sh up ab --from out/1.0.0/trimixxx-1.0.0.img
-pi-qemu/instance.sh run ab -- make ship DECK=ab VERSION=1.0.1
-pi-qemu/instance.sh ssh ab rauc status
+pi-qemu release card trimixxx0 --version 1.0.0   # the emulated deck's card of 1.0.0
+pi-qemu deck up ab --from out/1.0.0/trimixxx0-1.0.0.img
+pi-qemu deck ship ab --version 1.0.1
+pi-qemu deck ssh ab rauc status
 
 # ship to a deck, roll back
-make ship DECK=trimixxx3 VERSION=1.0.1        # the bundle over ssh, rauc install, reboot, rauc status
+pi-qemu deck ship --host trimixxx3 --version 1.0.1   # the bundle over ssh, rauc install, reboot, rauc status
 ssh trimixxx3 sudo rauc status mark-active other && ssh trimixxx3 sudo reboot
 
 # a new deck: one physical flash
-make card DECK=trimixxx4                      # the release card with that deck's /data
+pi-qemu release card trimixxx4                # the release card with that deck's /data
 ```
 
 ---

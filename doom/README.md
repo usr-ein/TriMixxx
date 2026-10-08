@@ -161,9 +161,9 @@ is a one-shot, and cannot loop.
 ## Install
 
 ```sh
-./fetch-wad.sh          # downloads doom1.wad (shareware) into ./wad/
-./install.sh            # engine + WAD + launcher + configs, onto trimixxx-pi
-HOST=other ./install.sh # a different host
+./fetch-wad.sh                                # downloads doom1.wad (shareware) into ./wad/
+pi-qemu deck deploy --host trimixxx-pi doom   # engine + WAD + launcher + configs, onto trimixxx-pi
+pi-qemu deck deploy NAME doom                 # onto an emulated deck instead
 ```
 
 Then, from anywhere:
@@ -215,7 +215,7 @@ OPL is the authentic 1993 sound and needs no soundfont or extra packages.
 | File | What |
 | --- | --- |
 | `fetch-wad.sh` | downloads and verifies `doom1.wad` into `wad/` (gitignored) |
-| `install.sh` | engine + WAD + launcher + configs onto the Pi |
+| `../pi-qemu/deploy/007_doom.sh` | the `doom` deploy step: engine + WAD + launcher + configs onto the Pi |
 | `trimixxx-doom` | the wrapper `~/.xinitrc` runs; finds the WAD, sets SDL up, execs the engine |
 | `default.cfg` | Chocolate Doom's vanilla settings — **no `key_*` lines, on purpose** |
 | `chocolate-doom.cfg` | fullscreen, aspect, mouse grab, no joystick |

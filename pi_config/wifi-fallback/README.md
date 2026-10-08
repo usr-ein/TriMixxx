@@ -8,8 +8,8 @@ access point named after its hostname.
 | | |
 |---|---|
 | Network | the deck's hostname, e.g. `trimixxx2` |
-| Password | `trimixxx-debug-Kmj3Df` |
-| Radio | 2.4 GHz, one channel per deck, hardcoded in `install.sh`: Trimixxx1 6, trimixxx2 7, the next deck 8 |
+| Password | `trimixxx-debug-Kmj3Df`, every deck's, from `hotspot.env` |
+| Radio | 2.4 GHz, one channel per deck: `hotspotChannel` in its unit file (`mixxx_config/units/<deck>.json`), 6 without one. Trimixxx1 6, trimixxx2 7, trimixxx3 8; count up for the next deck |
 | The deck | `10.42.0.1`: `ssh sam1902@10.42.0.1`, or `ssh sam1902@trimixxx2.local` |
 
 Decided once per boot, and never undone: the deck does not go back to home
@@ -24,9 +24,13 @@ laptop on the CDJs' switch can ssh to it, since sshd listens on every interface.
   header). Writes what it decided to `/run/trimixxx/wifi`, for Diagnostics.
 - `trimixxx-wifi-fallback.service` — after NetworkManager; nothing waits for it,
   so a boot without home Wi-Fi is as fast as one with it.
-- `install.sh` — the script, the unit (enabled for the next boot, not started)
-  and the `trimixxx-hotspot` profile (`autoconnect=no`). Inert: it checks that
-  wlan0 and the default route are unchanged. Run by `../upload.sh`.
+- `hotspot.env` — the hotspot's password (`HOTSPOT_PASSWORD`), every deck's.
+
+The system deploy step (`pi-qemu/deploy/002_system.sh`) installs the script,
+the unit (enabled for the next boot, not started) and the `trimixxx-hotspot`
+profile (`autoconnect=no`), on the deck's channel and with the password from
+`hotspot.env`. Inert: the step checks that wlan0 and the default route are
+unchanged. A release card gets the same profile from `pi-qemu release card`.
 
 ## Trying it at home
 ```sh

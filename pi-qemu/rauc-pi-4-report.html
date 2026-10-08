@@ -717,7 +717,7 @@ figcaption b { font-family: var(--font-display); font-weight: 600; letter-spacin
             <tr><td class="k">CPU and RAM</td><td>Cortex-A72, 4 GB</td><td>Mac cores, 2 GB</td><td><span class="chip diff">differs</span></td></tr>
             <tr><td class="k">Screen</td><td>DSI panel through the GPU</td><td>Framebuffer, software rendering</td><td><span class="chip diff">differs</span></td></tr>
             <tr><td class="k">Network</td><td>Wi-Fi at home, eth0 for CDJs</td><td>A USB network adapter for ssh, eth0</td><td><span class="chip diff">differs</span></td></tr>
-            <tr><td class="k">Pulling the plug</td><td>Real power loss, real SD card behaviour</td><td><code>instance.sh ctl … power off</code>: the file keeps what was written</td><td><span class="chip diff">differs</span></td></tr>
+            <tr><td class="k">Pulling the plug</td><td>Real power loss, real SD card behaviour</td><td><code>pi-qemu deck power NAME off</code>: the file keeps what was written</td><td><span class="chip diff">differs</span></td></tr>
           </tbody>
         </table>
       </div>
@@ -739,7 +739,7 @@ figcaption b { font-family: var(--font-display); font-weight: 600; letter-spacin
       <h2 id="s7-h"><span class="h-num">7</span>How you work with it</h2>
       <figure>
         <div class="dia-wrap">
-          <svg class="dia" viewBox="0 0 960 352" role="img" aria-label="The workflow. From the repo, image/build.sh builds the system in QEMU. Day to day it goes to the writable dev deck, where instance.sh deploy changes it in seconds. From tagged commits only, make release seals and locks it, and genimage and rauc produce a signed update bundle and an 8-partition card image. The bundle is rehearsed on the emulated A/B deck, then on trimixxx3, then shipped to the decks over the air with make ship. The card image, with each deck's data added by make card, is flashed once with an SD card reader.">
+          <svg class="dia" viewBox="0 0 960 352" role="img" aria-label="The workflow. From the repo, pi-qemu image build builds the system in QEMU. Day to day it goes to the writable dev deck, where pi-qemu deck deploy changes it in seconds. From tagged commits only, pi-qemu release build seals and locks it, and genimage and rauc produce a signed update bundle and an 8-partition card image. The bundle is rehearsed on the emulated A/B deck, then on trimixxx3, then shipped to the decks over the air with pi-qemu deck ship. The card image, with each deck's data added by pi-qemu release card, is flashed once with an SD card reader.">
             <defs>
               <marker id="f7-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-ink"/></marker>
             </defs>
@@ -749,7 +749,7 @@ figcaption b { font-family: var(--font-display); font-weight: 600; letter-spacin
             <line class="ln" x1="166" y1="56" x2="211" y2="56" marker-end="url(#f7-ink)"/>
 
             <rect class="bx" x="214" y="30" width="180" height="52" rx="4"/>
-            <text class="tm tm-strong" x="304" y="52" text-anchor="middle">image/build.sh</text>
+            <text class="tm tm-strong" x="304" y="52" text-anchor="middle">pi-qemu image build</text>
             <text class="ts" x="304" y="71" text-anchor="middle">the system, built in QEMU</text>
             <line class="ln" x1="394" y1="56" x2="439" y2="56" marker-end="url(#f7-ink)"/>
 
@@ -757,14 +757,14 @@ figcaption b { font-family: var(--font-display); font-weight: 600; letter-spacin
             <text class="t" x="532" y="52" text-anchor="middle">Dev deck (emulated)</text>
             <text class="ts" x="532" y="71" text-anchor="middle">writable · 2 partitions</text>
             <path class="ln" d="M622,43 C672,43 672,69 625,69" marker-end="url(#f7-ink)"/>
-            <text class="tm" x="680" y="52">instance.sh deploy</text>
+            <text class="tm" x="680" y="52">pi-qemu deck deploy</text>
             <text class="ts" x="680" y="70">change, test, repeat · seconds</text>
 
             <line class="ln" x1="304" y1="82" x2="304" y2="149" marker-end="url(#f7-ink)"/>
             <text class="tl" x="314" y="120">tagged commits only</text>
 
             <rect class="bx-lock" x="214" y="152" width="180" height="72" rx="4"/>
-            <text class="tm tm-strong" x="304" y="180" text-anchor="middle">make release</text>
+            <text class="tm tm-strong" x="304" y="180" text-anchor="middle">pi-qemu release build</text>
             <text class="ts" x="304" y="200" text-anchor="middle">seal · lock · genimage · rauc</text>
             <line class="ln" x1="394" y1="176" x2="439" y2="158" marker-end="url(#f7-ink)"/>
             <line class="ln" x1="394" y1="200" x2="439" y2="222" marker-end="url(#f7-ink)"/>
@@ -785,45 +785,46 @@ figcaption b { font-family: var(--font-display); font-weight: 600; letter-spacin
             <text class="ts" x="822" y="196" text-anchor="middle">same commands · serial console</text>
             <line class="ln" x1="822" y1="204" x2="822" y2="221" marker-end="url(#f7-ink)"/>
             <rect class="bx-a" x="700" y="224" width="244" height="44" rx="4"/>
-            <text class="t2" x="822" y="243" text-anchor="middle">3 · The decks · make ship</text>
+            <text class="t2" x="822" y="243" text-anchor="middle">3 · The decks · deck ship</text>
             <text class="ts" x="822" y="260" text-anchor="middle">over the air: ssh, rauc install, reboot</text>
             <line class="ln" x1="622" y1="150" x2="697" y2="120" marker-end="url(#f7-ink)"/>
 
             <rect class="bx" x="700" y="292" width="244" height="44" rx="4"/>
             <text class="t2" x="822" y="311" text-anchor="middle">SD card, flashed once per deck</text>
-            <text class="ts" x="822" y="328" text-anchor="middle">make card adds that deck's /data</text>
+            <text class="ts" x="822" y="328" text-anchor="middle">release card adds that deck's /data</text>
             <line class="ln" x1="622" y1="236" x2="697" y2="310" marker-end="url(#f7-ink)"/>
           </svg>
         </div>
-        <figcaption><b>Figure 7</b>Two paths from one build. Day to day nothing changes: you edit, deploy to the writable emulated deck, try it. When you tag a version, <code>make release</code> turns that same system into a locked card image and a signed update bundle. The bundle then goes to the emulated A/B deck, trimixxx3 and the decks, in that order. The emulated A/B deck starts from the previous release's card image.</figcaption>
+        <figcaption><b>Figure 7</b>Two paths from one build. Day to day nothing changes: you edit, deploy to the writable emulated deck, try it. When you tag a version, <code>pi-qemu release build</code> turns that same system into a locked card image and a signed update bundle. The bundle then goes to the emulated A/B deck, trimixxx3 and the decks, in that order. The emulated A/B deck starts from the previous release's card image.</figcaption>
       </figure>
 
       <div class="cmds">
         <div class="cmd">
           <p class="label">Day to day, unchanged</p>
-<pre><code>pi-qemu/instance.sh up dev
-pi-qemu/instance.sh deploy dev mixxx    <span class="cm"># or config, system…</span></code></pre>
+<pre><code>pi-qemu deck up dev
+pi-qemu deck deploy dev mixxx    <span class="cm"># or config, system…</span></code></pre>
         </div>
         <div class="cmd">
           <p class="label">Make a release</p>
 <pre><code>git tag -m "TriMixxx 1.0.1" pi/v1.0.1
-make release    <span class="cm"># the tag's version: out/1.0.1/</span></code></pre>
+pi-qemu release build    <span class="cm"># the tag's version: out/1.0.1/</span></code></pre>
         </div>
         <div class="cmd">
           <p class="label">Rehearse on the emulated A/B deck</p>
-<pre><code>pi-qemu/instance.sh up ab --from out/1.0.0/trimixxx-1.0.0.img
-pi-qemu/instance.sh run ab -- make ship DECK=ab VERSION=1.0.1
-pi-qemu/instance.sh ssh ab rauc status</code></pre>
+<pre><code>pi-qemu release card trimixxx0 --version 1.0.0
+pi-qemu deck up ab --from out/1.0.0/trimixxx0-1.0.0.img
+pi-qemu deck ship ab --version 1.0.1
+pi-qemu deck ssh ab rauc status</code></pre>
         </div>
         <div class="cmd">
           <p class="label">Ship to a deck, or roll back</p>
-<pre><code>make ship DECK=trimixxx2 VERSION=1.0.1
+<pre><code>pi-qemu deck ship --host trimixxx2 --version 1.0.1
 <span class="cm"># = the bundle over ssh, rauc install, reboot</span>
 ssh trimixxx2 sudo rauc status mark-active other
 ssh trimixxx2 sudo reboot      <span class="cm"># rollback: a trial of the old slot</span></code></pre>
         </div>
       </div>
-      <p>A new deck needs one physical flash: <code>make card DECK=trimixxx4</code> writes its name, Wi-Fi and ssh keys into that card's <code>/data</code>, and you flash it with Raspberry Pi Imager. Every later version arrives over the air.</p>
+      <p>A new deck needs one physical flash: <code>pi-qemu release card trimixxx4</code> writes its name, Wi-Fi and ssh keys into that card's <code>/data</code>, and you flash it with Raspberry Pi Imager. Every later version arrives over the air.</p>
     </div>
   </section>
 
@@ -868,9 +869,9 @@ ssh trimixxx2 sudo reboot      <span class="cm"># rollback: a trial of the old s
             <tr><td class="k">Read-only system, RAM layer</td><td>SquashFS and Debian's <code>overlayroot</code></td><td><span class="chip std">standard</span></td><td>—</td></tr>
             <tr><td class="k">Restart on hangs and panics</td><td>Firmware and systemd watchdogs, kernel <code>panic=</code></td><td><span class="chip set">settings</span></td><td>—</td></tr>
             <tr><td class="k">Wi-Fi, ssh keys, the lock on <code>/data</code></td><td>Standard NetworkManager keyfiles and OpenSSH host keys, copied into RAM at start; an fstab mount</td><td><span class="chip set">settings</span></td><td>—</td></tr>
-            <tr><td class="k">Build the card and the bundle</td><td>genimage, mksquashfs, <code>rauc bundle</code></td><td><span class="chip set">config files</span></td><td>One <code>genimage.cfg</code>, one Dockerfile, one manifest, driven by <code>make release</code></td></tr>
+            <tr><td class="k">Build the card and the bundle</td><td>genimage, mksquashfs, <code>rauc bundle</code></td><td><span class="chip set">config files</span></td><td>One <code>genimage.cfg</code>, one Dockerfile, one manifest, driven by <code>pi-qemu release build</code></td></tr>
             <tr><td class="k">Connect RAUC to the Pi firmware</td><td><code>rpi-tryboot</code>, ~100 lines</td><td><span class="chip own">ours</span></td><td>RAUC 1.13 has no Pi firmware backend yet. Adapted from Rtone's script, in production on dozens of devices. Deleted when RAUC's own (in review, aimed at 1.17) ships</td></tr>
-            <tr><td class="k">Decide the deck is healthy</td><td>A systemd unit that calls <code>rauc status mark-good</code></td><td><span class="chip own">ours</span></td><td>RAUC's documented pattern; only the checks are ours, the ones <code>instance.sh ready</code> makes today</td></tr>
+            <tr><td class="k">Decide the deck is healthy</td><td>A systemd unit that calls <code>rauc status mark-good</code></td><td><span class="chip own">ours</span></td><td>RAUC's documented pattern; only its checks are ours: the deck is on a network, and sshd runs</td></tr>
             <tr><td class="k">Who this deck is</td><td>One small unit at start</td><td><span class="chip own">ours</span></td><td>Picking per-deck app config (name, wiring, accent) has no standard tool</td></tr>
             <tr><td class="k">A/B in the emulator</td><td>pi-qemu's firmware step, one QEMU patch</td><td><span class="chip own">ours</span></td><td>QEMU runs no Pi firmware; pi-qemu exists to be it</td></tr>
           </tbody>
@@ -888,8 +889,8 @@ ssh trimixxx2 sudo reboot      <span class="cm"># rollback: a trial of the old s
       <ol class="phases">
         <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">Firmware checks on trimixxx3</p><p class="state"><span class="chip same">done</span>2026-10-08</p><p>A test card with the release's layout settled every firmware fact on 2026-10-08: the <code>[boot_partition=N]</code> filter, tryboot, power-off, a broken <code>autoboot.txt</code>, the watchdog. The decks need a current bootloader first.</p><p class="done"><b>Done when</b>each one has a measured answer.</p></li>
         <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">Tryboot in pi-qemu</p><p class="state"><span class="chip same">done</span>2026-10-08</p><p>The QEMU patch for the trial flag; firmware-step filters, tryboot, <code>/chosen/bootloader</code>, the boot partition and watchdog rules as measured, cards of any size.</p><p class="done"><b>Done when</b>the phase 1 card behaves the same in pi-qemu as on trimixxx3.</p></li>
-        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">A locked card</p><p class="state"><span class="chip same">done</span>2026-10-08</p><p>The read-only system (overlayroot, initramfs modules), the <code>/data</code> and state mounts, the identity unit; <code>make release</code> builds the card with genimage in Docker.</p><p class="done"><b>Done when</b>a tag gives a card that boots locked in QEMU, and the RAM layer is measured over a set.</p></li>
-        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">RAUC on the deck</p><p class="state"><span class="chip same">done</span>2026-10-08: the fault table passes in QEMU</p><p>The signing key, <code>system.conf</code>, the backend, the health check; <code>make release</code> adds the bundle, <code>make ship</code> sends it.</p><p class="done"><b>Done when</b>the whole fault table passes in QEMU.</p></li>
+        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">A locked card</p><p class="state"><span class="chip same">done</span>2026-10-08</p><p>The read-only system (overlayroot, initramfs modules), the <code>/data</code> and state mounts, the identity unit; <code>pi-qemu release build</code> makes the card with genimage in Docker.</p><p class="done"><b>Done when</b>a tag gives a card that boots locked in QEMU, and the RAM layer is measured over a set.</p></li>
+        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">RAUC on the deck</p><p class="state"><span class="chip same">done</span>2026-10-08: the fault table passes in QEMU</p><p>The signing key, <code>system.conf</code>, the backend, the health check; <code>release build</code> adds the bundle, <code>deck ship</code> sends it.</p><p class="done"><b>Done when</b>the whole fault table passes in QEMU.</p></li>
         <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">trimixxx3 end to end</p><p class="state"><span class="chip same">done</span>2026-10-08: the fault table passes on hardware</p><p>Its card, flashed once; two releases shipped over the air.</p><p class="done"><b>Done when</b>the fault table passes on hardware.</p></li>
         <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">The decks</p><p class="state"><span class="chip set">ready</span>each deck prepared from its current system, then reflashed</p><p>Bootloader updated, backed up, reflashed once each.</p><p class="done"><b>Done when</b>every deck has taken a release over the air.</p></li>
       </ol>

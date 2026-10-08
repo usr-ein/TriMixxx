@@ -1,48 +1,41 @@
 ---
 name: trimixxx0
-description: Run your own emulated TriMixxx deck (trimixxx0, a Raspberry Pi 4 under QEMU) to test deck software without the hardware - up in ~4 s from a snapshot, screenshots of its screen (headless), buttons/jog/encoder/fader over the virtual S3, LEDs, ssh, Mixxx's logs, and deploying your own Mixxx build, Mixxx config/skin/mapping, pi_config or launcher changes onto it. Use whenever a change to mixxx/, mixxx_config/, pi_config/, trimixxx-launcher/, ttymidi or the S3 MIDI contract should be checked on a running deck. Many agents can each run their own at once.
+description: Run your own emulated TriMixxx deck (trimixxx0, a Raspberry Pi 4 under QEMU) with `pi-qemu deck` to test deck software without the hardware - up in ~3 s from a snapshot, screenshots of its screen (headless), buttons/jog/encoder/fader over the virtual S3, touches, LEDs, Mixxx's recorder, ssh, Mixxx's logs, and deploying your own Mixxx build, Mixxx config/skin/mapping, pi_config or launcher changes onto it with the numbered deploy steps. Use whenever a change to mixxx/, mixxx_config/, pi_config/, trimixxx-launcher/, ttymidi, pi-qemu/deploy/ or the S3 MIDI contract should be checked on a running deck. Many agents can each run their own at once.
 ---
 
 # trimixxx0: your own emulated deck
 
-`pi-qemu/instance.sh` gives you a deck of your own: its own copy of the card,
-ssh port, ssh alias and control socket. It is headless and silent. **It
-starts in about 4 s** from a snapshot, already booted with Mixxx running.
-A cold boot takes about 5 s, Mixxx about 1 s more. Other agents may be
-running theirs at the same time, and the person at the laptop may be running
-their own deck (port 2222, with windows). Yours touches neither.
+`pi-qemu deck` gives you a deck of your own: its own copy of the card, ssh
+port, ssh alias and control socket. It is headless and silent. **It starts in
+about 3 s** from a snapshot, already booted with Mixxx running; a cold boot
+takes about 7 s. Other agents may be running theirs at the same time, and the
+person at the laptop may be running their own (with windows). Yours touches
+none of them.
 
-`instance.sh` is a thin layer over plain commands; its header documents the
-command behind each subcommand. For anything not covered here (running a
-deck by hand, snapshots, the image build, USB sticks, troubleshooting), read
-`pi-qemu/README.md`. Where the README shows a bare `pi-qemu COMMAND`, you use
-`pi-qemu/instance.sh ctl NAME COMMAND`.
+`pi-qemu` is the one tool for decks (`pi-qemu help`, `pi-qemu deck`,
+`pi-qemu deck VERB --help`). Every verb names its deck: your instance's NAME,
+or `--host ALIAS` for a real deck. There is no default deck. For anything
+not covered here (running a card of your own, USB sticks, troubleshooting),
+read `pi-qemu/README.md`.
 
-Run everything from the root of your checkout (or worktree), with
-**that checkout's** `pi-qemu/instance.sh`. It deploys the code next to it,
-and finds the built QEMU and cards in the main checkout by itself. In a git
-worktree, read "Working from a git worktree" below first.
+Run it from your checkout (or worktree): pi-qemu deploys the code of the
+checkout it runs in, and finds the built QEMU and the golden card in the main
+checkout by itself. In a git worktree, read "Working from a git worktree"
+below first.
 
 ## Rules
 
 1. **Pick one NAME and only ever touch that instance.** Make it unique to
    your task, e.g. `fix-sync-meter`.
    - Never `pkill` qemu, pi-qemu or docker.
-   - Never `instance.sh rm|kill|stop|down` a NAME you did not create.
-   - Never run `instance.sh golden` or `pi-qemu/image/build.sh` unless asked:
-     they replace the shared golden card.
-2. **Never reach a deck except through `instance.sh`.**
-   - No bare `pi-qemu COMMAND`: without `PI_QEMU_CONTROL` it drives the
-     person's own deck.
-   - No upload script run directly (`mixxx/upload.sh`, `mixxx_config/upload.sh`,
-     `pi_config/upload.sh` and the rest): without `HOST` they default to
-     `trimixxx-pi`, a **real deck**. Your shell's state does not carry
-     between tool calls, and in zsh `$HOST` is the Mac itself. Use
-     `instance.sh deploy` or `instance.sh run`, which set everything inside
-     one process.
-3. **No sound on the Mac, ever.** Never pass `--audio speakers`. To check audio,
-   record it to a WAV file and analyse the file (see below).
-4. **Reuse, do not restart.** `instance.sh up NAME` on a running instance only
+   - Never `deck rm|kill|stop|down` a NAME you did not create.
+   - Never `deck golden` or `image build trimixxx0` unless asked: they
+     replace the golden pair everyone's instances start from.
+2. **Never `--host` a real deck** (`trimixxx-pi`, `trimixxx-pi-2`,
+   `trimixxx2`, ...) unless the person asked you to, for that deck.
+3. **No sound on the Mac, ever.** Never pass `--audio speakers`. To check
+   audio, record it to a WAV file and analyse the file (see below).
+4. **Reuse, do not restart.** `deck up NAME` on a running instance only
    reports it, so call it at the start of every step. To change how it runs
    (`--fresh`, `--boot`, `-- --audio ...`), `rm` it first: on a running
    instance `up` refuses options rather than ignore them.
@@ -51,8 +44,8 @@ worktree, read "Working from a git worktree" below first.
 ## Start (or reuse) your deck
 
 ```sh
-pi-qemu/instance.sh list                     # "no instances", or what runs (yours may already)
-pi-qemu/instance.sh up NAME                  # ~4 s from the golden snapshot; reports it if running
+pi-qemu deck list                    # "no instances", or what runs (yours may already)
+pi-qemu deck up NAME                 # ~3 s from the golden snapshot; reports it if running
 ```
 
 The instance lives in `~/.pi-qemu/instances/NAME/`. Each one needs 2 GB of
@@ -60,29 +53,29 @@ RAM; if `list` already shows about 4 running, ask before starting another.
 
 - `up NAME --fresh`: start again from the golden snapshot; your card's
   changes are lost.
-- `up NAME --boot`: boot instead of restoring (~5 s), e.g. to test the boot
-  itself. Then `ready NAME`.
-- `stop NAME`: suspend (~9 s; leaves a ~1 GB snapshot until the next `up`,
-  which resumes it in ~3 s on a new ssh port; `instance.sh ssh` follows it).
+- `up NAME --boot`: boot instead of restoring (~7 s), e.g. to test the boot
+  itself. Then `deck ready NAME`.
+- `up NAME --from CARD`: boot a card of your own (a clone of it), e.g. a
+  release card.
+- `stop NAME`: suspend (~5 s; leaves a ~1 GB snapshot until the next `up`,
+  which resumes it in ~3 s, on a new ssh port that `deck ssh` follows).
 - `up NAME --window`: also shows its screen and panel on the Mac, but only
   when the person wants to watch.
 
 ## Look at it
 
 ```sh
-pi-qemu/instance.sh shot NAME "$TMPDIR/NAME-1.png"   # the 1280x800 screen, headless; Read the PNG
-pi-qemu/instance.sh ctl NAME leds            # the S3's LEDs as JSON: play, cue, loopIn/Out, ringA/ringB pads
-pi-qemu/instance.sh ctl NAME status          # Pi running, S3 link, ssh port, run dir
-pi-qemu/instance.sh ssh NAME 'tail -50 /tmp/mixxx/mixxx.log'   # Mixxx (also /tmp/mixxx/stderr.log; .1 = previous run)
-pi-qemu/instance.sh ssh NAME 'journalctl -b -u trimixxx-launchd -n 50'
+pi-qemu deck shot NAME "$TMPDIR/NAME-1.png"   # the 1280x800 screen, headless; Read the PNG
+pi-qemu deck leds NAME                        # the S3's LEDs as JSON: play, cue, loopIn/Out, ringA/ringB
+pi-qemu deck status NAME                      # Pi running, S3 link, ssh port, run dir
+pi-qemu deck ssh NAME 'tail -50 /tmp/mixxx/mixxx.log'   # Mixxx (also stderr.log; .1 = previous run)
+pi-qemu deck ssh NAME 'journalctl -b -u trimixxx-launchd -n 50'
 ```
 
 Put screenshots in a temp or scratch directory, not in the repo. Take one
 after anything you expect to change the screen, and look at it before you
-conclude.
-
-The deck's clock is UK time (Europe/London), which may differ from the Mac's;
-mind the offset when matching the deck's logs with output on the Mac.
+conclude. The deck's clock is UK time (Europe/London), which may differ from
+the Mac's: mind the offset when matching its logs with output on the Mac.
 
 ## Poke it like a DJ
 
@@ -90,101 +83,117 @@ These go through the virtual S3 as MIDI on the Pi's UART, exactly as the real
 board sends them, on trimixxx0's wiring (`mixxx_config/units/trimixxx0.json`):
 
 ```sh
-pi-qemu/instance.sh ctl NAME press play               # press+release, 80 ms; `press cue 600` holds
-pi-qemu/instance.sh ctl NAME down cue                 # ... `up cue` releases
-pi-qemu/instance.sh ctl NAME jog 3240                 # +clockwise, 12960 ticks per turn
-pi-qemu/instance.sh ctl NAME touch on                 # platter touch (scratch); `touch off`
-pi-qemu/instance.sh ctl NAME browse -2                # the track encoder, + is up
-pi-qemu/instance.sh ctl NAME press push               # encoder push: opens the library, then activates the selection
-pi-qemu/instance.sh ctl NAME tempo 8192               # fader 0..16383, 8192 = centre
-pi-qemu/instance.sh ctl NAME midi 90 3C 7F            # raw bytes, for anything else
-pi-qemu/instance.sh ctl NAME stick insert SAM3        # a rekordbox USB stick image (read-only); `stick list`
+pi-qemu deck press NAME play              # press+release, 80 ms; `press NAME cue 600` holds
+pi-qemu deck down NAME cue                # ... `deck up NAME cue` releases
+pi-qemu deck jog NAME 3240                # +clockwise, 12960 ticks per turn
+pi-qemu deck touch NAME on                # platter touch (scratch); `touch NAME off`
+pi-qemu deck browse NAME -2               # the track encoder, + is up
+pi-qemu deck press NAME push              # encoder push: opens the library, then activates the selection
+pi-qemu deck tempo NAME center            # fader 0..16383, 8192 (center) the middle
+pi-qemu deck midi NAME 90 3C 7F           # raw bytes, for anything else
+pi-qemu deck stick NAME insert SAM3       # a rekordbox USB stick image (read-only); `stick NAME list`
 ```
 
 Controls: `tempo-range keylock loop8 loop4 loop-double loop-halve back hotcue1
 hotcue2 hotcue3 hotcue4 slip sort play cue loop-in loop-out reloop push
 jog-touch`. The S3's MIDI contract is `firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp`.
 
-- **Load a track:** `stick insert SAM3`, `press push`, then browse and push
-  until it loads, with a screenshot between steps. With no track loaded, most
-  presses change nothing visible.
+The touchscreen, with xdotool on the deck's X display (a faithful touch: Qt
+gets its taps as pointer events; a hover it cannot make, by design):
+
+```sh
+pi-qemu deck tap NAME 130 331             # a fingertip on that pixel
+pi-qemu deck longpress NAME 500 300       # held 800 ms, past the long press
+pi-qemu deck swipe NAME 100 300 700 300   # left to right: BACK
+pi-qemu deck flick NAME 500 500 500 200   # a kinetic scroll
+pi-qemu deck key NAME Down Return         # X key events
+pi-qemu deck where NAME                   # the pointer's position
+```
+
+- **Load a track:** `stick NAME insert SAM3`, `press NAME push`, then browse
+  and push until it loads, with a screenshot between steps. With no track
+  loaded, most presses change nothing visible.
 - **Check that bytes reached the Pi:**
-  `instance.sh ssh NAME 'sudo grep ^0: /proc/tty/driver/ttyAMA'`.
+  `pi-qemu deck ssh NAME 'sudo grep ^0: /proc/tty/driver/ttyAMA'`.
   - `rx:` counts what the S3 sent. It grows by 6 per `press` (note on and
     note off), 3 per `down`, `up`, `touch` or `browse` step, 6 per `tempo`,
-    and 3 per 63 ticks of `jog`. `jog` answers before its bytes are sent.
+    and 3 per 63 ticks of `jog`.
   - `tx:` is what Mixxx sent back to the S3 (the LEDs). It growing after a
     press shows Mixxx handled it.
 
 ## Deploy your own code onto it
 
 ```sh
-pi-qemu/instance.sh deploy NAME config       # mixxx_config: mapping, scripts, skin, fonts, mixxx.cfg (~10 s)
-pi-qemu/instance.sh deploy NAME mixxx        # the Mixxx fork: Docker arm64 build, swaps /usr/bin/mixxx
-pi-qemu/instance.sh deploy NAME system       # pi_config/upload.sh: units, session, splash, eth0, ...
-pi-qemu/instance.sh deploy NAME launcher     # trimixxx-launcher
-pi-qemu/instance.sh deploy NAME ttymidi      # the serial<->MIDI bridge
-pi-qemu/instance.sh run NAME -- some/script.sh   # anything else that uses HOST + plain ssh/scp
+pi-qemu deck deploy NAME config     # 005: mixxx_config: mapping, scripts, skin, fonts, mixxx.cfg (~10 s)
+pi-qemu deck deploy NAME mixxx      # 004: the Mixxx fork: Docker arm64 build, swaps /usr/bin/mixxx
+pi-qemu deck deploy NAME system     # 002: pi_config: units, session, splash, eth0, hotspot, dj-usb
+pi-qemu deck deploy NAME launcher   # 003: trimixxx-launcher
+pi-qemu deck deploy NAME ttymidi    # 001: the serial<->MIDI bridge
+pi-qemu deck deploy NAME            # every step, in number order
 ```
 
-`deploy` runs your checkout's `pi-qemu/deploy.sh` against the instance (the
-same steps a real deck gets). Where a step restarts Mixxx, or the MIDI bridge
-(after which `deploy.sh` restarts the session, since Mixxx only opens the
-S3's port at start), it waits until Mixxx is ready and prints
-`NAME: Mixxx is ready (sound open, the S3 connected; pid N)`. That means
-Mixxx is running with its sound output and the deck's controller open, not
-that a track plays. A new pid is the proof Mixxx restarted, and a
-screenshot is meaningful straight away. `pi-qemu/instance.sh ready NAME`
+The steps are `pi-qemu/deploy/NNN_name.sh` (on the Mac, reaching the deck as
+`ssh deck`) and `NNN_name.pi.sh` (on the deck, as root); `lib.sh` there has
+their contract. Name a step as `mixxx`, `004` or `004_mixxx`. A new step is
+a new number. A step that changed the boot flags has the deck reboot before
+the next one; one that restarted the MIDI bridge or the launcher has the
+session restarted at the end (Mixxx only opens their ports at start). After
+a session restart `deploy` waits until Mixxx is ready and says
+`NAME: Mixxx is ready (sound open, the S3 connected)`. That means Mixxx is
+running with its sound output and the deck's controller open, not that a
+track plays; a screenshot is meaningful straight away. `deck ready NAME`
 checks the same on its own.
 
 Typical times: `config` ~10 s, `system` ~20 s, `mixxx` ~45 s for a changed
 file or two (~75 s the first time in a worktree), plus any wait behind
-another agent's Mixxx build.
+another agent's Mixxx build. `ttymidi`, `launcher` and `mixxx` leave the deck
+alone when their new binary is the same as the deck's.
 
-`mixxx`, `launcher`, `ttymidi` and `doom` build in Docker. `deploy` stops
-early if Docker's disk has less than 4 GB free. Freeing it is the person's
-call: tell them, do not prune.
+`ttymidi`, `launcher` and `mixxx` build in Docker. `deploy` stops early if
+Docker's disk has less than 6 GB free. Freeing it is the person's call: tell
+them, do not prune.
 
-Mixxx builds go by content: each checkout's build tree keeps its own copy
-of the sources, and a build recompiles exactly the files whose content
-changed since that tree's last build (`deploy`'s output says how many:
+Mixxx builds go by content: each checkout's build tree keeps its own copy of
+the sources, and a build recompiles exactly the files whose content changed
+since that tree's last build (`deploy`'s output says how many:
 `tree-sync: N change(s)`). File timestamps, git checkouts and other agents'
 builds do not affect it.
+
+For a shell or script of your own that uses plain `ssh`/`scp`:
+`eval "$(pi-qemu deck env NAME)"` makes `ssh NAME` and `ssh deck` reach it.
 
 ## Working from a git worktree
 
 Agents usually work in their own git worktree (the root `CLAUDE.md` has the
 whole workflow). For the deck:
 
-1. **`pi-qemu/worktree.sh prepare`** first. A new worktree's submodules
-   (`mixxx/`, its `lib/prolink`, `mixxx_config/ttymidi`) are empty directories.
-   `prepare` makes them linked worktrees of the main checkout's repositories,
-   in seconds, without downloading anything. `deploy` runs it by itself for
-   `mixxx` and `ttymidi`, but you need it before editing Mixxx. Never
+1. **`pi-qemu worktree prepare`** first. A new worktree's submodules
+   (`mixxx/`, its `lib/prolink`, `mixxx_config/ttymidi`) are empty
+   directories. `prepare` makes them linked worktrees of the main checkout's
+   repositories, in seconds, without downloading anything. `deploy` runs it
+   by itself, but you need it before editing Mixxx. Never
    `git submodule update`: its clones die with the worktree, and any commits
    in them with it.
 2. **Changing Mixxx:** `git -C mixxx switch -c NAME` before committing there.
    The branch and its commits are then in the main checkout's `mixxx/` too.
    Commit the bump in this repo as well (`git add mixxx`).
-3. **`deploy NAME mixxx`** builds *your worktree's* Mixxx in its own Docker
-   build tree, then swaps it onto your deck.
+3. **`deck deploy NAME mixxx`** builds *your worktree's* Mixxx in its own
+   Docker build tree, then swaps it onto your deck.
    - The first build in a worktree starts from a copy of the main checkout's
      tree and recompiles only what differs (~75 s in all).
-   - After that, each build recompiles only what changed, by content
-     (~45 s; file timestamps don't matter).
+   - After that, each build recompiles only what changed, by content (~45 s).
    - Mixxx builds queue: one compiles at a time across all agents, which
      keeps Docker's memory in bounds.
 4. **Changing the S3's MIDI table** (`firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp`)
    **or pi-qemu itself:** the virtual S3 is compiled into pi-qemu, so build
-   your own and point `instance.sh` at it:
-   `pi-qemu/app/build.sh && export PI_QEMU_BIN=$PWD/pi-qemu/app/build/pi-qemu`,
-   in the same shell command as the `instance.sh` calls that should use it.
-   Then `rm` and `up` your deck so it runs on it.
+   your own, `pi-qemu/build.sh app`, and run it by its path,
+   `pi-qemu/app/build/pi-qemu deck ...`, for every call that should use it.
+   Then `deck rm` and `deck up` your deck so it runs on it.
 
 ## When ssh does not answer
 
 ```sh
-pi-qemu/instance.sh console NAME 'systemctl --failed' 'ip -br a' 'dmesg | tail -30'   # serial console login
+pi-qemu deck console NAME 'systemctl --failed' 'ip -br a' 'dmesg | tail -30'   # the serial console
 ```
 
 `~/.pi-qemu/instances/NAME/card.run/console.log` has the boot from the first
@@ -197,40 +206,44 @@ longer reaches it. Do what the message says: restart the session
 
 ## Check audio without sound
 
+Mixxx's own recording of its main mix, fetched to the Mac:
+
 ```sh
-pi-qemu/instance.sh up NAME -- --audio "wav:$TMPDIR/NAME.wav"   # a new instance (rm an old one first)
-# ... make the deck play, then analyse the file; it is valid at any moment
+pi-qemu deck record NAME 10 "$TMPDIR/NAME.wav"   # 10 s; make the deck play first
 ```
 
-The WAV is 16-bit stereo at 44.1 kHz, recorded from the start, silence
-included. Python's `wave` module reads it. Measure the peak, the length of
-the loud part, and the frequency from zero crossings.
+Or everything the deck's sound card plays, from QEMU, for a new instance
+(`rm` an old one first): `pi-qemu deck up NAME -- --audio "wav:$TMPDIR/NAME.wav"`;
+the file is valid at any moment.
+
+The WAVs are 16-bit stereo at 44.1 kHz. Python's `wave` module reads them.
+Measure the peak, the length of the loud part, and the frequency from zero
+crossings.
 
 A tone without Mixxx:
-`instance.sh ssh NAME 'sudo systemctl stop getty@tty1; timeout 3 speaker-test -D plughw:0,0 -c 1 -r 44100 -t sine -f 440'`.
+`pi-qemu deck ssh NAME 'sudo systemctl stop getty@tty1; timeout 3 speaker-test -D plughw:0,0 -c 1 -r 44100 -t sine -f 440'`.
 - `-c 1`: one tone on both channels at once (`-c 2` plays left, then right).
 - Exit code 124 is `timeout` ending it, which is normal.
 - Stopping the session takes ~5 s. Afterwards bring Mixxx back with
-  `instance.sh ssh NAME 'sudo systemctl start getty@tty1'`, then
-  `instance.sh ready NAME`.
+  `pi-qemu deck ssh NAME 'sudo systemctl start getty@tty1'`, then
+  `pi-qemu deck ready NAME`.
 
 ## Before you finish
 
 Every time you end your work, whether it succeeded, failed or stopped part way:
 
-1. Run `pi-qemu/instance.sh list`.
+1. Run `pi-qemu deck list`.
 2. For each instance **you** started:
-   - **Remove it** (`pi-qemu/instance.sh rm NAME`) when nobody needs to look
-     at it.
+   - **Remove it** (`pi-qemu deck rm NAME`) when nobody needs to look at it.
    - **Or keep it, and say so in your final message:** its name, whether it
      is still running or suspended, and the exact command to remove it.
-     `instance.sh stop NAME` suspends one you will come back to; that costs
+     `pi-qemu deck stop NAME` suspends one you will come back to; that costs
      disk, not RAM, and `up` resumes it in ~3 s.
-3. Working in a git worktree that is going away: **`pi-qemu/worktree.sh release`**.
+3. Working in a git worktree that is going away: **`pi-qemu worktree release`**.
    It gives back the worktree's Docker build tree (~4 GB) and its submodule
    checkouts. It refuses while they hold uncommitted work, or commits that no
    branch has. Leave the worktree in place if the person may still want it,
    and say so.
 4. Your final message always ends with a line like
    `Emulated decks: removed fix-sync-meter.` or
-   `Emulated decks: fix-sync-meter still running - pi-qemu/instance.sh rm fix-sync-meter when done.`
+   `Emulated decks: fix-sync-meter still running - pi-qemu deck rm fix-sync-meter when done.`

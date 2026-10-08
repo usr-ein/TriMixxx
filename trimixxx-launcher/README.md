@@ -304,16 +304,19 @@ control charts.
 ## Install
 
 ```bash
-make install-remote          # docker-arm + scp + enable/restart the service
+pi-qemu deck deploy TARGET launcher   # docker-arm + scp + enable/restart the service
 ```
 
+TARGET is an emulated deck's name, or `--host ALIAS` for a real one. The step is
+[`../pi-qemu/deploy/003_launcher.sh`](../pi-qemu/deploy/003_launcher.sh).
 This also **removes the old `pi-midi-daemon` service** if it is still installed —
 two daemons fighting over the same virtual port name would be a confusing way to
 spend an evening.
 
 The session side (`~/.bash_profile`, `~/.xinitrc`, the debug console stub) is
-installed by [`../pi_config/upload.sh`](../pi_config); Doom itself by
-[`../doom/install.sh`](../doom).
+installed by the `system` deploy step
+([`../pi-qemu/deploy/002_system.sh`](../pi-qemu/deploy/002_system.sh)); Doom
+itself by the `doom` step (see [`../doom`](../doom)).
 
 The unit is ordered `Before=getty@tty1.service` and holds it back through two
 gates: the ALSA port really existing, and the mode having been chosen. The first

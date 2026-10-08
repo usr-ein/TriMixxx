@@ -14,6 +14,22 @@ updates through the whole fault table on the emulated deck (§5.4), and the
 same on trimixxx3 (§6). Phase 6, the decks, is Sam's, and ready: its
 steps, and the tools built for them, are in §7.
 
+**The tools changed after phase 5 (2026-10-08):** every script was folded
+into `pi-qemu` itself, the one tool for decks emulated and real
+(`README.md`). The phase records below (§2 to §6) keep the names of their
+time; the instructions (§1, §7) use today's:
+
+| In the records | Today |
+|---|---|
+| `instance.sh up/ssh/shot/deploy/ready/console/kill NAME`, `instance.sh ctl NAME CMD` | `pi-qemu deck up/ssh/shot/deploy/ready/console/kill NAME`, `pi-qemu deck CMD NAME` |
+| `instance.sh run NAME -- make ship DECK=NAME` | `pi-qemu deck ship NAME` |
+| `image/build.sh DECK`, `qemu/build.sh`, `app/build.sh` | `pi-qemu image build DECK`, `pi-qemu/build.sh` |
+| `make release`, `make card DECK=x`, `make ship DECK=x`, `make faults` | `pi-qemu release build`, `release card x`, `deck ship --host x`, `release faults` |
+| `make phase1`, `release/phase1/` | gone; git history keeps them |
+| `deploy.sh HOST STEP`, `deploy/base.sh`, the components' `upload.sh` | `pi-qemu deck deploy --host HOST STEP`, `deploy/000_base.pi.sh`, the numbered deploy steps |
+| `release/prepare-deck.sh DECK HOST [--eeprom]` | `pi-qemu deck prepare --host HOST DECK [--eeprom]` |
+| `worktree.sh prepare/release` | `pi-qemu worktree prepare/release` |
+
 | Read | For |
 |---|---|
 | this file, Part 1 | **what to do, in order**: tasks, files, tests, stop points |
@@ -32,11 +48,10 @@ steps, and the tools built for them, are in §7.
 
 They come from the repo's `CLAUDE.md` and the `trimixxx0` skill:
 
-- **Work from a git worktree.** Run `pi-qemu/worktree.sh prepare` first, and
-  `pi-qemu/worktree.sh release` at the end.
-- **Reach emulated decks only through `pi-qemu/instance.sh`**, under a name of
-  your own. Never a bare `pi-qemu COMMAND`, and never an upload script on its
-  own: without `HOST` they default to a real deck.
+- **Work from a git worktree.** Run `pi-qemu worktree prepare` first, and
+  `pi-qemu worktree release` at the end.
+- **Use emulated decks of your own** (`pi-qemu deck up NAME`), under a name
+  of your own. Every verb names its deck; a real one only by `--host ALIAS`.
 - **Real decks are off limits until phase 6:** `trimixxx-pi` (trimixxx1),
   `trimixxx-pi-2` / `trimixxx2`.
   - trimixxx3 is Sam's bench Pi. It's fine to use from phase 1 on.
@@ -44,10 +59,11 @@ They come from the repo's `CLAUDE.md` and the `trimixxx0` skill:
   is committed there first, then bumped here. Never `git add -A`.
 - **On MBP-NJ** (Sam's Mac), the emulated decks trust
   `~/.ssh/with_pass/rsa_sam`:
-  - prefix `SSH_KEY=$HOME/.ssh/with_pass/rsa_sam` to `instance.sh up` and
-    `image/build.sh`;
+  - pi-qemu takes it by itself when there is no `~/.ssh/no_pass/rsa_sam`
+    (`SSH_KEY=` overrides);
   - run `ssh-add -l` first. ssh-agent forgets the key at every reboot, and
-    only Sam can load it again (it needs his passphrase).
+    only Sam can load it again (it needs his passphrase); pi-qemu stops at
+    once if it is not loaded.
 - **Record what you learn.**
   - Results go into this file, in the phase's results table.
   - Answers to points marked **unverified** go into `rauc-pi-4-setup.md`.
@@ -61,7 +77,7 @@ They come from the repo's `CLAUDE.md` and the `trimixxx0` skill:
 | Flashing an SD card | Needs `sudo` (or Raspberry Pi Imager) and Sam's hands. Name the disk with `diskutil list external` and have Sam confirm it; never guess |
 | Any hands-on step | Inserting a card, cabling, power-cycling trimixxx3 |
 | Changing a board's EEPROM (`rpi-eeprom-update`, `rpi-eeprom-config --apply`) | Persistent hardware state |
-| Replacing the shared golden snapshot (`instance.sh golden`), or rebuilding `.cache/build/trimixxx0.img` | Every agent's emulated deck starts from them |
+| Replacing the shared golden snapshot (`pi-qemu deck golden`), or rebuilding `.cache/build/trimixxx0.img` (`pi-qemu image build trimixxx0`) | Every agent's emulated deck starts from them |
 | A hang test on the **committed** slot (phase 1, T9) | It can loop the Pi until the card is fixed on the Mac |
 | Anything on a real deck, and phase 6 as a whole | Gig equipment |
 | Pushing | Each phase once it's done, then go on (Sam, 2026-10-08) |
@@ -145,16 +161,15 @@ These paths are proposals; keep them unless there's a reason not to.
 
 | Path | What |
 |---|---|
-| `pi-qemu/release/Dockerfile` | debian:trixie with genimage, rauc, squashfs-tools, dosfstools, mtools, e2fsprogs, fdisk, zstd, xz-utils, openssl, make. **Built** |
-| `pi-qemu/release/genimage-phase1.cfg`, `pi-qemu/release/phase1/` | phase 1's test card, and its files. **Built** |
+| `pi-qemu/release/Dockerfile` | debian:trixie with genimage, rauc, squashfs-tools, dosfstools, mtools, e2fsprogs, fdisk, zstd, xz-utils, openssl. **Built** |
 | `pi-qemu/release/genimage.cfg` | the release card, and the boot, bootsel, data and state images |
-| `pi-qemu/release/boot/` | `autoboot.txt` (**built**, shared with phase 1), `config-release.txt` (the additions), `cmdline-a.txt.in`, `cmdline-b.txt.in` |
+| `pi-qemu/release/boot/` | `autoboot.txt` (**built**), `config-release.txt` (the additions), `cmdline.txt.in` (both slots') |
 | `pi-qemu/release/exclude.txt` | the seal: what a release leaves out of the system |
 | `pi-qemu/release/manifest.raucm.in` | the bundle manifest |
-| `pi-qemu/release/Makefile` | `phase1`, `release`, `card`, `ship`, `faults` (**built**); run as `make -C pi-qemu/release …` (`make release` in the docs). Each target builds the container, then runs again inside it |
+| `pi-qemu release build/card/faults`, `pi-qemu deck ship` | the Mac's half in `pi-qemu/app/src/pipeline/` (`release`, `identity`, `ship`); the container's in `pi-qemu/release/container.sh` (`seal`, `card`, `faults`). **Built** |
 | `pi-qemu/release/signing-key.pem` | the key that signs bundles, public on purpose (§5.1) |
 | `pi-qemu/release/boot/deck-sections.py` | each deck's `[0x<serial>]` section of the release's `config.txt`, from `mixxx_config/units/*.json` |
-| `pi-qemu/release/prepare-deck.sh` | readies a deck for its first card from its current system: serial, host keys, bootloader (§7) |
+| `pi-qemu deck prepare` | readies a deck for its first card from its current system: serial, host keys, bootloader (§7); `pipeline/prepare` |
 | `mixxx_config/units/trimixxx3.json` | the bench Pi's unit: its serial and hotspot channel |
 | `pi-qemu/release/out/<v>/` | outputs, gitignored: `trimixxx-<v>.img`, `trimixxx-<v>.raucb`, `manifest.txt` |
 | `pi-qemu/.cache/decks/<deck>/` | per-deck secrets, gitignored: `trimixxx.conf`, `NetworkManager/`, `ssh/` |
@@ -162,10 +177,10 @@ These paths are proposals; keep them unless there's a reason not to.
 | `pi_config/trimixxx-health.service`, `pi_config/trimixxx-health` | the health unit and its checks |
 | `pi_config/trimixxx-identity.service`, `pi_config/trimixxx-identity` | the identity unit |
 | `pi_config/eth0-link-local.nmconnection` | eth0's profile on every deck, replacing cloud-init's netplan one (phase 3); phase 1's card already uses it |
-| `pi-qemu/deploy/base.sh` | installs `overlayroot`, `rauc` and `rauc-service`; adds the initramfs modules |
-| `pi-qemu/app/src/firmware.{h,cpp}`, `machine.{h,cpp}` | tryboot in pi-qemu |
+| `pi-qemu/deploy/000_base.pi.sh` | installs `overlayroot`, `rauc` and `rauc-service`; adds the initramfs modules |
+| `pi-qemu/app/src/board/firmware.{h,cpp}`, `board/machine.{h,cpp}` | tryboot in pi-qemu |
 | `pi-qemu/qemu/trimixxx-patches.py` | the QEMU patch for the firmware's reboot flags |
-| `pi-qemu/instance.sh` | `up --from` accepts cards of any size |
+| `pi-qemu/app/src/decks/instances.cpp` | `deck up --from` accepts cards of any size |
 
 ---
 
@@ -1047,8 +1062,8 @@ doesn't have cabled.
 
 **Decided (Sam, 2026-10-08):** trimixxx1 and trimixxx2 are reflashed from
 scratch with release cards; nothing of their dev systems is kept but what
-`prepare-deck.sh` takes. Their bootloaders get updated first, while they still
-run those systems.
+`pi-qemu deck prepare` takes. Their bootloaders get updated first, while they
+still run those systems.
 
 **Built for it, and checked:**
 - **Each deck's own `config.txt` lines** (§4.2, step 6):
@@ -1058,8 +1073,8 @@ run those systems.
   release's section set the activity LED to `heartbeat` and a decoy board's
   section after it, with another serial, didn't apply: the real firmware
   reads its own section only.
-- **`release/prepare-deck.sh DECK SSH_HOST [--eeprom]`**, run on the Mac
-  against the deck's current system. It:
+- **`pi-qemu deck prepare --host SSH_HOST DECK [--eeprom]`** (`prepare-deck.sh`
+  when it was checked), run on the Mac against the deck's current system. It:
   - writes the board's serial into its unit file (the last 8 hex digits of
     `/proc/device-tree/serial-number`, as `config.txt`'s filter wants them);
   - keeps the deck's ssh host keys as its identity's, so `known_hosts` stays
@@ -1085,13 +1100,13 @@ run those systems.
 **Tonight, for trimixxx1 (alias `trimixxx-pi`) and trimixxx2 (`trimixxx-pi-2`):**
 1. **Prepare each deck** on its current system, with the deck's ssh working:
    ```sh
-   pi-qemu/release/prepare-deck.sh trimixxx1 trimixxx-pi --eeprom
-   pi-qemu/release/prepare-deck.sh trimixxx2 trimixxx-pi-2 --eeprom
+   pi-qemu deck prepare --host trimixxx-pi trimixxx1 --eeprom
+   pi-qemu deck prepare --host trimixxx-pi-2 trimixxx2 --eeprom
    ```
    - Read what it shows. A line under "its own config.txt lines" that isn't
      in the unit file yet goes there: a panel's `dtoverlay=` as
      `panelOverlay`, anything else under `configTxt`. trimixxx1 has no unit
-     file today; the script makes one.
+     file today; `deck prepare` makes one.
    - A hostname NOTE means the card renames the deck: `trimixxx-pi` reaches
      trimixxx1 by its IP, so only a reservation made by name would move.
 2. **Commit the unit files, tag, build the release** (about 10 minutes, the
@@ -1099,20 +1114,20 @@ run those systems.
    ```sh
    git add mixxx_config/units && git commit -m "units: the decks' serials"
    git tag -m "TriMixxx X.Y.Z" pi/vX.Y.Z
-   make -C pi-qemu/release release SSH_KEY=$HOME/.ssh/with_pass/rsa_sam
-   make -C pi-qemu/release card DECK=trimixxx1
-   make -C pi-qemu/release card DECK=trimixxx2
+   pi-qemu release build
+   pi-qemu release card trimixxx1
+   pi-qemu release card trimixxx2
    ```
    The release must come after step 1: the serials are written into its
-   `config.txt`. `make card` must come after it too: run first, it would make
-   new host keys.
+   `config.txt`. `release card` must come after it too: run first, it would
+   make new host keys.
 3. **Sam flashes** each deck's card (`out/X.Y.Z/<deck>-X.Y.Z.img`), as in
    §2.2.
 4. **Check each deck:** its panel shows the splash's `A` label; ssh by its
    alias answers without a host key warning; it joins the home Wi-Fi; Mixxx
    opens the UCA222 and the S3.
-5. **Ship it one release over the air** (`make ship DECK=<alias>`, a release
-   built after this one), and see the trial committed.
+5. **Ship it one release over the air** (`pi-qemu deck ship --host <alias>`,
+   a release built after this one), and see the trial committed.
 
 **Done when** every deck has taken a release over the air.
 

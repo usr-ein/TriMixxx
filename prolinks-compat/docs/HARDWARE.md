@@ -260,21 +260,22 @@ build, so it cannot contend for a device number or disturb a live rig.
 ### Deploy
 
 ```sh
-cd ../mixxx        && ./upload.sh      # build arm64 in Docker, swap /usr/bin/mixxx
-cd ../mixxx_config && ./upload.sh      # ~/.mixxx, incl. ShowProLinkLibrary 1
+pi-qemu deck deploy --host trimixxx-pi mixxx    # build arm64 in Docker, swap /usr/bin/mixxx
+pi-qemu deck deploy --host trimixxx-pi config   # ~/.mixxx, incl. ShowProLinkLibrary 1
 ```
 
-`mixxx/upload.sh` reads the Debian release off the deck and builds against it, so
-the binary links to the libraries already there. First build is ~3 min; after
-that the ccache and build-tree cache mounts make it ~1 min.
+The `mixxx` step builds against the Debian release the deck runs (trixie, pinned
+in `pi-qemu/deploy/004_mixxx.sh` and checked against the deck), so the binary
+links to the libraries already there. First build is ~3 min; after that the
+ccache and build-tree cache mounts make it ~1 min.
 
-`pi_config/upload.sh` **is** needed, once: it runs `prolink-eth0.sh`, which puts
-eth0 on an IPv4 link-local address. Without that nothing is discovered at all,
+`pi-qemu deck deploy --host trimixxx-pi system` **is** needed, once: it puts eth0
+on an IPv4 link-local address. Without that nothing is discovered at all,
 and the way it fails is misleading — Mixxx binds UDP 50000 happily, eth0's RX
 counter climbs, and the sidebar says "no players found". CDJs broadcast to
 `169.254.255.255`, a *directed subnet broadcast*, so a host with no address in
 that subnet receives the frames at the NIC and discards them at the IP layer.
-(The UDP/111 sysctl in the same script only matters for serving.)
+(The UDP/111 sysctl in the same step only matters for serving.)
 
 Confirm before testing anything else:
 

@@ -11,10 +11,18 @@ done on trimixxx2 and what it showed.
 
 `[x]` done on trimixxx2 · `[ ]` to do · `[~]` skipped or deferred, with why
 
-> **Every script here defaults to `HOST=trimixxx-pi`** — Trimixxx1. That is the
-> deploy scripts and `deck-shot` / `deck-poke` / `deck-record` alike. Prefix
-> each one with `HOST=trimixxx-pi-2` (or pass `HOST=trimixxx-pi-2` to `make`),
-> or it goes to the wrong deck.
+> **There is no default deck.** Every `pi-qemu` command here names its deck: a
+> real one is `--host` and its ssh alias, `--host trimixxx-pi-2` for trimixxx2
+> and `--host trimixxx-pi` for Trimixxx1. The commands below say
+> `trimixxx-pi-2`, the deck this was written on. On a new deck, use its own
+> alias. `pi-qemu help` lists the commands.
+>
+> `pi-qemu deck deploy --host ALIAS` runs every deploy step, in this document's
+> order: `base` (most of §1–2), `ttymidi` (§3.1), `system` (§3.2), `launcher`
+> (§3.3), `mixxx`, `config` and `library` (§3.4), then `doom` (§3.5). Naming
+> steps after the alias runs only those. Passwordless sudo (§1.1) comes first,
+> by hand. trimixxx2 was set up with the scripts these steps replaced; §6 names
+> them.
 
 ## Where it stands
 
@@ -58,9 +66,9 @@ Nothing else. What the fresh image looked like:
 ### 1.1 Access
 - [x] **ssh key login.** Done at flash time; `ssh trimixxx-pi-2` works with the
       key `~/.ssh/config` names.
-- [x] **Passwordless sudo.** Every deploy script runs `ssh host 'sudo …'` with no
-      terminal, so a password prompt is a hard failure, and Raspberry Pi OS no
-      longer ships the old `010_pi-nopasswd`. Installed
+- [x] **Passwordless sudo.** Every deploy step runs `sudo` on the deck over ssh
+      with no terminal, so a password prompt is a hard failure, and Raspberry
+      Pi OS no longer ships the old `010_pi-nopasswd`. Installed
       `/etc/sudoers.d/010_sam1902-nopasswd` (`sam1902 ALL=(ALL) NOPASSWD: ALL`),
       checked with `visudo -cf` before it went in. The same line was also added
       to `/etc/sudoers` (line 48) by hand; either one alone is enough.
@@ -75,7 +83,8 @@ Nothing else. What the fresh image looked like:
       value it reads, and `100-…` sorts before cloud-init's `50-…`, which also
       says `yes`. Validate with `sudo sshd -t`, check `sudo sshd -T | grep
       passwordauthentication`, restart, and prove a NEW key login works before
-      closing the old session.
+      closing the old session. The base step now writes `05-trimixxx.conf`
+      saying `no`, which sorts before both; it applies from sshd's next start.
 
 ### 1.2 Firmware
 - [x] **Bootloader EEPROM: network install off** (and with it, the update to
@@ -175,7 +184,7 @@ Where that went, and what was done (times from power-on unless said otherwise):
       carries vc4 and starts the display there, but vc4 binds the panel and both
       HDMI ports as one unit, and the DSI panel's driver and the I2C mux in front
       of it were not in it — so the panel waited for the root filesystem.
-      `upload.sh` adds `i2c_mux_pinctrl` and `panel_waveshare_dsi` to
+      The system step adds `i2c_mux_pinctrl` and `panel_waveshare_dsi` to
       `/etc/initramfs-tools/modules`, the standard place, which every kernel
       update re-reads, and rebuilds with `sudo update-initramfs -u -k "$(uname -r)"`
       (that also copies it to `/boot/firmware/initramfs8`). The panel now comes
@@ -190,10 +199,11 @@ Where that went, and what was done (times from power-on unless said otherwise):
       stops a future kernel from moving those drivers into modules, which would
       leave a deck without one unbootable. Not worth a second.
 - [x] `camera_auto_detect=0` — no camera; spares the firmware probing for one.
-- [x] **Swap sizes pinned:** `upload.sh` installs `trimixxx-swap-sizes.conf` into
-      `/etc/rpi/swap.conf.d/` (2048 MiB zram, 2048 MiB file — what rpi-swap was
-      computing anyway). Checked: the generator writes byte-identical units.
-      Generators 1.37 s → 0.70 s, and no unit starts before they finish.
+- [x] **Swap sizes pinned:** the system step installs `trimixxx-swap-sizes.conf`
+      into `/etc/rpi/swap.conf.d/` (2048 MiB zram, 2048 MiB file — what
+      rpi-swap was computing anyway). Checked: the generator writes
+      byte-identical units. Generators 1.37 s → 0.70 s, and no unit starts
+      before they finish.
 - [x] Result, cold boot (2026-10-02, `rsts` 0x1000), firmware clock from
       power-on: SD card first read at **2.8 s** (8.15 s before), kernel starts at
       **8.2 s** (14.0 s), panel shows the boot log at ~9.9 s (kernel 1.66 s; was
@@ -235,7 +245,7 @@ Where that went, and what was done (times from power-on unless said otherwise):
 - [x] **Mixxx never writes `mixxx.cfg`** (fork, 2026-10-02): it used to save
       it on exit by deleting the old file and renaming the new one in, with no
       fsync, so a power cut within ~30 s of quitting could leave it empty.
-      `mixxx_config/upload.sh` is now the only thing that writes it.
+      The config step is now the only thing that writes it.
 
 ### 1.6 Real-time audio — only if needed
 - [ ] If the first Mixxx run logs that it could not get real-time priority:
@@ -251,21 +261,22 @@ Where that went, and what was done (times from power-on unless said otherwise):
       and no PipeWire, PulseAudio or display manager among them (any of those
       would take the UCA222 away from Mixxx). Recommends also brought
       `gnome-keyring` and `gcr-ssh-agent`: socket-activated user units that
-      `startx` never wakes. `scrot` / `xdotool` are for `deck-shot` and
-      `deck-poke`; `evtest` / `libinput-tools` / `mesa-utils` are for checking
-      the panel.
+      `startx` never wakes. `scrot` / `xdotool` are for `pi-qemu deck shot` and
+      its touch verbs (`deck tap`, `swipe`, ...); `evtest` / `libinput-tools` /
+      `mesa-utils` are for checking the panel.
 - [x] **`xinitrc`, two fixes** (this repo, §6): the DSI panel is the primary
       output, an HDMI monitor mirrors it scaled to fit (debugging), and the
       touchscreen is pinned to the panel; and `mkdir -p ~/.mixxx` before the
       Mixxx loop. Its `awk` parsing was checked against sample `xrandr` /
       `xinput` output under the Pi's own `mawk`.
 - [x] Session files onto the Pi: `~/.xinitrc`, `~/.bash_profile`,
-      `/usr/local/bin/trimixxx-debug` — the session part of `upload.sh`, run on
-      its own so the panel can be tested before the rest of the deck exists.
+      `/usr/local/bin/trimixxx-debug` — the session part of what was then
+      `pi_config/upload.sh`, run on its own so the panel could be tested before
+      the rest of the deck existed. The system step installs them now.
       There was no previous `~/.bash_profile`, and `~/.profile` has no `startx`.
 - [x] **Console autologin on tty1:** `sudo raspi-config nonint do_boot_behaviour B2`
       — writes `getty@tty1.service.d/autologin.conf`
-      (`agetty --autologin sam1902`). No script in the repo does this; Trimixxx1
+      (`agetty --autologin sam1902`). The base step does this now; Trimixxx1
       had it done by hand. Until the rest of the deck is installed, the session
       starts stock Mixxx 2.5.0 with its first-run dialogs — enough to test touch.
 - [x] Powered off to wire the panel (2026-10-01).
@@ -296,28 +307,31 @@ Where that went, and what was done (times from power-on unless said otherwise):
 ## 3. TriMixxx
 
 ### 3.0 On the Mac
-Docker Desktop running (all Pi binaries are arm64 builds in Docker), `uv`, and
-`rsvg-convert` (`brew install librsvg`) for the splash.
+`pi-qemu` on PATH (`pi-qemu/build.sh` puts it there), Docker Desktop running
+(all Pi binaries are arm64 builds in Docker), `uv`, and `rsvg-convert`
+(`brew install librsvg`) for the splash.
 - [x] Built while the Pi was off, so the deploys below hit a warm cache:
       `ttymidi`, `trimixxx-launchd` and `trimixxx-deckkeys` (static arm64), and
       the Mixxx fork at HEAD `08174e6` (12 min). The `mixxx/dist/mixxx` on disk
       predated that commit. Each deploy rebuilds anyway, from that cache.
 
-### 3.1 ttymidi — before `pi_config/upload.sh`
-- [x] `make -C mixxx_config/ttymidi install-remote HOST=trimixxx-pi-2 SERVICE=`
+### 3.1 ttymidi — before the system step
+- [x] `pi-qemu deck deploy --host trimixxx-pi-2 ttymidi`
       → `/usr/local/bin/ttymidi`, `ttymidi --version` → `42175e8`.
 
-  First because `upload.sh` enables and *restarts* `trimixxx-bridge.service`,
-  which needs this binary. `upload.sh` now checks for it and stops before
-  changing anything if it is missing (§6). **Pass `SERVICE=` (empty) on a fresh
-  unit:** the target ends with `systemctl try-restart trimixxx-bridge.service`,
-  which its own comment calls a no-op when the unit is absent — it is not,
-  systemd exits 5 for a unit that does not exist yet, and `make` reports a
-  failure after the binary was in fact installed.
+  First because the system step enables and *restarts*
+  `trimixxx-bridge.service`, which needs this binary. The system step checks
+  for it and stops before changing anything if it is missing (§6). On trimixxx2
+  this was ttymidi's `make install-remote`, which needed `SERVICE=` (empty) on
+  a fresh unit: it ended with `systemctl try-restart trimixxx-bridge.service`,
+  which exits 5 for a unit that does not exist yet, so `make` reported a
+  failure after the binary was in fact installed. The ttymidi step restarts the
+  bridge only if it runs.
 
-### 3.2 `pi_config/upload.sh`
-- [x] `HOST=trimixxx-pi-2 ./upload.sh` — exit 0, end to end, the first complete
-      run since 2026-08-01. Fixed before first use here (§6):
+### 3.2 The deck's system (`pi_config/`)
+- [x] `pi-qemu deck deploy --host trimixxx-pi-2 system`. On trimixxx2 this was
+      `pi_config/upload.sh`: exit 0, end to end, its first complete run since
+      2026-08-01. Fixed before first use here (§6):
   - **It did not parse.** An apostrophe in an `echo` inside a single-quoted
     `ssh '…'` block closed the quote, so every run since that line went in died
     after `~/.xinitrc` — the `.bash_profile`, getty drop-in, splash, eth0 and
@@ -333,8 +347,8 @@ Docker Desktop running (all Pi binaries are arm64 builds in Docker), `uv`, and
 - [x] **The splash is rendered for whatever `/dev/fb0` is at the time** — with an
       HDMI monitor attached, the monitor's geometry, which the boot-time check
       then refuses (by design). Rendered here with only the panel attached:
-      1280×800, 16 bpp, stride 2560, 2 048 000 bytes, matching. Re-run
-      `HOST=trimixxx-pi-2 ./splash-install.sh` if the panel or its mode changes.
+      1280×800, 16 bpp, stride 2560, 2 048 000 bytes, matching. Deploy the
+      system step again if the panel or its mode changes.
 - [x] **The UART link to the S3, both ways.** Pi → S3: three Note On/Off pairs
       for the PLAY LED went out — `tx` in `/proc/tty/driver/ttyAMA` went 0 → 18
       bytes — and after the move the PLAY LED was seen blinking at boot, which
@@ -347,26 +361,27 @@ Docker Desktop running (all Pi binaries are arm64 builds in Docker), `uv`, and
       listens on port 0, which is the right one.
 
 ### 3.3 Launch manager
-- [x] `make -C trimixxx-launcher install-remote HOST=trimixxx-pi-2` — active, both
+- [x] `pi-qemu deck deploy --host trimixxx-pi-2 launcher` — active, both
       readiness gates passed (`pi-midi-daemon` port, mode file), mode `mixxx`.
 
 ### 3.4 Mixxx
 - [x] `apt install mixxx` (2.5.0+dfsg, trixie) — for its libraries and
       `/usr/share/mixxx`. Only the binary gets replaced.
-- [x] `HOST=trimixxx-pi-2 ../mixxx/upload.sh` — builds the fork and swaps
-      `/usr/bin/mixxx` (24 MB), keeping apt's as `/usr/bin/mixxx.apt` (17 MB).
-      The `ldd` check found nothing missing. The running Mixxx has
+- [x] `pi-qemu deck deploy --host trimixxx-pi-2 mixxx` — builds the fork and
+      swaps `/usr/bin/mixxx` (24 MB), keeping apt's as `/usr/bin/mixxx.apt`
+      (17 MB). The `ldd` check found nothing missing. The running Mixxx has
       `QT_SCALE_FACTOR=1.25` in its environment, from `xinitrc`.
-- [x] **Once, before the first config upload:**
+- [x] **Once, before the first config deploy:**
       `ssh trimixxx-pi-2 'sudo systemctl stop getty@tty1 && rm -f ~/.mixxx/effects.xml && mkdir -p ~/Music'`.
       Stock Mixxx ran at the first boots and writes its own `effects.xml` *on
       exit* — so stop the session first, or it writes it straight back.
-      `upload.sh` only seeds the TriMixxx chain when the deck has none, so it
-      would otherwise keep the stock rack, and the effect-pedal return would be
-      silent. `~/Music` is for the next point. On trimixxx2 there turned out to
-      be no `effects.xml` to remove: Mixxx had never got past its first-run
-      dialog, so it never wrote one. Keep the step anyway — it costs nothing.
-- [x] `HOST=trimixxx-pi-2 ../mixxx_config/upload.sh` — now creates
+      `mixxx_config/upload.sh` then seeded the TriMixxx chain only when the
+      deck had none, so it would otherwise have kept the stock rack, and the
+      effect-pedal return would have been silent. `~/Music` is for the next
+      point. On trimixxx2 there turned out to be no `effects.xml` to remove:
+      Mixxx had never got past its first-run dialog, so it never wrote one.
+      Keep the step anyway — it costs nothing.
+- [x] `pi-qemu deck deploy --host trimixxx-pi-2 config` — now creates
       `~/.mixxx/skins` and `~/.mixxx/controllers` itself (§6). Every XML
       validated; the shipped `effects.xml` was seeded.
 - [x] **Answer "Choose music library directory" once, by touch: Choose → `Music`.**
@@ -378,10 +393,13 @@ Docker Desktop running (all Pi binaries are arm64 builds in Docker), `uv`, and
       music directory (`loadRootDirs().isEmpty()` in `coreservices.cpp`) —
       Cancel just brings it back next boot. It is database state, not
       `mixxx.cfg`, which is why Trimixxx1 never shows it. On the fresh image
-      `~/Music` did not exist, which is why "Choose" was greyed out.
+      `~/Music` did not exist, which is why "Choose" was greyed out. The library
+      step now does both (`pi-qemu deck deploy --host trimixxx-pi-2 library`):
+      it makes `~/Music`, and puts it in the `directories` table if that is
+      empty.
 - [ ] Check Preferences → Controllers: **TriMixxx** and **pi-midi-daemon** both
       enabled with their mappings. `mixxx.cfg` binds them by device name, so the
-      upload should already have done it.
+      config step should already have done it.
 - [x] **This deck's button wiring** (`mixxx_config/units/trimixxx2.json`). BACK
       seemed dead: pressing every control in order with `aseqdump -p TriMixxx`
       running showed ring A has an **eighth pad, third in its chain** (note
@@ -391,7 +409,7 @@ Docker Desktop running (all Pi binaries are arm64 builds in Docker), `uv`, and
       (`0x46`…`0x43`). Tempo range, keylock, slip, sort, loop in/out, reloop and
       the encoder are standard; PLAY/CUE too (the capture had them the other way
       round — taken as pressed in the other order). Fixed in Mixxx, not the S3:
-      `upload.sh` renumbers the mapping from that file for this deck alone
+      the config step renumbers the mapping from that file for this deck alone
       (`units/apply.py`, see `mixxx_config/README.md`), the ring LEDs follow,
       and Mixxx logs `TriMixxx: buttons and lights remapped for trimixxx2`.
       BACK on its new note opens the library. Note the encoder push over the
@@ -411,7 +429,7 @@ Docker Desktop running (all Pi binaries are arm64 builds in Docker), `uv`, and
       change: the WS2812s are linear and nothing between Mixxx and them corrects
       for gamma, so 80 % duty reads as ~10 % dimmer. Now gamma-corrected, 0.8²·²
       = 61 % duty (full white 255 → 156). Shared: Trimixxx1 gets it on its next
-      config upload.
+      config deploy.
 - [x] **No bezel strips on this deck** — `"bezel": false` in the unit file. The
       panel sits flush, so the strips Trimixxx1 needs (deck view 36 px top /
       14 px bottom; browser 36 top, 56 bottom, 16 left; rack 56 bottom) were
@@ -441,13 +459,14 @@ Docker Desktop running (all Pi binaries are arm64 builds in Docker), `uv`, and
       emptied by the button test — BACK re-opened the library on the Effects
       page, where pads and the encoder edit the rack. To reseed:
       `ssh trimixxx-pi-2 'sudo systemctl stop getty@tty1 && rm ~/.mixxx/effects.xml'`
-      then `HOST=trimixxx-pi-2 ./upload.sh` in `mixxx_config`.
+      then `pi-qemu deck deploy --host trimixxx-pi-2 config`.
 
 ### 3.5 Doom
-- [x] `HOST=trimixxx-pi-2 ../doom/install.sh` (the WAD is already in `doom/wad/`)
-      — Chocolate Doom 3.1.0, 17 packages. Among them are `libpulse0` and
-      `libpipewire-0.3`, the client libraries SDL2 links against; the PulseAudio
-      and PipeWire *servers* are only suggested and are not installed.
+- [x] `pi-qemu deck deploy --host trimixxx-pi-2 doom` (the WAD is already in
+      `doom/wad/`) — Chocolate Doom 3.1.0, 17 packages. Among them are
+      `libpulse0` and `libpipewire-0.3`, the client libraries SDL2 links
+      against; the PulseAudio and PipeWire *servers* are only suggested and are
+      not installed.
 
 ### 3.6 Audio levels
 - [x] **UCA222 output to 0 dB.** It came up at −20 dB (108/128). Anything under
@@ -525,8 +544,9 @@ No home Wi-Fi there, and last-minute fixes still have to be possible.
 - [x] **Wi-Fi fallback** (`pi_config/wifi-fallback/`, see its README): if wlan0
       has not joined a network 45 s into a boot (30 s more if mid-connection),
       the deck brings up its own access point — SSID = hostname, password
-      `trimixxx-debug-Kmj3Df`, 2.4 GHz channel from a per-deck table (Trimixxx1
-      6, trimixxx2 7), the deck at 10.42.0.1. Once per boot, never undone; a
+      `trimixxx-debug-Kmj3Df` (`wifi-fallback/hotspot.env`), 2.4 GHz channel
+      from the deck's unit file, `hotspotChannel` (Trimixxx1 6, the default;
+      trimixxx2 7), the deck at 10.42.0.1. Once per boot, never undone; a
       reboot retries home. shellcheck clean. Installed inert (`autoconnect=no`
       profile, unit enabled not started, wlan0 and the default route checked
       unchanged). Tested:
@@ -587,7 +607,8 @@ No home Wi-Fi there, and last-minute fixes still have to be possible.
 - [ ] `grep -E 'TriMixxx|pi-midi-daemon' /proc/asound/seq/clients` — both ports
 - [ ] `cat /run/trimixxx/mode` → `mixxx`
 - [ ] Mixxx: the UCA222 opened, both controllers loaded (`/tmp/mixxx/mixxx.log`)
-- [ ] `HOST=trimixxx-pi-2 ./deck-shot` shows the TriMixxx skin; `deck-poke` moves it
+- [ ] `pi-qemu deck shot --host trimixxx-pi-2 deck.png` shows the TriMixxx skin;
+      `deck tap` and `deck press` (the same `--host`) move it
 - [ ] A rekordbox stick mounts at `/media/DJ_USB_1` and shows in the library
 - [ ] `ip -4 addr show eth0` → `169.254.x.x` with a CDJ attached; players appear
 - [ ] Boot gestures: hold PLAY → Doom, hold CUE → debug console; the panic chord
@@ -623,7 +644,8 @@ writing.
   redirect before `mixxx` and fails on the missing directory.
 - Not changed, worked around: `mixxx_config/ttymidi/Makefile`'s
   `install-remote` fails on a unit without the bridge unit yet — pass
-  `SERVICE=` (§3.1). The fix belongs in the ttymidi submodule.
+  `SERVICE=` (§3.1). The fix belongs in the ttymidi submodule. The target has
+  gone since, and the ttymidi step restarts the bridge only if it runs.
 - `mixxx_config/mixxx.cfg` — `ReplayGainEnabled 0` (§3.6); the reason is in
   `mixxx_config/README.md`, since Mixxx rewrites `mixxx.cfg` and drops comments.
 - Per-deck wiring (§3.4): `mixxx_config/units/trimixxx2.json` and
@@ -649,3 +671,14 @@ writing.
   `pi_config/rescue-keyboard.xml`, `trimixxx-debug` trying them first, and
   `pi_config/upload.sh` installing them with their two packages; in
   `trimixxx-launcher`, the console map's pads at half brightness.
+
+Since then, `pi-qemu` has replaced the scripts named here and in §3:
+
+| Then | Now |
+|---|---|
+| `pi_config/upload.sh`, with `prolink-eth0.sh`, `splash-install.sh`, `wifi-fallback/install.sh` and `dj-usb/install.sh` | the system step, `pi-qemu/deploy/002_system.sh` |
+| ttymidi's and the launcher's `make install-remote` | the ttymidi and launcher steps (`001`, `003`) |
+| `mixxx/upload.sh` | the mixxx step (`004`) |
+| `mixxx_config/upload.sh` | the config step (`005`) |
+| `doom/install.sh` | the doom step (`007`) |
+| `pi_config/deck-shot`, `deck-poke`, `deck-record` | `pi-qemu deck shot`; `deck tap`, `swipe`, `press`, `browse`, `midi`; `deck record` |

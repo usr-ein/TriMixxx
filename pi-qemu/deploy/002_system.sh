@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # Deploy step 002 (lib.sh has the contract): the deck's system, from
 # pi_config/ -- what needs sudo on the deck. 005_config is its user-space
-# counterpart (~/.mixxx), so a mapping tweak never touches the system and a
-# system change never goes through Mixxx's restart.
+# counterpart (~/.mixxx), so a mapping tweak never touches the system.
 #
 #   cpu-governor.service        cores pinned to `performance` (low-latency audio)
 #   trimixxx-bridge.service     the ttymidi bridge, which gates Mixxx at boot

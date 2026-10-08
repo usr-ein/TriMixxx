@@ -931,8 +931,8 @@ above unity the trim is what clips) and the panel's brightness. Neither moves
 until an encoder press starts adjusting — press again for the next, BACK to
 stop — so turning the encoder on arrival still only scrolls, and the page is
 still safe to open mid-set. Both are kept in `~/.mixxx/trimixxx-levels`, not
-`mixxx.cfg`, which `mixxx_config/upload.sh` replaces on every deploy
-(`decklevels.h` in the fork).
+`mixxx.cfg`, which the config deploy step (`pi-qemu/deploy/005_config.sh`)
+replaces on every deploy (`decklevels.h` in the fork).
 
 The brief is "all the shit I need to fix TriMixxx", to be rearranged later, so
 this is a first cut of sections in a sensible order:

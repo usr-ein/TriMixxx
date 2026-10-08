@@ -88,7 +88,7 @@ landing when the analysis finishes. Nothing modal, nothing silent.
   the case before this work, and fits F12 below: nothing runs at realtime
   priority.
 
-**Testing on the deck** (unit 2, `HOST=trimixxx-pi-2`; unit 1 is away):
+**Testing on the deck** (unit 2, `--host trimixxx-pi-2`; unit 1 is away):
 
 - Build a FAT32 image of tracks from `~/Music/tracks`, laid out like Appendix B.
 - Attach it with `losetup` and mount it with `sudo dj-usb mount loopN`. That
@@ -109,8 +109,9 @@ Detach them all when done: two slots, and a real stick finds no free one.
 | `~/docsonly.img` | DOCSONLY | no music at all |
 | `~/badpdb.img` | BADPDB | a garbage `export.pdb` beside two MP3s |
 
-**Rebuild and deploy:** `pi_config/dj-usb/install.sh` for L1; then
-`HOST=trimixxx-pi-2 mixxx/upload.sh` for the binary. Unit tests:
+**Rebuild and deploy:** `pi-qemu deck deploy --host trimixxx-pi-2 system` for
+L1 (the system step installs `dj-usb`); then
+`pi-qemu deck deploy --host trimixxx-pi-2 mixxx` for the binary. Unit tests:
 `docker buildx build --platform linux/arm64 --target unittest --build-arg BASE=debian:trixie --build-arg GTEST_FILTER='FolderLibrary*:FolderFileNames*:PlayerManager*' mixxx`.
 Do not edit sources while either build runs. A file edited after the build
 has copied the tree is compiled from the old copy, and its object comes out

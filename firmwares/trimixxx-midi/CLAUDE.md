@@ -54,9 +54,10 @@ IO9 (ADIN wiper), bare 3.3V pot, no external filtering.
 
 ## MIDI contract (`MidiMap.hpp`)
 
-pi-qemu's virtual S3 (`pi-qemu/app/src/s3.cpp`) compiles this header in, so
+pi-qemu's virtual S3 (`pi-qemu/app/src/s3/`) compiles this header in, so
 a change to the contract can be tried on an emulated deck without the board:
-see the `trimixxx0` skill (rebuild pi-qemu, `PI_QEMU_BIN`).
+see the `trimixxx0` skill (`pi-qemu/build.sh app`, then run that build by its
+path, `pi-qemu/app/build/pi-qemu deck ...`).
 One deck = MIDI channel 1 (0-based `0`). `MidiMap.hpp` is the authority; the Mixxx
 controller mapping (`mixxx_config/TriMixxx.midi.xml` + `TriMixxx.scripts.js`) matches it —
 change both together, no address overlaps.

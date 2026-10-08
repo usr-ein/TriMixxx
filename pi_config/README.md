@@ -5,30 +5,16 @@ and CPU tuning that need `sudo` to install. This is the counterpart to
 [`../mixxx_config`](../mixxx_config), which is purely user-space Mixxx config
 under `~/.mixxx`.
 
-The split is the point: `mixxx_config/upload.sh` touches only `~/.mixxx` and
-restarts Mixxx, so a routine mapping tweak can never disturb the deck's system
-config — and a system change here never has to go through the Mixxx-restart path.
+The split is the point: the system deploy step installs what is here, and the
+config step installs `mixxx_config` into `~/.mixxx` and restarts Mixxx. So a
+routine mapping tweak can never disturb the deck's system config, and a system
+change here never has to go through the config step.
 
 ## Files
 - `fresh-install.md` — **start here for a new unit.** Everything between a freshly
   flashed Raspberry Pi OS Lite card and a working deck, in order: the boot flags,
-  sudo, autologin and packages that no script here sets up, then which upload
-  runs first. Written while bringing up trimixxx2.
-- `upload.sh` — installs everything below onto the Pi (idempotent; `sudo` on the
-  far side). Override the host with `HOST=other ./upload.sh`.
-- `deck-shot` / `deck-poke` — **look at the deck, and touch it, from your desk.**
-  Neither is installed on the Pi; both run over ssh from here. `deck-shot` grabs
-  the screen with `scrot`; `deck-poke` sends taps, long presses, swipes and
-  flicks with `xdotool` (`sudo apt install xdotool`), and sends the deck's *own*
-  controls — browse, push, back, sort — as MIDI, so they run the real
-  `TriMixxx.midi.xml` and `TriMixxx.scripts.js` as if the S3 had sent them.
-
-  The MIDI injection is not obvious: Mixxx's ALSA port has `WRITE` but not
-  `SUBS_WRITE`, so `aconnect` into it fails with "Operation not permitted" while
-  `aseqsend -p <client:port>` addressed straight at it works. The port is
-  resolved from the sequencer graph on every call, by following ttymidi's own
-  output to whoever is listening — matching on Mixxx's pid does *not* work,
-  because ALSA records the thread that created the port rather than the process.
+  sudo, autologin and packages (the base deploy step does all but sudo), then
+  the deploy steps in the order they run. Written while bringing up trimixxx2.
 - `cpu-governor.service` — pins all cores to the `performance` cpufreq governor.
   `ondemand` polls load every 100 ms and only ramps past 50 % of *total* CPU, so
   a single saturated audio core can sit at the 600 MHz floor and starve a scratch
@@ -36,7 +22,7 @@ config — and a system change here never has to go through the Mixxx-restart pa
 - `trimixxx-bridge.service` — the `ttymidi` serial↔MIDI bridge. Gates
   `getty@tty1` (hence Mixxx) at boot so the deck's virtual MIDI port exists
   before Mixxx enumerates devices. The `ttymidi` binary itself is built from the
-  submodule in `../mixxx_config/ttymidi`.
+  submodule in `../mixxx_config/ttymidi`, by the ttymidi deploy step.
 - `trimixxx-lights-off` + `trimixxx-lights-off.service` — every button light off
   at shutdown. The S3 stays powered after the Pi halts, so whatever Mixxx last
   lit (the PLAY lamp of a track that was playing) used to stay lit on a deck
@@ -47,8 +33,8 @@ config — and a system change here never has to go through the Mixxx-restart pa
   at a time — ttymidi's ALSA queue holds 200 cells and a SysEx takes two. Try it
   with `sudo systemctl stop trimixxx-lights-off` (then `start` to re-arm).
 - `trimixxx-swap-sizes.conf` — boot speed: pins rpi-swap's sizes so its
-  generator stops running Perl on every boot. Its companion, also in
-  `upload.sh`, puts the DSI panel's drivers in the initramfs
+  generator stops running Perl on every boot. Its companion, also in the
+  system step, puts the DSI panel's drivers in the initramfs
   (`/etc/initramfs-tools/modules`) so the panel comes up at ~1.7 s instead of
   ~6 s. The `config.txt` and EEPROM halves of the same work, and why the
   initramfs itself stays, are in `fresh-install.md` §1.4.
@@ -58,12 +44,12 @@ config — and a system change here never has to go through the Mixxx-restart pa
   the portmapper for the mountd/nfsd ports *before* it will list us as a source
   at all, and retries forever if nothing answers — so without this, serving
   fails in a way that looks like a discovery bug
-  (`../prolinks-compat/docs/FINDINGS.md` F46). Not `setcap`, because
-  `../mixxx/upload.sh` swaps the `/usr/bin/mixxx` binary and would drop file
+  (`../prolinks-compat/docs/FINDINGS.md` F46). Not `setcap`, because the
+  mixxx deploy step swaps the `/usr/bin/mixxx` binary and would drop file
   capabilities on every deploy. See the file's own comment for the trade-off.
 - `60-trimixxx-fonts.conf` — `/etc/fonts/conf.d` rule giving the deck's UI font a
   fallback chain, plus the `fonts-noto-*` packages it points at (installed by
-  `upload.sh`). The UI font itself, MesloLGL Nerd Font, ships from
+  the system step). The UI font itself, MesloLGL Nerd Font, ships from
   [`../mixxx_config/fonts`](../mixxx_config) — it is a *terminal* font, ~13k
   codepoints, so a track title in Japanese, Korean, Arabic, Hebrew, an Indic
   script, or with emoji in it, has no glyphs and renders as tofu boxes. Mixxx can
@@ -84,8 +70,8 @@ config — and a system change here never has to go through the Mixxx-restart pa
   you want when the graphical stack is what broke. **No mode file, an unreadable
   one, or an unknown mode all fall through to Mixxx**, so a launch manager that
   failed to start cannot stop the deck from being a deck. Note that bash reads
-  `~/.bash_profile` *instead of* `~/.profile`, so `upload.sh` backs up whatever
-  was there and warns if the old `startx` line is still in `.profile`.
+  `~/.bash_profile` *instead of* `~/.profile`, so the system step backs up
+  whatever was there and warns if the old `startx` line is still in `.profile`.
 - `trimixxx-debug` + `rescue-session` + `rescue-keyboard.xml` — the rescue
   console: hold CUE from power-on. On the touchscreen, with nothing plugged in:
   a terminal on the left half of the panel and an on-screen keyboard on the
@@ -106,9 +92,9 @@ config — and a system change here never has to go through the Mixxx-restart pa
   640×320 at the top of the right half. The shell is interactive, *not* a
   login shell, and `~/.bash_profile` stands down while `TRIMIXXX_RESCUE` is set:
   a login shell there re-ran the console inside itself without end.
-- `trimixxx-splash.service` + `trimixxx-splash.sh` + `splash-render.py` +
-  `splash-install.sh` — the boot splash: `trimixxx_logo_crt.svg` on the panel
-  for the first ~8 s of boot, then the boot log as normal. The usual way to do
+- `trimixxx-splash.service` + `trimixxx-splash.sh` + `splash-render.py` — the
+  boot splash: `trimixxx_logo_crt.svg` on the panel for the first ~8 s of boot,
+  then the boot log as normal. The usual way to do
   this is plymouth with `quiet splash`, which hides the console — but watching
   the deck's units come up is how you spot the MIDI bridge or a USB mount
   failing before a gig, so instead the splash takes an unused VT (7) and the
@@ -117,37 +103,73 @@ config — and a system change here never has to go through the Mixxx-restart pa
   `splash-render.py` rasterises the SVG here and packs it into the panel's exact
   framebuffer layout (read live off `/sys/class/graphics/fb0`, currently
   1024×600 RGB565), so displaying it on the deck is one `cat` to `/dev/fb0`.
-  Self-contained; `upload.sh` delegates to `splash-install.sh`.
+  The system step runs `splash-render.py`, then installs the image, the script
+  and the unit.
+- `eth0-link-local.nmconnection` — eth0 for the CDJs' network. A Pro DJ Link
+  network has no DHCP: CDJs take 169.254.0.0/16 addresses and broadcast to
+  169.254.255.255, which a host with no address there drops, so Mixxx would
+  hear no players. This NetworkManager profile, bound to eth0, is IPv4
+  link-local, as the CDJs do. The system step installs it and deletes
+  netplan's old eth0 profile where that sits alone in its file; every release
+  card carries the same file. eth0 then gets no address on an ordinary LAN:
+  wlan0 is the deck's way to the world.
 - `dj-usb/` — USB stick auto-mount (udev rule → templated systemd service +
-  mount helper). Self-contained; `upload.sh` delegates to its `install.sh`.
+  mount helper). Installed by the system step.
 - `wifi-fallback/` — the deck's own hotspot, named after its hostname, when no
   Wi-Fi has been joined 45 s into a boot: the way in at a venue. Once per boot,
-  never undone; a reboot retries home. Self-contained and inert until the next
-  boot; `upload.sh` delegates to its `install.sh`. See its README, including
-  how to try it at home with a one-off test boot.
+  never undone; a reboot retries home. Inert until the next boot. The system
+  step installs it, on the deck's own channel (`hotspotChannel` in its unit
+  file) and with the password in `wifi-fallback/hotspot.env`. See its README,
+  including how to try it at home with a one-off test boot.
 
 ## Deploy
 ```sh
-./upload.sh            # all system units, to trimixxx-pi
-HOST=other ./upload.sh # a different host
+pi-qemu deck deploy --host trimixxx-pi system   # a real deck, by its ssh alias
+pi-qemu deck deploy NAME system                 # an emulated deck
 ```
 
-Each piece can also be installed on its own — e.g. `dj-usb/install.sh` — but
-`upload.sh` is the one-shot entry point.
+The system step is `../pi-qemu/deploy/002_system.sh`. It installs everything
+above (idempotent; `sudo` on the deck), and the session restarts once the steps
+are over. There is no default deck: name it. The step needs
+`/usr/local/bin/ttymidi` on the deck first, from the ttymidi step, which runs
+before it when `pi-qemu deck deploy --host ALIAS` runs every step. The pieces
+have no installers of their own: the system step installs them all.
 
 The splash is the one piece with something to *look* at, so it has its own
-try-it path (needs `uv` and `rsvg-convert`, i.e. `brew install librsvg`):
+try-it path (needs `uv` and `rsvg-convert`, i.e. `brew install librsvg`). From
+the repo's root:
 
 ```sh
-./splash-install.sh --preview   # render and open the image here; no Pi involved
-./splash-install.sh --test      # install, then show it on the deck for 5 s
+# render it here, as a PNG; no Pi involved
+uv run pi_config/splash-render.py pi_config/trimixxx_logo_crt.svg -o /tmp/s.raw --preview /tmp/s.png
+# show it on the deck for 5 s
+pi-qemu deck ssh --host trimixxx-pi sudo /usr/local/bin/trimixxx-splash 5
 ```
 
-`--test` runs the real boot-time script, so it exercises the VT switch and the
-blit exactly as boot does. Mixxx is not restarted or disturbed — Xorg is on tty1
-and simply loses the foreground while the logo is up, then redraws. To change
-how long the splash holds at boot, edit `SPLASH_HOLD` in
-`trimixxx-splash.service`.
+The second runs the real boot-time script, on the image the system step
+installed, so it exercises the VT switch and the blit exactly as boot does.
+Mixxx is not restarted or disturbed: Xorg is on tty1 and simply loses the
+foreground while the logo is up, then redraws. To change how long the splash
+holds at boot, edit `SPLASH_HOLD` in `trimixxx-splash.service`.
+
+## Looking at the deck, and touching it
+From your desk, with `pi-qemu deck`. None of it is installed on the Pi: on a
+real deck it runs over ssh. `pi-qemu deck shot --host trimixxx-pi out.png`
+grabs the screen with `scrot`, and `deck tap`, `longpress`, `swipe`, `flick`
+and `key` send touches and keys with `xdotool` (the base step installs both).
+`deck press` (push, back, sort, play, cue, ...), `deck browse` (the encoder)
+and `deck midi` send the deck's *own* controls as MIDI, on its wiring, so they
+run the real `TriMixxx.midi.xml` and `TriMixxx.scripts.js` as if the S3 had sent
+them. `deck record` records the main mix. An emulated deck takes the same verbs
+with its NAME. `pi-qemu deck VERB --help` gives each one's arguments.
+
+The MIDI injection on a real deck is not obvious
+(`../pi-qemu/app/src/decks/remotedeck.cpp`): Mixxx's ALSA port has `WRITE` but
+not `SUBS_WRITE`, so `aconnect` into it fails with "Operation not permitted"
+while `aseqsend -p <client:port>` addressed straight at it works. The port is
+resolved from the sequencer graph on every call, by following ttymidi's own
+output to whoever is listening. Matching on Mixxx's pid does *not* work,
+because ALSA records the thread that created the port rather than the process.
 
 ## Not yet versioned here
 Some deck state still lives only on the Pi and would be lost on a re-image:
@@ -159,6 +181,6 @@ Worth pulling into this folder if full reproducibility is wanted.
 
 Deliberately *not* versioned: `~/.mixxx/trimixxx-levels`, the output trim and
 panel brightness set on the deck itself from Diagnostics → Adjust. It is per
-deck and per venue, outside `mixxx.cfg` so `mixxx_config/upload.sh` cannot
+deck and per venue, outside `mixxx.cfg` so the config step cannot
 reset it, and losing it on a re-image only puts the output back to unity and
 the panel to whatever `systemd-backlight` restores.

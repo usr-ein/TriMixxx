@@ -14,7 +14,7 @@ struct FirmwareOptions {
     int     requestedPartition = 0; // `reboot N` (the reset status); 0: none
     QString mac;            // eth0's, into the device tree as the firmware writes the real one
     int     fbWidth = 1280, fbHeight = 800, fbDepth = 16;
-    QString dtmerge;        // Raspberry Pi's tool, built by qemu/build.sh
+    QString dtmerge;        // Raspberry Pi's tool, built by pi-qemu/build.sh
     QString runDir;
 };
 
