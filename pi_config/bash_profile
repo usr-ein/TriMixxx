@@ -20,7 +20,7 @@
 # ssh, among other things). So source it explicitly, exactly as the
 # pre-TriMixxx ~/.bash_profile did; it also sources ~/.bashrc itself.
 #
-# This is why upload.sh greps ~/.profile for `startx` and complains: with the
+# This is why deploy step 002_system greps ~/.profile for `startx` and complains: with the
 # line below, a startx in ~/.profile would run BEFORE the mode is looked at and
 # the boot gesture would silently do nothing.
 if [ -f ~/.profile ]; then

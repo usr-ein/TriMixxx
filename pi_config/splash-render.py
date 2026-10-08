@@ -11,7 +11,7 @@ HERE, on the machine deploying, and leave the Pi with a file whose bytes are
 already in its framebuffer's exact layout: no image library, no PNG decoder, no
 SVG renderer, nothing to install on the deck at all.
 
-That layout is not a guess -- splash-install.sh reads it off the running Pi
+That layout is not a guess -- deploy step 002_system reads it off the running Pi
 (/sys/class/graphics/fb0/{virtual_size,bits_per_pixel,stride}) and passes it in,
 so a panel or config.txt change is picked up on the next deploy instead of
 silently producing a screen of colourful noise. The deck today reports

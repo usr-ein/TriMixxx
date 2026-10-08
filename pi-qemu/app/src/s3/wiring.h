@@ -2,7 +2,7 @@
 // Which note each control sends, on a given deck. Canonical notes come from
 // the firmware's MidiMap.hpp; a deck wired in a different order has a
 // mixxx_config/units/<deck>.json saying where each control actually lands --
-// the same file apply.py and deck-poke read.
+// the same file apply.py reads.
 
 #include <QHash>
 #include <QString>

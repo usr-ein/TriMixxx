@@ -5,7 +5,7 @@
 # in. Leaving the shell (exit) ends the session, and trimixxx-debug hands the
 # deck back to Mixxx.
 #
-# Installed as /usr/local/lib/trimixxx/rescue-session by ./upload.sh, with the
+# Installed as /usr/local/lib/trimixxx/rescue-session by pi-qemu/deploy/002_system.sh, with the
 # xterm and matchbox-keyboard packages and the layout in rescue-keyboard.xml.
 #
 # No window manager: two windows, placed once, and that is all this needs.

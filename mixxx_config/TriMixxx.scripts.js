@@ -39,8 +39,8 @@ TriMixxx.BACK_DEBOUNCE_MS = 200;
 // sends for that control, `lights` to the note -- for a ring pad, the node --
 // its LED actually answers to. Both are empty on a standard deck.
 // `jogReversed` is a jog encoder wired the other way round (trimixxx2's is).
-// The marked line is REPLACED at deploy time by upload.sh from
-// units/<hostname>.json, which renumbers the XML's notes from the same file, so
+// The marked line is REPLACED at deploy time (units/apply.py, from deploy step
+// 005_config) from units/<hostname>.json, which renumbers the XML's notes from the same file, so
 // that file is the one thing in this folder that differs from deck to deck.
 TriMixxx.UNIT = {deck: "", buttons: {}, lights: {}, jogReversed: false}; // @unit-wiring
 

@@ -28,12 +28,12 @@ CFG_DIR="${TRIMIXXX_DOOM_CFG:-$HOME/.local/share/chocolate-doom}"
 export SDL_AUDIODRIVER="${SDL_AUDIODRIVER:-alsa}"
 
 if ! command -v "$DOOM_BIN" >/dev/null 2>&1; then
-    echo "trimixxx-doom: $DOOM_BIN is not installed -- run doom/install.sh" >&2
+    echo "trimixxx-doom: $DOOM_BIN is not installed -- deploy step 007_doom installs it" >&2
     exit 1
 fi
 
 if [ ! -f "$WAD" ]; then
-    echo "trimixxx-doom: no WAD at $WAD -- run doom/fetch-wad.sh then doom/install.sh" >&2
+    echo "trimixxx-doom: no WAD at $WAD -- deploy step 007_doom puts it there" >&2
     exit 1
 fi
 

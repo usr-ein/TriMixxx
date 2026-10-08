@@ -3,8 +3,8 @@ Description=TriMixxx launch manager - picks the boot mode, and does the OS thing
 
 # ---- NETWORKING AND SSH COME UP FIRST. NON-NEGOTIABLE. ---------------------
 # wlan0 carries ssh and is the only way back into this machine when the screen
-# is showing something that will not quit -- the same rule prolink-eth0.sh is
-# written around. So the launch manager is ordered AFTER the network stack and
+# is showing something that will not quit -- the same rule eth0's profile is
+# installed around (pi-qemu/deploy/002_system.sh). So the launch manager is ordered AFTER the network stack and
 # AFTER sshd: by the time anything here can go wrong, the deck is already
 # reachable, and it stays reachable whatever this unit then does.
 #

@@ -35,7 +35,7 @@
       <!-- Whether the panel sits behind a lip, so the outer rows have to be
            kept clear: 1 for Trimixxx1, whose panel is recessed on every edge.
            A deck with a flush panel sets 0 in mixxx_config/units/<deck>.json,
-           which upload.sh writes into this line on the way out. Read by the
+           which the config deploy step writes into this line. Read by the
            DeckBezelPad/BevelPad strips here, and by the browser (deckbezel.h
            in the fork) when it is built. Not persisted: it is a fact about the
            hardware, not a preference. -->
@@ -44,7 +44,7 @@
            live. 8978176 is 0x88FF00, Trimixxx1's lime, written as the integer
            a control holds (attributes are read as numbers). A deck with its
            own colour sets `accent` in mixxx_config/units/<deck>.json, and
-           upload.sh writes it into this line and into style.qss and the SVGs,
+           the config deploy step writes it into this line, into style.qss and the SVGs,
            which spell the lime as #88ff00. Read by the widgets that paint
            themselves (the browser's lists and breadcrumb, Diagnostics)
            through deckaccent.h in the fork. Not persisted, like the bezel. -->

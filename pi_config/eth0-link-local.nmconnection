@@ -1,6 +1,6 @@
-# eth0, the deck's CDJ port: IPv4 link-local, no DHCP (prolink-eth0.sh says
-# why), bound to eth0 by name. prolink-eth0.sh installs it on a dev deck, and
-# every release card carries it.
+# eth0, the deck's CDJ port: IPv4 link-local, no DHCP (pi-qemu/deploy/002_system.sh
+# says why), bound to eth0 by name. That deploy step installs it on a dev deck,
+# and every release card carries it.
 #
 # A NetworkManager keyfile, not netplan: Pi OS's NetworkManager rewrites
 # netplan's eth0 profile into one that takes whichever Ethernet NIC comes up

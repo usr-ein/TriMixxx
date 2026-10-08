@@ -15,7 +15,7 @@ copies for the deck UNIT_JSON describes into OUT_DIR:
     meaning off the note number -- and `jogReversed`, for a jog encoder wired
     the other way round;
   * `bezel`, if the unit sets it, goes into the skin's `[TriMixxx],bezel`
-    attribute, in the copy of the skin upload.sh has staged at
+    attribute, in the copy of the skin the config deploy step has staged at
     OUT_DIR/TriMixxx_skin -- false for a panel with no lip to keep clear;
   * `accent`, if the unit sets it (`#rrggbb`), replaces the skin's own accent
     in that staged copy: in its `[TriMixxx],accent` attribute, which the fork's
@@ -25,7 +25,8 @@ copies for the deck UNIT_JSON describes into OUT_DIR:
 
 Only <midino> text changes in the XML, so diffing the result against the
 canonical file shows the remap and nothing else. CC bindings keep their numbers:
-the remap is for buttons. Run by ../upload.sh; standard library only.
+the remap is for buttons. Run by pi-qemu/deploy/005_config.sh; standard library
+only.
 """
 
 import json

@@ -28,8 +28,8 @@
 set -eu
 
 IMG="${SPLASH_IMAGE:-/usr/local/share/trimixxx/splash.raw}"
-# "WIDTH HEIGHT BPP STRIDE" the image was rendered for, written by
-# splash-install.sh. Checked rather than assumed -- see the wait below.
+# "WIDTH HEIGHT BPP STRIDE" the image was rendered for, written by deploy
+# step 002_system. Checked rather than assumed -- see the wait below.
 GEOM="${SPLASH_GEOM:-/usr/local/share/trimixxx/splash.geom}"
 FB="${SPLASH_FB:-/dev/fb0}"
 SYSFB="${SPLASH_SYSFB:-/sys/class/graphics/fb0}"
@@ -42,11 +42,11 @@ VT="${SPLASH_VT:-7}"
 HOLD="${1:-${SPLASH_HOLD:-8}}"
 
 # A release card says which slot started (pi-qemu/PLAN.md §4.1): it carries an
-# image per screen and per start, rendered by `make release` with a label under
+# image per screen and per start, rendered by `pi-qemu release build` with a label under
 # the logo, in splash.d/<WIDTH>x<HEIGHT>x<BPP>x<STRIDE>/<slot>.raw. The slot is
 # the command line's (rauc.slot=), -trial when the firmware started it as a
 # trial (its tryboot flag, in the device tree). A dev card has no slot, and its
-# one image from splash-install.sh.
+# one image from deploy step 002_system.
 SETS="${SPLASH_SETS:-/usr/local/share/trimixxx/splash.d}"
 slot="$(sed -n 's/.*rauc\.slot=\([AB]\).*/\1/p' /proc/cmdline)"
 if [ -n "$slot" ] && [ -d "$SETS" ]; then
@@ -98,7 +98,7 @@ done
 
 if [ "${now:-}" != "$want" ]; then
     echo "framebuffer is [${now:-none}] after ${WAIT}s but the splash was" \
-         "rendered for [$want]; skipping. Re-run splash-install.sh." >&2
+         "rendered for [$want]; skipping. Deploy step 002_system again." >&2
     exit 0
 fi
 

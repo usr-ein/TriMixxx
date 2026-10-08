@@ -36,6 +36,8 @@ public:
 
     // The hostname it runs under: what names its unit file (asked once).
     QString hostname();
+    // How the person names it, for advice: NAME, or --host ALIAS.
+    QString spelled() const { return emulated() ? name() : "--host " + name(); }
 
 private:
     QString m_hostname;

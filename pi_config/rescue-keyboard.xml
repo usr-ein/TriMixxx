@@ -20,7 +20,7 @@
   one-unit key is cut off. Characters that XML reserves are entities, sent by
   keysym name rather than by character.
 
-  Installed as ~/.matchbox/keyboard.xml by ./upload.sh: the default name,
+  Installed as ~/.matchbox/keyboard.xml by pi-qemu/deploy/002_system.sh: the default name,
   because this build of matchbox-keyboard crashes when given a layout by name
   (see rescue-session).
 -->

@@ -10,8 +10,10 @@
 #include "decks/readiness.h"
 #include "decks/recorder.h"
 #include "decks/touchscreen.h"
+#include "pipeline/steps.h"
 #include "s3/controls.h"
 #include "util/fail.h"
+#include "util/paths.h"
 #include "util/process.h"
 #include "util/tool.h"
 
@@ -27,9 +29,6 @@ QTextStream& out() {
 }
 
 const cli::Option kHost{"host", "ALIAS", decks::hostOptionHelp()};
-
-// How the person names this deck, for advice: NAME, or --host ALIAS.
-QString spelled(const Deck& d) { return d.emulated() ? d.name() : "--host " + d.name(); }
 
 int up(cli::Args& a) {
     Instance i(a.take("NAME"));
@@ -88,7 +87,7 @@ int ready(cli::Args& a) {
     const int seconds = a.takeNumber("SECONDS", 120);
     a.done();
     d->requireUp();
-    readiness::waitMixxx(d->ssh(), seconds, spelled(*d), [&d] { d->requireUp(); });
+    readiness::waitMixxx(d->ssh(), seconds, d->spelled(), [&d] { d->requireUp(); });
     const proc::Result pid = d->ssh().capture("pgrep -xo mixxx");
     out() << d->name() << ": Mixxx is ready (sound open, the S3 connected; pid " << pid.text() << ")\n";
     return 0;
@@ -186,6 +185,14 @@ int record(cli::Args& a) {
     const QString wav = a.takeOr(QString("/tmp/deck-%1.wav").arg(QDateTime::currentDateTime().toString("yyyyMMdd-HHmmss")));
     a.done();
     recorder::record(*d, seconds, wav);
+    return 0;
+}
+
+int deploy(cli::Args& a) {
+    auto d = decks::target(a);
+    const QVector<steps::Step> all = steps::all(paths::piq() + "/deploy");
+    const QVector<steps::Step> chosen = steps::select(all, a.takeAll());
+    steps::run(*d, chosen);
     return 0;
 }
 
@@ -291,6 +298,20 @@ void addDeck(cli::Registry& r) {
         .group = "deck", .name = "record", .synopsis = "TARGET [SECONDS] [OUT.wav]",
         .summary = "Mixxx's main mix, recorded by Mixxx for SECONDS (10), fetched (/tmp/deck-<time>.wav)",
         .options = {kHost}, .run = record,
+    });
+
+    // ---- deploying ----
+    r.add({
+        .group = "deck", .name = "deploy", .synopsis = "TARGET [STEP...]",
+        .summary = "this checkout's code onto the deck: every deploy step in order, or the named ones",
+        .help = "The steps are pi-qemu/deploy/NNN_name.sh (on the Mac, reaching the deck as `ssh deck`)\n"
+                "and NNN_name.pi.sh (on the deck, as root), in number order; name them as mixxx,\n"
+                "004 or 004_mixxx. pi-qemu/deploy/lib.sh has their contract. A step that changed the\n"
+                "boot flags has the deck reboot before the next one; the session restarts at the\n"
+                "end if a step needs it, and then this waits until Mixxx is ready. Steps that build\n"
+                "in Docker need ~6 GB free on its disk. In a git worktree, its submodules are\n"
+                "checked out first (worktree prepare).",
+        .options = {kHost}, .run = deploy,
     });
 
     // ---- an emulated deck's own ----

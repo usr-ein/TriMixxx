@@ -28,7 +28,7 @@
         <options><normal/></options>
       </control>
 
-      <!-- Unattended audio capture, for pi_config/deck-record. Note 0x7A
+      <!-- Unattended audio capture, for `pi-qemu deck record`. Note 0x7A
            toggles Mixxx's recorder, so a change can be listened to from the
            machine that made it rather than by standing at the deck. The S3
            never sends this note; it exists for the test harness. -->

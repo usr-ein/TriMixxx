@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
-# pi_config/fresh-install.md sections 1-2, as code: what was done to trimixxx2
-# by hand between a freshly flashed card and the first deploy script. Runs on
-# the Pi as root -- ../deploy.sh pipes it into `sudo bash -s`.
+# Deploy step 000 (lib.sh has the contract), on the deck as root: what
+# pi_config/fresh-install.md sections 1-2 do by hand between a freshly flashed
+# card and the deck's software -- boot flags, ssh, background load, packages,
+# autologin -- and what a release card's read-only root needs.
 #
-# Idempotent, and safe on a deck that is already set up: every change checks
-# first, nothing is removed that a deck may rely on, and nothing reboots. If
-# config.txt or cmdline.txt changed, the last line says REBOOT NEEDED.
+# Safe on a deck that is set up already: every change checks first, nothing a
+# deck may rely on is removed, and nothing reboots here. If config.txt or
+# cmdline.txt changed it exits 10, and the deck reboots before the next step.
 #
 #   PANEL_OVERLAY   the deck's display overlay line, from its unit file
 #                   ("panelOverlay"); empty leaves the panel config alone.
 #
 # Not here, because they are per board rather than per card: the bootloader
-# EEPROM (1.2) and the UCA222's level (3.6).
+# EEPROM (1.2; pi-qemu deck prepare) and the UCA222's level (3.6).
 set -euo pipefail
+[ "${PIQEMU_STEP:-}" = 1 ] || { echo "000_base.pi.sh is a deploy step: pi-qemu deck deploy TARGET base" >&2; exit 2; }
 export DEBIAN_FRONTEND=noninteractive
 PANEL_OVERLAY="${PANEL_OVERLAY:-}"
 reboot_needed=0
@@ -35,7 +37,7 @@ missing=()
 for line in "${want[@]}"; do grep -qxF "$line" config.txt || missing+=("$line"); done
 if [ "${#missing[@]}" -gt 0 ]; then
     {
-        printf '\n[all]\n# TriMixxx (pi_config/fresh-install.md 1.3, added by pi-qemu/deploy.sh)\n'
+        printf '\n[all]\n# TriMixxx (pi_config/fresh-install.md 1.3, added by pi-qemu/deploy/000_base.pi.sh)\n'
         printf '%s\n' "${missing[@]}"
     } >> config.txt
 fi
@@ -111,4 +113,8 @@ fi
 # Console autologin on tty1 -- the session that becomes Mixxx.
 raspi-config nonint do_boot_behaviour B2
 
-if [ "$reboot_needed" = 1 ]; then echo "base: done, REBOOT NEEDED (boot flags changed)"; else echo "base: done"; fi
+if [ "$reboot_needed" = 1 ]; then
+    echo "base: done; the boot flags changed, so the deck reboots before the next step"
+    exit 10
+fi
+echo "base: done"

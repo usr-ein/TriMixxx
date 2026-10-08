@@ -14,7 +14,7 @@
 #                                   reflash
 #
 # Its Mixxx skin and mapping are the image's, rendered for every deck at build
-# time (mixxx_config/upload.sh): /usr/share/trimixxx/decks/<deck>, or
+# time (deploy step 005_config): /usr/share/trimixxx/decks/<deck>, or
 # .../standard for a deck wired as the canonical files say.
 set -eu
 

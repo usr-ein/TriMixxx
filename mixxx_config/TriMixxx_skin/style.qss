@@ -1,7 +1,7 @@
 /* ============== BASE ==============
  *
- * MesloLGL Nerd Font everywhere, shipped with this repo and installed by
- * upload.sh -- it is NOT a stock Raspberry Pi OS font, so the DejaVu fallbacks
+ * MesloLGL Nerd Font everywhere, shipped with this repo and installed by the
+ * config deploy step -- it is NOT a stock Raspberry Pi OS font, so the DejaVu fallbacks
  * below are load-bearing: if the font ever fails to reach the deck the UI comes
  * back plain instead of coming back wrong.
  *
@@ -49,7 +49,7 @@ WWidget, QWidget {
  * MixxxMainWindow copies the skin's whole stylesheet onto it verbatim:
  * `m_pMenuBar->setStyleSheet(m_pCentralWidget->styleSheet())`, once after the
  * skin loads and again on every skin reload (mixxxmainwindow.cpp). So no fork
- * patch and no rebuild -- this ships with a normal upload.sh.
+ * patch and no rebuild -- this ships with a normal config deploy.
  *
  * The rules have to be EXPLICIT rather than relying on the QWidget rule above,
  * and the reason is in MixxxMainWindow::initializeWindow(): it reads the menu
