@@ -15,7 +15,10 @@
 namespace {
 
 // The build's steps, in order, and the text of the "==>" line that starts each
-// (image/build.sh's say, pi-qemu/deploy.sh's say).
+// (image/build.sh's say, pi-qemu/deploy.sh's say, release/Makefile's say). A
+// build runs some of them: a cached base skips the seeding and the first boot,
+// only trimixxx0's ends with the golden snapshot, only `make release` seals a
+// release. A step never started shows as skipped.
 struct Step { const char* name; const char* marker; };
 constexpr Step kSteps[] = {
     {"Stock Raspberry Pi OS card", "base image"},
@@ -32,6 +35,9 @@ constexpr Step kSteps[] = {
     {"Doom", ": Doom"},
     {"Seal and power off", "sealing"},
     {"Golden snapshot for agents", "golden snapshot"},
+    {"Release: the system, as SquashFS", "release: the system"},
+    {"Release: the card (genimage)", "release: the card"},
+    {"Release: the update (RAUC bundle)", "release: the update"},
 };
 constexpr int kStepCount = int(sizeof(kSteps) / sizeof(kSteps[0]));
 
@@ -90,8 +96,9 @@ QString hms(qint64 s) {
 
 } // namespace
 
-BuildWindow::BuildWindow(const QString& logPath, QWidget* parent) : QWidget(parent), m_path(logPath) {
-    setWindowTitle("pi-qemu — building the image");
+BuildWindow::BuildWindow(const QString& logPath, QWidget* parent)
+    : QWidget(parent), m_path(logPath), m_seen(kStepCount, false) {
+    setWindowTitle("pi-qemu — the build");
     resize(1250, 780);
 
     m_log = new QPlainTextEdit(this);
@@ -152,6 +159,7 @@ void BuildWindow::poll() {
         m_partial.clear();
         m_log->clear();
         m_current = -1;
+        m_seen.fill(false);
         m_finished = false;
         m_start = m_last = {};
         for (int i = 0; i < m_steps->count(); i++) m_steps->item(i)->setText(QString("·  ") + kSteps[i].name);
@@ -194,13 +202,13 @@ void BuildWindow::onLine(const QString& line) {
         m_finished = true;
         const bool ok = line.endsWith(" 0");
         if (ok) {
-            for (int i = 0; i < kStepCount; i++) m_steps->item(i)->setText(QString("✓  ") + kSteps[i].name);
+            for (int i = 0; i < kStepCount; i++) m_steps->item(i)->setText(QString(m_seen[i] ? "✓  " : "–  ") + kSteps[i].name);
             m_bar->setValue(kStepCount);
             m_bar->setFormat("done");
         } else if (m_current >= 0) {
             m_steps->item(m_current)->setText(QString("✗  ") + kSteps[m_current].name);
         }
-        m_step->setText(ok ? "Image built." : "The build failed — see the end of the log.");
+        m_step->setText(ok ? "Built." : "The build failed — see the end of the log.");
         m_step->setStyleSheet(ok ? "color: rgb(60,200,60)" : "color: rgb(230,70,70)");
         m_bar->setStyleSheet(ok ? "QProgressBar::chunk { background: rgb(60,170,60); }"
                                 : "QProgressBar::chunk { background: rgb(200,60,60); }");
@@ -209,8 +217,9 @@ void BuildWindow::onLine(const QString& line) {
 }
 
 void BuildWindow::setStep(int index) {
+    m_seen[index] = true;
     for (int i = 0; i < kStepCount; i++)
-        m_steps->item(i)->setText(QString(i < index ? "✓  " : i == index ? "▶  " : "·  ") + kSteps[i].name);
+        m_steps->item(i)->setText(QString(i < index ? (m_seen[i] ? "✓  " : "–  ") : i == index ? "▶  " : "·  ") + kSteps[i].name);
     m_current = index;
     m_bar->setValue(index);
     m_bar->setFormat(QString("%1 / %2").arg(index).arg(kStepCount));

@@ -670,6 +670,9 @@ They go into the normal build, so the dev deck carries them too, inert.
 7. **Writes `manifest.txt`:** the commit, a sha256 for every output, and
    `dpkg -l` from the root.
 
+The whole run shows in pi-qemu's build window (`pi-qemu build-log`), the
+system's build and then these steps, unless `BUILD_WINDOW=0`.
+
 **`make card DECK=name VERSION=v`** copies the release card and fills p7 from
 `pi-qemu/.cache/decks/<name>/`:
 - `trimixxx.conf`;

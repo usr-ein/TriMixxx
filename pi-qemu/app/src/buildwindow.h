@@ -1,12 +1,14 @@
 #pragma once
-// A window on an image build (image/build.sh): its log as it is written, in a
-// terminal-like pane with bash highlighting, and a progress bar over the
-// build's steps with the time elapsed since it started.
+// A window on a build (image/build.sh, or release/Makefile's `make release`,
+// which both open it): its log as it is written, in a terminal-like pane with
+// bash highlighting, and a progress bar over the build's steps with the time
+// elapsed since it started.
 //
 //   pi-qemu build-log .cache/build/build.log
 
 #include <QDateTime>
 #include <QFile>
+#include <QVector>
 #include <QWidget>
 
 class QLabel;
@@ -38,5 +40,6 @@ private:
     QTimer*         m_clock;
     QDateTime       m_start, m_last; // the build's first and latest stage stamps
     int             m_current = -1;
+    QVector<bool>   m_seen; // the steps that started, by index
     bool            m_finished = false;
 };

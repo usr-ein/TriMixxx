@@ -57,7 +57,11 @@ SSH_KEY ?= $(HOME)/.ssh/no_pass/rsa_sam
 SECRETS := $(MAIN)/pi-qemu/image/secrets.env
 CACHE := $(MAIN)/pi-qemu/.cache
 DECKS := $(CACHE)/decks
-CONTAINER := docker build -q -t trimixxx-release - < Dockerfile > /dev/null && docker run --rm -e IN_CONTAINER=1 \
+# The Mac's UTC offset, as a POSIX TZ that the container's date reads with no
+# zone files (+0200 is LOC-02:00): its step lines then carry the Mac's time,
+# as image/build.sh's do, which the build window counts the time from.
+TZ_LOCAL := $(shell date +%z | sed -e 's/^+/m/' -e 's/^-/+/' -e 's/^m/-/' -e 's/^\(.\)\(..\)\(..\)$$/LOC\1\2:\3/')
+CONTAINER := docker build -q -t trimixxx-release - < Dockerfile > /dev/null && docker run --rm -e IN_CONTAINER=1 -e TZ='$(TZ_LOCAL)' \
     --mount type=bind,src='$(CURDIR)',dst=/release -w /release \
     --mount type=bind,src='$(REPO)',dst=/repo,readonly
 
@@ -72,6 +76,10 @@ phase1:
 
 # macOS's make is 3.81: no .ONESHELL or .SHELLFLAGS. So each recipe on this
 # side is one shell command, `set -euo pipefail` first.
+#
+# `release` shows itself in pi-qemu's build window (`pi-qemu build-log`), unless
+# BUILD_WINDOW=0: the system's build and then the release's own steps, all in
+# pi-qemu/.cache/build/build.log, which ends with BUILD_EXIT <status>.
 release:
 	@set -euo pipefail; \
 	[ -n '$(VERSION)' ] || { echo "make release VERSION=1.0.0" >&2; exit 1; }; \
@@ -81,11 +89,18 @@ release:
 	    [ "$$(git -C '$(REPO)' tag --points-at HEAD)" = 'v$(VERSION)' ] || \
 	        { echo "HEAD is not tagged v$(VERSION): git tag v$(VERSION) (or REHEARSAL=1)" >&2; exit 1; }; \
 	else commit="$$commit (rehearsal)"; fi; \
-	[ -n '$(SKIP_BUILD)' ] || SSH_KEY='$(SSH_KEY)' '$(REPO)/pi-qemu/image/build.sh' $(SYSTEM); \
-	[ -f '$(CACHE)/build/$(SYSTEM).img' ] || { echo "no $(SYSTEM) card in pi-qemu/.cache/build" >&2; exit 1; }; \
-	$(CONTAINER) --privileged -e VERSION='$(VERSION)' -e COMMIT="$$commit" \
-	    --mount type=bind,src='$(CACHE)/build',dst=/build,readonly \
-	    trimixxx-release make $@
+	log='$(CACHE)/build/build.log'; mkdir -p '$(CACHE)/build'; : > "$$log"; \
+	if [ '$(BUILD_WINDOW)' != 0 ] && ! pgrep -f "build-log $$log" > /dev/null; then \
+	    ( trap '' INT; exec '$(MAIN)/pi-qemu/app/build/pi-qemu' build-log "$$log" ) > /dev/null 2>&1 & \
+	fi; \
+	set +e; ( set -e; \
+	    [ -n '$(SKIP_BUILD)' ] || BUILD_LOGGED=1 SSH_KEY='$(SSH_KEY)' '$(REPO)/pi-qemu/image/build.sh' $(SYSTEM); \
+	    [ -f '$(CACHE)/build/$(SYSTEM).img' ] || { echo "no $(SYSTEM) card in pi-qemu/.cache/build" >&2; exit 1; }; \
+	    $(CONTAINER) --privileged -e VERSION='$(VERSION)' -e COMMIT="$$commit" \
+	        --mount type=bind,src='$(CACHE)/build',dst=/build,readonly \
+	        trimixxx-release make $@ \
+	) 2>&1 | tee -a "$$log"; status=$${PIPESTATUS[0]}; \
+	echo "BUILD_EXIT $$status" >> "$$log"; exit $$status
 
 # The deck's identity, kept in pi-qemu/.cache/decks/<deck>/ (gitignored) and
 # made the first time: its name, its ssh host keys (kept, so known_hosts
@@ -224,6 +239,10 @@ phase1:
 # The release's kernel command line, for slot $(1): its root and boot partitions.
 slot_cmdline = sed -e 's/@ID@/$(ID)/g' -e 's/@SLOT@/$(1)/' -e 's/@ROOT@/$(2)/' -e 's/@BOOT@/$(3)/' boot/cmdline.txt.in
 
+# A step of `release`, for the build window: a line as image/build.sh's say
+# prints them.
+say = echo; echo "==> [$$(date +%H:%M:%S)] release: $(1)"
+
 release:
 	o=out/$(VERSION) card=/build/$(SYSTEM).img r=/merged p=/repo/pi_config
 	rm -rf $(WORK) $$o
@@ -232,6 +251,7 @@ release:
 	read -r root_start root_size < <(partx -g -o START,SECTORS -n 2 $$card)
 
 	# ---- the system: the built card's root, sealed, as SquashFS --------------------
+	$(call say,the system sealed into SquashFS)
 	# Read-only underneath, the seal's changes in RAM on top: the built card is
 	# never written.
 	mkdir -p /lower /up $$r
@@ -290,6 +310,7 @@ release:
 	umount $$r /lower /up; trap - EXIT
 
 	# ---- the boot files: the built card's, with both slots' command lines ----------
+	$(call say,the card: boot files and genimage)
 	mcopy -snm -i "$$card@@$$((boot_start * 512))" '::*' $(WORK)/boot/
 	rm -f $(WORK)/boot/{cmdline.txt,user-data,network-config,meta-data,config.txt.pre-trimixxx,cmdline.txt.pre-trimixxx}
 	cat boot/config-release.txt >> $(WORK)/boot/config.txt
@@ -308,6 +329,7 @@ release:
 	! mdir -b -i "$(WORK)/img/trimixxx.img@@$$((16384 * 512))" ::/ | grep -i '\.elf$$'
 
 	# ---- the update: a RAUC bundle of both slot images -----------------------------
+	$(call say,the update: a RAUC bundle)
 	# Signed with signing-key.pem, public on purpose (Sam, 2026-10-08): TriMixxx
 	# is open hardware, and anyone may sign a release for it. The signature,
 	# which RAUC requires, guards against a damaged bundle, not a hostile one.

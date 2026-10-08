@@ -42,6 +42,29 @@ BASE_SHA256=cdf4f3bfac35ae947b46e4e767f935453810549779ac3290e05a6754aee627e5
 
 say() { printf '\n==> [%s] %s\n' "$(date +%H:%M:%S)" "$*"; }
 
+# ---- the build window ------------------------------------------------------------
+# Everything this prints also goes to $OUT/build.log, which ends with a line
+# BUILD_EXIT <status>. `pi-qemu build-log` shows that file in a window: the
+# steps, a progress bar and the log, opened here unless BUILD_WINDOW=0 or one
+# is open on it already. A caller that logs the build itself, and more after
+# it, sets BUILD_LOGGED=1 (release/Makefile's `make release`).
+if [ -z "${BUILD_LOGGED:-}" ]; then
+    mkdir -p "$OUT"
+    BUILD_LOG="$OUT/build.log"
+    : > "$BUILD_LOG"
+    exec > >(tee -a "$BUILD_LOG") 2>&1
+    if [ "${BUILD_WINDOW:-1}" != 0 ] && ! pgrep -f "build-log $BUILD_LOG" > /dev/null; then
+        # Not stopped by a ^C to the build: it shows how the build ended.
+        ( trap '' INT; exec "$PIQ/app/build/pi-qemu" build-log "$BUILD_LOG" ) > /dev/null 2>&1 &
+    fi
+fi
+on_exit() {
+    local status=$?
+    [ -z "${PIQ_PID:-}" ] || kill "$PIQ_PID" 2>/dev/null || true
+    [ -n "${BUILD_LOGGED:-}" ] || echo "BUILD_EXIT $status"
+}
+trap on_exit EXIT
+
 # ---- preflight -------------------------------------------------------------------
 for f in "$PIQ/qemu/.build/bin/qemu-system-aarch64" "$PIQ/app/build/pi-qemu" "$SSH_KEY" "$SSH_KEY.pub"; do
     [ -e "$f" ] || { echo "missing: $f (qemu/build.sh, app/build.sh, or SSH_KEY)" >&2; exit 1; }
@@ -100,8 +123,6 @@ wait_ssh() { # first boot: resize, a reboot, cloud-init -- a few minutes
         sleep 5
     done
 }
-cleanup() { [ -n "${PIQ_PID:-}" ] && kill "$PIQ_PID" 2>/dev/null || true; }
-trap cleanup EXIT
 stop_pi() { # power the Pi off cleanly; pi-qemu exits with it
     ssh "$HOST" 'sudo systemctl poweroff' || true
     for _ in $(seq 1 60); do kill -0 "$PIQ_PID" 2>/dev/null || break; sleep 2; done
@@ -128,7 +149,7 @@ base_key="$( {
     echo "$BASE_SHA256 $DECK"
     cat "$SSH_KEY.pub" "$PIQ/deploy/base.sh"
     printf '%s\n' "$SAM1902_PASSWORD"
-    grep '"panelOverlay"' "$REPO/mixxx_config/units/$DECK.json" || true
+    grep -s '"panelOverlay"' "$REPO/mixxx_config/units/$DECK.json" || true
     awk '/^# >>> base stage/,/^# <<< base stage/' "$HERE/build.sh"
 } | shasum -a 256 | cut -c1-16)"
 BASE_CARD="$CACHE/base/$DECK-$base_key.img"

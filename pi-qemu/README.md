@@ -49,7 +49,10 @@ deck's binaries; the base stage is cached for later runs:
 pi-qemu/image/build.sh            # -> pi-qemu/.cache/build/trimixxx0.img (+ the golden snapshot)
 ```
 
-A window shows the build as it goes: `pi-qemu build-log pi-qemu/.cache/build/build.log`.
+A window shows the build as it goes: its steps, a progress bar and the log.
+`image/build.sh` opens it (`pi-qemu build-log pi-qemu/.cache/build/build.log`,
+the log it writes), and so does the release's `make release`, for the whole
+release. `BUILD_WINDOW=0` opens none.
 
 ## Running your deck
 
