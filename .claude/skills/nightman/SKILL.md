@@ -172,8 +172,17 @@ Every 20 minutes, or whenever you wonder:
 
 Sam writing to you means he is here. You may ask him things again; pass his
 answers to the minions ("Sam is here: ..."). Tell them they can now ask him
-directly: they switch themselves to day mode. Anything that waited for him
-merges only with his yes.
+directly: they switch themselves to day mode.
+
+Anything that waited for him merges only with his yes. Record it as an
+approving review that quotes him, on the commit he saw, then merge:
+
+```sh
+crew review BRANCH approved --commit SHA --body-file F    # F: "Sam approved: <his words>"
+crew merge BRANCH
+```
+
+A label alone approves nothing.
 
 ## When the crew gets in your way
 

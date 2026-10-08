@@ -31,7 +31,9 @@ Sam writing to you himself, in a plain turn rather than a
 ## Gather the context
 
 1. `crew register bitch --mode MODE --branch BRANCH`.
-2. Read, in this order:
+2. Note the commit you are about to review: `git rev-parse BRANCH`. Your
+   review approves or faults that commit, and no other (`--commit` below).
+3. Read, in this order:
    - `.crew/pitch.md`: Sam's pitch, verbatim, and at night the nightman's
      brief and Sam's evening answers. The PR is measured against this.
    - `.crew/review-brief.md`, if there is one: the nightman's notes for this
@@ -47,7 +49,7 @@ Sam writing to you himself, in a plain turn rather than a
      GitHub's diff: a fork PR there can carry Sam's commits that origin lacks.
    - Around the change: the code it plugs into, `CLAUDE.md`, and Sam's
      standing preferences in memory.
-3. A later round: the commits since your last review, the minion's replies,
+4. A later round: the commits since your last review, the minion's replies,
    and whether each of your points was answered.
 
 ## What you judge
@@ -101,14 +103,15 @@ One review per round. Write the body to a file in `.crew/` (e.g.
 `.crew/review-2.md`), then:
 
 ```sh
-crew review BRANCH changes --body-file .crew/review-2.md
-crew review BRANCH changes --body-file .crew/review-2.md --comments .crew/review-2-inline.json
+crew review BRANCH changes --commit SHA --body-file .crew/review-2.md
+crew review BRANCH changes --commit SHA --body-file .crew/review-2.md --comments .crew/review-2-inline.json
 ```
 
 `crew review` adds the header (`AI review · round N · verdict: ...`), posts it
-as a comment review (GitHub won't let the account that opened a PR approve it,
-so the verdict lives in the header and the `review:` label), and sets the
-label. The body:
+as a comment review on the commit you read (GitHub won't let the account that
+opened a PR approve it, so the verdict lives in the header and the `review:`
+label), and sets the label. If the branch moved while you read, it refuses:
+review what was pushed, then post. The body:
 
 ```markdown
 **Direction:** a sentence or two: does this do what the pitch asks?
@@ -133,12 +136,17 @@ The repos are public: no secrets, keys or private addresses in a review.
 
 **Day.**
 - changes or needs-sam: tell Sam the verdict and its top points. For a
-  question of his, ask him (AskUserQuestion), and post his answer on the PR
-  as "Sam: ...". Each `[for Sam]` decision he settles is rewritten in the
-  PR body as `[Sam]`, with his answer
+  question of his, ask him (AskUserQuestion). Each `[for Sam]` decision he
+  settles is rewritten in the PR body as `[Sam]`, with his answer
   (`crew gh -R usr-ein/TriMixxx pr edit N --body-file ...`): `crew merge`
-  refuses while one is left. Then set the label it leads to
-  (`crew label BRANCH changes` or `approved`).
+  refuses while one is left. What his answer leads to:
+  - more work: post it on the PR as "Sam: ..." and
+    `crew label BRANCH changes`, for the minion.
+  - his yes to the PR as it is: an approving review that quotes him,
+    `crew review BRANCH approved --commit SHA --body-file ...` ("Sam
+    approved: <his words>"). `crew merge` lands only what an approving
+    review names; a label alone approves nothing, and `crew label` refuses
+    `approved`.
 - approved: ask Sam "Merge #N now?" (AskUserQuestion). On yes:
   - `crew merge BRANCH` fast-forwards each repo the branch touches into main,
     deepest first, and pushes. Exit 3: main moved, so the minion must rebase.

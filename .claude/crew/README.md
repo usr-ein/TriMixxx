@@ -137,7 +137,9 @@ review's header and the PR's `review:` label: `ready`, `changes`, `approved`,
 
 **What `crew merge` lands** is what the bitch approved: the commit its last
 review approved, or the same change rebased onto a newer main (compared repo
-by repo, as patch ids). It refuses:
+by repo, as patch ids). A review names the commit it read, and the
+`review:approved` label comes only with an approving review (Sam's yes is
+recorded as one, quoting him). It refuses:
 
 - a PR whose body still lists a `- [for Sam]` decision
 - a submodule pointer that would not be on that submodule's main

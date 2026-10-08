@@ -266,8 +266,9 @@ class DelegationTest(Sandbox):
             (path.parent / "limits.env").write_text((HERE / "limits.env").read_text())
 
     def crew(self, *args, env=None, input=None):
+        base = {k: v for k, v in os.environ.items() if k != "CREW_LOCAL"}  # set in crew sessions; not here
         return subprocess.run(["python3", str(self.wt_copy), *args], capture_output=True, text=True, input=input,
-                              env=dict(os.environ, CREW_STATE=str(crew.CREW), **(env or {})))
+                              env=dict(base, CREW_STATE=str(crew.CREW), **(env or {})))
 
     def test_runs_the_main_checkouts_copy(self):
         self.assertEqual(self.crew("root").stdout.strip(), f"main copy {self.tmp / 'main'}")
@@ -284,6 +285,29 @@ class DelegationTest(Sandbox):
         self.assertIn("main copy guard (minion, night)", self.crew("hook", "guard", input=hook).stdout)
         other = hook.replace('"s1"', '"not-crew"')
         self.assertEqual(self.crew("hook", "guard", input=other).stdout, "")
+
+
+class ReviewTest(Sandbox):
+    """An approval is a review that names the commit it read; a label alone approves nothing."""
+
+    def setUp(self):
+        super().setUp()
+        crew.find_prs = lambda b: {".": {"number": 1, "repo": "usr-ein/TriMixxx", "state": "OPEN", "isDraft": False,
+                                         "labels": [], "body": "", "headRefOid": "b" * 40, "url": "u"}}
+        crew.gh_json = lambda args, repo=None: self.fail("nothing may reach GitHub")
+
+    def test_label_cannot_approve(self):
+        with self.assertRaises(crew.Fail) as cm:
+            crew.cmd_label(argparse.Namespace(branch="feat", state="approved"))
+        self.assertIn("approving review", str(cm.exception))
+
+    def test_review_of_a_head_that_moved(self):
+        body = self.tmp / "review.md"
+        body.write_text("Looks right.")
+        with self.assertRaises(crew.Fail) as cm:
+            crew.cmd_review(argparse.Namespace(branch="feat", verdict="approved", commit="a" * 40,
+                                               body_file=str(body), comments=None, repo="trimixxx"))
+        self.assertIn("review what was pushed since", str(cm.exception))
 
 
 class MergeTest(Sandbox):
@@ -337,7 +361,7 @@ class MergeTest(Sandbox):
         git(crew.MAIN, "push", "-q", "origin", "main")
 
     def merge(self, dry_run=False) -> int:
-        return crew.cmd_merge(argparse.Namespace(branch="feat", dry_run=dry_run, unapproved=False))
+        return crew.cmd_merge(argparse.Namespace(branch="feat", dry_run=dry_run))
 
     def assert_refused(self, code, words):
         with self.assertRaises(crew.Fail) as cm:

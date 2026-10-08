@@ -668,13 +668,11 @@ def cmd_merge(a) -> int:
     if FOR_SAM.search(pr.get("body") or ""):
         die(f"PR #{n} still lists decisions taken for Sam ([for Sam]): they wait for him. Once he answers, "
             "its body records each as [Sam]", 2)
-    approved = None
-    if not a.unapproved:
-        if "review:approved" not in pr["labels"]:
-            die(f"PR #{n} is not approved (labels: {', '.join(pr['labels']) or 'none'})", 2)
-        approved = approved_commit(pr)
-        if not approved:
-            die(f"PR #{n}: its last AI review is not an approval", 2)
+    if "review:approved" not in pr["labels"]:
+        die(f"PR #{n} is not approved (labels: {', '.join(pr['labels']) or 'none'})", 2)
+    approved = approved_commit(pr)
+    if not approved:
+        die(f"PR #{n}: its last AI review is not an approval", 2)
 
     involved = []
     for path, repo in REPOS:
@@ -726,7 +724,7 @@ def cmd_merge(a) -> int:
                 f"branch there: its commits must be on a branch named {b} in {child}, pushed and reviewed", 2)
 
     # What lands is what the bitch approved: its very commits, or the same change rebased onto a newer main.
-    if approved and tips["."] != approved:
+    if tips["."] != approved:
         if not tip(MAIN, approved):
             run(["git", "-C", MAIN, "fetch", "--quiet", "origin", approved], check=False, timeout=180)
         if not tip(MAIN, approved):
@@ -883,6 +881,9 @@ def cmd_pr(a) -> int:
 
 
 def cmd_label(a) -> int:
+    if a.state == "approved":
+        die("review:approved comes only with an approving review, which records the commit approved: "
+            "`crew review BRANCH approved --commit SHA ...` (Sam's yes too, quoting him)", 2)
     pr = set_state(a.branch, a.state)
     print(f"{pr['repo']}#{pr['number']}: review:{a.state}")
     return 0
@@ -894,6 +895,9 @@ def cmd_review(a) -> int:
     pr = prs.get(REPO_KEYS[a.repo])
     if not pr or pr["state"] != "OPEN":
         die(f"{b} has no open PR on {dict(REPOS)[REPO_KEYS[a.repo]]}", 2)
+    if pr["headRefOid"] != a.commit:
+        die(f"{pr['repo']}#{pr['number']} is at {pr['headRefOid'][:7]} now, not {a.commit[:7]} as you reviewed it: "
+            "review what was pushed since, then post", 2)
     body = Path(a.body_file).read_text().strip()
     primary = a.repo == "trimixxx"
     if primary:
@@ -901,7 +905,7 @@ def cmd_review(a) -> int:
         body = f"{REVIEW_MARK} · round {n} · verdict: {STATES[a.verdict]}**\n\n{body}"
     else:
         body = f"{REVIEW_MARK} of the {a.repo} side, for {primary_pr(b, prs)['url']}**\n\n{body}"
-    payload = {"event": "COMMENT", "body": body, "commit_id": pr["headRefOid"]}
+    payload = {"event": "COMMENT", "body": body, "commit_id": a.commit}
     if a.comments:
         payload["comments"] = [{"path": c["path"], "line": int(c["line"]), "side": "RIGHT", "body": c["body"]}
                                for c in json.loads(Path(a.comments).read_text())]
@@ -1351,6 +1355,7 @@ def main(argv=None) -> int:
     s = sub.add_parser("review", help="post the bitch's review on a branch's PR, and set its state")
     s.add_argument("branch")
     s.add_argument("verdict", choices=("approved", "changes", "needs-sam"))
+    s.add_argument("--commit", required=True, help="the commit you reviewed (git rev-parse BRANCH when you began)")
     s.add_argument("--body-file", required=True)
     s.add_argument("--comments", help="JSON list of {path, line, body} for inline comments")
     s.add_argument("--repo", choices=list(REPO_KEYS), default="trimixxx", help="a companion PR instead")
@@ -1359,7 +1364,6 @@ def main(argv=None) -> int:
     s = sub.add_parser("merge", help="fast-forward a branch into main, deepest repo first, and push")
     s.add_argument("branch")
     s.add_argument("--dry-run", action="store_true")
-    s.add_argument("--unapproved", action="store_true", help=argparse.SUPPRESS)
     s.set_defaults(fn=cmd_merge)
 
     s = sub.add_parser("clean", help="after a merge: stop its sessions and decks, drop its worktree and branches")
