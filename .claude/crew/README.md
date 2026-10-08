@@ -46,6 +46,7 @@ Sam's pitch ─▶ minion: worktree + deck, plan, Sam's calls, build, test, drif
                  ├─ review:needs-sam ─▶ waits for Sam
                  ▼  review:approved
                crew merge: fast-forward main, prolink → mixxx → ttymidi → TriMixxx, push each
+                 (only the approved commit, or the same change rebased; never a [for Sam] decision)
                crew clean: sessions, decks, worktree, branches gone; notes kept in .crew/archive/
 ```
 
@@ -73,9 +74,16 @@ claude -n nightman               # in the main checkout, in a tab left open
 ```
 
 It asks what it must, checks the Mac (`crew preflight`: charger, ssh agent,
-pushed mains, Docker, load) and keeps it awake. Once you say go, it runs until
-the queue is done. In the morning: its last message, and
+pushed mains, Docker, permission mode, load) and keeps it awake. Once you say
+go, it runs until the queue is done. In the morning: its last message, and
 `.crew/night/report-DATE.md`.
+
+**Before the first real night, rehearse it once, awake.** Give the nightman
+two trivial pitches that touch the same file. That exercises:
+
+- the dispatch, the idle notices and the review rounds
+- a merge
+- an exit 3 on the second merge, and its rebase
 
 ## Limits
 
@@ -126,6 +134,17 @@ uses usr-ein's token and refuses any repository outside usr-ein/. GitHub
 won't let the PR's own account approve it, so a bitch's verdict is the
 review's header and the PR's `review:` label: `ready`, `changes`, `approved`,
 `needs-sam`.
+
+**What `crew merge` lands** is what the bitch approved: the commit its last
+review approved, or the same change rebased onto a newer main (compared repo
+by repo, as patch ids). It refuses:
+
+- a PR whose body still lists a `- [for Sam]` decision
+- a submodule pointer that would not be on that submodule's main
+- any repo whose local main holds commits origin lacks
+
+It moves a detached submodule in the main checkout only from where main
+pointed before.
 
 The repositories are public: so are PRs and reviews.
 

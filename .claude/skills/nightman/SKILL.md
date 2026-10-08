@@ -108,12 +108,16 @@ fast-forwards main in each repo the branch touches, deepest first (prolink,
 mixxx, ttymidi, then TriMixxx), and pushes each. GitHub then shows the PRs as
 merged. It stops on any of these; up to exit 4 it has changed nothing:
 
-- **exit 2:** not approved, waiting for Sam, not pushed, or a submodule bump
-  is missing. Send it back to the minion (except a needs-sam).
+- **exit 2:** not approved, waiting for Sam (needs-sam, or a `[for Sam]`
+  decision in its body), not pushed, a submodule bump missing or pointing
+  off main, or changed since the bitch approved it. Changed since the
+  approval: one more bitch round. Waiting for Sam: the report. The rest:
+  back to the minion.
 - **exit 3:** main moved since the branch was made. SendMessage the minion:
   "Main moved: rebase (your skill's Rebase requests), retest, push, report."
-  A clean rebase merges without another review; a resolved conflict gets one
-  more bitch round.
+  Then merge again: `crew merge` accepts a clean rebase (the same change it
+  approved) and refuses anything more with exit 2, which means one more
+  bitch round.
 - **exit 4:** a repo's local main has commits origin lacks: Sam's. Stop
   merging tonight; it goes in the report.
 - **exit 5:** a push failed, part way: the deeper repos are pushed. Stop

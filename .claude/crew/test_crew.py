@@ -44,7 +44,7 @@ class Sandbox(unittest.TestCase):
                        "[advice]\n\tdetachedHead = false\n")
         self.env = {k: os.environ.get(k) for k in ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM")}
         os.environ.update(GIT_CONFIG_GLOBAL=str(cfg), GIT_CONFIG_NOSYSTEM="1")
-        self.saved = {k: getattr(crew, k) for k in ("MAIN", "CREW", "find_prs", "gh_json", "limits")}
+        self.saved = {k: getattr(crew, k) for k in ("MAIN", "CREW", "find_prs", "gh_json", "limits", "approved_commit")}
         crew.CREW = self.tmp / "crewstate"
 
     def tearDown(self):
@@ -141,6 +141,47 @@ class GuardTest(Sandbox):
         self.assertIsNotNone(crew.write_reason(str(crew.MAIN / "README.md"), self.minion))
         self.assertTrue(self.denied(self.minion, f"git -C {crew.MAIN} commit -m x"))
         self.assertFalse(self.denied(self.minion, f"git -C {crew.MAIN} log -3"))
+
+    def test_cd_into_the_main_checkout(self):
+        main = crew.MAIN
+        main.mkdir(exist_ok=True)
+        self.assertTrue(self.denied(self.minion, f"cd {main} && git add x && git commit -m y"))
+        self.assertTrue(self.denied(self.minion, f'cd "{main}"; git commit -m y'))
+        self.assertFalse(self.denied(self.minion, f"cd {main} && git log -3 && cd {self.wt} && git commit -m y"))
+        self.assertFalse(self.denied(self.minion, f"cd {main} && git push origin feat"))  # its own branch
+
+    def test_real_decks_over_ssh(self):
+        for cmd in ("ssh trimixxx-pi-2 ls", "ssh -o BatchMode=yes pi@trimixxx2 true", "scp f pi@192.168.1.118:/tmp",
+                    "rsync -av dir/ trimixxx-pi:/home/pi/x", "sftp trimixxx3"):
+            self.assertTrue(self.denied(self.minion, cmd), cmd)
+            self.assertFalse(self.denied(self.day_minion, cmd), cmd)
+            self.assertTrue(self.denied(self.bitch, cmd), cmd)
+        for cmd in ("ssh deck ls", "ssh -p 2222 trimixxx0 ls", "scp f feat:/tmp", "rsync -e 'ssh -p 22' a b"):
+            self.assertFalse(self.denied(self.minion, cmd), cmd)
+
+    def test_decks_by_exact_name(self):
+        self.assertTrue(self.denied(self.minion, "pi-qemu deck rm feat-hotplug"))
+        self.assertFalse(self.denied(self.minion, "pi-qemu deck rm feat-b"))
+
+    def test_read_only_git_is_not_a_write(self):
+        for cmd in ("git branch -a", "git -C mixxx branch --list feat", "git worktree list", "git submodule status",
+                    "git stash list", "git tag", "git config --get user.email", "git remote -v", "git fetch origin"):
+            self.assertFalse(self.denied(self.bitch, cmd), cmd)
+            self.assertFalse(self.denied(self.nightman, cmd), cmd)
+        for cmd in ("git worktree add x", "git branch newname", "git submodule update --init", "git stash",
+                    "git tag pi/v1.0.0", "git config user.email x@y", "git remote add up url"):
+            self.assertTrue(self.denied(self.bitch, cmd), cmd)
+
+    def test_every_command_is_checked(self):
+        self.assertTrue(self.denied(self.minion, "git push origin feat && sudo ls"))
+        self.assertTrue(self.denied(self.minion, "echo `sudo ls`"))
+        self.assertTrue(self.denied(self.minion, "for f in a b; do sudo rm $f; done"))
+        self.assertTrue(self.denied(self.minion, "if true; then pkill qemu; fi"))
+
+    def test_job_directory_is_scratch(self):
+        job = str(Path.home() / ".claude" / "jobs" / "abc" / "tmp" / "review.md")
+        self.assertIsNone(crew.write_reason(job, self.bitch))
+        self.assertIsNone(crew.write_reason(job, self.nightman))
 
     def test_nightman_writes_only_its_state(self):
         self.assertIsNone(crew.write_reason(str(crew.CREW / "night" / "plan.md"), self.nightman))
@@ -260,9 +301,10 @@ class MergeTest(Sandbox):
         crew.MAIN = self.tmp / "main"
         git(self.tmp, "clone", "-q", "--recurse-submodules", str(origin / "parent.git"), str(crew.MAIN))
         git(crew.MAIN / "mixxx", "switch", "-q", "main")
-        self.labels = ["review:approved"]
+        self.labels, self.body, self.approved = ["review:approved"], "Decisions:\n- [mine] a choice", None
         crew.find_prs = lambda b: {".": {"number": 1, "repo": "usr-ein/TriMixxx", "state": "OPEN", "isDraft": False,
-                                         "labels": self.labels, "headRefOid": "x", "url": "u"}}
+                                         "labels": self.labels, "body": self.body, "headRefOid": "x", "url": "u"}}
+        crew.approved_commit = lambda pr: self.approved
         crew.gh_json = lambda args, repo=None: {"state": "MERGED"}
 
     def feature(self, mixxx=True, bump=True) -> dict:
@@ -270,7 +312,7 @@ class MergeTest(Sandbox):
         tips = {}
         if mixxx:
             mwt = self.tmp / "mwt"
-            git(crew.MAIN / "mixxx", "worktree", "add", "-q", "-b", "feat", str(mwt))
+            git(crew.MAIN / "mixxx", "worktree", "add", "-q", "-b", "feat", str(mwt), "origin/main")
             (mwt / "engine.cpp").write_text("change\n")
             git(mwt, "add", "engine.cpp")
             git(mwt, "commit", "-qm", "engine change")
@@ -284,8 +326,15 @@ class MergeTest(Sandbox):
             git(pwt, "update-index", "--cacheinfo", f"160000,{tips['mixxx']},mixxx")
         git(pwt, "commit", "-qm", "feature, and bump mixxx")
         git(pwt, "push", "-q", "origin", "feat")
-        tips["."] = git(pwt, "rev-parse", "HEAD")
+        tips["."] = self.approved = git(pwt, "rev-parse", "HEAD")
         return tips
+
+    def move_main(self):
+        """Another feature lands on main meanwhile, in a file of its own."""
+        (crew.MAIN / "other").write_text("y\n")
+        git(crew.MAIN, "add", "other")
+        git(crew.MAIN, "commit", "-qm", "another feature")
+        git(crew.MAIN, "push", "-q", "origin", "main")
 
     def merge(self, dry_run=False) -> int:
         return crew.cmd_merge(argparse.Namespace(branch="feat", dry_run=dry_run, unapproved=False))
@@ -328,11 +377,61 @@ class MergeTest(Sandbox):
 
     def test_refuses_when_main_moved(self):
         self.feature()
-        (crew.MAIN / "other").write_text("y\n")
-        git(crew.MAIN, "add", "other")
-        git(crew.MAIN, "commit", "-qm", "another feature")
-        git(crew.MAIN, "push", "-q", "origin", "main")
+        self.move_main()
         self.assert_refused(3, "rebase")
+
+    def test_merges_only_what_was_approved(self):
+        self.feature()
+        pwt = self.tmp / "pwt"
+        (pwt / "late").write_text("w\n")
+        git(pwt, "add", "late")
+        git(pwt, "commit", "-qm", "pushed after the approval")
+        git(pwt, "push", "-q", "origin", "feat")
+        self.assert_refused(2, "since the bitch approved")
+        self.approved = None
+        self.assert_refused(2, "not an approval")
+
+    def test_a_clean_rebase_keeps_its_approval(self):
+        self.feature()
+        self.move_main()
+        pwt = self.tmp / "pwt"
+        git(pwt, "fetch", "-q", "origin")
+        git(pwt, "rebase", "-q", "origin/main")
+        git(pwt, "push", "-q", "--force-with-lease", "origin", "feat")
+        self.assertEqual(self.merge(), 0)
+        self.assertEqual(git(self.tmp / "origin" / "parent.git", "rev-parse", "main"), git(pwt, "rev-parse", "HEAD"))
+
+    def test_refuses_decisions_taken_for_sam(self):
+        self.feature()
+        self.body = "## Decisions\n- [for Sam] polling, not inotify: cheap to switch\n"
+        self.assert_refused(2, "for Sam")
+
+    def test_refuses_a_pointer_off_main(self):
+        """A bump to a submodule commit that no branch of this name brings onto main: unreviewed, maybe unpushed."""
+        mwt = self.tmp / "mwt"
+        git(crew.MAIN / "mixxx", "worktree", "add", "-q", "-b", "elsewhere", str(mwt), "origin/main")
+        (mwt / "engine.cpp").write_text("change\n")
+        git(mwt, "add", "engine.cpp")
+        git(mwt, "commit", "-qm", "on another branch")
+        git(mwt, "push", "-q", "origin", "elsewhere")
+        pwt = self.tmp / "pwt"
+        git(crew.MAIN, "worktree", "add", "-q", "-b", "feat", str(pwt), "main")
+        git(pwt, "update-index", "--cacheinfo", f"160000,{git(mwt, 'rev-parse', 'HEAD')},mixxx")
+        git(pwt, "commit", "-qm", "bump mixxx")
+        git(pwt, "push", "-q", "origin", "feat")
+        self.approved = git(pwt, "rev-parse", "HEAD")
+        self.assert_refused(2, "not on mixxx's main")
+
+    def test_leaves_a_detached_submodule_that_moved(self):
+        sub = crew.MAIN / "mixxx"
+        git(sub, "switch", "-q", "--detach")
+        (sub / "local").write_text("Sam's\n")
+        git(sub, "add", "local")
+        git(sub, "commit", "-qm", "Sam's commit on a detached HEAD")
+        mine = git(sub, "rev-parse", "HEAD")
+        self.feature()
+        self.assertEqual(self.merge(), 0)
+        self.assertEqual(git(sub, "rev-parse", "HEAD"), mine)
 
     def test_refuses_missing_bump(self):
         self.feature(bump=False)

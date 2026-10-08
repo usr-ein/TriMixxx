@@ -243,9 +243,12 @@ When woken for a review:
    - **It reverses one of Sam's `[Sam]` calls, or asks for another
      architecture:** it is Sam's call again. Day: ask him. Night: don't
      flip it; say so on the PR and to the nightman. The PR waits for Sam.
-3. One reply on the PR, "Round N addressed:", each point and what you did
+3. A `[for Sam]` decision Sam has now settled: rewrite it in the PR body as
+   `[Sam]`, with his answer (`crew gh -R usr-ein/TriMixxx pr edit N --body-file ...`).
+   `crew merge` refuses while any `- [for Sam]` line is left.
+4. One reply on the PR, "Round N addressed:", each point and what you did
    (the commit) or why not.
-4. Push, `crew label BRANCH ready`, update your notes, report (day: Sam;
+5. Push, `crew label BRANCH ready`, update your notes, report (day: Sam;
    night: `nightman`, "round N addressed").
 
 ## Rebase requests
@@ -257,7 +260,9 @@ When main has moved and `crew merge` refused:
    retest what the new main could break.
 2. Push your branches with `--force-with-lease` (only yours).
 3. Report: "clean" (no conflicts), or what conflicted and how you resolved
-   it. A resolved conflict earns another review round.
+   it. `crew merge` accepts a clean rebase by itself: it checks your change
+   is the one approved. Anything more, a resolved conflict included, needs
+   another review round.
 
 ## Parking (night)
 

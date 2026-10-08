@@ -135,8 +135,10 @@ def worktree_of(branch: str) -> Path:
 
 
 def check_branch(name: str):
-    if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{1,48}", name) or name in ("main", "master") or name.endswith("-bitch"):
-        die(f"{name!r}: a crew branch is lowercase kebab-case, 2-49 characters, not main and not ending in -bitch")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{1,48}", name) or name in ("main", "master") or \
+            name.endswith(("-bitch", "-b")):
+        die(f"{name!r}: a crew branch is lowercase kebab-case, 2-49 characters, not main, and not ending in "
+            "-bitch or -b (its session and second deck are named so)")
 
 
 def superproject_top(d: Path) -> Path:
@@ -265,7 +267,7 @@ def repo_of(d) -> str | None:
     return f"{m.group(1)}/{m.group(2)}" if m else None
 
 
-PR_FIELDS = "number,state,isDraft,labels,url,title,headRefName,headRefOid,baseRefName"
+PR_FIELDS = "number,state,isDraft,labels,url,title,headRefName,headRefOid,baseRefName,body"
 
 
 def find_prs(branch: str) -> dict:
@@ -288,9 +290,24 @@ def primary_pr(branch: str, prs=None) -> dict:
     return pr
 
 
-def review_rounds(pr: dict) -> int:
+def ai_reviews(pr: dict) -> list[dict]:
+    """The bitch's reviews of a PR, oldest first."""
     pages = gh_json(["api", f"repos/{pr['repo']}/pulls/{pr['number']}/reviews", "--paginate", "--slurp"]) or []
-    return sum(1 for page in pages for rv in page if (rv.get("body") or "").startswith(REVIEW_MARK))
+    return [rv for page in pages for rv in page if (rv.get("body") or "").startswith(REVIEW_MARK)]
+
+
+def review_rounds(pr: dict) -> int:
+    return len(ai_reviews(pr))
+
+
+def approved_commit(pr: dict) -> str | None:
+    """The commit the last AI review approved, when the last AI review is an approval."""
+    reviews = ai_reviews(pr)
+    last = reviews[-1] if reviews else {}
+    return last.get("commit_id") if "verdict: approved" in (last.get("body") or "").split("\n", 1)[0] else None
+
+
+FOR_SAM = re.compile(r"^\s*[-*]\s*\[for Sam\]", re.M)
 
 
 def set_state(branch: str, state: str, prs=None):
@@ -524,7 +541,7 @@ def cmd_status(a) -> int:
             return f"{s.get('status')}" if s else "-"
         pr = open_prs.get(b)
         state = next((lb["name"].split(":", 1)[1] for lb in pr["labels"] if lb["name"].startswith("review:")), "open") if pr else "-"
-        dks = [f"{d}({s[:3]})" for d, s in snap["decks"] if d == b or d.startswith(b + "-")]
+        dks = [f"{d}({s[:3]})" for d, s in snap["decks"] if d in deck_names(b)]
         rows.append([b, sess(b), sess(f"{b}-bitch"), f"#{pr['number']}" if pr else "-", state,
                      " ".join(dks) or "-", notes_status(wt)[:60]])
     if rows:
@@ -572,6 +589,17 @@ def cmd_preflight(a) -> int:
     check(f"Hi {GH_USER}" in r.stderr + r.stdout, "GitHub accepts pushes as usr-ein", "ssh to github.com-usr-ein fails: pushes will too")
     r = run(["docker", "info", "--format", "{{.ServerVersion}}"], check=False, timeout=30)
     check(r.returncode == 0, "Docker is up (Mixxx builds)", "Docker is not running: start Docker Desktop")
+    mode = None
+    for f in (Path.home() / ".claude" / "settings.json", MAIN / ".claude" / "settings.json",
+              MAIN / ".claude" / "settings.local.json"):  # the later wins
+        try:
+            mode = json.loads(f.read_text()).get("permissions", {}).get("defaultMode") or mode
+        except (OSError, ValueError):
+            pass
+    check(mode == "bypassPermissions", "sessions start in bypass mode: no permission prompt can stall a minion",
+          f"sessions start in {mode or 'default'} mode: a background minion would wait all night on its first "
+          "permission prompt, and messages between sessions in different modes are held. Set "
+          "permissions.defaultMode to bypassPermissions in ~/.claude/settings.json")
 
     print("Repositories (main vs origin/main)")
     for path, repo in REPOS:
@@ -608,18 +636,45 @@ def tip(d: Path, ref: str) -> str | None:
     return r.stdout.strip() or None
 
 
+def change_id(d: Path, t: str) -> str:
+    """What a commit changes against main, as a patch id: the same after a clean rebase, different otherwise.
+    Submodule pointers are left out: each submodule's own change is compared in its repo."""
+    base = git(d, "merge-base", "refs/remotes/origin/main", t)
+    diff = run(["git", "-C", d, "diff", "--no-color", "--ignore-submodules=all", base, t]).stdout
+    return (run(["git", "patch-id", "--stable"], input=diff).stdout.split() or ["-"])[0]
+
+
+def approved_tips(approved: str) -> dict:
+    """Each repo's commit as the approved TriMixxx commit records it."""
+    res = {".": approved}
+    for child in ("mixxx", "mixxx_config/ttymidi", "mixxx/lib/prolink"):  # parents before their children
+        parent, sub = GITLINKS[child]
+        if res.get(parent) and (MAIN / child / ".git").exists():
+            res[child] = git(MAIN / parent, "rev-parse", f"{res[parent]}:{sub}", check=False) or None
+    return res
+
+
 def cmd_merge(a) -> int:
     b = a.branch
     prs = find_prs(b)
     pr = primary_pr(b, prs)
+    n = pr["number"]
     if pr["state"] != "OPEN":
-        die(f"PR #{pr['number']} is {pr['state'].lower()}", 2)
+        die(f"PR #{n} is {pr['state'].lower()}", 2)
     if pr["isDraft"]:
-        die(f"PR #{pr['number']} is a draft", 2)
+        die(f"PR #{n} is a draft", 2)
     if "review:needs-sam" in pr["labels"]:
-        die(f"PR #{pr['number']} waits for Sam (review:needs-sam)", 2)
-    if "review:approved" not in pr["labels"] and not a.unapproved:
-        die(f"PR #{pr['number']} is not approved (labels: {', '.join(pr['labels']) or 'none'})", 2)
+        die(f"PR #{n} waits for Sam (review:needs-sam)", 2)
+    if FOR_SAM.search(pr.get("body") or ""):
+        die(f"PR #{n} still lists decisions taken for Sam ([for Sam]): they wait for him. Once he answers, "
+            "its body records each as [Sam]", 2)
+    approved = None
+    if not a.unapproved:
+        if "review:approved" not in pr["labels"]:
+            die(f"PR #{n} is not approved (labels: {', '.join(pr['labels']) or 'none'})", 2)
+        approved = approved_commit(pr)
+        if not approved:
+            die(f"PR #{n}: its last AI review is not an approval", 2)
 
     involved = []
     for path, repo in REPOS:
@@ -653,19 +708,44 @@ def cmd_merge(a) -> int:
                 "re-point the submodules, retest and push", 3)
         plan.append((path, repo, d, remote, "merge"))
     tips = {p: t for p, _, _, t, _ in plan}
+
+    # Every submodule pointer the branch changes lands on that submodule's main with it.
     for child, (parent, sub) in GITLINKS.items():
+        pdir, cdir = MAIN / parent, MAIN / child
+        if not (pdir / ".git").exists() or not (cdir / ".git").exists():
+            continue
+        ptip = tips.get(parent) or tip(pdir, "refs/remotes/origin/main")
+        new = git(pdir, "rev-parse", f"{ptip}:{sub}", check=False)
+        old = git(pdir, "rev-parse", f"refs/remotes/origin/main:{sub}", check=False)
         if child in tips:
-            pref = tips.get(parent) or tip(MAIN / parent, "refs/remotes/origin/main")
-            link = git(MAIN / parent, "rev-parse", f"{pref}:{sub}")
-            if link != tips[child]:
-                die(f"{parent} on {b} points {sub} at {link[:7]}, but {child}'s {b} is {tips[child][:7]}: "
+            if new != tips[child]:
+                die(f"{parent} on {b} points {sub} at {new[:7]}, but {child}'s {b} is {tips[child][:7]}: "
                     "the minion must commit the submodule bump", 2)
+        elif new != old and not git_ok(cdir, "merge-base", "--is-ancestor", new, "refs/remotes/origin/main"):
+            die(f"{parent} on {b} points {sub} at {new[:7]}, which is not on {child}'s main and is on no {b} "
+                f"branch there: its commits must be on a branch named {b} in {child}, pushed and reviewed", 2)
+
+    # What lands is what the bitch approved: its very commits, or the same change rebased onto a newer main.
+    if approved and tips["."] != approved:
+        if not tip(MAIN, approved):
+            run(["git", "-C", MAIN, "fetch", "--quiet", "origin", approved], check=False, timeout=180)
+        if not tip(MAIN, approved):
+            die(f"PR #{n}: the approved commit {approved[:7]} is gone, so its current head needs a review", 2)
+        was = approved_tips(approved)
+        for path, repo, d, t, what in plan:
+            ok = was.get(path) == t or (was.get(path) and tip(d, was[path]) and
+                                         change_id(d, was[path]) == change_id(d, t))
+            if not ok:
+                die(f"{path}: {b} has changed since the bitch approved {approved[:7]}, beyond a clean rebase: "
+                    "it needs another review round", 2)
 
     for path, repo, d, t, what in plan:
         print(f"{path:22} {what:7} {t[:7]}  {repo}")
     if a.dry_run:
         return 0
 
+    old_links = {child: git(MAIN / parent, "rev-parse", f"HEAD:{sub}", check=False)
+                 for child, (parent, sub) in GITLINKS.items() if (MAIN / child / ".git").exists()}
     for path, repo, d, t, what in plan:
         if what == "merged":
             continue
@@ -682,17 +762,19 @@ def cmd_merge(a) -> int:
             die(f"{path}: push of main failed, so the merge stops here (deeper repos are pushed):\n{r.stderr.strip()}", 5)
         print(f"{path}: main is {t[:7]}, pushed")
 
-    # The main checkout's submodules follow the pointers main now records.
+    # A detached submodule in the main checkout follows main's pointer, if it was where main pointed before.
     for child, (parent, sub) in GITLINKS.items():
         d = MAIN / child
         if not (d / ".git").exists():
             continue
-        want = git(MAIN / parent, "rev-parse", f"HEAD:{sub}", check=False)
-        if want and git(d, "rev-parse", "HEAD") != want:
-            if git(d, "symbolic-ref", "-q", "HEAD", check=False) or git(d, "status", "--porcelain", "--untracked-files=no"):
-                print(f"note: {child} in the main checkout is not at {want[:7]}, which main records; left as it is")
-            else:
-                run(["git", "-C", d, "checkout", "--quiet", "--detach", want])
+        want, now = git(MAIN / parent, "rev-parse", f"HEAD:{sub}", check=False), git(d, "rev-parse", "HEAD")
+        if not want or now == want:
+            continue
+        detached = not git(d, "symbolic-ref", "-q", "HEAD", check=False)
+        if detached and now == old_links.get(child) and not git(d, "status", "--porcelain", "--untracked-files=no"):
+            run(["git", "-C", d, "checkout", "--quiet", "--detach", want])
+        else:
+            print(f"note: {child} in the main checkout is at {now[:7]}, not at {want[:7]} as main records; left as it is")
 
     for path, repo, d, t, what in plan:
         p = prs.get(path)
@@ -726,7 +808,7 @@ def cmd_clean(a) -> int:
             else:
                 blocking.append(s.get("name"))
     for name, state in decks():
-        if name == b or name.startswith(b + "-"):
+        if name in deck_names(b):
             run(["pi-qemu", "deck", "rm", name], check=False, timeout=180)
             print(f"removed deck {name}")
     if a.abandon:
@@ -858,9 +940,10 @@ def write_reason(path: str, reg: dict) -> str | None:
     if under(p, MAIN):
         return why
     s = str(p.resolve())
-    if s.startswith(TMP_ROOTS) or (os.environ.get("TMPDIR") and s.startswith(os.environ["TMPDIR"])):
+    scratch = [os.environ.get("TMPDIR"), os.environ.get("CLAUDE_JOB_DIR")]
+    if s.startswith(TMP_ROOTS) or any(x and s.startswith(os.path.realpath(x)) for x in scratch):
         return None
-    if re.search(r"/\.claude/projects/[^/]+/memory/", s):
+    if re.search(r"/\.claude/(projects/[^/]+/memory|jobs)/", s):  # memory; a background session's job directory
         return None
     return why
 
@@ -868,13 +951,17 @@ def write_reason(path: str, reg: dict) -> str | None:
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_]\w*)\1")
 QUOTED = re.compile(r"'[^']*'|\"(?:\\.|[^\"\\])*\"", re.S)
 SPLIT = re.compile(r"\|\||&&|[;|&\n(){}]|\$\(|`")
-WRAPPERS = {"command", "exec", "nohup", "time", "nice", "env", "timeout", "xargs", "caffeinate"}
+SEPARATORS = "();<>|&`\n"
+WRAPPERS = {"command", "exec", "nohup", "time", "nice", "env", "timeout", "xargs", "caffeinate", "{", "}", "!", "if",
+            "then", "else", "elif", "while", "until", "do"}
 GIT_WRITES = {"commit", "push", "merge", "rebase", "reset", "checkout", "switch", "stash", "tag", "cherry-pick",
-              "revert", "am", "apply", "clean", "add", "rm", "mv", "worktree", "pull", "submodule", "restore"}
+              "revert", "am", "apply", "clean", "add", "rm", "mv", "worktree", "pull", "submodule", "restore",
+              "branch", "remote", "config", "update-ref", "update-index", "notes", "gc", "prune", "filter-branch"}
+SSH_VALUE_OPTS = set("bcDEeFIiJLlmOoPpQRSWw")
+REAL_DECK = re.compile(r"^(trimixxx(?!0$)[\w.-]*|192\.168\.\d+\.\d+)$", re.I)  # trimixxx0 is the emulated one
 
 
-def commands(cmd: str):
-    """Each simple command's program and arguments; heredoc bodies and quoted text are skipped."""
+def strip_heredocs(cmd: str) -> str:
     lines, kept, term = cmd.split("\n"), [], None
     for line in lines:
         if term is not None:
@@ -885,9 +972,34 @@ def commands(cmd: str):
         m = HEREDOC.search(line)
         if m:
             term = m.group(2)
-    text = QUOTED.sub("''", "\n".join(kept))
-    for seg in SPLIT.split(text):
-        toks = seg.split()
+    return "\n".join(kept)
+
+
+def segments(cmd: str) -> list[list[str]]:
+    """The command's simple commands, as words. Quotes are respected (quoted text is never a command) and
+    heredoc bodies dropped: a seatbelt's parser, not a shell's."""
+    text = strip_heredocs(cmd)
+    try:
+        lex = shlex.shlex(text, posix=True, punctuation_chars=SEPARATORS)
+        lex.whitespace, lex.whitespace_split = " \t\r", True
+        words = list(lex)
+    except ValueError:  # an unbalanced quote: blank out what looks quoted, split roughly
+        return [seg.split() for seg in SPLIT.split(QUOTED.sub("''", text))]
+    segs, cur = [], []
+    for w in words:
+        if w and set(w) <= set(SEPARATORS):
+            segs.append(cur)
+            cur = []
+        else:
+            cur.append(w)
+    segs.append(cur)
+    return segs
+
+
+def commands(cmd: str):
+    """Each simple command's program (its basename) and arguments, in order."""
+    for toks in segments(cmd):
+        toks = [t for t in toks if t != "$"]
         while toks and (re.match(r"^[A-Za-z_]\w*=", toks[0]) or toks[0] in WRAPPERS):
             w = toks.pop(0)
             if w == "timeout" and toks:
@@ -907,13 +1019,59 @@ def git_verb(args: list[str]) -> tuple[str | None, list[str], str | None]:
     return (args[i], args[i + 1:], cdir) if i < len(args) else (None, [], cdir)
 
 
-def push_reason(rest: list[str], cdir, cwd, branch: str) -> str | None:
+def git_writes(verb: str, rest: list[str]) -> bool:
+    """Whether a git command changes a repository; log, diff, show, status, fetch, `branch -a` only read."""
+    opts = {x.split("=", 1)[0] for x in rest if x.startswith("-")}
+    pos = [x for x in rest if not x.startswith("-")]
+    if verb == "branch":
+        if opts & {"-d", "-D", "--delete", "-m", "-M", "--move", "-c", "-C", "--copy", "-f", "--force", "-u",
+                   "--set-upstream-to", "--unset-upstream", "--edit-description", "-t", "--track"}:
+            return True
+        return bool(pos) and not opts & {"-a", "--all", "-r", "--remotes", "-l", "--list", "-v", "-vv", "--verbose",
+                                         "--contains", "--no-contains", "--merged", "--no-merged", "--points-at"}
+    if verb == "tag":
+        return bool(pos) and not opts & {"-l", "--list", "-v", "--verify", "--contains", "--no-contains",
+                                         "--points-at", "--merged", "--no-merged", "-n"}
+    if verb == "worktree":
+        return pos[:1] != ["list"]
+    if verb == "submodule":
+        return pos[:1] not in ([], ["status"], ["summary"])
+    if verb == "stash":
+        return pos[:1] not in (["list"], ["show"])
+    if verb == "remote":
+        return pos[:1] in (["add"], ["remove"], ["rm"], ["rename"], ["set-url"], ["set-head"], ["set-branches"],
+                           ["prune"], ["update"])
+    if verb == "config":
+        return len(pos) >= 2 and not opts & {"--get", "--get-all", "--get-regexp", "-l", "--list"}
+    return verb in GIT_WRITES
+
+
+def remote_hosts(prog: str, args: list[str]) -> list[str]:
+    """The hosts an ssh, sftp, scp or rsync command reaches."""
+    targets = []
+    if prog in ("ssh", "sftp", "mosh"):
+        i = 0
+        while i < len(args):
+            if args[i].startswith("-"):
+                i += 2 if len(args[i]) == 2 and args[i][1] in SSH_VALUE_OPTS else 1
+                continue
+            targets.append(args[i])
+            break
+    elif prog in ("scp", "rsync"):
+        targets = [x.split(":", 1)[0] for x in args if ":" in x and not x.startswith(("-", "/", "."))]
+    return [t.rsplit("@", 1)[-1] for t in targets]
+
+
+def deck_names(branch: str) -> tuple[str, str]:
+    return branch, f"{branch}-b"
+
+
+def push_reason(rest: list[str], d: Path, branch: str) -> str | None:
     flags = [x for x in rest if x.startswith("-")]
     if any(f in ("--all", "--mirror", "--tags", "--follow-tags", "--prune") or f.startswith(("--delete", "-d"))
            for f in flags):
         return f"push only your branch {branch}: no --all, --mirror, --tags or --delete"
     refspecs = [x for x in rest if not x.startswith("-")][1:]
-    d = Path(cdir) if cdir and os.path.isabs(cdir) else Path(cwd) / (cdir or ".")
     current = git(d, "branch", "--show-current", check=False)
     for rs in refspecs or ["HEAD"]:
         src, _, dst = rs.lstrip("+").partition(":")
@@ -927,7 +1085,15 @@ def push_reason(rest: list[str], cdir, cwd, branch: str) -> str | None:
 
 def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
     role, mode, branch = reg["role"], reg["mode"], reg.get("branch")
+    no_real_decks = mode == "night" or role != "minion"
+    here = Path(cwd or ".")
     for prog, args in commands(cmd):
+        if prog in ("cd", "pushd"):
+            dest = next((x for x in args if not x.startswith("-")), None)
+            if dest:
+                dest = os.path.expanduser(dest)
+                here = Path(dest) if os.path.isabs(dest) else here / dest
+            continue
         if prog == "sudo":
             return "nothing the crew does on the Mac needs sudo"
         if prog in ("diskutil", "fdisk", "asr") or prog.startswith(("newfs", "mkfs")) or \
@@ -940,17 +1106,19 @@ def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
         if prog == "gh":
             return "use `crew gh ...`: it pins the usr-ein account and usr-ein/* repositories (plain gh may act as " \
                    "another account, or open a PR on upstream mixxxdj/mixxx)"
+        if prog in ("ssh", "sftp", "mosh", "scp", "rsync"):
+            real = [h for h in remote_hosts(prog, args) if REAL_DECK.match(h)]
+            if real and no_real_decks:
+                return f"{real[0]} is a real deck: none at night, and only a minion with Sam's go uses one"
         if prog == "pi-qemu":
             if args[:2] in (["deck", "golden"], ["image", "build"]):
                 return "that rebuilds the golden card everyone's decks start from: Sam's call"
-            if "--host" in args or any(x.startswith("--host=") for x in args):
-                if mode == "night" or role != "minion":
-                    return "no real decks at night, and only a minion with Sam's go uses one"
+            if ("--host" in args or any(x.startswith("--host=") for x in args)) and no_real_decks:
+                return "no real decks at night, and only a minion with Sam's go uses one"
             if args[:1] == ["deck"] and len(args) > 2 and not args[2].startswith("-"):
                 verb, name = args[1], args[2]
-                if role == "minion" and verb in ("up", "rm", "stop", "kill") and not (
-                        name == branch or name.startswith(f"{branch}-")):
-                    return f"your decks are named {branch} or {branch}-*; never touch another's"
+                if role == "minion" and verb in ("up", "rm", "stop", "kill") and name not in deck_names(branch):
+                    return f"your decks are {branch} and {branch}-b; never touch another's"
                 if role == "bitch" and verb not in ("list", "status", "shot", "leds", "where"):
                     return "the bitch only looks at decks (list, status, shot, leds)"
                 if role == "nightman" and verb in ("up", "deploy"):
@@ -960,7 +1128,7 @@ def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
                         "kill", "respawn", "-w", "--worktree", "--from-pr"}
             if role != "nightman" and launches.intersection(args):
                 return f"a {role} is a single agent: only the nightman (or Sam) starts and stops sessions"
-        if prog == "crew" or prog.endswith("/crew"):
+        if prog == "crew":
             sub = args[:1]
             if sub in (["minion"], ["bitch"], ["resume"]) and role != "nightman":
                 return f"a {role} does not start sessions"
@@ -970,15 +1138,20 @@ def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
             verb, rest, cdir = git_verb(args)
             if verb is None:
                 continue
-            if role == "bitch" and verb in GIT_WRITES | {"branch"} and not (verb == "branch" and not rest):
+            d = here
+            if cdir:
+                cdir = os.path.expanduser(cdir)
+                d = Path(cdir) if os.path.isabs(cdir) else here / cdir
+            writes = git_writes(verb, rest)
+            if role == "bitch" and writes:
                 return "the bitch is read-only: no git writes"
-            if role == "nightman" and verb in GIT_WRITES:
+            if role == "nightman" and writes:
                 return "the nightman does not write to git itself: `crew merge` and `crew clean` do"
-            if role == "minion" and verb == "push":
-                return push_reason(rest, cdir, cwd, branch)
-            if role == "minion" and verb in GIT_WRITES and cdir:
-                d = Path(cdir) if os.path.isabs(cdir) else Path(cwd) / cdir
-                if under(d, MAIN) and not under(d, MAIN / ".claude" / "worktrees"):
+            if role == "minion":
+                why = push_reason(rest, d, branch) if verb == "push" else None
+                if why:
+                    return why
+                if writes and verb != "push" and under(d, MAIN) and not under(d, MAIN / ".claude" / "worktrees"):
                     return f"that is the main checkout: work in your worktree {reg['worktree']}"
     return None
 

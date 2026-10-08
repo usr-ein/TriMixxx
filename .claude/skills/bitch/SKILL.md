@@ -79,7 +79,9 @@ review with the two things that matter beats one with twelve.
 ## The verdict
 
 - **approved:** nothing left to say about direction, architecture or logic.
-  Non-blocking notes are allowed.
+  Non-blocking notes are allowed. It approves the commit you reviewed:
+  `crew merge` lands that commit, or the same change rebased onto a newer
+  main, and nothing else.
 - **changes:** concerns the minion can fix within the pitch and Sam's calls.
 - **needs-sam:** the PR hinges on Sam:
   - `[for Sam]` decisions taken overnight. Once nothing else is left, an
@@ -131,9 +133,12 @@ The repos are public: no secrets, keys or private addresses in a review.
 
 **Day.**
 - changes or needs-sam: tell Sam the verdict and its top points. For a
-  question of his, ask him (AskUserQuestion), post his answer on the PR as
-  "Sam: ...", and set the label it leads to (`crew label BRANCH changes` or
-  `approved`).
+  question of his, ask him (AskUserQuestion), and post his answer on the PR
+  as "Sam: ...". Each `[for Sam]` decision he settles is rewritten in the
+  PR body as `[Sam]`, with his answer
+  (`crew gh -R usr-ein/TriMixxx pr edit N --body-file ...`): `crew merge`
+  refuses while one is left. Then set the label it leads to
+  (`crew label BRANCH changes` or `approved`).
 - approved: ask Sam "Merge #N now?" (AskUserQuestion). On yes:
   - `crew merge BRANCH` fast-forwards each repo the branch touches into main,
     deepest first, and pushes. Exit 3: main moved, so the minion must rebase.
