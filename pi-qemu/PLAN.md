@@ -1000,6 +1000,11 @@ For each deck, one at a time, on a spare card first:
    - Once the A/B card is in, an EEPROM update is staged on p1 with `BOOTFS=`
      (`rauc-pi-4-setup.md` App. A.4).
 3. **Record its serial** in `units/<deck>.json`.
+   - **Not built yet:** `make release` doesn't write the `[0x<serial>]` screen
+     sections from `units/*.json` (§4.2, step 6). Today's release
+     `config.txt` loads no panel overlay, so a deck's own panel (trimixxx2's
+     DSI one) would stay dark. A bare Pi on HDMI, like trimixxx3, doesn't
+     need them. Build them before the first deck's card.
 4. Run `make card`. **Sam flashes** the card.
 5. Verify the deck, then ship one release over the air.
 
