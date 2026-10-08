@@ -286,8 +286,8 @@ pi-qemu/instance.sh up dev
 pi-qemu/instance.sh deploy dev mixxx          # or config, system, launcher...
 
 # a release
-git tag v1.0.1
-make release VERSION=1.0.1                    # out/1.0.1/: trimixxx-1.0.1.img + .raucb + manifest
+git tag -m "TriMixxx 1.0.1" pi/v1.0.1
+make release                                  # the tag's version: out/1.0.1/: trimixxx-1.0.1.img + .raucb + manifest
 
 # rehearse on the emulated A/B deck (started from the previous release's card)
 pi-qemu/instance.sh up ab --from out/1.0.0/trimixxx-1.0.0.img

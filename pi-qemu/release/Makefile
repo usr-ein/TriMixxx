@@ -2,10 +2,10 @@
 #
 #   make -C pi-qemu/release phase1   phase 1's test card for trimixxx3:
 #                                      out/phase1/trimixxx3-phase1.img
-#   make -C pi-qemu/release release VERSION=1.0.0
-#                                    the release: out/1.0.0/trimixxx-1.0.0.img (the
-#                                    card, every deck's), trimixxx-1.0.0.raucb (the
-#                                    update), manifest.txt
+#   git tag pi/v1.0.0 && make -C pi-qemu/release release
+#                                    the release, its version its tag's: out/1.0.0/
+#                                    trimixxx-1.0.0.img (the card, every deck's),
+#                                    trimixxx-1.0.0.raucb (the update), manifest.txt
 #   make -C pi-qemu/release card DECK=trimixxx2 VERSION=1.0.0
 #                                    that card with the deck's identity on p7:
 #                                    out/1.0.0/trimixxx2-1.0.0.img, to flash
@@ -29,8 +29,13 @@
 #
 # `release` builds the system with image/build.sh trimixxx-release (SKIP_BUILD=1
 # seals the card already built), from a clean tree whose commit is tagged
-# v$(VERSION). REHEARSAL=1 lets an untagged or dirty tree through, for trying
+# pi/v$(VERSION). REHEARSAL=1 lets an untagged or dirty tree through, for trying
 # releases on emulated decks; its manifest says so.
+#
+# VERSION is HEAD's tag, pi/vX.Y.Z (the repo's other parts tag midi-s3/v…,
+# prolinks-compat/v…), for every target: after `git tag pi/v1.0.0`, `make
+# release`, `make card DECK=…` and `make ship DECK=…` all mean 1.0.0. Give
+# VERSION=… for a rehearsal, or another release than HEAD's.
 
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
@@ -53,6 +58,9 @@ ifndef IN_CONTAINER # ---- on the Mac ------------------------------------------
 
 MAIN := $(shell dirname "$$(git -C '$(CURDIR)' rev-parse --path-format=absolute --git-common-dir)")
 REPO := $(abspath $(CURDIR)/../..)
+TAG_PREFIX := pi/v
+TAG_VERSION := $(shell git -C '$(REPO)' tag --points-at HEAD --list '$(TAG_PREFIX)[0-9]*' | sed -n 's|^$(TAG_PREFIX)||p' | sort -V | tail -1)
+VERSION ?= $(TAG_VERSION)
 SSH_KEY ?= $(HOME)/.ssh/no_pass/rsa_sam
 SECRETS := $(MAIN)/pi-qemu/image/secrets.env
 CACHE := $(MAIN)/pi-qemu/.cache
@@ -82,12 +90,12 @@ phase1:
 # pi-qemu/.cache/build/build.log, which ends with BUILD_EXIT <status>.
 release:
 	@set -euo pipefail; \
-	[ -n '$(VERSION)' ] || { echo "make release VERSION=1.0.0" >&2; exit 1; }; \
-	commit="$$(git -C '$(REPO)' describe --tags --match 'v[0-9]*' --always --dirty)"; \
+	[ -n '$(VERSION)' ] || { echo "no version: tag HEAD (git tag $(TAG_PREFIX)1.0.0), or VERSION=1.0.0 REHEARSAL=1" >&2; exit 1; }; \
+	commit="$$(git -C '$(REPO)' describe --tags --match '$(TAG_PREFIX)[0-9]*' --always --dirty)"; \
 	if [ -z '$(REHEARSAL)' ]; then \
 	    [ -z "$$(git -C '$(REPO)' status --porcelain)" ] || { echo "the tree has changes: commit them (or REHEARSAL=1)" >&2; exit 1; }; \
-	    [ "$$(git -C '$(REPO)' tag --points-at HEAD)" = 'v$(VERSION)' ] || \
-	        { echo "HEAD is not tagged v$(VERSION): git tag v$(VERSION) (or REHEARSAL=1)" >&2; exit 1; }; \
+	    git -C '$(REPO)' tag --points-at HEAD | grep -qxF '$(TAG_PREFIX)$(VERSION)' || \
+	        { echo "HEAD is not tagged $(TAG_PREFIX)$(VERSION): git tag $(TAG_PREFIX)$(VERSION) (or REHEARSAL=1)" >&2; exit 1; }; \
 	else commit="$$commit (rehearsal)"; fi; \
 	log='$(CACHE)/build/build.log'; mkdir -p '$(CACHE)/build'; : > "$$log"; \
 	if [ '$(BUILD_WINDOW)' != 0 ] && ! pgrep -f "build-log $$log" > /dev/null; then \
@@ -110,7 +118,7 @@ release:
 # (NetworkManager/*.nmconnection).
 card:
 	@set -euo pipefail; \
-	[ -n '$(DECK)' ] && [ -n '$(VERSION)' ] || { echo "make card DECK=trimixxx2 VERSION=1.0.0" >&2; exit 1; }; \
+	[ -n '$(DECK)' ] && [ -n '$(VERSION)' ] || { echo "make card DECK=trimixxx2, on a commit tagged $(TAG_PREFIX)X.Y.Z, or with VERSION=X.Y.Z" >&2; exit 1; }; \
 	[ -f 'out/$(VERSION)/trimixxx-$(VERSION).img' ] || { echo "no release $(VERSION): make release first" >&2; exit 1; }; \
 	d='$(DECKS)/$(DECK)'; \
 	mkdir -p "$$d/ssh" "$$d/NetworkManager"; \
@@ -146,7 +154,7 @@ card:
 # its version, its slot, its health check, RAUC's status.
 ship:
 	@set -euo pipefail; \
-	[ -n '$(DECK)' ] && [ -n '$(VERSION)' ] || { echo "make ship DECK=trimixxx2 VERSION=1.0.0" >&2; exit 1; }; \
+	[ -n '$(DECK)' ] && [ -n '$(VERSION)' ] || { echo "make ship DECK=trimixxx2, on a commit tagged $(TAG_PREFIX)X.Y.Z, or with VERSION=X.Y.Z" >&2; exit 1; }; \
 	b='out/$(VERSION)/trimixxx-$(VERSION).raucb'; \
 	[ -f "$$b" ] || { echo "no $$b: make release first" >&2; exit 1; }; \
 	ssh '$(DECK)' 'sudo sh -c "cat > /var/lib/rauc/trimixxx-$(VERSION).raucb"' < "$$b"; \
@@ -163,7 +171,7 @@ ship:
 
 faults:
 	@set -euo pipefail; \
-	[ -n '$(VERSION)' ] || { echo "make faults VERSION=1.0.0" >&2; exit 1; }; \
+	[ -n '$(VERSION)' ] || { echo "make faults, on a commit tagged $(TAG_PREFIX)X.Y.Z, or with VERSION=X.Y.Z" >&2; exit 1; }; \
 	[ -f 'out/$(VERSION)/rootfs.squashfs' ] || { echo "no release $(VERSION): make release first" >&2; exit 1; }; \
 	$(CONTAINER) -e VERSION='$(VERSION)' trimixxx-release make $@
 

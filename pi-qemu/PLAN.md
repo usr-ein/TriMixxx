@@ -629,9 +629,15 @@ They go into the normal build, so the dev deck carries them too, inert.
 
 ### 4.2 Release tooling (`pi-qemu/release/`)
 
-**`make release VERSION=v`** does the following, in order:
+**`git tag pi/v<v>`, then `make release`** does the following, in order.
+Releases are tagged `pi/vX.Y.Z` (Sam, 2026-10-08), as the repo's other parts
+tag `midi-s3/v…` and `prolinks-compat/v…`, and every target takes its
+`VERSION` from HEAD's tag. Tags are signed: the repo signs every tag with
+Sam's ssh key (`tag.gpgSign`).
 
-1. **Checks** that the tree is clean and the commit is tagged `v<VERSION>`.
+1. **Checks** that the tree is clean and the commit is tagged `pi/v<VERSION>`.
+   `VERSION=… REHEARSAL=1` builds an untagged or dirty tree, for trying a
+   release, and says so in its manifest.
 2. **Builds the system** with `image/build.sh trimixxx-release`.
    - That's a card for a neutral hostname. It doesn't touch the shared golden
      snapshot, which only happens for `trimixxx0`.

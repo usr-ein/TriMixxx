@@ -393,10 +393,10 @@ snapshot of the A/B card can come later, if quick restores matter there.
 ### 4.3 The update-work loop
 
 ```
-make release VERSION=1.0.0                    # card + bundle (§5.2)
+git tag -m "TriMixxx 1.0.0" pi/v1.0.0 && make release   # card + bundle (§5.2), version 1.0.0
 make card DECK=trimixxx0 VERSION=1.0.0        # the emulated deck's identity
 pi-qemu/instance.sh up ab --from out/1.0.0/trimixxx0-1.0.0.img
-make release VERSION=1.0.1                    # the change under test
+make release VERSION=1.0.1 REHEARSAL=1        # the change under test, untagged
 pi-qemu/instance.sh run ab -- make ship DECK=ab VERSION=1.0.1
                                               # install, then a trial start of B;
                                               # B committed once the health check passed
@@ -462,8 +462,8 @@ what trimixxx3 shows, not the other way round.
 
 ### 5.2 Every release
 
-1. **Tag the commit**, then run `make release VERSION=1.0.1`. It refuses a
-   dirty tree, and runs:
+1. **Tag the commit** `pi/v1.0.1`, then run `make release`: the version is the
+   tag's. It refuses a dirty tree, and runs:
    - `image/build.sh` (existing) at that commit, giving the writable card with
      everything installed;
    - **one Docker container**, pinned by a `Dockerfile`: debian:trixie with
