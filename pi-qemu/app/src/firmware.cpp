@@ -189,10 +189,18 @@ bool prepareBoot(Card& card, const FirmwareOptions& o, BootPlan* plan, QString* 
     }
     plan->kernel = run.filePath("kernel.img");
     if (!extract(kernel, "kernel.img")) return false;
+    // An initramfs that isn't there: the firmware starts the kernel without
+    // one (auto_initramfs loads it "if found"). A system that needs it then
+    // fails as on a Pi, in the kernel (phase 4, F5).
     plan->initramfs.clear();
     if (!initramfs.isEmpty()) {
-        plan->initramfs = run.filePath("initramfs");
-        if (!extract(initramfs, "initramfs")) return false;
+        if (!card.exists(part, initramfs)) {
+            plan->notes << QString("no %1 on partition %2: the kernel starts without an initramfs")
+                               .arg(initramfs).arg(part);
+        } else {
+            plan->initramfs = run.filePath("initramfs");
+            if (!extract(initramfs, "initramfs")) return false;
+        }
     }
 
     // The device tree: base, then each overlay in config.txt order.

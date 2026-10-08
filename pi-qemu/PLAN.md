@@ -8,9 +8,10 @@ records why it is built the way it is.
 the air: A/B slots, chosen by the Pi firmware's own **tryboot** and installed by
 **RAUC**, rehearsed on the emulated deck before any deck sees them. Part 1 is
 that plan, phase by phase, written so that an agent can carry it out. Status on
-2026-10-08: **phases 1 and 2 are done**: the firmware measured on trimixxx3
-(§2.3), and pi-qemu starting as it does (§3.5). Phase 3, a locked card, is
-under way.
+2026-10-08: **phases 1 to 4 are done**: the firmware measured on trimixxx3
+(§2.3), pi-qemu starting as it does (§3.5), a locked card (§4.3), and RAUC's
+updates through the whole fault table on the emulated deck (§5.4). Phase 5
+waits for trimixxx3 to be back on the bench; phase 6 is Sam's.
 
 | Read | For |
 |---|---|
@@ -62,7 +63,7 @@ They come from the repo's `CLAUDE.md` and the `trimixxx0` skill:
 | Replacing the shared golden snapshot (`instance.sh golden`), or rebuilding `.cache/build/trimixxx0.img` | Every agent's emulated deck starts from them |
 | A hang test on the **committed** slot (phase 1, T9) | It can loop the Pi until the card is fixed on the Mac |
 | Anything on a real deck, and phase 6 as a whole | Gig equipment |
-| Pushing | Sam pushes |
+| Pushing | Each phase once it's done, then go on (Sam, 2026-10-08) |
 
 ### 1.3 Invariants
 
@@ -144,10 +145,12 @@ These paths are proposals; keep them unless there's a reason not to.
 | `pi-qemu/release/boot/` | `autoboot.txt` (**built**, shared with phase 1), `config-release.txt` (the additions), `cmdline-a.txt.in`, `cmdline-b.txt.in` |
 | `pi-qemu/release/exclude.txt` | the seal: what a release leaves out of the system |
 | `pi-qemu/release/manifest.raucm.in` | the bundle manifest |
-| `pi-qemu/release/Makefile` | `phase1` (**built**), `release`, `card`, `ship`; run as `make -C pi-qemu/release …` (`make release` in the docs). Each target builds the container, then runs again inside it |
+| `pi-qemu/release/Makefile` | `phase1`, `release`, `card`, `ship`, `faults` (**built**); run as `make -C pi-qemu/release …` (`make release` in the docs). Each target builds the container, then runs again inside it |
+| `pi-qemu/release/signing-key.pem` | the key that signs bundles, public on purpose (§5.1) |
 | `pi-qemu/release/out/<v>/` | outputs, gitignored: `trimixxx-<v>.img`, `trimixxx-<v>.raucb`, `manifest.txt` |
 | `pi-qemu/.cache/decks/<deck>/` | per-deck secrets, gitignored: `trimixxx.conf`, `NetworkManager/`, `ssh/` |
-| `pi_config/rauc/` | `system.conf`, `keyring.pem` (the public certificate), `rpi-tryboot` (backend), `trimixxx-health.service`, `trimixxx-health` (the checks) |
+| `pi_config/rauc/` | `system.conf`, `keyring.pem` (the certificate), `rpi-tryboot` (backend) |
+| `pi_config/trimixxx-health.service`, `pi_config/trimixxx-health` | the health unit and its checks |
 | `pi_config/trimixxx-identity.service`, `pi_config/trimixxx-identity` | the identity unit |
 | `pi_config/eth0-link-local.nmconnection` | eth0's profile on every deck, replacing cloud-init's netplan one (phase 3); phase 1's card already uses it |
 | `pi-qemu/deploy/base.sh` | installs `overlayroot`, `rauc` and `rauc-service`; adds the initramfs modules |
@@ -748,12 +751,13 @@ openssl req -x509 -newkey rsa:4096 -nodes -days 36500 \
   -keyout key.pem -out cert.pem -subj "/CN=TriMixxx releases"
 ```
 
-Commit `cert.pem` as `pi_config/rauc/keyring.pem`. The key never enters the
-repo.
+`cert.pem` is `pi_config/rauc/keyring.pem`, and `key.pem` is
+`pi-qemu/release/signing-key.pem`.
 
 ### 5.2 Device files
 
-They live in `pi_config/rauc/` and are deployed by the system step.
+They live in `pi_config/` and are deployed by the system step, inert on a dev
+card; `make release` enables them.
 
 - **`/etc/rauc/system.conf`**, exactly as `rauc-pi-4-setup.md` §3.5.
 - **`/usr/lib/rauc/rpi-tryboot`**, adapted from
@@ -778,24 +782,34 @@ They live in `pi_config/rauc/` and are deployed by the system step.
   and T7). So:
   - if p1's file is missing or invalid, `repair` restores the copy;
   - if the copy names B, it then reboots into B;
-  - if there's no copy, it writes one for the running slot.
+  - if there's no copy, it writes one for the running slot;
+  - if p1's file isn't the backend's own but commits the slot running, it
+    was edited by hand, the fix for a deck that keeps restarting (F10). It's
+    kept, and rewritten as the backend's own.
 - **`trimixxx-health.service` and `trimixxx-health`:**
-  - `ExecCondition=` tests that the device tree's `tryboot` is non-zero.
-    On normal starts it runs `rpi-tryboot repair` instead.
-  - `After=NetworkManager.service ssh.service`, plus the session that starts
-    Mixxx. `TimeoutStartSec=180`.
-  - The checks are those of `instance.sh`'s `mixxx_ready()`:
-    - the `ttymidi` bridge is running;
+  - The unit runs at every start of a release card
+    (`ConditionPathExists=/etc/rauc/system.conf`), and the script decides
+    from the device tree's `tryboot`.
+  - `After=NetworkManager.service ssh.service getty@tty1.service
+    trimixxx-bridge.service` (Mixxx's session starts from tty1).
+    `TimeoutStartSec=180`.
+  - **On a trial**, the checks are those of `instance.sh`'s `mixxx_ready()`:
+    - the `ttymidi` bridge is running, and older than this Mixxx;
     - the current Mixxx's `/tmp/mixxx/mixxx.log` has
       `Started stream successfully` and `Opening controller: "TriMixxx"`;
     - `/etc/trimixxx-release` matches the version RAUC installed in the booted
       slot.
-  - Success: `rauc status mark-good`.
-  - Failure: `rauc status mark-bad`, then `FailureAction=reboot`.
+
+    It waits up to 150 s, counted on `/proc/uptime`: NTP jumps the wall
+    clock at start. Success: `rauc status mark-good`. Failure: `rauc status
+    mark-bad`, exit 1, then `FailureAction=reboot`.
+  - **On a normal start:** `rpi-tryboot repair`, and the reboot it may ask
+    for; then the reconcile below.
   - What resets a trial that never gets this far:
-    - until systemd starts, the kernel watchdog (phase 1, T8);
-    - after that, systemd itself, which holds `/dev/watchdog0` on Pi OS
-      (check its `RuntimeWatchdogSec`), so a hung PID 1 resets too;
+    - until systemd starts, the kernel watchdog (phase 1, T8; F6b);
+    - after that, systemd itself, which holds `/dev/watchdog0`
+      (`RuntimeWatchdogSec=1min` on the release, as Pi OS sets it), so a hung
+      PID 1 resets too;
     - a trial stuck anywhere else ends at this unit's timeout.
 - **Reconcile after a boot-watchdog fallback.** The decks set the EEPROM's
   boot watchdog (invariant 14). When the committed slot fails before Linux
@@ -810,7 +824,8 @@ They live in `pi_config/rauc/` and are deployed by the system step.
   - **What it covers:** A is the fallback, as for a damaged `autoboot.txt`,
     so this rescues decks whose committed slot is B.
   - **What still loops** until a hand fixes it: a committed A that fails
-    before Linux, and any committed slot that hangs after Linux starts (T9).
+    before Linux, and any committed slot that hangs after Linux starts (T9,
+    F10).
 
 ### 5.3 Bundles and shipping
 
@@ -823,13 +838,18 @@ They live in `pi_config/rauc/` and are deployed by the system step.
   - Stage the input directory inside the container, with plain files only
     (RAUC 1.13).
 - **`make ship DECK=name VERSION=v`** runs:
-  1. `scp` the bundle to `name:/var/lib/rauc/`;
-  2. `ssh name sudo rauc install …`;
-  3. `ssh name sudo reboot`;
-  4. wait for ssh to come back;
-  5. `ssh name rauc status`.
+  1. the bundle into `name:/var/lib/rauc/`, streamed through `ssh … sudo sh
+     -c 'cat > …'`: only root writes there, and `/tmp` is RAM;
+  2. `ssh name sudo rauc install …`, then deletes the bundle;
+  3. a reboot;
+  4. waits for a new boot ID over ssh;
+  5. `ssh name rauc status`, with the release and slot the deck runs.
 
   For emulated decks, run it inside `pi-qemu/instance.sh run NAME -- …`.
+- **`make faults VERSION=v`** makes the broken releases of the fault table
+  from release *v*'s images, each signed like it: `v-nomapping` (F4),
+  `v-noinitramfs` (F5), `v-panic` (F6a) and `v-hang` (F6b), in `out/`, for
+  `make ship`.
 
 ### 5.4 The fault matrix in QEMU
 
@@ -838,19 +858,65 @@ Run it on an A/B deck started from release *v1*, shipping *v2*:
 | # | Fault | How | Expected |
 |---|---|---|---|
 | F1 | Damaged bundle | install a truncated copy | refused; nothing written; `rauc status` unchanged |
-| F2 | Power lost during install | `instance.sh ctl ab power off` mid-install, then `power on` | A; B not marked good |
-| F3 | Power lost after install, before the reboot | power off, then on | A |
-| F4 | Health check fails | ship a v2 whose Mixxx mapping is missing | trial → mark-bad → reboot → A |
-| F5 | Panic on the trial | ship a v2 whose initramfs lacks `squashfs` | `panic=10` → A |
-| F6 | Hang on the trial | ship a v2 whose cmdline has `break=premount` | watchdog → A, about 2 min (118 s on trimixxx3, T8) |
+| F2 | Power lost during install | power off without a sync from the deck (`echo o > /proc/sysrq-trigger`), 1 s after `rauc install` starts copying the root image | A; B not marked good |
+| F3 | Power lost after install, before the reboot | `instance.sh kill`, then `up` | A |
+| F4 | Health check fails | `make faults`' `-nomapping`: Mixxx without the S3's mapping | trial → mark-bad → reboot → A |
+| F5 | Panic on the trial | `-noinitramfs`: no initramfs to mount the SquashFS root | `panic=10` → A |
+| F6a | The trial gives up in its initramfs | `-panic`: `break=premount` | initramfs-tools' `panic=10` → A |
+| F6b | Hang on the trial | `-hang`: `break=premount` without `panic=10` | watchdog → A, about 2 min (118 s on trimixxx3, T8) |
 | F7a | `autoboot.txt` broken (power lost during a commit), A committed | corrupt it on a running deck, then reboot | p2 starts (T6c, T7); `repair` restores the file |
 | F7b | The same, B committed | after F9 | p2 (A) starts; `repair` restores the copy, then reboots into B |
 | F8 | Rollback | `rauc status mark-active other`, then reboot | trial of the old version → commit |
 | F9 | Normal update | ship v2 | B committed; A keeps v1. The splash shows `B trial` and v2 during the trial, then `B` and v2 |
-| F10 | The committed slot hangs | `break=premount` on its command line | it keeps restarting: the known gap (T9). Checks that pi-qemu copies the hardware; fix it by hand |
+| F10 | The committed slot hangs | as F6b, on the committed slot's command line | it keeps restarting: the known gap (T9). Checks that pi-qemu copies the hardware. The fix, on the Mac: commit the other slot in `autoboot.txt` (the volume `BOOTSEL`) |
 | F11 | Boot-watchdog fallback, B committed | `systemctl reboot --reboot-argument=2`. pi-qemu runs no firmware that could hang, so this leaves the deck as the watchdog would | A passes the health check; B marked bad; A committed |
 
 **Done when** F1 to F11 behave as listed in QEMU.
+
+**Done on 2026-10-08,** on the emulated deck `ab`: rehearsal release 0.0.1's
+card for trimixxx0, updated over the air through 0.0.2, 0.0.4 and 0.0.6, with
+broken releases made from them. Every row behaves as listed:
+
+| # | Result |
+|---|---|
+| F1 | A bundle cut at 100 MB: `rauc install` fails; p6 and `rauc status` unchanged |
+| F2 | Off 1 s into the copy of 0.0.2 over 0.0.4: A starts. B is marked bad, RAUC records its write as `pending`, and p6 matches neither release. The copy lasts about 3 s in the emulator, too short to time a power-off from the Mac |
+| F3 | After the install the flag read 1 (`vcmailbox 0x00030064`); the power cut forgot it. A starts; B keeps a complete 0.0.2, marked bad |
+| F4 | Trial of B, no S3 controller within 150 s, mark-bad, reboot: A, 212 s after the reboot command |
+| F5 | The kernel panics without a root, `panic=10` reboots: A after 94 s (0.0.5, before `rootdelay` went) |
+| F6a | initramfs-tools reboots 10 s after giving up: A after 28 s |
+| F6b | The shell waits, the watchdog resets 61 s into the hang: A after 77 s. Phase 2 measured 75 s for T8 in pi-qemu, against 118 s on trimixxx3, which includes two real firmware starts |
+| F7a | p1's `autoboot.txt` deleted, A committed: A starts in 15 s; `repair` restores the file; no reboot |
+| F7b | The file cut short, B committed: p2 (A) starts in 15 s; `repair` restores the copy and reboots; B 15 s later. Also passed before `repair` changed (68 s, with `rootdelay`) |
+| F8 | `mark-active other`: trial of B with the older 0.0.2, committed 8 s after start |
+| F9 | 0.0.2, 0.0.4 and 0.0.6 shipped into each slot in turn: trial, then committed; the other slot keeps the previous release. `make ship` takes 41 s with the 1.1 GB bundle. The splash showed `B-trial.raw` ("B · trial · v0.0.6") during B's trial, then `B.raw` |
+| F10 | B committed and made to hang: B restarts every 61 s, as T9 did on trimixxx3. Fixed on the Mac by committing A in `autoboot.txt` as an editor might leave it (CRLF, no `[tryboot]`): A starts, and `repair` keeps the edit, rewritten as the backend's own |
+| F11 | `reboot 2` with B committed: A starts, passes, and is committed; B marked bad |
+
+Not covered in pi-qemu, as planned: the EEPROM's boot watchdog, measured on
+trimixxx3 in T10. F11 stands in for it.
+
+**Found and fixed:**
+- **`rootdelay=20` cost every start 20 s.** initramfs-tools sleeps that long
+  before it even looks for the root. It already waits up to 30 s for a missing
+  root on its own. The release's command lines no longer carry it: kernel and
+  initramfs take 1.8 s, down from 21.9 s.
+- **With `panic=` set, initramfs-tools never opens a shell.** `break=premount`
+  reboots after 10 s instead of hanging. F6 was such a reboot, so it is now
+  two rows, and the hang row (F6b) drops `panic=10`.
+- **`repair` would have undone the fix for F10.** It counted only its own bytes
+  as valid, so an `autoboot.txt` edited by hand was "restored" from the copy,
+  and the deck went back into its loop. A file that commits the slot running
+  now wins.
+- **The health check timed its 150 s on the wall clock,** which NTP jumps
+  forward at start. Its first F4 trial ended the moment NTP answered. It
+  counts `/proc/uptime` now.
+- **pi-qemu stopped at a missing initramfs.** The firmware starts the kernel
+  without one (F5), and pi-qemu now does too, with a note.
+- **`make ship` copied the bundle through `/tmp`,** which is RAM (tmpfs, as
+  on any trixie): 1.1 GB of it, on a deck with 4 GB. It streams the bundle
+  straight into `/var/lib/rauc` through `sudo` now, and deletes it after the
+  install.
 
 ---
 
@@ -864,7 +930,10 @@ Run it on an A/B deck started from release *v1*, shipping *v2*:
 2. Sam flashes the card.
 3. The checks of §4.3 on the hardware.
 4. Ship two releases with `make ship DECK=trimixxx3`.
-5. F1 to F9 on the hardware. Sam pulls the power where the matrix says so.
+5. F1 to F9 on the hardware, F6 both ways. `make faults VERSION=v` makes the
+   broken releases that F4 to F6 ship. Sam pulls the power where the matrix
+   says so: for F2, while `rauc install` says `Copying image to rootfs`, which
+   lasts far longer on a real SD card than the emulator's 3 s.
 
 The bench needs a USB sound card, because the health check requires Mixxx's
 sound stream. Its HDMI screen shows the splash's slot label (F9).

@@ -28,7 +28,8 @@
 #               set-state SLOT good|bad | get-current     (RAUC calls these)
 #   rpi-tryboot repair     restore a missing or invalid autoboot.txt from its
 #                          copy; prints `reboot` when the committed slot isn't
-#                          the one running
+#                          the one running. A file edited by hand that commits
+#                          the slot running is kept, rewritten as ours
 #   rpi-tryboot committed  the slot autoboot.txt commits ([all])
 #   rpi-tryboot booted     the slot running, and whether as a trial: "B trial"
 #
@@ -67,6 +68,18 @@ committed_in() {
     slot_of "$p" > /dev/null || return 1
     cmp -s "$f" <(autoboot_for "$(slot_of "$p")") || return 1
     slot_of "$p"
+}
+
+# The slot a file commits as the firmware reads it, ours or not: [all]'s last
+# boot_partition, with CRLF line ends and spaces around `=`, as an editor on a
+# Mac may leave them.
+named_in() {
+    [ -f "$1" ] || return 1
+    slot_of "$(tr -d '\r' < "$1" | awk -F= '
+        BEGIN { all = 1 }
+        /^[ \t]*\[/ { all = ($0 ~ /^[ \t]*\[all\]/); next }
+        all && $1 ~ /^[ \t]*boot_partition[ \t]*$/ { v = $2; gsub(/[ \t]/, "", v) }
+        END { print v }')"
 }
 
 mount_bootsel() {
@@ -128,17 +141,24 @@ get-current)
 repair)
     mount_bootsel
     trap umount_bootsel EXIT
-    if committed_in "$MNT/autoboot.txt" >/dev/null; then
-        s="$(committed_in "$MNT/autoboot.txt")"
+    b="$(booted)"
+    if s="$(committed_in "$MNT/autoboot.txt")"; then
         # Keep the copy in step with the file the firmware reads.
-        committed_in "$COPY" >/dev/null && [ "$(committed_in "$COPY")" = "$s" ] ||
-            autoboot_for "$s" | write_whole "$COPY"
+        [ "$(committed_in "$COPY" || true)" = "$s" ] || autoboot_for "$s" | write_whole "$COPY"
         exit 0
     fi
-    s="$(committed_in "$COPY" || booted)"
-    echo "rpi-tryboot: autoboot.txt was missing or invalid; restored for slot $s" >&2
-    autoboot_for "$s" | write_whole "$MNT/autoboot.txt"
-    [ "$s" = "$(booted)" ] || echo reboot
+    if [ "$(named_in "$MNT/autoboot.txt" || true)" = "$b" ]; then
+        # Not our file, but it commits the slot running: an edit by hand, which
+        # put a deck stuck on a slot that keeps restarting onto the other one
+        # (PLAN.md §5.4, F10). It wins over the copy.
+        s="$b"
+        echo "rpi-tryboot: autoboot.txt was edited by hand to commit slot $s; rewritten as ours" >&2
+    else
+        s="$(committed_in "$COPY" || echo "$b")"
+        echo "rpi-tryboot: autoboot.txt was missing or invalid; restored for slot $s" >&2
+    fi
+    commit "$s"
+    [ "$s" = "$b" ] || echo reboot
     ;;
 committed)
     committed

@@ -11,8 +11,9 @@ with the rendered figure beside it for people.
 | `rauc-pi-4-setup.md` | **Design and evidence**: every configuration file, the research, the sources |
 | `rauc-pi-4-report.html`, `rauc-pi-4-figures/` | The visual report and its figures |
 
-Nothing described here is built yet. Where this file and `PLAN.md` differ,
-`PLAN.md` wins.
+Built and tested through phase 4 (2026-10-08): the card, the updates, and
+the whole fault table on the emulated deck. trimixxx3 and the decks come next.
+Where this file and `PLAN.md` differ, `PLAN.md` wins.
 
 ---
 
@@ -27,7 +28,7 @@ Nothing described here is built yet. Where this file and `PLAN.md` differ,
 | **Commit** | Rewriting `autoboot.txt` so the slot that passed its trial becomes the default |
 | **RAUC** | The A/B updater (Debian `rauc` + `rauc-service`, 1.13). Installs bundles into the idle slot |
 | **Bundle** | `trimixxx-<v>.raucb`: a signed file holding `boot.vfat` and `rootfs.squashfs` |
-| **rpi-tryboot** | Our RAUC custom bootloader backend (~60 lines of shell, adapted from Rtone's) |
+| **rpi-tryboot** | Our RAUC custom bootloader backend (~100 lines of shell, adapted from Rtone's) |
 | **Health check** | Our systemd unit that, on a trial start only, runs `rauc status mark-good` or `mark-bad` |
 | **Identity unit** | Our systemd unit that applies the deck's name, wiring and accent from `/data` |
 | **Dev deck** | The writable emulated deck (`image/build.sh` card) used for feature work, as today |
@@ -293,7 +294,7 @@ pi-qemu/instance.sh run ab -- make ship DECK=ab VERSION=1.0.1
 pi-qemu/instance.sh ssh ab rauc status
 
 # ship to a deck, roll back
-make ship DECK=trimixxx3 VERSION=1.0.1        # scp the bundle, rauc install, reboot, rauc status
+make ship DECK=trimixxx3 VERSION=1.0.1        # the bundle over ssh, rauc install, reboot, rauc status
 ssh trimixxx3 sudo rauc status mark-active other && ssh trimixxx3 sudo reboot
 
 # a new deck: one physical flash
@@ -304,18 +305,19 @@ make card DECK=trimixxx4                      # the release card with that deck'
 
 ## 8. When something goes wrong
 
-Every row is rehearsed on the emulated deck first, then on trimixxx3.
+Every row is rehearsed on the emulated deck first, then on trimixxx3. All of
+them passed on the emulated deck on 2026-10-08 (`PLAN.md` §5.4).
 
 | Fault | What catches it | Ends on |
 |---|---|---|
 | Damaged bundle, or one you didn't sign | RAUC's signature check, before writing | A |
 | Power lost during install | only the idle slot was being written | A |
 | Power lost after install, before the reboot | the flag doesn't survive power-off | A (install again) |
-| New system doesn't boot | `panic=10`, `rootwait=20`; the flag is gone | A |
-| New system freezes | hardware watchdog armed from the firmware (`kernel_watchdog_timeout`) | A |
+| New system doesn't boot | `panic=10`, in the kernel and in the initramfs; the flag is gone | A |
+| New system freezes | hardware watchdog armed from the firmware (`kernel_watchdog_timeout`): about 60 s into the hang | A |
 | It boots, but Mixxx, the sound card or the S3 link fails | health check: `mark-bad`, then a reboot | A |
 | Power lost during the commit | a copy written first on the state partition, then `autoboot.txt` whole and synced. A broken `autoboot.txt` starts p2 (measured); the start-up `repair` restores the copy, and reboots into B if B was committed | the committed slot |
-| A committed slot breaks later | tryboot's one weak spot. Measured: `kernel_watchdog_partition` doesn't switch slots, so a hang in Linux loops. The decks set the EEPROM's boot watchdog: a failure before Linux then starts A after 45 s, and the backend commits A if it passes the health check | A when B was committed; otherwise a hand, or a reflash |
+| A committed slot breaks later | tryboot's one weak spot. Measured: `kernel_watchdog_partition` doesn't switch slots, so a hang in Linux loops. The decks set the EEPROM's boot watchdog: a failure before Linux then starts A after 45 s, and the backend commits A if it passes the health check. Otherwise, on a Mac, change the slot `autoboot.txt` commits (the volume `BOOTSEL`): the deck keeps that edit | A when B was committed; otherwise a hand on a Mac |
 
 ---
 
@@ -330,7 +332,7 @@ Every row is rehearsed on the emulated deck first, then on trimixxx3.
 | Restarts on hangs and panics | firmware/systemd watchdogs, `panic=` | settings | — |
 | Wi-Fi, ssh keys, `/data` lock | standard NetworkManager keyfiles and OpenSSH host keys, an fstab `ro` mount | formats and settings | — |
 | Build the card and bundle | genimage, mksquashfs, `rauc bundle` in Docker | config files | `genimage.cfg`, Dockerfile, manifest, Make targets |
-| Connect RAUC to the Pi firmware | `rpi-tryboot` (~60 lines) | **ours** | RAUC 1.13 has no Pi firmware backend. Delete it when RAUC's own (PR #1599, aimed at 1.17) ships |
+| Connect RAUC to the Pi firmware | `rpi-tryboot` (~100 lines) | **ours** | RAUC 1.13 has no Pi firmware backend. Delete it when RAUC's own (PR #1599, aimed at 1.17) ships |
 | Decide the deck is healthy | systemd unit calling `rauc status mark-good` | **ours** (the checks) | What "healthy" means is deck-specific |
 | Who this deck is | identity unit | **ours** | Per-device app config has no standard tool |
 | A/B in the emulator | pi-qemu firmware step + one QEMU patch | **ours** | QEMU runs no Pi firmware |

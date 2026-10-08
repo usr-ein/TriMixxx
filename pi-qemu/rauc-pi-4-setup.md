@@ -58,7 +58,7 @@ and how that is developed and rehearsed on the emulated deck. Written on
 
 | Custom piece | Why no standard part covers it |
 |---|---|
-| RAUC bootloader backend for tryboot, ~60 lines of shell adapted from Rtone's LGPL script | RAUC 1.13 has no Raspberry Pi firmware backend. The upstream one (rauc PR #1599) isn't merged. RAUC's documented custom-backend interface is the intended extension point |
+| RAUC bootloader backend for tryboot, ~100 lines of shell adapted from Rtone's LGPL script | RAUC 1.13 has no Raspberry Pi firmware backend. The upstream one (rauc PR #1599) isn't merged. RAUC's documented custom-backend interface is the intended extension point |
 | Health check unit that calls `rauc status mark-good` | RAUC documents this pattern; what counts as healthy is deck-specific |
 | Identity unit: hostname and per-deck Mixxx config | No standard tool selects per-device application config |
 | Tryboot in pi-qemu: C++ firmware step, one QEMU mailbox patch | QEMU runs no Pi firmware. pi-qemu is the firmware, so it implements tryboot |
@@ -114,16 +114,18 @@ kernel_watchdog_timeout=60
 `rauc.slot=B` and `-03`:
 
 ```
-console=tty1 root=PARTUUID=<id>-05 rootfstype=squashfs rootwait rootdelay=20 panic=10 overlayroot=tmpfs:recurse=0 rauc.slot=A systemd.mount-extra=PARTUUID=<id>-02:/boot/firmware:vfat:ro
+console=tty1 root=PARTUUID=<id>-05 rootfstype=squashfs rootwait panic=10 overlayroot=tmpfs:recurse=0 rauc.slot=A systemd.mount-extra=PARTUUID=<id>-02:/boot/firmware:vfat:ro
 ```
 
 Each part of that line comes from a standard component:
 - `root=PARTUUID=…`: the kernel.
-- `rootdelay=20 panic=10`: initramfs-tools, which mounts the root on Pi OS
-  (the kernel's own `rootwait=N` doesn't apply there). It waits 20 s for the
-  root, and on a failure reboots after 10 s instead of opening a shell. A
-  missing root
-  reboots instead of hanging, and a reboot ends the trial.
+- `panic=10`: the kernel, and initramfs-tools, which mounts the root on Pi
+  OS. On a failure either one reboots after 10 s, instead of hanging or
+  opening a shell, and a reboot ends the trial. initramfs-tools waits up to
+  30 s for a missing root by itself. No `rootdelay=`: initramfs-tools sleeps
+  that long on every start before it looks for the root (phase 4 found 20 s
+  added to each boot). `rootwait` is stock Pi OS's, and only applies when the
+  kernel mounts the root itself.
 - `overlayroot=…`: Debian's overlayroot (§3.3). With `recurse=0` it rewrites
   only `/` and leaves `/data` and `/var/lib/rauc` as plain mounts (its
   script, and the release card in pi-qemu: phase 3).
@@ -261,14 +263,17 @@ Moving to `verity` (streaming, and later adaptive updates that download only
 what changed) is one manifest line, once RAUC ≥ 1.15.1 is in the image.
 
 **The backend, `/usr/lib/rauc/rpi-tryboot`**, starts from Rtone's script, with
-three changes:
+these changes:
 - `autoboot.txt` lives on p1, not on the boot slot. The script mounts p1 to
   write it.
 - It writes the whole file, as the rauc #1599 reviewers asked, then `fsync`,
-  rename, and a sync of the directory.
-- On a normal (non-trial) start, the health unit checks `autoboot.txt` and
-  rewrites it from the running, committed slot if it is invalid, as Raspberry
-  Pi's engineer recommends.
+  rename, and a sync of the directory. A copy goes first to the state
+  partition, whose ext4 has a journal.
+- On a normal (non-trial) start, the health unit has it check `autoboot.txt`
+  (`rpi-tryboot repair`), as Raspberry Pi's engineer recommends. An invalid
+  file is rewritten from the copy, and if that commits B, the deck reboots
+  into B. A file edited by hand to commit the slot running is kept: that's
+  the fix for a committed slot that keeps restarting (PLAN.md §5.4, F10).
 
 | RAUC calls | When | The backend |
 |---|---|---|
@@ -280,22 +285,26 @@ three changes:
 | `get-current` | 1.13 never calls it, since `rauc.slot=` is on the cmdline | bootname from `/chosen/bootloader/partition` |
 
 **The health check, `trimixxx-health.service`**
-- Runs only on a trial start. `ExecCondition=` checks the device tree's
-  `tryboot` is 1, as Home Assistant OS does.
+- Runs at every start of a release card. On a trial (the device tree's
+  `tryboot` is 1, as Home Assistant OS checks it), it decides the trial. On a
+  normal start it runs `rpi-tryboot repair`, and the reconcile after a
+  boot-watchdog fallback (PLAN.md §5.2).
 - Starts after NetworkManager and ssh, per the never-lock-the-deck-out rule.
-- Within `TimeoutStartSec=180`, it checks:
+- On a trial, within 150 s (counted on `/proc/uptime`, since NTP jumps the
+  clock at start), it checks:
   - the MIDI bridge runs;
   - Mixxx opened the sound card and the S3 controller (the checks
     `instance.sh ready` makes today);
   - `/etc/trimixxx-release` matches the bundle version.
 - On success it runs `rauc status mark-good`.
-- On failure or timeout it runs `rauc status mark-bad`, and
-  `FailureAction=reboot` brings back the committed slot.
+- On failure it runs `rauc status mark-bad` and exits 1, and
+  `FailureAction=reboot` brings back the committed slot. `TimeoutStartSec=180`
+  is the backstop.
 
 **Covered without code:**
-- Kernel panics: `panic=10`.
+- Kernel panics, and an initramfs that gives up: `panic=10`.
 - Hangs: the firmware and kernel watchdog, plus the `RuntimeWatchdogSec=1min`
-  that Raspberry Pi OS already sets.
+  that Raspberry Pi OS already sets (checked on the release).
 - Power cuts: the trial flag dies with the power.
 
 ---
@@ -373,29 +382,33 @@ snapshot of the A/B card can come later, if quick restores matter there.
 
 ```
 make release VERSION=1.0.0                    # card + bundle (§5.2)
-pi-qemu/instance.sh up ab --from out/1.0.0/trimixxx-1.0.0.img
+make card DECK=trimixxx0 VERSION=1.0.0        # the emulated deck's identity
+pi-qemu/instance.sh up ab --from out/1.0.0/trimixxx0-1.0.0.img
 make release VERSION=1.0.1                    # the change under test
-scp out/1.0.1/trimixxx-1.0.1.raucb ab:/var/lib/rauc/
-ssh ab sudo rauc install /var/lib/rauc/trimixxx-1.0.1.raucb
-ssh ab sudo reboot                            # trial start of B
-ssh ab rauc status                            # B committed once the health check passed
+pi-qemu/instance.sh run ab -- make ship DECK=ab VERSION=1.0.1
+                                              # install, then a trial start of B;
+                                              # B committed once the health check passed
 ```
 
-`ssh ab` and `scp … ab:` stand for the instance's own alias. Wrap them in
-`pi-qemu/instance.sh run ab -- …`, which puts the instance's ssh and scp
-first in `PATH`.
+`make ship` streams the bundle into the deck's `/var/lib/rauc` over ssh,
+installs it, reboots, and prints what the deck then runs. `instance.sh run ab
+-- …` puts the instance's own ssh first in `PATH`, under the alias `ab`.
 
-The fault matrix to run before the bench or any deck sees a change:
+The fault matrix to run before the bench or any deck sees a change.
+`make faults VERSION=1.0.1` builds its broken releases from the release under
+test. All of it passed on 2026-10-08 (PLAN.md §5.4, F1 to F11):
 
 | Fault | How, in the emulator | Expected |
 |---|---|---|
-| Plug pulled during the install | `instance.sh ctl ab power off` mid-`rauc install` | A starts; `rauc status` shows B unfinished |
-| Plug pulled after install, before reboot | power off, power on | A starts: the flag dies with the power |
-| Health check fails | a bundle with a broken Mixxx config | trial → mark-bad → restart → A |
-| Kernel panic on the trial | a bundle with a broken initramfs | `panic=10` → restart → A |
-| Hang on the trial | a bundle whose session never starts | watchdog → restart → A |
-| Plug pulled during the commit | power off at mark-good | A damaged `autoboot.txt` starts A (measured, PLAN.md T6c and T7). The backend's `repair` restores its copy, and reboots into B if B was committed (PLAN.md §5.2) |
+| Plug pulled during the install | power off without a sync, from the deck, while RAUC copies the root image | A starts; RAUC records B's write as `pending`, and B as bad |
+| Plug pulled after install, before reboot | `instance.sh kill`, then `up` | A starts: the flag dies with the power |
+| Health check fails | `-nomapping`: Mixxx without the S3's mapping | trial → mark-bad → restart → A |
+| Kernel panic on the trial | `-noinitramfs` | `panic=10` → restart → A |
+| The initramfs gives up | `-panic`: `break=premount` | initramfs-tools' `panic=10` → restart → A |
+| Hang on the trial | `-hang`: `break=premount` without `panic=10` | watchdog → restart → A |
+| Plug pulled during the commit | a damaged `autoboot.txt` | A damaged `autoboot.txt` starts A (measured, PLAN.md T6c and T7). The backend's `repair` restores its copy, and reboots into B if B was committed (PLAN.md §5.2) |
 | Rollback | `rauc status mark-active other`, then reboot | trial of the old version → commit |
+| The committed slot hangs | the `-hang` command line on the committed slot | it keeps restarting (T9). Fixed on the Mac by committing the other slot in `autoboot.txt`, which `repair` keeps |
 
 ### 4.4 What QEMU cannot prove
 
@@ -463,13 +476,15 @@ what trimixxx3 shows, not the other way round.
 3. **Bench:** the same commands against trimixxx3, watching the bootloader on
    its serial line.
 4. **Ship:** the same commands against each deck. `make ship DECK=trimixxx2
-   VERSION=1.0.1` runs exactly these:
+   VERSION=1.0.1` runs these:
    ```
-   scp out/1.0.1/trimixxx-1.0.1.raucb trimixxx2:/var/lib/rauc/
-   ssh trimixxx2 sudo rauc install /var/lib/rauc/trimixxx-1.0.1.raucb
+   ssh trimixxx2 'sudo sh -c "cat > /var/lib/rauc/trimixxx-1.0.1.raucb"' < out/1.0.1/trimixxx-1.0.1.raucb
+   ssh trimixxx2 sudo rauc install /var/lib/rauc/trimixxx-1.0.1.raucb   # then deletes the bundle
    ssh trimixxx2 sudo reboot
-   ssh trimixxx2 rauc status          # once it's back: the new slot committed, or the old one running
+   ssh trimixxx2 rauc status          # once it's back: the new slot on trial, then committed
    ```
+   The bundle goes straight to the state partition, through `sudo`: `/tmp`
+   is RAM, and a bundle is over a gigabyte.
 5. **Roll back** with `ssh <deck> sudo rauc status mark-active other` and a
    reboot. The previous version gets a trial like any update. Older versions
    are just older bundles.
@@ -496,7 +511,7 @@ what trimixxx3 shows, not the other way round.
 | Choose the slot, trial start, fall back | Pi firmware: `autoboot.txt`, tryboot (Raspberry Pi docs) | no | — |
 | Command line per slot | `config.txt` `[boot_partition=N]` (Raspberry Pi docs) | no | Removes the install hook other setups need |
 | Check, install and record updates | RAUC 1.13 (Debian) | no | — |
-| Connect RAUC to the Pi firmware | RAUC's custom backend interface | **yes, ~60 lines, adapted from Rtone (LGPL)** | RAUC 1.13 has no Pi firmware backend. Deleted once RAUC with `bootloader=raspberrypi` (PR #1599, aimed at 1.17) is in the image |
+| Connect RAUC to the Pi firmware | RAUC's custom backend interface | **yes, ~100 lines, adapted from Rtone (LGPL)** | RAUC 1.13 has no Pi firmware backend. Deleted once RAUC with `bootloader=raspberrypi` (PR #1599, aimed at 1.17) is in the image |
 | Confirm a boot | `rauc status mark-good` from a systemd unit (RAUC's documented pattern) | **the checks only** | What "healthy" means is deck-specific: the checks `instance.sh ready` makes today |
 | Read-only system, RAM layer | SquashFS + Debian `overlayroot` (what `raspi-config` uses) + `/etc/initramfs-tools/modules` | no | — |
 | Resets on hangs and panics | Firmware `kernel_watchdog_timeout`, systemd `RuntimeWatchdogSec`, kernel `panic=` | no (settings) | — |
@@ -506,7 +521,7 @@ what trimixxx3 shows, not the other way round.
 | Build card images and bundles | genimage + mksquashfs + `rauc bundle` (Debian) | **one `genimage.cfg`, one `Dockerfile`, one manifest, `make release`** | Declarative files. The only script is the Make target that runs them |
 | Build the system itself | `image/build.sh` + `deploy.sh` | existing | Unchanged: it already builds the dev card |
 | A/B in the emulator | pi-qemu (our firmware emulation) + QEMU | **yes, C++ and one QEMU patch** | QEMU has no Pi firmware, and pi-qemu exists to be it. Everything it does copies documented firmware behaviour |
-| Ship | `scp`, `rauc install`, `reboot` | no | `make ship` only runs those three commands |
+| Ship | `ssh`, `rauc install`, `reboot` | no | `make ship` only runs those commands |
 
 **New files, in all**
 - On the deck:
@@ -895,7 +910,7 @@ on their exit code.
 | **Watchdog during boot** | The firmware arms it (`kernel_watchdog_timeout`; EEPROM boot watchdog on Pi 4 since 2025-07) | "U-Boot does not currently support the watchdog timer for the Raspberry Pi family … must boot … in less than apx. 16 seconds" (br2rauc) | With tryboot, a hang during start-up resets |
 | **Boot time** | Nothing added | A stage after the firmware: about +0.5–1.5 s tuned, +3–5 s with defaults, 10–15 s in a known countdown bug (forum and IPFire reports; no controlled Pi 4 benchmark found) | The decks count seconds (splash at ~8 s) |
 | **Pi OS fit** | Stock boot chain | Adds U-Boot, its script, environment and tools, none of which Pi OS uses | Sam prefers stock Pi OS |
-| **RAUC integration** | Custom backend (~60 lines) now; native backend in review (rauc #1599) | Built-in backend, plus a ~45-line U-Boot boot script and `fw_env.config` | About the same amount of our own code |
+| **RAUC integration** | Custom backend (~100 lines) now; native backend in review (rauc #1599) | Built-in backend, plus a ~45-line U-Boot boot script and `fw_env.config` | About the same amount of our own code |
 | **pi-qemu** | Already plays the firmware; tryboot is our own C++ (§4.2) | U-Boot would have to run on QEMU's raspi4b. **Unverified** | Only tryboot is sure to be testable in the emulator |
 | **Direction** | Raspberry Pi docs ("for fail-safe OS updates"), rpi-image-gen, Ubuntu 25.10, HAOS on Pi 5 since 2024, meta-rauc PR #181, RAUC #1599 | HAOS on Pi 2/3/4 (one boot flow across all its boards), br2rauc, meta-rauc today (a "demo") | HAOS's reason doesn't apply: the decks are one board type |
 

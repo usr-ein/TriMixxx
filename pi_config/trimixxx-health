@@ -10,11 +10,12 @@
 #       flag used up the committed slot starts.
 #   a normal start
 #       autoboot.txt missing or damaged: restore it from its copy, and reboot
-#       if that commits the other slot. Then, if a valid autoboot.txt commits
-#       another slot than the one running -- the bootloader's watchdog started
-#       A because the committed slot failed before Linux (phase 1, T10), or a
-#       `reboot N` by hand -- and this one works: mark the other bad and commit
-#       this one. If it doesn't work, change nothing.
+#       if that commits the other slot. One edited by hand to commit the slot
+#       running is kept (rpi-tryboot repair). Then, if a valid autoboot.txt
+#       commits another slot than the one running -- the bootloader's watchdog
+#       started A because the committed slot failed before Linux (phase 1,
+#       T10), or a `reboot N` by hand -- and this one works: mark the other bad
+#       and commit this one. If it doesn't work, change nothing.
 #
 # Exits non-zero only for a trial it marked bad, so a normal start is never
 # rebooted by it.
@@ -53,9 +54,15 @@ for slot in json.load(sys.stdin).get("slots", []):
     [ "$installed" = "$running" ] || { log "slot runs $running, RAUC installed $installed"; return 1; }
 }
 
+# Seconds since the kernel started. Not the wall clock: a Pi has no clock that
+# keeps time, so it starts at the last time it saved, and NTP then jumps it
+# forward by however long the deck was off. Measured that way, a trial's wait
+# ended the moment NTP answered (phase 4, F4).
+uptime_s() { cut -d. -f1 /proc/uptime; }
+
 works_within() { # seconds
-    end=$(( $(date +%s) + $1 ))
-    while [ "$(date +%s)" -lt "$end" ]; do
+    end=$(( $(uptime_s) + $1 ))
+    while [ "$(uptime_s)" -lt "$end" ]; do
         deck_works && version_ok && return 0
         sleep 2
     done

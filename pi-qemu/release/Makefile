@@ -12,6 +12,10 @@
 #   make -C pi-qemu/release ship DECK=trimixxx2 VERSION=1.0.0
 #                                    the update onto a running deck, over ssh; for an
 #                                    emulated one: pi-qemu/instance.sh run NAME -- make ...
+#   make -C pi-qemu/release faults VERSION=1.0.0
+#                                    broken updates made from that release, for the fault
+#                                    tests (PLAN.md §5.4): out/1.0.0-nomapping, -noinitramfs,
+#                                    -panic and -hang, each to `make ship`
 #
 # A target builds the release container (Dockerfile), then runs again inside
 # it: the tools are Debian trixie's, the decks' own. Only `release` runs it
@@ -29,7 +33,7 @@
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 .ONESHELL:
-.PHONY: phase1 release card ship
+.PHONY: phase1 release card ship faults
 
 # The card's MBR disk signature, the same on every card for good (PLAN.md
 # invariant 7): partitions are PARTUUID=5d0bc1ec-0N, so the command lines never
@@ -109,16 +113,17 @@ card:
 	    --mount type=bind,src="$$d",dst=/deck,readonly \
 	    trimixxx-release make $@
 
-# The update onto a running deck: the bundle into RAUC's state partition, the
-# install into the other slot, a reboot into it as a trial, then what the deck
-# says: its version, its slot, its health check, RAUC's status.
+# The update onto a running deck: the bundle into RAUC's state partition
+# (streamed there: /tmp is RAM, and a bundle is over a gigabyte), the install
+# into the other slot, a reboot into it as a trial, then what the deck says:
+# its version, its slot, its health check, RAUC's status.
 ship:
 	@set -euo pipefail; \
 	[ -n '$(DECK)' ] && [ -n '$(VERSION)' ] || { echo "make ship DECK=trimixxx2 VERSION=1.0.0" >&2; exit 1; }; \
 	b='out/$(VERSION)/trimixxx-$(VERSION).raucb'; \
 	[ -f "$$b" ] || { echo "no $$b: make release first" >&2; exit 1; }; \
-	scp -q "$$b" '$(DECK)':/tmp/; \
-	ssh '$(DECK)' 'sudo mv /tmp/trimixxx-$(VERSION).raucb /var/lib/rauc/ && sudo rauc install /var/lib/rauc/trimixxx-$(VERSION).raucb; r=$$?; sudo rm -f /var/lib/rauc/trimixxx-$(VERSION).raucb; exit $$r'; \
+	ssh '$(DECK)' 'sudo sh -c "cat > /var/lib/rauc/trimixxx-$(VERSION).raucb"' < "$$b"; \
+	ssh '$(DECK)' 'sudo rauc install /var/lib/rauc/trimixxx-$(VERSION).raucb; r=$$?; sudo rm -f /var/lib/rauc/trimixxx-$(VERSION).raucb; exit $$r'; \
 	old="$$(ssh '$(DECK)' cat /proc/sys/kernel/random/boot_id)"; \
 	ssh '$(DECK)' 'sudo systemd-run --quiet --on-active=1 systemctl reboot'; \
 	echo "$(DECK): installed $(VERSION); rebooting into it as a trial"; \
@@ -128,6 +133,12 @@ ship:
 	    [ -n "$$now" ] && [ "$$now" != "$$old" ] && break; \
 	done; \
 	ssh '$(DECK)' 'cat /etc/trimixxx-release; /usr/lib/rauc/rpi-tryboot booted; sudo systemctl is-active trimixxx-health || true; rauc status'
+
+faults:
+	@set -euo pipefail; \
+	[ -n '$(VERSION)' ] || { echo "make faults VERSION=1.0.0" >&2; exit 1; }; \
+	[ -f 'out/$(VERSION)/rootfs.squashfs' ] || { echo "no release $(VERSION): make release first" >&2; exit 1; }; \
+	$(CONTAINER) -e VERSION='$(VERSION)' trimixxx-release make $@
 
 else # ---- in the container ------------------------------------------------------------
 
@@ -306,6 +317,50 @@ release:
 	    cat $(WORK)/packages.txt
 	} > $$o/manifest.txt
 	ls -l $$o
+
+# Broken releases from release VERSION's images, each signed like a real one:
+# out/VERSION-NAME/trimixxx-VERSION-NAME.raucb.
+faults:
+	o=out/$(VERSION) p=/repo/pi_config
+	rm -rf $(WORK) && mkdir -p $(WORK)
+	# Plain reads off Docker's share of the Mac's disk, never cp (see release).
+	dd if=$$o/rootfs.squashfs of=$(WORK)/rootfs.squashfs bs=4M status=none
+	dd if=$$o/boot.vfat of=$(WORK)/boot.vfat bs=4M status=none
+	bundle() { # NAME ROOTFS BOOT
+	    local v=$(VERSION)-$$1 d=$(WORK)/b-$$1
+	    mkdir -p $$d out/$$v
+	    sed -e "s|@VERSION@|$$v|" -e 's|@BUILD@|a fault test, from $(VERSION)|' manifest.raucm.in > $$d/manifest.raucm
+	    ln $$2 $$d/rootfs.squashfs && ln $$3 $$d/boot.vfat
+	    rauc bundle --cert=$$p/rauc/keyring.pem --key=signing-key.pem --keyring=$$p/rauc/keyring.pem $$d $(WORK)/$$v.raucb > /dev/null
+	    cp $(WORK)/$$v.raucb out/$$v/trimixxx-$$v.raucb
+	    echo "out/$$v/trimixxx-$$v.raucb"
+	}
+	# F4, nomapping: Mixxx starts without the S3's mapping, so the health check
+	# fails. The root names this version, so the mapping alone fails it.
+	unsquashfs -q -no-progress -d $(WORK)/root $(WORK)/rootfs.squashfs
+	rm -f $(WORK)/root/usr/share/trimixxx/decks/*/TriMixxx.midi.xml
+	sed -i 's/^VERSION=.*/VERSION=$(VERSION)-nomapping/' $(WORK)/root/etc/trimixxx-release
+	mksquashfs $(WORK)/root $(WORK)/rootfs-nomapping.squashfs -comp zstd -xattrs -noappend -quiet -no-progress
+	rm -rf $(WORK)/root
+	bundle nomapping $(WORK)/rootfs-nomapping.squashfs $(WORK)/boot.vfat
+	# F5, noinitramfs: the kernel can't mount its SquashFS root, panics, and
+	# panic=10 reboots it.
+	cp $(WORK)/boot.vfat $(WORK)/boot-noinitramfs.vfat
+	mdel -i $(WORK)/boot-noinitramfs.vfat ::/initramfs8
+	bundle noinitramfs $(WORK)/rootfs.squashfs $(WORK)/boot-noinitramfs.vfat
+	# F6a, panic: the initramfs gives up (break=premount, as for a root it
+	# can't find), and with panic=10 initramfs-tools reboots after 10 s.
+	# F6b, hang: the same without panic=, so a shell nobody answers, which only
+	# the watchdog ends.
+	for f in panic hang; do
+	    cp $(WORK)/boot.vfat $(WORK)/boot-$$f.vfat
+	    for c in cmdline-a.txt cmdline-b.txt; do
+	        mtype -i $(WORK)/boot-$$f.vfat ::/$$c | sed -e '1 s/$$/ break=premount/' > $(WORK)/$$c
+	        [ $$f = panic ] || sed -i 's/ panic=10 / /' $(WORK)/$$c
+	        mcopy -o -i $(WORK)/boot-$$f.vfat $(WORK)/$$c ::/$$c
+	    done
+	    bundle $$f $(WORK)/rootfs.squashfs $(WORK)/boot-$$f.vfat
+	done
 
 # The deck's identity onto p7 of its copy of the release card (an APFS clone
 # made on the Mac).
