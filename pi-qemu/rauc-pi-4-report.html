@@ -244,7 +244,7 @@ figcaption b { font-family: var(--font-display); font-weight: 600; letter-spacin
     <ul class="rules">
       <li><b>Two copies of the system</b> sit on every SD card: slot A and slot B. The deck runs one. An update writes only the other.</li>
       <li><b>The Pi's firmware chooses the slot</b> from a tiny file, <code>autoboot.txt</code>. A new slot is started once, on trial, with the firmware's one-shot <em>tryboot</em> flag.</li>
-      <li><b>A health check decides.</b> If Mixxx, the sound card and the S3 link come up, RAUC marks the new slot good and it becomes the default. If anything fails, the next restart runs the old slot again, with nobody touching the deck.</li>
+      <li><b>A health check decides.</b> If the new system can take the next update (it's on a network, by cable, home Wi-Fi or its own hotspot, and ssh runs), RAUC marks the new slot good and it becomes the default. If not, the next restart runs the old slot again, with nobody touching the deck. Anything else a release breaks, the next one fixes over the air.</li>
       <li><b>The running system can't be changed.</b> It's SquashFS, with a RAM layer on top that is gone at every restart. The deck's name and Wi-Fi live on a separate locked partition.</li>
       <li><b>RAUC, the standard A/B updater packaged by Debian,</b> does the installing. The emulated deck runs the same card and the same updates, so you rehearse on the Mac first.</li>
     </ul>
@@ -549,7 +549,7 @@ figcaption b { font-family: var(--font-display); font-weight: 600; letter-spacin
       <p>The same update, step by step. You type two commands; everything else follows from RAUC calling the backend.</p>
       <figure>
         <div class="dia-wrap">
-          <svg class="dia" viewBox="0 0 940 570" role="img" aria-label="Sequence of an update. You run rauc install. RAUC tells the backend set-state B bad, writes p3 and p6, then calls set-primary B. The backend writes the tryboot section of autoboot.txt pointing at partition 3 and arms the firmware's trial flag with vcmailbox. You run sudo reboot. The firmware reads autoboot.txt's tryboot section, starts p3 once and clears the flag. The health check confirms the MIDI bridge, Mixxx and sound, then calls rauc status mark-good. RAUC calls set-state B good, and the backend rewrites autoboot.txt so partition 3 is the default: the commit.">
+          <svg class="dia" viewBox="0 0 940 570" role="img" aria-label="Sequence of an update. You run rauc install. RAUC tells the backend set-state B bad, writes p3 and p6, then calls set-primary B. The backend writes the tryboot section of autoboot.txt pointing at partition 3 and arms the firmware's trial flag with vcmailbox. You run sudo reboot. The firmware reads autoboot.txt's tryboot section, starts p3 once and clears the flag. The health check confirms the deck is on a network and ssh runs, then calls rauc status mark-good. RAUC calls set-state B good, and the backend rewrites autoboot.txt so partition 3 is the default: the commit.">
             <defs>
               <marker id="f5-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-ink"/></marker>
               <marker id="f5-sig" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="mk-signal"/></marker>
@@ -606,7 +606,7 @@ figcaption b { font-family: var(--font-display); font-weight: 600; letter-spacin
 
             <!-- check and commit -->
             <rect class="bx-trial" x="800" y="408" width="136" height="28" rx="4"/>
-            <text class="ts" x="868" y="426" text-anchor="middle">bridge · Mixxx · sound OK</text>
+            <text class="ts" x="868" y="426" text-anchor="middle">network · ssh OK</text>
             <line class="ln-good" x1="870" y1="466" x2="233" y2="466" marker-end="url(#f5-good)"/>
             <text class="tm tm-good" x="630" y="459" text-anchor="middle">rauc status mark-good</text>
             <line class="ln-good" x1="230" y1="504" x2="387" y2="504" marker-end="url(#f5-good)"/>
@@ -842,7 +842,8 @@ ssh trimixxx2 sudo reboot      <span class="cm"># rollback: a trial of the old s
             <tr><td>The power goes after the install, before the reboot</td><td>The trial flag doesn't survive a power-off</td><td><span class="chip a">A</span> · install again</td></tr>
             <tr><td>The new system doesn't boot (kernel panic, missing root)</td><td><code>panic=10</code> restarts it, from the kernel or the initramfs; the flag is gone</td><td><span class="chip a">A</span></td></tr>
             <tr><td>The new system freezes</td><td>The hardware watchdog, armed from the firmware on (<code>kernel_watchdog_timeout</code>), about 60 s into the hang</td><td><span class="chip a">A</span></td></tr>
-            <tr><td>It boots, but Mixxx, the sound card or the S3 link fails</td><td>The health check: <code>mark-bad</code>, then a restart</td><td><span class="chip a">A</span></td></tr>
+            <tr><td>It boots, but can't take the next update: no network, or no ssh</td><td>The health check: <code>mark-bad</code>, then a restart</td><td><span class="chip a">A</span></td></tr>
+            <tr><td>It can take the next update, but Mixxx, the sound or the S3 fails</td><td>Nothing, on purpose: the next update fixes it over the air</td><td>the new slot</td></tr>
             <tr><td>The power goes while committing</td><td>The one fragile moment: a few bytes on FAT. A copy goes to the state partition first, then the file, whole and synced. A broken <code>autoboot.txt</code> starts p2 (measured on trimixxx3); a check at start restores the copy, and returns to B if B was committed</td><td>the committed slot</td></tr>
             <tr><td>A committed slot breaks later (SD corruption)</td><td>Tryboot's one weak spot. Measured: the firmware's watchdog-partition setting doesn't switch slots. The bootloader's own watchdog does, before Linux starts: A starts after 45 s, and is committed if it passes the health check. A hang after Linux starts loops: put the card in a Mac and change the slot <code>autoboot.txt</code> commits (the volume <code>BOOTSEL</code>); the deck keeps that edit</td><td><span class="chip a">A</span> when B was committed; otherwise a hand on a Mac</td></tr>
           </tbody>

@@ -127,7 +127,12 @@ of sha256("trimixxx"), set in `release/Makefile`), so `<id>` below is
 | p5 | rootfs-A | SquashFS (RAUC `type=raw`) | 4 GiB | the system |
 | p6 | rootfs-B | SquashFS | 4 GiB | the next system |
 | p7 | trimixxx-data | ext4 | 64 MiB | `trimixxx.conf` (deck name), `NetworkManager/*.nmconnection`, `ssh/ssh_host_*` |
-| p8 | trimixxx-state | ext4 | the rest, for a 32 GB card | RAUC's data directory and bundles |
+| p8 | trimixxx-state | ext4 | 4 GiB | RAUC's data directory, bundles, the health check's log |
+
+The card ends with p8, at about 13 GiB (a 14.1 GB image), so it flashes onto
+any card of 16 GB or more: the decks' 32 GB cards and trimixxx3's 64 GB one
+take the same image. The rest of a bigger card stays unused, since nothing
+ever grows the card (invariant 6).
 
 The exact files are in `rauc-pi-4-setup.md` §3: `autoboot.txt`, the
 `config.txt` additions, the command lines (§3.2), `system.conf` and the
@@ -659,7 +664,8 @@ They go into the normal build, so the dev deck carries them too, inert.
      any `*.elf` (invariant 13).
    - Empty `data.ext4` and `state.ext4`, labelled `trimixxx-data` and
      `trimixxx-state`.
-   - `trimixxx-<v>.img`: the layout in §1.4, sized for the smallest 32 GB card.
+   - `trimixxx-<v>.img`: the layout in §1.4, about 13 GiB, for any card of
+     16 GB or more.
      Slot B and the data partition are empty.
 7. **Writes `manifest.txt`:** the commit, a sha256 for every output, and
    `dpkg -l` from the root.
@@ -790,19 +796,31 @@ card; `make release` enables them.
   - The unit runs at every start of a release card
     (`ConditionPathExists=/etc/rauc/system.conf`), and the script decides
     from the device tree's `tryboot`.
-  - `After=NetworkManager.service ssh.service getty@tty1.service
-    trimixxx-bridge.service` (Mixxx's session starts from tty1).
-    `TimeoutStartSec=180`.
-  - **On a trial**, the checks are those of `instance.sh`'s `mixxx_ready()`:
-    - the `ttymidi` bridge is running, and older than this Mixxx;
-    - the current Mixxx's `/tmp/mixxx/mixxx.log` has
-      `Started stream successfully` and `Opening controller: "TriMixxx"`;
-    - `/etc/trimixxx-release` matches the version RAUC installed in the booted
-      slot.
+  - `After=NetworkManager.service ssh.service`. `TimeoutStartSec=180`.
+  - **On a trial, one question: can the deck take the next release?**
+    Decided by Sam on 2026-10-08, after phase 4: "As long as I can reflash,
+    the update should stay there." It can when:
+    - NetworkManager has it on a network: any of its connected states. That's
+      `connected` on home Wi-Fi, and `connected (local only)` for the other
+      two ways in, the Ethernet cable's link-local profile and the deck's own
+      hotspot. On the loopback alone NetworkManager says `disconnected`. The
+      first two were measured on the emulated deck; the hotspot, which
+      pi-qemu can't run, is the same kind of connection (no route out). Not
+      NetworkManager's "connectivity", which reads `none` on the cable;
+    - and `ssh.service` is active.
 
-    It waits up to 150 s, counted on `/proc/uptime`: NTP jumps the wall
-    clock at start. Success: `rauc status mark-good`. Failure: `rauc status
-    mark-bad`, exit 1, then `FailureAction=reboot`.
+    Nothing of the deck's own is checked: Mixxx, the MIDI bridge, the sound
+    and the S3 may all be broken, and the next release fixes them over the
+    air. It waits up to 150 s, counted on `/proc/uptime` (NTP jumps the wall
+    clock at start). The hotspot starts 45 to 75 s after NetworkManager, when
+    home Wi-Fi doesn't answer (`trimixxx-wifi-fallback`). Success: `rauc
+    status mark-good`; if RAUC can't, the trial fails, since RAUC installs the
+    next release. Failure: `rauc status mark-bad`, exit 1, then
+    `FailureAction=reboot`.
+  - **Every decision is also kept in `/var/lib/rauc/trimixxx-health.log`,**
+    on the state partition both slots share, with one previous file at
+    64 KiB. The journal is in RAM, so after a trial failed this file is what
+    says why the update rolled back.
   - **On a normal start:** `rpi-tryboot repair`, and the reboot it may ask
     for; then the reconcile below.
   - What resets a trial that never gets this far:
@@ -847,9 +865,9 @@ card; `make release` enables them.
 
   For emulated decks, run it inside `pi-qemu/instance.sh run NAME -- …`.
 - **`make faults VERSION=v`** makes the broken releases of the fault table
-  from release *v*'s images, each signed like it: `v-nomapping` (F4),
-  `v-noinitramfs` (F5), `v-panic` (F6a) and `v-hang` (F6b), in `out/`, for
-  `make ship`.
+  from release *v*'s images, each signed like it: `v-nonet` (F4a), `v-nossh`
+  (F4b), `v-noinitramfs` (F5), `v-panic` (F6a) and `v-hang` (F6b), in `out/`,
+  for `make ship`.
 
 ### 5.4 The fault matrix in QEMU
 
@@ -860,7 +878,8 @@ Run it on an A/B deck started from release *v1*, shipping *v2*:
 | F1 | Damaged bundle | install a truncated copy | refused; nothing written; `rauc status` unchanged |
 | F2 | Power lost during install | power off without a sync from the deck (`echo o > /proc/sysrq-trigger`), 1 s after `rauc install` starts copying the root image | A; B not marked good |
 | F3 | Power lost after install, before the reboot | `instance.sh kill`, then `up` | A |
-| F4 | Health check fails | `make faults`' `-nomapping`: Mixxx without the S3's mapping | trial → mark-bad → reboot → A |
+| F4a | The trial can't be reached: no network | `make faults`' `-nonet`: NetworkManager masked | trial → mark-bad after 150 s → reboot → A |
+| F4b | The same: no sshd | `-nossh`: `ssh.service` masked | trial → mark-bad after 150 s → reboot → A |
 | F5 | Panic on the trial | `-noinitramfs`: no initramfs to mount the SquashFS root | `panic=10` → A |
 | F6a | The trial gives up in its initramfs | `-panic`: `break=premount` | initramfs-tools' `panic=10` → A |
 | F6b | Hang on the trial | `-hang`: `break=premount` without `panic=10` | watchdog → A, about 2 min (118 s on trimixxx3, T8) |
@@ -882,19 +901,28 @@ broken releases made from them. Every row behaves as listed:
 | F1 | A bundle cut at 100 MB: `rauc install` fails; p6 and `rauc status` unchanged |
 | F2 | Off 1 s into the copy of 0.0.2 over 0.0.4: A starts. B is marked bad, RAUC records its write as `pending`, and p6 matches neither release. The copy lasts about 3 s in the emulator, too short to time a power-off from the Mac |
 | F3 | After the install the flag read 1 (`vcmailbox 0x00030064`); the power cut forgot it. A starts; B keeps a complete 0.0.2, marked bad |
-| F4 | Trial of B, no S3 controller within 150 s, mark-bad, reboot: A, 212 s after the reboot command |
+| F4a | Trial of `0.0.8-nonet`: unreachable, as it should be; mark-bad after 150 s, reboot: the committed slot, 177 s after the reboot command. Its log on the state partition: `can't take the next release after 150 s (no network: NetworkManager says nothing)` |
+| F4b | `0.0.7-nossh`: the same, back on the committed slot after 178 s |
 | F5 | The kernel panics without a root, `panic=10` reboots: A after 94 s (0.0.5, before `rootdelay` went) |
 | F6a | initramfs-tools reboots 10 s after giving up: A after 28 s |
 | F6b | The shell waits, the watchdog resets 61 s into the hang: A after 77 s. Phase 2 measured 75 s for T8 in pi-qemu, against 118 s on trimixxx3, which includes two real firmware starts |
 | F7a | p1's `autoboot.txt` deleted, A committed: A starts in 15 s; `repair` restores the file; no reboot |
 | F7b | The file cut short, B committed: p2 (A) starts in 15 s; `repair` restores the copy and reboots; B 15 s later. Also passed before `repair` changed (68 s, with `rootdelay`) |
 | F8 | `mark-active other`: trial of B with the older 0.0.2, committed 8 s after start |
-| F9 | 0.0.2, 0.0.4 and 0.0.6 shipped into each slot in turn: trial, then committed; the other slot keeps the previous release. `make ship` takes 41 s with the 1.1 GB bundle. The splash showed `B-trial.raw` ("B · trial · v0.0.6") during B's trial, then `B.raw` |
+| F9 | 0.0.2, 0.0.4, 0.0.6, 0.0.7 and 0.0.8 shipped into each slot in turn: trial, then committed; the other slot keeps the previous release. `make ship` takes 41 s with the 1.1 GB bundle. The splash showed `B-trial.raw` ("B · trial · v0.0.6") during B's trial, then `B.raw`. With the health check Sam chose after the matrix, a trial is committed 6 s after the kernel starts, before Mixxx is up |
 | F10 | B committed and made to hang: B restarts every 61 s, as T9 did on trimixxx3. Fixed on the Mac by committing A in `autoboot.txt` as an editor might leave it (CRLF, no `[tryboot]`): A starts, and `repair` keeps the edit, rewritten as the backend's own |
 | F11 | `reboot 2` with B committed: A starts, passes, and is committed; B marked bad |
 
 Not covered in pi-qemu, as planned: the EEPROM's boot watchdog, measured on
 trimixxx3 in T10. F11 stands in for it.
+
+**Changed after the matrix (Sam, 2026-10-08): the health check asks only
+whether the deck can take the next release** (a network by any of the three
+ways in, and sshd; §5.2). It checked Mixxx's sound stream, the S3's
+controller and the version before, so a deck without its sound card failed
+every trial, and a release whose only fault was there rolled back instead of
+waiting for the next one. F4 became F4a and F4b, and `-nomapping` left
+`make faults`. F4 to F9 ran again on 0.0.7 and 0.0.8.
 
 **Found and fixed:**
 - **`rootdelay=20` cost every start 20 s.** initramfs-tools sleeps that long
@@ -911,6 +939,10 @@ trimixxx3 in T10. F11 stands in for it.
 - **The health check timed its 150 s on the wall clock,** which NTP jumps
   forward at start. Its first F4 trial ended the moment NTP answered. It
   counts `/proc/uptime` now.
+- **A failed trial's reason was lost** at the reboot that ends it: the
+  journal is in RAM, and Debian's console level (`kernel.printk = 4`) keeps
+  the health check's kernel-log lines off the console. Its decisions now also
+  go to `/var/lib/rauc/trimixxx-health.log`.
 - **pi-qemu stopped at a missing initramfs.** The firmware starts the kernel
   without one (F5), and pi-qemu now does too, with a note.
 - **`make ship` copied the bundle through `/tmp`,** which is RAM (tmpfs, as
@@ -935,8 +967,9 @@ trimixxx3 in T10. F11 stands in for it.
    says so: for F2, while `rauc install` says `Copying image to rootfs`, which
    lasts far longer on a real SD card than the emulator's 3 s.
 
-The bench needs a USB sound card, because the health check requires Mixxx's
-sound stream. Its HDMI screen shows the splash's slot label (F9).
+The bench needs neither a sound card nor an S3: the health check only asks
+that the deck can take the next release, and the Ethernet cable gives it
+that. Its HDMI screen shows the splash's slot label (F9).
 
 **Done when** F1 to F9 pass on trimixxx3. F10 was phase 1's T9.
 

@@ -14,8 +14,8 @@
 #                                    emulated one: pi-qemu/instance.sh run NAME -- make ...
 #   make -C pi-qemu/release faults VERSION=1.0.0
 #                                    broken updates made from that release, for the fault
-#                                    tests (PLAN.md §5.4): out/1.0.0-nomapping, -noinitramfs,
-#                                    -panic and -hang, each to `make ship`
+#                                    tests (PLAN.md §5.4): out/1.0.0-nonet, -nossh,
+#                                    -noinitramfs, -panic and -hang, each to `make ship`
 #
 # A target builds the release container (Dockerfile), then runs again inside
 # it: the tools are Debian trixie's, the decks' own. Only `release` runs it
@@ -335,14 +335,19 @@ faults:
 	    cp $(WORK)/$$v.raucb out/$$v/trimixxx-$$v.raucb
 	    echo "out/$$v/trimixxx-$$v.raucb"
 	}
-	# F4, nomapping: Mixxx starts without the S3's mapping, so the health check
-	# fails. The root names this version, so the mapping alone fails it.
+	# F4a, nonet: NetworkManager masked, so the deck joins no network. F4b,
+	# nossh: sshd masked. Either way it can't take the next release, which is
+	# all the health check asks.
 	unsquashfs -q -no-progress -d $(WORK)/root $(WORK)/rootfs.squashfs
-	rm -f $(WORK)/root/usr/share/trimixxx/decks/*/TriMixxx.midi.xml
-	sed -i 's/^VERSION=.*/VERSION=$(VERSION)-nomapping/' $(WORK)/root/etc/trimixxx-release
-	mksquashfs $(WORK)/root $(WORK)/rootfs-nomapping.squashfs -comp zstd -xattrs -noappend -quiet -no-progress
+	for f in nonet:NetworkManager.service nossh:ssh.service; do
+	    n=$${f%%:*} u=$${f#*:}
+	    ln -s /dev/null $(WORK)/root/etc/systemd/system/$$u
+	    sed -i "s/^VERSION=.*/VERSION=$(VERSION)-$$n/" $(WORK)/root/etc/trimixxx-release
+	    mksquashfs $(WORK)/root $(WORK)/rootfs-$$n.squashfs -comp zstd -xattrs -noappend -quiet -no-progress
+	    rm $(WORK)/root/etc/systemd/system/$$u
+	    bundle $$n $(WORK)/rootfs-$$n.squashfs $(WORK)/boot.vfat
+	done
 	rm -rf $(WORK)/root
-	bundle nomapping $(WORK)/rootfs-nomapping.squashfs $(WORK)/boot.vfat
 	# F5, noinitramfs: the kernel can't mount its SquashFS root, panics, and
 	# panic=10 reboots it.
 	cp $(WORK)/boot.vfat $(WORK)/boot-noinitramfs.vfat

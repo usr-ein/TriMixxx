@@ -29,7 +29,7 @@ Where this file and `PLAN.md` differ, `PLAN.md` wins.
 | **RAUC** | The A/B updater (Debian `rauc` + `rauc-service`, 1.13). Installs bundles into the idle slot |
 | **Bundle** | `trimixxx-<v>.raucb`: a signed file holding `boot.vfat` and `rootfs.squashfs` |
 | **rpi-tryboot** | Our RAUC custom bootloader backend (~100 lines of shell, adapted from Rtone's) |
-| **Health check** | Our systemd unit that, on a trial start only, runs `rauc status mark-good` or `mark-bad` |
+| **Health check** | Our systemd unit that, on a trial start, runs `rauc status mark-good` if the deck can take the next release (it's on a network and sshd runs), or `mark-bad` |
 | **Identity unit** | Our systemd unit that applies the deck's name, wiring and accent from `/data` |
 | **Dev deck** | The writable emulated deck (`image/build.sh` card) used for feature work, as today |
 | **A/B deck** | An emulated deck booted from a release card image, used for update work |
@@ -58,7 +58,8 @@ MBR, fixed disk signature 0x5d0bc1ec (<id> = 5d0bc1ec)
 | p7 data | deck name, Wi-Fi keyfiles, ssh host keys | `/data`, read-only | only when unlocked by hand |
 | p8 state | RAUC's data directory, bundles | `/var/lib/rauc`, read-write | by RAUC |
 
-- The image is laid out for 32 GB cards. Real cards can be any size.
+- The image ends at about 13 GiB, so it fits any card of 16 GB or more; the
+  rest of a bigger card stays unused.
 - Only the **emulator's** card file must be a power of two; it is rounded up
   as a sparse file.
 
@@ -200,7 +201,7 @@ sequenceDiagram
   You->>FW: sudo reboot
   FW->>AB: read the [tryboot] section
   FW->>FW: start p3 once, clear the flag
-  HC->>HC: MIDI bridge running, Mixxx sound and S3 controller open, version matches
+  HC->>HC: on a network (cable, home Wi-Fi or hotspot), sshd running
   HC->>RAUC: rauc status mark-good
   RAUC->>BE: set-state B good
   BE->>AB: write the whole file with [all] boot_partition=3 (the commit)
@@ -315,7 +316,8 @@ them passed on the emulated deck on 2026-10-08 (`PLAN.md` §5.4).
 | Power lost after install, before the reboot | the flag doesn't survive power-off | A (install again) |
 | New system doesn't boot | `panic=10`, in the kernel and in the initramfs; the flag is gone | A |
 | New system freezes | hardware watchdog armed from the firmware (`kernel_watchdog_timeout`): about 60 s into the hang | A |
-| It boots, but Mixxx, the sound card or the S3 link fails | health check: `mark-bad`, then a reboot | A |
+| It boots, but can't take the next release: no network, or no sshd | health check: `mark-bad`, then a reboot | A |
+| It can take the next release, but Mixxx, the sound or the S3 fails | nothing, on purpose: the next release fixes it over the air | the new slot |
 | Power lost during the commit | a copy written first on the state partition, then `autoboot.txt` whole and synced. A broken `autoboot.txt` starts p2 (measured); the start-up `repair` restores the copy, and reboots into B if B was committed | the committed slot |
 | A committed slot breaks later | tryboot's one weak spot. Measured: `kernel_watchdog_partition` doesn't switch slots, so a hang in Linux loops. The decks set the EEPROM's boot watchdog: a failure before Linux then starts A after 45 s, and the backend commits A if it passes the health check. Otherwise, on a Mac, change the slot `autoboot.txt` commits (the volume `BOOTSEL`): the deck keeps that edit | A when B was committed; otherwise a hand on a Mac |
 

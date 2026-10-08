@@ -3,55 +3,58 @@
 # pi-qemu/PLAN.md §5.2). The slots and autoboot.txt are rpi-tryboot's business
 # (RAUC's backend); this decides from what the deck does.
 #
+# One question decides (Sam, 2026-10-08): can the deck take the next release?
+# It can when it's on a network, by any of the three ways in -- the Ethernet
+# cable (link-local), home Wi-Fi, or its own hotspot -- and sshd runs. Nothing
+# else is checked. Mixxx, the sound or the S3 may be broken; the next release
+# fixes them, over the air.
+#
 #   a trial (the firmware's tryboot)
-#       The deck works and runs the version RAUC installed: `rauc status
-#       mark-good`, which commits the slot. It doesn't within 150 s: `rauc
-#       status mark-bad` and exit 1; systemd then reboots, and with the trial
-#       flag used up the committed slot starts.
+#       The deck can take the next release within 150 s: `rauc status
+#       mark-good`, which commits the slot. It can't, or RAUC can't commit it:
+#       exit 1 (after `rauc status mark-bad`); systemd then reboots, and with
+#       the trial flag used up the committed slot starts.
 #   a normal start
 #       autoboot.txt missing or damaged: restore it from its copy, and reboot
 #       if that commits the other slot. One edited by hand to commit the slot
 #       running is kept (rpi-tryboot repair). Then, if a valid autoboot.txt
 #       commits another slot than the one running -- the bootloader's watchdog
 #       started A because the committed slot failed before Linux (phase 1,
-#       T10), or a `reboot N` by hand -- and this one works: mark the other bad
-#       and commit this one. If it doesn't work, change nothing.
+#       T10), or a `reboot N` by hand -- and this one can take the next
+#       release: mark the other bad and commit this one. If it can't, change
+#       nothing.
 #
-# Exits non-zero only for a trial it marked bad, so a normal start is never
+# Exits non-zero only for a trial that failed, so a normal start is never
 # rebooted by it.
 set -u
 backend=/usr/lib/rauc/rpi-tryboot
+why="not checked yet"
+# What each start decided, on the state partition both slots share. The
+# journal is in RAM, so after a trial failed this is what says why the update
+# rolled back. One previous file is kept.
+history=/var/lib/rauc/trimixxx-health.log
+[ "$(stat -c %s "$history" 2>/dev/null || echo 0)" -lt 65536 ] || mv -f "$history" "$history.1"
 
 log() {
     echo "health: $*"
     echo "trimixxx-health: $*" > /dev/kmsg 2>/dev/null || true
+    echo "$(date -u +%FT%TZ) +$(uptime_s)s $*" >> "$history" 2>/dev/null || true
 }
 
-# The deck works, as pi-qemu/instance.sh's mixxx_ready() checks it: Mixxx
-# running with its own log open, its sound stream started, the S3's
-# controller open, and the MIDI bridge older than this Mixxx.
-deck_works() {
-    p=$(pgrep -xo mixxx) || return 1
-    ls -l "/proc/$p/fd" 2>/dev/null | grep -q '/tmp/mixxx/mixxx.log' || return 1
-    grep -q 'Started stream successfully' /tmp/mixxx/mixxx.log || return 1
-    grep -q 'Opening controller: "TriMixxx"' /tmp/mixxx/mixxx.log || return 1
-    b=$(pgrep -xo ttymidi) || return 1
-    [ "$(ps -o etimes= -p "$b")" -ge "$(ps -o etimes= -p "$p")" ]
-}
-
-# This slot runs the version RAUC installed into it. A slot RAUC never wrote
-# (the card as flashed) has no record, and passes.
-version_ok() {
-    installed=$(rauc status --output-format=json 2>/dev/null | python3 -c '
-import json, sys
-for slot in json.load(sys.stdin).get("slots", []):
-    for name, s in slot.items():
-        if s.get("class") == "rootfs" and s.get("state") == "booted":
-            print(((s.get("slot_status") or {}).get("bundle") or {}).get("version", ""))
-' 2>/dev/null)
-    [ -z "$installed" ] && return 0
-    running=$(sed -n 's/^VERSION=//p' /etc/trimixxx-release 2>/dev/null)
-    [ "$installed" = "$running" ] || { log "slot runs $running, RAUC installed $installed"; return 1; }
+# The deck can take the next release: NetworkManager has it on a network, and
+# sshd runs. Any of NetworkManager's connected states counts: `connected` on
+# home Wi-Fi, and `connected (local only)`, which is what the cable's
+# link-local profile and the hotspot give, with no route out. On the loopback
+# alone it says `disconnected` (all three measured, phase 4). The hotspot
+# starts 45 to 75 s after NetworkManager (trimixxx-wifi-fallback), well within
+# the wait.
+reflashable() {
+    state=$(nmcli -t -f STATE general 2>/dev/null)
+    case "$state" in
+    connected*) ;;
+    *) why="no network: NetworkManager says ${state:-nothing}"; return 1 ;;
+    esac
+    systemctl is-active --quiet ssh.service || { why="sshd isn't running"; return 1; }
 }
 
 # Seconds since the kernel started. Not the wall clock: a Pi has no clock that
@@ -60,10 +63,10 @@ for slot in json.load(sys.stdin).get("slots", []):
 # ended the moment NTP answered (phase 4, F4).
 uptime_s() { cut -d. -f1 /proc/uptime; }
 
-works_within() { # seconds
+reflashable_within() { # seconds
     end=$(( $(uptime_s) + $1 ))
     while [ "$(uptime_s)" -lt "$end" ]; do
-        deck_works && version_ok && return 0
+        reflashable && return 0
         sleep 2
     done
     return 1
@@ -74,12 +77,17 @@ case "$booted" in
 *" trial")
     slot=${booted% trial}
     log "trial of slot $slot ($(sed -n 's/^VERSION=//p' /etc/trimixxx-release 2>/dev/null))"
-    if works_within 150; then
-        rauc status mark-good && log "slot $slot works: committed"
-        exit 0
+    if reflashable_within 150; then
+        if rauc status mark-good; then
+            log "slot $slot can take the next release: committed"
+            exit 0
+        fi
+        # RAUC is what installs the next release.
+        log "slot $slot: RAUC can't commit it, so it can't take the next release either; rebooting to the committed slot"
+        exit 1
     fi
     rauc status mark-bad
-    log "slot $slot did not work within 150 s: marked bad, rebooting to the committed slot"
+    log "slot $slot can't take the next release after 150 s ($why): marked bad, rebooting to the committed slot"
     exit 1
     ;;
 esac
@@ -92,10 +100,10 @@ fi
 committed=$("$backend" committed) || exit 0
 [ "$committed" = "$booted" ] && exit 0
 log "slot $booted started, but $committed is committed: the bootloader's watchdog fell back (or a reboot by hand)"
-if works_within 150; then
+if reflashable_within 150; then
     rauc status mark-bad other && rauc status mark-good &&
-        log "slot $booted works: committed, $committed marked bad"
+        log "slot $booted can take the next release: committed, $committed marked bad"
 else
-    log "slot $booted does not work either: nothing changed"
+    log "slot $booted can't take the next release either ($why): nothing changed"
 fi
 exit 0

@@ -43,8 +43,8 @@ and how that is developed and rehearsed on the emulated deck. Written on
 4. **RAUC installs updates** (`apt install rauc rauc-service`, 1.13 in trixie).
    It checks the bundle, writes the idle slot and records what it installed.
 5. **A health check commits.** Once the deck is up, a systemd unit runs `rauc
-   status mark-good` if the MIDI bridge, Mixxx and the sound card all work.
-   That makes the new slot the default.
+   status mark-good` if the deck can take the next release: it's on a network
+   and sshd runs. That makes the new slot the default.
 6. **The running system is read-only.** SquashFS cannot be written, and
    Debian's `overlayroot` puts a RAM layer on top that is gone at the next
    start.
@@ -90,8 +90,10 @@ sha256("trimixxx"), set in `release/Makefile`), so `<id>` below is `5d0bc1ec`:
 - **p8:** RAUC needs a writable directory outside the slots (App. B.7). Keeping
   RAUC's bookkeeping apart from `/data` lets `/data` stay read-only. It's also
   where bundles land.
-- **Card size:** real cards can be any size; the image is laid out for 32 GB
-  cards. **The power-of-two rule is only for the emulator's card file.**
+- **Card size:** real cards can be any size of 16 GB or more: the image ends
+  at about 13 GiB, and the rest of a bigger card stays unused. The decks'
+  32 GB cards and trimixxx3's 64 GB one take the same image. **The
+  power-of-two rule is only for the emulator's card file.**
   pi-qemu rounds the file up as a sparse file (§4.2), which costs no disk
   space.
 
@@ -290,13 +292,20 @@ these changes:
   normal start it runs `rpi-tryboot repair`, and the reconcile after a
   boot-watchdog fallback (PLAN.md §5.2).
 - Starts after NetworkManager and ssh, per the never-lock-the-deck-out rule.
-- On a trial, within 150 s (counted on `/proc/uptime`, since NTP jumps the
-  clock at start), it checks:
-  - the MIDI bridge runs;
-  - Mixxx opened the sound card and the S3 controller (the checks
-    `instance.sh ready` makes today);
-  - `/etc/trimixxx-release` matches the bundle version.
-- On success it runs `rauc status mark-good`.
+- On a trial it asks one thing (Sam, 2026-10-08): can the deck take the next
+  release? Within 150 s (counted on `/proc/uptime`, since NTP jumps the clock
+  at start):
+  - NetworkManager is in any connected state: `connected` on home Wi-Fi,
+    `connected (local only)` on the Ethernet cable's link-local profile or
+    the deck's own hotspot;
+  - `ssh.service` is active.
+
+  Mixxx, the MIDI bridge, the sound and the S3 aren't checked: whatever else
+  a release breaks, the next one fixes over the air.
+- On success it runs `rauc status mark-good`. If RAUC can't, the trial fails
+  too: RAUC is what installs the next release.
+- Every decision also goes to `/var/lib/rauc/trimixxx-health.log`, so the
+  reason a trial failed survives the reboot that ends it.
 - On failure it runs `rauc status mark-bad` and exits 1, and
   `FailureAction=reboot` brings back the committed slot. `TimeoutStartSec=180`
   is the backstop.
@@ -402,7 +411,7 @@ test. All of it passed on 2026-10-08 (PLAN.md §5.4, F1 to F11):
 |---|---|---|
 | Plug pulled during the install | power off without a sync, from the deck, while RAUC copies the root image | A starts; RAUC records B's write as `pending`, and B as bad |
 | Plug pulled after install, before reboot | `instance.sh kill`, then `up` | A starts: the flag dies with the power |
-| Health check fails | `-nomapping`: Mixxx without the S3's mapping | trial → mark-bad → restart → A |
+| The trial can't take the next release | `-nonet` (NetworkManager masked) and `-nossh` (sshd masked) | trial → mark-bad → restart → A |
 | Kernel panic on the trial | `-noinitramfs` | `panic=10` → restart → A |
 | The initramfs gives up | `-panic`: `break=premount` | initramfs-tools' `panic=10` → restart → A |
 | Hang on the trial | `-hang`: `break=premount` without `panic=10` | watchdog → restart → A |
@@ -553,8 +562,6 @@ trimixxx3 is a bare Pi 4 with an SD card, standing in for a future deck.
 - **A USB-serial adapter** on GPIO 14/15 and GND, with the EEPROM's
   `BOOT_UART=1`. It shows every decision the bootloader makes, which is what
   to watch when A/B misbehaves. There is no S3 sharing the UART.
-- **A USB sound card** like the decks' UCA222. The health check needs Mixxx's
-  sound stream; without one, every trial would fail.
 - **An HDMI screen.** Its `config.txt` section picks HDMI instead of the DSI
   panel, which also tests the per-deck screen mechanism.
 - **Wi-Fi** comes from its `/data` (§5.1). On the decks, eth0 is the CDJ port,
@@ -922,10 +929,13 @@ kernel, the device tree with its overlays, `start4.elf`, `config.txt` and
 
 **What tryboot costs us.** If a committed slot later becomes unbootable, the
 deck doesn't heal itself. The mitigations:
-- commit only after a full health check on a real start (§3.5);
-- the firmware's watchdog-partition options might send a reset to the other
-  slot. **Unverified**; checked on the bench (§7).
-- Otherwise, the cure is a reflash.
+- commit only once a real start has shown the deck can take the next release
+  (§3.5), so a release that breaks something else is fixed by the next one;
+- the firmware's watchdog-partition options don't send a reset to the other
+  slot (measured, PLAN.md T9). The EEPROM's boot watchdog does, for a failure
+  before Linux starts (T10), and the health check then commits A;
+- otherwise, a hand on a Mac: commit the other slot in `autoboot.txt`, which
+  the deck keeps (PLAN.md §5.4, F10).
 
 **Reconsider U-Boot if:**
 - decks must heal themselves unattended from a slot that breaks after commit,
