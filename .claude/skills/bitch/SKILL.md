@@ -128,7 +128,8 @@ The question, the options, your recommendation.
 Inline comments (a JSON list of `{path, line, body}`, the path relative to
 the repo, the line on the new side) only to point at the line a concern is
 about. For code in the fork, cite `mixxx/src/...:LINE` in the body, or review
-the fork's PR as well with `--repo mixxx` (no label there).
+the fork's PR as well with `--repo mixxx` (no label there; its `--commit` is
+that repo's, `git -C mixxx rev-parse BRANCH`).
 
 The repos are public: no secrets, keys or private addresses in a review.
 

@@ -258,7 +258,15 @@ When main has moved and `crew merge` refused:
 1. In each repo you changed, deepest first: rebase onto the local `main`,
    resolve conflicts, re-point the submodules in the parent, rebuild, and
    retest what the new main could break.
-2. Push your branches with `--force-with-lease` (only yours).
+2. Push your branches (only yours) with an explicit lease: what origin had
+   before your rebase. TriMixxx's `origin` pushes to gitea, then GitHub, and
+   a bare `--force-with-lease` is refused on the second (git moves the
+   tracking ref after the first):
+
+   ```sh
+   old=$(git rev-parse origin/BRANCH)            # in each repo, before rebasing
+   git push --force-with-lease=BRANCH:$old origin BRANCH
+   ```
 3. Report: "clean" (no conflicts), or what conflicted and how you resolved
    it. `crew merge` accepts a clean rebase by itself: it checks your change
    is the one approved. Anything more, a resolved conflict included, needs
