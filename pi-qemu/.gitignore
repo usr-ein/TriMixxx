@@ -1,3 +1,4 @@
 .cache/
 app/build/
 image/secrets.env
+app/compile_commands.json

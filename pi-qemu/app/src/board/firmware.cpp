@@ -1,6 +1,6 @@
-#include "firmware.h"
+#include "board/firmware.h"
 
-#include "card.h"
+#include "board/card.h"
 
 #include <QDir>
 #include <QFile>

@@ -1,10 +1,12 @@
-#include "deckwindow.h"
+#include "ui/deckwindow.h"
+
+#include "util/tool.h"
 
 #include "MidiMap.hpp"
-#include "machine.h"
-#include "s3.h"
-#include "sticks.h"
-#include "wiring.h"
+#include "board/machine.h"
+#include "s3/virtuals3.h"
+#include "board/sticks.h"
+#include "s3/wiring.h"
 
 #include <QGridLayout>
 #include <QHBoxLayout>
@@ -202,9 +204,9 @@ private:
 
 } // namespace
 
-DeckWindow::DeckWindow(Machine* m, S3* s3, Sticks* sticks, const Wiring* wiring, QWidget* parent)
+DeckWindow::DeckWindow(Machine* m, VirtualS3* s3, Sticks* sticks, const Wiring* wiring, QWidget* parent)
     : QWidget(parent), m_machine(m), m_s3(s3), m_sticks(sticks), m_wiring(wiring) {
-    setWindowTitle("pi-qemu — " + wiring->deck() + " controls");
+    setWindowTitle(QString(kTool) + " — " + wiring->deck() + " controls");
     QPalette pal = palette();
     pal.setColor(QPalette::Window, kPlate);
     pal.setColor(QPalette::WindowText, kText);
@@ -332,7 +334,7 @@ DeckWindow::DeckWindow(Machine* m, S3* s3, Sticks* sticks, const Wiring* wiring,
     auto* side = new QVBoxLayout(board);
     auto* s3led = new QLabel("●  S3");
     side->addWidget(s3led);
-    connect(m_s3, &S3::linkActivity, s3led, [s3led](bool tx) {
+    connect(m_s3, &VirtualS3::linkActivity, s3led, [s3led](bool tx) {
         s3led->setStyleSheet(tx ? "color: rgb(0,200,0)" : "color: rgb(220,200,0)");
         QTimer::singleShot(80, s3led, [s3led] { s3led->setStyleSheet("color: rgb(140,0,140)"); });
     });
@@ -369,9 +371,9 @@ DeckWindow::DeckWindow(Machine* m, S3* s3, Sticks* sticks, const Wiring* wiring,
     auto* root = new QHBoxLayout(this);
     root->addWidget(tabs);
 
-    connect(m_s3, &S3::ledsChanged, this, qOverload<>(&QWidget::update));
-    connect(m_s3, &S3::ledsChanged, this, [this] { for (auto* w : findChildren<QWidget*>()) w->update(); });
-    connect(m_s3, &S3::connectedChanged, this, [this](bool c) {
+    connect(m_s3, &VirtualS3::ledsChanged, this, qOverload<>(&QWidget::update));
+    connect(m_s3, &VirtualS3::ledsChanged, this, [this] { for (auto* w : findChildren<QWidget*>()) w->update(); });
+    connect(m_s3, &VirtualS3::connectedChanged, this, [this](bool c) {
         m_status->setText(c ? "Connected to the Pi's UART." : "Waiting for the Pi…");
     });
     connect(m_machine, &Machine::status, m_status, &QLabel::setText);

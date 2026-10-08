@@ -1,4 +1,4 @@
-#include "wiring.h"
+#include "s3/wiring.h"
 
 #include "MidiMap.hpp"
 

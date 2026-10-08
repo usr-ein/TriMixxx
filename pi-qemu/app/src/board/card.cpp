@@ -1,4 +1,4 @@
-#include "card.h"
+#include "board/card.h"
 
 #include <QProcess>
 #include <QProcessEnvironment>

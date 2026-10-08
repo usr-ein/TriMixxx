@@ -1,6 +1,6 @@
-#include "sticks.h"
+#include "board/sticks.h"
 
-#include "machine.h"
+#include "board/machine.h"
 
 #include <QFile>
 #include <QDir>

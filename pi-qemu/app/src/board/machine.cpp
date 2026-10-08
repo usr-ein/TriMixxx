@@ -1,7 +1,7 @@
-#include "machine.h"
+#include "board/machine.h"
 
-#include "card.h"
-#include "firmware.h"
+#include "board/card.h"
+#include "board/firmware.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -10,10 +10,7 @@
 #include <QJsonDocument>
 #include <QTimer>
 
-#include <atomic>
-#include <sys/types.h>
-
-extern std::atomic<pid_t> g_qemuPid;
+std::atomic<pid_t> g_qemuPid{0};
 
 // The QOM paths of what QEMU's patched devices expose (qemu/trimixxx-patches.py,
 // 18 and 19): the mailbox's reboot flags and the power manager's reset status.
@@ -162,6 +159,8 @@ bool Machine::powerOn(QString* error) {
         return false;
     }
     g_qemuPid = pid_t(m_proc.processId());
+    QFile pidFile(QDir(m_o.runDir).filePath("qemu.pid"));
+    if (pidFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) pidFile.write(QByteArray::number(m_proc.processId()) + "\n");
     QTimer::singleShot(200, this, &Machine::connectQmp);
     return true;
 }
@@ -197,6 +196,7 @@ void Machine::onGuestStopped() {
 
 void Machine::onFinished() {
     g_qemuPid = 0;
+    QFile::remove(QDir(m_o.runDir).filePath("qemu.pid"));
     m_qmp.abort();
     while (!m_pending.isEmpty()) m_pending.dequeue();
     if (m_stopping) return;

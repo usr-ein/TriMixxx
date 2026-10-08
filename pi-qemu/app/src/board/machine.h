@@ -13,7 +13,15 @@
 #include <QObject>
 #include <QProcess>
 #include <QQueue>
+
+#include <atomic>
 #include <functional>
+#include <sys/types.h>
+
+// QEMU's pid while it runs: for a signal handler that must stop it before
+// pi-qemu goes (commands/run.cpp). It is also in <run dir>/qemu.pid, for
+// whoever has to stop a pi-qemu that was killed outright (deck kill).
+extern std::atomic<pid_t> g_qemuPid;
 
 struct MachineOptions {
     QString card, runDir, qemu, dtmerge;

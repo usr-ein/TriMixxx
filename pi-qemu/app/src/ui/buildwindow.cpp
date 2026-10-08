@@ -1,4 +1,6 @@
-#include "buildwindow.h"
+#include "ui/buildwindow.h"
+
+#include "util/tool.h"
 
 #include <QFontDatabase>
 #include <QHBoxLayout>
@@ -98,7 +100,7 @@ QString hms(qint64 s) {
 
 BuildWindow::BuildWindow(const QString& logPath, QWidget* parent)
     : QWidget(parent), m_path(logPath), m_seen(kStepCount, false) {
-    setWindowTitle("pi-qemu — the build");
+    setWindowTitle(QString(kTool) + " — the build");
     resize(1250, 780);
 
     m_log = new QPlainTextEdit(this);

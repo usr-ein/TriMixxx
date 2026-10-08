@@ -1,0 +1,9 @@
+{
+  "deck": "testdeck",
+  "about": "For pi-qemu's tests: play and cue swapped, the jog reversed.",
+  "jogReversed": true,
+  "buttons": {
+    "0x3C": "0x3D",
+    "0x3D": "0x3C"
+  }
+}
