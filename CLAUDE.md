@@ -66,6 +66,17 @@ from a worktree:
 are merged in the main checkout: the fork's in `mixxx/` first, then this repo's,
 with the submodule bump on top.
 
+## The crew
+
+Agents can also work as a crew (`.claude/crew/README.md`). A **minion** takes
+one of Sam's pitches to a PR, in a worktree and on an emulated deck of its own.
+A **bitch** reviews that PR for direction, architecture and logic. The
+**nightman** runs both overnight, within the Mac's limits, and merges what is
+approved. They are the `minion`, `bitch` and `nightman` skills, and their tool
+is `crew`. GitHub from any session goes through `crew gh` (the usr-ein
+account, usr-ein/* repos only): plain `gh` in Claude Code may act as another
+account, or open PRs on upstream mixxxdj/mixxx.
+
 ## Commits
 
 Commit as `Samuel Prevost <usr_ein@pm.me>`

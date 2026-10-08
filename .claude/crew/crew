@@ -1,0 +1,1136 @@
+#!/usr/bin/env python3
+"""crew: the tool of TriMixxx's agent crew: minions, bitches and the nightman.
+
+How the crew works: .claude/crew/README.md. The roles: .claude/skills/{minion,bitch,nightman}.
+Stdlib only. Run it by path, or as `crew` once `crew install` has linked it into ~/.local/bin.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+
+# Hooks run on every tool call of every session in the repo: settle "not a crew session" before
+# importing anything else (~10 ms instead of ~60).
+_HOOK_INPUT = None
+if __name__ == "__main__" and sys.argv[1:2] == ["hook"]:
+    _HOOK_INPUT = sys.stdin.read()
+    _at = _HOOK_INPUT.find('"session_id"')
+    _sid = _HOOK_INPUT[_at:].split('"')[3] if _at >= 0 else ""
+    _main = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+    _state = os.environ.get("CREW_STATE") or os.path.join(_main.split("/.claude/worktrees/")[0], ".crew")
+    if not _sid or "/" in _sid or not os.path.exists(os.path.join(_state, "sessions", _sid + ".json")):
+        sys.exit(0)
+
+import argparse
+import datetime as dt
+import json
+import re
+import shlex
+import shutil
+import subprocess
+import time
+from pathlib import Path
+
+GH_USER = "usr-ein"
+# The deck's repositories, deepest first: the order a branch is merged and pushed in.
+REPOS = [
+    ("mixxx/lib/prolink", "usr-ein/prolink"),
+    ("mixxx", "usr-ein/mixxx"),
+    ("mixxx_config/ttymidi", "usr-ein/ttymidi"),
+    (".", "usr-ein/TriMixxx"),
+]
+REPO_KEYS = {"prolink": "mixxx/lib/prolink", "mixxx": "mixxx", "ttymidi": "mixxx_config/ttymidi", "trimixxx": "."}
+# Each submodule's pointer: child path -> (parent path, the pointer's path inside the parent).
+GITLINKS = {
+    "mixxx/lib/prolink": ("mixxx", "lib/prolink"),
+    "mixxx": (".", "mixxx"),
+    "mixxx_config/ttymidi": (".", "mixxx_config/ttymidi"),
+}
+STATES = {"ready": "ready for review", "changes": "changes requested", "approved": "approved", "needs-sam": "needs Sam"}
+LABEL_COLORS = {"ready": "1d76db", "changes": "fbca04", "approved": "0e8a16", "needs-sam": "b60205"}
+REVIEW_MARK = "**AI review"
+ROLES = ("minion", "bitch", "nightman")
+
+HERE = Path(__file__).resolve().parent  # .claude/crew in the checkout this script lives in
+CHECKOUT = HERE.parents[1]  # that checkout: the main one, or a worktree under .claude/worktrees/
+MAIN = Path(str(CHECKOUT).split("/.claude/worktrees/")[0])  # the main checkout, where branches are merged
+CREW = Path(os.environ.get("CREW_STATE") or MAIN / ".crew")  # crew state, ignored by git: sessions/, night/, archive/
+
+
+class Fail(Exception):
+    def __init__(self, msg: str, code: int = 1):
+        super().__init__(msg)
+        self.code = code
+
+
+def die(msg: str, code: int = 1):
+    raise Fail(msg, code)
+
+
+def run(cmd, cwd=None, check=True, env=None, input=None, timeout=None) -> subprocess.CompletedProcess:
+    try:
+        r = subprocess.run([str(c) for c in cmd], cwd=cwd, env=env, input=input, text=True,
+                           capture_output=True, timeout=timeout)
+    except FileNotFoundError:
+        die(f"{cmd[0]}: not found")
+    except subprocess.TimeoutExpired:
+        die(f"timed out after {timeout} s: {shlex.join(map(str, cmd))}")
+    if check and r.returncode != 0:
+        die(f"{shlex.join(map(str, cmd))} failed ({r.returncode}): {(r.stderr or r.stdout).strip()}")
+    return r
+
+
+def out(cmd, cwd=None, check=True, env=None, timeout=None) -> str:
+    return run(cmd, cwd=cwd, check=check, env=env, timeout=timeout).stdout.strip()
+
+
+def git(d, *args, check=True) -> str:
+    return out(["git", "-C", d, *args], check=check)
+
+
+def git_ok(d, *args) -> bool:
+    return run(["git", "-C", d, *args], check=False).returncode == 0
+
+
+def now_iso() -> str:
+    return dt.datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def limits() -> dict:
+    vals = {}
+    for line in (HERE / "limits.env").read_text().splitlines():
+        line = line.split("#", 1)[0].strip()
+        if "=" in line:
+            k, v = line.split("=", 1)
+            vals[k.strip()] = float(v)
+    return vals
+
+
+def worktree_of(branch: str) -> Path:
+    return MAIN / ".claude" / "worktrees" / branch
+
+
+def check_branch(name: str):
+    if not re.fullmatch(r"[a-z0-9][a-z0-9._-]{1,48}", name) or name in ("main", "master") or name.endswith("-bitch"):
+        die(f"{name!r}: a crew branch is lowercase kebab-case, 2-49 characters, not main and not ending in -bitch")
+
+
+def superproject_top(d: Path) -> Path:
+    """The top of the checkout d is in, past any submodule (worktree/mixxx -> worktree)."""
+    top = git(d, "rev-parse", "--show-toplevel")
+    while True:
+        sup = git(top, "rev-parse", "--show-superproject-working-tree", check=False)
+        if not sup:
+            return Path(top)
+        top = sup
+
+
+# --- sessions ---------------------------------------------------------------
+
+def session_name(reg: dict) -> str:
+    return {"minion": reg.get("branch"), "bitch": f"{reg.get('branch')}-bitch"}.get(reg["role"], "nightman")
+
+
+def registration(sid) -> dict | None:
+    if not sid:
+        return None
+    try:
+        reg = json.loads((CREW / "sessions" / f"{sid}.json").read_text())
+    except (OSError, ValueError):
+        return None
+    reg["sid"] = sid
+    return reg
+
+
+def registrations() -> list[dict]:
+    regs = []
+    for p in sorted((CREW / "sessions").glob("*.json")):
+        reg = registration(p.stem)
+        if reg:
+            regs.append(reg)
+    return regs
+
+
+def claude_sessions() -> list[dict]:
+    r = run(["claude", "agents", "--json"], check=False, timeout=30)
+    try:
+        return json.loads(r.stdout) if r.returncode == 0 else []
+    except ValueError:
+        return []
+
+
+def live_session(name: str, sessions=None) -> dict | None:
+    for s in sessions if sessions is not None else claude_sessions():
+        if s.get("name") == name:
+            return s
+    return None
+
+
+def launch(name: str, wt: Path, bg: bool, prompt: str, resume_sid=None, model=None) -> int:
+    live = live_session(name)
+    if live and not resume_sid:
+        print(f"{name} is already running ({live.get('kind')}, {live.get('status')}): send it a message, "
+              f"or open it with `claude attach {live.get('id') or live.get('sessionId')}`")
+        return 0
+    cmd = ["claude"] + (["--bg"] if bg else []) + ["-n", name, "--effort", "max"]
+    if model:
+        cmd += ["--model", model]
+    if resume_sid:
+        cmd += ["--resume", resume_sid]
+    cmd.append(prompt)
+    # A session launched from another (the nightman's shell) must not inherit its identity.
+    env = {k: v for k, v in os.environ.items()
+           if not (k.startswith(("CLAUDE_CODE_", "CLAUDE_PID", "CLAUDECODE")) and k != "CLAUDE_CODE_EFFORT_LEVEL")}
+    if not bg:
+        os.chdir(wt)
+        os.execvpe("claude", cmd, env)
+    r = run(cmd, cwd=wt, timeout=120, env=env)
+    m = re.search(r"backgrounded\W+(\w+)", r.stdout)
+    print(f"{name}: running in the background as {m.group(1) if m else '?'} in {wt}; "
+          f"`claude attach {name}` opens it, `claude agents` lists it")
+    return 0
+
+
+# --- GitHub -----------------------------------------------------------------
+
+_token = None
+
+
+def gh_env(repo=None) -> dict:
+    """gh as usr-ein, never as whichever account `gh auth switch` last left active."""
+    global _token
+    if _token is None:
+        r = run(["gh", "auth", "token", "--user", GH_USER], check=False)
+        if r.returncode or not r.stdout.strip():
+            die(f"gh has no token for {GH_USER}: `gh auth login`, and pick {GH_USER}")
+        _token = r.stdout.strip()
+    env = dict(os.environ, GH_TOKEN=_token, GH_PROMPT_DISABLED="1")
+    env.pop("GITHUB_TOKEN", None)
+    if repo:
+        env["GH_REPO"] = repo
+    return env
+
+
+def gh(args, repo=None, check=True, input=None) -> subprocess.CompletedProcess:
+    return run(["gh", *args], env=gh_env(repo), check=check, input=input, timeout=120)
+
+
+def gh_json(args, repo=None):
+    r = gh(args, repo=repo)
+    return json.loads(r.stdout) if r.stdout.strip() else None
+
+
+def repo_of(d) -> str | None:
+    url = git(d, "remote", "get-url", "origin", check=False)
+    m = re.search(r"github\.com[^:/]*[:/]([^/]+)/([^/]+?)(?:\.git)?/?$", url or "")
+    return f"{m.group(1)}/{m.group(2)}" if m else None
+
+
+PR_FIELDS = "number,state,isDraft,labels,url,title,headRefName,headRefOid,baseRefName"
+
+
+def find_prs(branch: str) -> dict:
+    """The branch's PRs, by repo path; the TriMixxx one (".") is the primary."""
+    prs = {}
+    for path, repo in REPOS:
+        found = gh_json(["pr", "list", "--repo", repo, "--head", branch, "--state", "all", "--json", PR_FIELDS])
+        if found:
+            pr = sorted(found, key=lambda p: (p["state"] != "OPEN", -p["number"]))[0]
+            pr["repo"] = repo
+            pr["labels"] = [lb["name"] for lb in pr["labels"]]
+            prs[path] = pr
+    return prs
+
+
+def primary_pr(branch: str, prs=None) -> dict:
+    pr = (prs if prs is not None else find_prs(branch)).get(".")
+    if not pr:
+        die(f"{branch} has no PR on usr-ein/TriMixxx", 2)
+    return pr
+
+
+def review_rounds(pr: dict) -> int:
+    pages = gh_json(["api", f"repos/{pr['repo']}/pulls/{pr['number']}/reviews", "--paginate", "--slurp"]) or []
+    return sum(1 for page in pages for rv in page if (rv.get("body") or "").startswith(REVIEW_MARK))
+
+
+def set_state(branch: str, state: str, prs=None):
+    pr = primary_pr(branch, prs)
+    have = {lb["name"] for lb in gh_json(["label", "list", "--repo", pr["repo"], "--limit", "200", "--json", "name"])}
+    for s in STATES:
+        if f"review:{s}" not in have:
+            gh(["label", "create", f"review:{s}", "--repo", pr["repo"], "--color", LABEL_COLORS[s],
+                "--description", f"crew: {STATES[s]}"])
+    args = ["pr", "edit", str(pr["number"]), "--repo", pr["repo"], "--add-label", f"review:{state}"]
+    stale = [f"review:{s}" for s in STATES if s != state and f"review:{s}" in pr["labels"]]
+    if stale:
+        args += ["--remove-label", ",".join(stale)]
+    gh(args)
+    return pr
+
+
+# --- resources --------------------------------------------------------------
+
+def decks() -> list[tuple[str, str]]:
+    r = run(["pi-qemu", "deck", "list"], check=False, timeout=30)
+    found = []
+    for line in r.stdout.splitlines():
+        m = re.match(r"^(\S+)\s+ssh port\s+\S+\s+(\w+)", line)
+        if m:
+            found.append((m.group(1), m.group(2)))
+    return found
+
+
+def snapshot() -> dict:
+    ncpu = int(out(["sysctl", "-n", "hw.ncpu"]))
+    load = [float(x) for x in out(["sysctl", "-n", "vm.loadavg"]).strip("{} ").split()[:3]]
+    pressure = int(out(["sysctl", "-n", "kern.memorystatus_vm_pressure_level"], check=False) or 0)
+    m = re.search(r"free percentage:\s*(\d+)", out(["memory_pressure", "-Q"], check=False))
+    mem_free = int(m.group(1)) if m else None
+    m = re.search(r"used = ([\d.]+)M", out(["sysctl", "-n", "vm.swapusage"], check=False))
+    swap_gb = float(m.group(1)) / 1024 if m else None
+    disk_gb = shutil.disk_usage(MAIN).free / 2**30
+    sessions = claude_sessions()
+    live = {s.get("sessionId") for s in sessions}
+    regs = [r for r in registrations() if r["sid"] in live]
+    return {
+        "ncpu": ncpu, "load": load, "pressure": pressure, "mem_free_pct": mem_free, "swap_gb": swap_gb,
+        "disk_gb": disk_gb, "decks": decks(),
+        "minions": [session_name(r) for r in regs if r["role"] == "minion"],
+        "bitches": [session_name(r) for r in regs if r["role"] == "bitch"],
+        "sessions": [{k: s.get(k) for k in ("name", "kind", "status", "cwd")} for s in sessions],
+    }
+
+
+def verdict(snap: dict, lim: dict, purpose: str) -> tuple[str, list[str]]:
+    hold, shed = [], []
+    n, (l1, l5, l15) = snap["ncpu"], snap["load"]
+    running = [d for d, s in snap["decks"] if s == "running"]
+    if snap["pressure"] >= 4:
+        shed.append("memory pressure is critical")
+    elif snap["pressure"] >= 2:
+        hold.append("memory pressure is at warning")
+    if snap["disk_gb"] < lim["DISK_SHED_GB"]:
+        shed.append(f"{snap['disk_gb']:.0f} GB free disk < {lim['DISK_SHED_GB']:.0f}")
+    elif snap["disk_gb"] < lim["DISK_MIN_GB"] and purpose != "build":
+        hold.append(f"{snap['disk_gb']:.0f} GB free disk < {lim['DISK_MIN_GB']:.0f}")
+    if l15 > lim["LOAD_SHED"] * n:
+        shed.append(f"15-min load {l15:.1f} > {lim['LOAD_SHED'] * n:.0f}")
+    if l5 > lim["LOAD_MAX"] * n:
+        hold.append(f"5-min load {l5:.1f} > {lim['LOAD_MAX'] * n:.0f}")
+    if purpose == "minion":
+        if len(snap["minions"]) >= lim["MAX_MINIONS"]:
+            hold.append(f"{len(snap['minions'])} minions alive (max {lim['MAX_MINIONS']:.0f})")
+        if len(running) + lim["DECKS_PER_MINION"] > lim["MAX_DECKS"]:
+            hold.append(f"{len(running)} decks running: no room for a minion's (max {lim['MAX_DECKS']:.0f})")
+    elif purpose == "deck" and len(running) + 1 > lim["MAX_DECKS"]:
+        hold.append(f"{len(running)} decks running (max {lim['MAX_DECKS']:.0f}): {', '.join(running)}")
+    return ("shed", shed + hold) if shed else ("hold", hold) if hold else ("ok", [])
+
+
+def describe(snap: dict, lim: dict) -> str:
+    running = [d for d, s in snap["decks"] if s == "running"]
+    pressure = {1: "normal", 2: "warning", 4: "critical"}.get(snap["pressure"], str(snap["pressure"]))
+    return (f"load {'/'.join(f'{x:.1f}' for x in snap['load'])} on {snap['ncpu']} cores; memory {pressure}"
+            f" ({snap['mem_free_pct']}% free, {snap['swap_gb'] or 0:.1f} GB swap); {snap['disk_gb']:.0f} GB disk free;"
+            f" decks running {len(running)}/{lim['MAX_DECKS']:.0f} ({', '.join(running) or 'none'});"
+            f" minions {len(snap['minions'])}/{lim['MAX_MINIONS']:.0f}")
+
+
+def cmd_resources(a) -> int:
+    lim, snap = limits(), snapshot()
+    v, why = verdict(snap, lim, a.purpose)
+    if a.json:
+        print(json.dumps(dict(snap, verdict=v, reasons=why, purpose=a.purpose), indent=2))
+    else:
+        print(f"{v} for a new {a.purpose}: " + ("; ".join(why) if why else "within limits"))
+        print(describe(snap, lim))
+    return {"ok": 0, "hold": 10, "shed": 11}[v]
+
+
+# --- launching ----------------------------------------------------------------
+
+def write_pitch(path: Path, branch: str, mode: str, text: str):
+    title = text.strip().splitlines()[0][:72] if text.strip() else branch
+    base = git(MAIN, "rev-parse", "--short", "main")
+    path.write_text(f"# {branch}: {title}\n\nMode: {mode}. Started {now_iso()} by Sam, from main {base}.\n\n"
+                    f"## Pitch (Sam's words)\n\n{text.strip()}\n")
+
+
+def cmd_minion(a) -> int:
+    b = a.branch
+    check_branch(b)
+    wt, mode = worktree_of(b), ("night" if a.night else "day")
+    if not wt.exists():
+        if a.night and not a.force:
+            v, why = verdict(snapshot(), limits(), "minion")
+            if v != "ok":
+                die(f"not starting {b}: resources {v}: {'; '.join(why)} (--force overrides)", 10)
+        exists = git_ok(MAIN, "rev-parse", "--verify", "-q", f"refs/heads/{b}")
+        run(["git", "-C", MAIN, "worktree", "add", wt] + ([b] if exists else ["-b", b, "main"]))
+        print(f"{b}: worktree {wt}, branch {b}" + ("" if exists else f" from main {git(MAIN, 'rev-parse', '--short', 'main')}"))
+        r = run(["pi-qemu", "worktree", "prepare"], cwd=wt, check=False, timeout=900)
+        if r.returncode:
+            die(f"pi-qemu worktree prepare failed in {wt}: {(r.stderr or r.stdout).strip()[-800:]}")
+    (wt / ".crew").mkdir(exist_ok=True)
+    pitch = wt / ".crew" / "pitch.md"
+    if a.pitch:
+        shutil.copyfile(a.pitch, pitch)
+    elif a.text and not pitch.exists():
+        write_pitch(pitch, b, mode, " ".join(a.text))
+    if a.no_launch:
+        print(wt)
+        return 0
+    sid = None
+    if a.resume:
+        sid = latest_sid("minion", b)
+    return launch(b, wt, a.bg or a.night, a.prompt or f"/minion {mode}", sid, a.model)
+
+
+def cmd_bitch(a) -> int:
+    b = a.branch
+    wt, mode = worktree_of(b), ("night" if a.night else "day")
+    if not wt.exists():
+        die(f"no worktree for {b} ({wt})")
+    if a.brief:
+        shutil.copyfile(a.brief, wt / ".crew" / "review-brief.md")
+    sid = latest_sid("bitch", b) if a.resume else None
+    return launch(f"{b}-bitch", wt, a.bg or a.night, a.prompt or f"/bitch {b} {mode}", sid, a.model)
+
+
+def latest_sid(role: str, branch: str) -> str:
+    regs = [r for r in registrations() if r["role"] == role and r.get("branch") == branch]
+    if not regs:
+        die(f"no registered {role} session for {branch}")
+    return max(regs, key=lambda r: r.get("since", ""))["sid"]
+
+
+def cmd_resume(a) -> int:
+    regs = [r for r in registrations() if session_name(r) == a.name]
+    if not regs:
+        die(f"no registered crew session named {a.name}")
+    reg = max(regs, key=lambda r: r.get("since", ""))
+    live = live_session(a.name)
+    if live and live.get("sessionId") == reg["sid"]:
+        print(f"{a.name} is alive ({live.get('status')}): send it a message instead")
+        return 0
+    wt = Path(reg["worktree"])
+    prompt = a.prompt or "You were resumed. Carry on per your crew skill (re-read it, your pitch and notes first)."
+    return launch(a.name, wt, True, prompt, reg["sid"], a.model)
+
+
+def cmd_register(a) -> int:
+    sid = os.environ.get("CLAUDE_CODE_SESSION_ID")
+    if not sid:
+        die("not inside a Claude Code session (no CLAUDE_CODE_SESSION_ID)")
+    top = superproject_top(Path.cwd())
+    branch = None
+    if a.role in ("minion", "bitch"):
+        if top == MAIN:
+            die(f"a {a.role} works in the branch's worktree, not the main checkout: "
+                "`crew minion BRANCH --no-launch` makes it, then enter .claude/worktrees/BRANCH")
+        branch = a.branch or git(top, "branch", "--show-current")
+    else:
+        top = MAIN
+    (CREW / "sessions").mkdir(parents=True, exist_ok=True)
+    old = registration(sid) or {}
+    reg = {"role": a.role, "mode": a.mode, "branch": branch, "worktree": str(top),
+           "since": old.get("since") if old.get("role") == a.role else now_iso(), "updated": now_iso()}
+    (CREW / "sessions" / f"{sid}.json").write_text(json.dumps(reg, indent=2) + "\n")
+    print(f"registered {session_name(reg)}: {a.role}, {a.mode} mode, in {top}")
+    return 0
+
+
+# --- status -----------------------------------------------------------------
+
+def notes_status(wt: Path) -> str:
+    try:
+        for line in (wt / ".crew" / "notes.md").read_text().splitlines():
+            if line.startswith("Status:"):
+                return line[len("Status:"):].strip()
+    except OSError:
+        pass
+    return ""
+
+
+def cmd_status(a) -> int:
+    lim, snap = limits(), snapshot()
+    by_name = {s.get("name"): s for s in claude_sessions()}
+    open_prs = {p["headRefName"]: p for p in gh_json(
+        ["pr", "list", "--repo", "usr-ein/TriMixxx", "--state", "open", "--json", PR_FIELDS]) or []}
+    rows = []
+    for wt in sorted((MAIN / ".claude" / "worktrees").glob("*/")):
+        b = wt.name
+        if not (wt / ".crew").is_dir():
+            continue
+
+        def sess(name):
+            s = by_name.get(name)
+            return f"{s.get('status')}" if s else "-"
+        pr = open_prs.get(b)
+        state = next((lb["name"].split(":", 1)[1] for lb in pr["labels"] if lb["name"].startswith("review:")), "open") if pr else "-"
+        dks = [f"{d}({s[:3]})" for d, s in snap["decks"] if d == b or d.startswith(b + "-")]
+        rows.append([b, sess(b), sess(f"{b}-bitch"), f"#{pr['number']}" if pr else "-", state,
+                     " ".join(dks) or "-", notes_status(wt)[:60]])
+    if rows:
+        head = ["branch", "minion", "bitch", "PR", "review", "decks", "status"]
+        widths = [max(len(str(r[i])) for r in rows + [head]) for i in range(len(head))]
+        for r in [head] + rows:
+            print("  ".join(str(c).ljust(w) for c, w in zip(r, widths)).rstrip())
+    else:
+        print("no crew worktrees")
+    night = by_name.get("nightman")
+    print(f"\nnightman: {night.get('status') if night else 'not running'}")
+    v, why = verdict(snap, lim, "minion")
+    print(f"resources: {v}" + (f" ({'; '.join(why)})" if why else "") + f"\n  {describe(snap, lim)}")
+    return 0
+
+
+# --- preflight ----------------------------------------------------------------
+
+def cmd_preflight(a) -> int:
+    bad, warn = [], []
+
+    def check(ok: bool, good: str, fix: str, soft=False):
+        print(("  ok   " if ok else ("  warn " if soft else "  FAIL ")) + (good if ok else fix))
+        if not ok:
+            (warn if soft else bad).append(fix)
+
+    print("Mac")
+    batt = out(["pmset", "-g", "batt"], check=False)
+    check("AC Power" in batt, "on mains power", "on battery: plug the charger in (caffeinate cannot hold a Mac awake on battery)")
+    if a.keep_awake:
+        pid = str(a.keep_awake)
+        mine = run(["pgrep", "-f", f"caffeinate -i -s -m -w {pid}"], check=False).returncode == 0
+        if not mine:
+            subprocess.Popen(["caffeinate", "-i", "-s", "-m", "-w", pid], start_new_session=True,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print(f"  ok   kept awake while process {pid} lives (caffeinate); the lid must stay open")
+    key = Path.home() / ".ssh" / "with_pass" / "rsa_sam.pub"
+    fp = out(["ssh-keygen", "-lf", key], check=False).split()[1:2]
+    agent = out(["ssh-add", "-l"], check=False)
+    check(bool(fp) and fp[0] in agent, "ssh agent holds with_pass/rsa_sam (decks, commit signing, pushes)",
+          "ssh agent lacks with_pass/rsa_sam: run `! ssh-add --apple-use-keychain ~/.ssh/with_pass/rsa_sam`")
+    gh_login = gh(["api", "user", "--jq", ".login"], check=False).stdout.strip()
+    check(gh_login == GH_USER, f"gh acts as {GH_USER} through crew gh", f"crew gh acts as {gh_login or 'nobody'}, not {GH_USER}")
+    r = run(["ssh", "-T", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", "git@github.com-usr-ein"], check=False, timeout=30)
+    check(f"Hi {GH_USER}" in r.stderr + r.stdout, "GitHub accepts pushes as usr-ein", "ssh to github.com-usr-ein fails: pushes will too")
+    r = run(["docker", "info", "--format", "{{.ServerVersion}}"], check=False, timeout=30)
+    check(r.returncode == 0, "Docker is up (Mixxx builds)", "Docker is not running: start Docker Desktop")
+
+    print("Repositories (main vs origin/main)")
+    for path, repo in REPOS:
+        d = MAIN / path
+        if not (d / ".git").exists():
+            continue
+        run(["git", "-C", d, "fetch", "--quiet", "origin"], check=False, timeout=120)
+        ahead = int(git(d, "rev-list", "--count", "origin/main..main", check=False) or 0)
+        behind = int(git(d, "rev-list", "--count", "main..origin/main", check=False) or 0)
+        check(ahead == 0, f"{path}: main is pushed" + (f" ({behind} behind: crew merge catches up)" if behind else ""),
+              f"{path}: main has {ahead} commit(s) not on origin. Push them before the night, or every crew PR on "
+              f"{repo} carries them and no merge goes through")
+        dirty = git(d, "status", "--porcelain", "--untracked-files=no", "--ignore-submodules=all", check=False)
+        check(not dirty, f"{path}: no uncommitted changes to tracked files",
+              f"{path}: uncommitted changes in the main checkout; a merge that touches them stops", soft=True)
+
+    print("Load")
+    lim, snap = limits(), snapshot()
+    print(f"  {describe(snap, lim)}")
+    v, why = verdict(snap, lim, "minion")
+    check(v == "ok", "room to dispatch a minion now", f"no room to dispatch yet ({'; '.join(why)})", soft=True)
+    others = [s for s in snap["sessions"] if s.get("status") == "busy" and s.get("name") not in ("nightman",)]
+    if others:
+        print("  note other busy Claude sessions share this Mac: " + ", ".join(str(s.get("name")) for s in others))
+    if bad:
+        print(f"\n{len(bad)} to fix before the night.")
+    return 1 if bad else 0
+
+
+# --- merge and clean ------------------------------------------------------------
+
+def tip(d: Path, ref: str) -> str | None:
+    r = run(["git", "-C", d, "rev-parse", "--verify", "-q", ref + "^{commit}"], check=False)
+    return r.stdout.strip() or None
+
+
+def cmd_merge(a) -> int:
+    b = a.branch
+    prs = find_prs(b)
+    pr = primary_pr(b, prs)
+    if pr["state"] != "OPEN":
+        die(f"PR #{pr['number']} is {pr['state'].lower()}", 2)
+    if pr["isDraft"]:
+        die(f"PR #{pr['number']} is a draft", 2)
+    if "review:needs-sam" in pr["labels"]:
+        die(f"PR #{pr['number']} waits for Sam (review:needs-sam)", 2)
+    if "review:approved" not in pr["labels"] and not a.unapproved:
+        die(f"PR #{pr['number']} is not approved (labels: {', '.join(pr['labels']) or 'none'})", 2)
+
+    involved = []
+    for path, repo in REPOS:
+        d = MAIN / path
+        if not (d / ".git").exists():
+            continue
+        run(["git", "-C", d, "fetch", "--quiet", "origin"], timeout=180)
+        if tip(d, f"refs/heads/{b}") or tip(d, f"refs/remotes/origin/{b}"):
+            involved.append((path, repo, d))
+    if not any(p == "." for p, _, _ in involved):
+        die(f"{b} has no branch in TriMixxx itself", 2)
+
+    # Each repo's main must be what origin has: never publish someone's unpushed commits.
+    for path, repo, d in [(p, r, MAIN / p) for p, r in REPOS if (MAIN / p / ".git").exists()]:
+        ahead = int(git(d, "rev-list", "--count", "origin/main..main"))
+        if ahead:
+            die(f"{path}: main has {ahead} commit(s) that origin lacks (Sam's unpushed work?). "
+                "Nothing merged; Sam decides whether to push them", 4)
+
+    plan = []
+    for path, repo, d in involved:
+        local, remote = tip(d, f"refs/heads/{b}"), tip(d, f"refs/remotes/origin/{b}")
+        if remote is None or (local and local != remote):
+            die(f"{path}: {b} is not pushed as it is locally (local {str(local)[:7]}, origin {str(remote)[:7]})", 2)
+        main_tip = tip(d, "refs/remotes/origin/main")
+        if main_tip == remote or git_ok(d, "merge-base", "--is-ancestor", remote, main_tip):
+            plan.append((path, repo, d, remote, "merged"))
+            continue
+        if not git_ok(d, "merge-base", "--is-ancestor", main_tip, remote):
+            die(f"{path}: {b} is not on top of main any more: the minion must rebase it (deepest repo first), "
+                "re-point the submodules, retest and push", 3)
+        plan.append((path, repo, d, remote, "merge"))
+    tips = {p: t for p, _, _, t, _ in plan}
+    for child, (parent, sub) in GITLINKS.items():
+        if child in tips:
+            pref = tips.get(parent) or tip(MAIN / parent, "refs/remotes/origin/main")
+            link = git(MAIN / parent, "rev-parse", f"{pref}:{sub}")
+            if link != tips[child]:
+                die(f"{parent} on {b} points {sub} at {link[:7]}, but {child}'s {b} is {tips[child][:7]}: "
+                    "the minion must commit the submodule bump", 2)
+
+    for path, repo, d, t, what in plan:
+        print(f"{path:22} {what:7} {t[:7]}  {repo}")
+    if a.dry_run:
+        return 0
+
+    for path, repo, d, t, what in plan:
+        if what == "merged":
+            continue
+        head = git(d, "symbolic-ref", "-q", "HEAD", check=False)
+        if git(d, "rev-parse", "main") != tip(d, "refs/remotes/origin/main"):
+            run(["git", "-C", d, "fetch", ".", "refs/remotes/origin/main:refs/heads/main"] if head != "refs/heads/main"
+                else ["git", "-C", d, "merge", "--ff-only", "--quiet", "origin/main"])
+        if head == "refs/heads/main":
+            run(["git", "-C", d, "merge", "--ff-only", "--quiet", t])
+        else:
+            run(["git", "-C", d, "fetch", ".", f"{t}:refs/heads/main"])
+        r = run(["git", "-C", d, "push", "origin", "main"], check=False, timeout=300)
+        if r.returncode:
+            die(f"{path}: push of main failed, so the merge stops here (deeper repos are pushed):\n{r.stderr.strip()}", 5)
+        print(f"{path}: main is {t[:7]}, pushed")
+
+    # The main checkout's submodules follow the pointers main now records.
+    for child, (parent, sub) in GITLINKS.items():
+        d = MAIN / child
+        if not (d / ".git").exists():
+            continue
+        want = git(MAIN / parent, "rev-parse", f"HEAD:{sub}", check=False)
+        if want and git(d, "rev-parse", "HEAD") != want:
+            if git(d, "symbolic-ref", "-q", "HEAD", check=False) or git(d, "status", "--porcelain", "--untracked-files=no"):
+                print(f"note: {child} in the main checkout is not at {want[:7]}, which main records; left as it is")
+            else:
+                run(["git", "-C", d, "checkout", "--quiet", "--detach", want])
+
+    for path, repo, d, t, what in plan:
+        p = prs.get(path)
+        if not p:
+            continue
+        for _ in range(10):
+            state = gh_json(["pr", "view", str(p["number"]), "--repo", repo, "--json", "state"])["state"]
+            if state == "MERGED":
+                break
+            time.sleep(3)
+        print(f"{repo}#{p['number']}: {state.lower()}")
+    return 0
+
+
+def cmd_clean(a) -> int:
+    b = a.branch
+    wt = worktree_of(b)
+    for path, repo in REPOS:
+        d = MAIN / path
+        t = tip(d, f"refs/heads/{b}") if (d / ".git").exists() else None
+        if t and not a.abandon and not git_ok(d, "merge-base", "--is-ancestor", t, "main"):
+            die(f"{path}: {b} has commits main lacks; nothing cleaned (`--abandon` stops its sessions and decks only)", 2)
+
+    me = os.environ.get("CLAUDE_CODE_SESSION_ID")
+    blocking = []
+    for s in claude_sessions():
+        if s.get("name") in (b, f"{b}-bitch") and s.get("sessionId") != me:
+            if s.get("kind") == "background":
+                run(["claude", "stop", s.get("id") or s["sessionId"]], check=False, timeout=60)
+                print(f"stopped {s.get('name')}")
+            else:
+                blocking.append(s.get("name"))
+    for name, state in decks():
+        if name == b or name.startswith(b + "-"):
+            run(["pi-qemu", "deck", "rm", name], check=False, timeout=180)
+            print(f"removed deck {name}")
+    if a.abandon:
+        print(f"{b}: sessions and decks stopped; worktree and branches kept")
+        return 0
+    if blocking:
+        die(f"{', '.join(blocking)} still open in a terminal: exit it, then `crew clean {b}` again", 2)
+
+    if (wt / ".crew").is_dir():
+        dest = CREW / "archive" / f"{b}-{dt.date.today().isoformat()}"
+        shutil.copytree(wt / ".crew", dest, dirs_exist_ok=True)
+        print(f"kept its pitch and notes in {dest}")
+    if wt.exists():
+        r = run(["pi-qemu", "worktree", "release"], cwd=wt, check=False, timeout=600)
+        if r.returncode:
+            die(f"pi-qemu worktree release refused: {(r.stderr or r.stdout).strip()[-600:]}", 2)
+        run(["git", "-C", MAIN, "worktree", "remove", wt])
+        print(f"removed worktree {wt}")
+    for path, repo in REPOS:
+        d = MAIN / path
+        if not (d / ".git").exists():
+            continue
+        if tip(d, f"refs/heads/{b}"):
+            git(d, "branch", "-d", b, check=False)
+        if tip(d, f"refs/remotes/origin/{b}"):
+            run(["git", "-C", d, "push", "--quiet", "origin", "--delete", b], check=False, timeout=120)
+            print(f"{path}: deleted {b} on origin")
+    for reg in registrations():
+        if reg.get("branch") == b:
+            (CREW / "sessions" / f"{reg['sid']}.json").unlink(missing_ok=True)
+            (CREW / "sessions" / f"{reg['sid']}.drift.json").unlink(missing_ok=True)
+    return 0
+
+
+# --- PRs and reviews --------------------------------------------------------------
+
+def cmd_gh(argv: list[str]) -> int:
+    """Every argument goes to gh untouched (argparse would eat a leading -R)."""
+    if argv[:2] == ["pr", "merge"]:
+        die("merges go through `crew merge` (fast-forward, deepest repo first)", 2)
+    repo = None
+    for i, x in enumerate(argv):
+        if x in ("-R", "--repo") and i + 1 < len(argv):
+            repo = argv[i + 1]
+        elif x.startswith("--repo="):
+            repo = x.split("=", 1)[1]
+        m = re.match(r"/?repos/([^/]+)/", x)
+        if m and m.group(1).lower() != GH_USER.lower():
+            die(f"{x} is not a {GH_USER} repository", 2)
+    repo = repo or repo_of(Path.cwd())
+    if not repo or repo.split("/")[0].lower() != GH_USER.lower():
+        die(f"{repo or 'this directory'} is not a {GH_USER} repository (pass -R {GH_USER}/REPO); "
+            "never upstream mixxxdj/mixxx", 2)
+    os.execvpe("gh", ["gh", *argv], gh_env(repo))
+
+
+def cmd_pr(a) -> int:
+    prs = find_prs(a.branch)
+    if a.json:
+        if "." in prs:
+            prs["."]["rounds"] = review_rounds(prs["."])
+        print(json.dumps(prs, indent=2))
+        return 0
+    if not prs:
+        print(f"{a.branch}: no PRs")
+    for path, p in prs.items():
+        extra = f", {review_rounds(p)} AI review(s)" if path == "." else ""
+        print(f"{p['repo']}#{p['number']} {p['state'].lower()}{' draft' if p['isDraft'] else ''}"
+              f" [{', '.join(p['labels']) or 'no labels'}{extra}] {p['url']}")
+    return 0
+
+
+def cmd_label(a) -> int:
+    pr = set_state(a.branch, a.state)
+    print(f"{pr['repo']}#{pr['number']}: review:{a.state}")
+    return 0
+
+
+def cmd_review(a) -> int:
+    b = a.branch
+    prs = find_prs(b)
+    pr = prs.get(REPO_KEYS[a.repo])
+    if not pr or pr["state"] != "OPEN":
+        die(f"{b} has no open PR on {dict(REPOS)[REPO_KEYS[a.repo]]}", 2)
+    body = Path(a.body_file).read_text().strip()
+    primary = a.repo == "trimixxx"
+    if primary:
+        n = review_rounds(pr) + 1
+        body = f"{REVIEW_MARK} · round {n} · verdict: {STATES[a.verdict]}**\n\n{body}"
+    else:
+        body = f"{REVIEW_MARK} of the {a.repo} side, for {primary_pr(b, prs)['url']}**\n\n{body}"
+    payload = {"event": "COMMENT", "body": body, "commit_id": pr["headRefOid"]}
+    if a.comments:
+        payload["comments"] = [{"path": c["path"], "line": int(c["line"]), "side": "RIGHT", "body": c["body"]}
+                               for c in json.loads(Path(a.comments).read_text())]
+    r = gh(["api", "-X", "POST", f"repos/{pr['repo']}/pulls/{pr['number']}/reviews", "--input", "-"],
+           input=json.dumps(payload))
+    url = json.loads(r.stdout).get("html_url")
+    if primary:
+        set_state(b, a.verdict, prs)
+    print(f"posted: {url}" + (f" (review:{a.verdict})" if primary else ""))
+    return 0
+
+
+# --- hooks ---------------------------------------------------------------------
+
+TMP_ROOTS = ("/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/")
+
+
+def under(p: Path, root: Path) -> bool:
+    try:
+        p.resolve().relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def write_reason(path: str, reg: dict) -> str | None:
+    if not path:
+        return None
+    p, wt, role = Path(path), Path(reg["worktree"]), reg["role"]
+    allowed = {"minion": wt, "bitch": wt / ".crew"}.get(role, CREW)
+    if under(p, allowed):
+        return None
+    why = {"minion": f"a minion writes only inside its worktree {wt}",
+           "bitch": "the bitch is read-only: it writes reviews to a temp file or its .crew/"}.get(
+        role, f"the nightman writes only its own state under {CREW}")
+    if under(p, MAIN):
+        return why
+    s = str(p.resolve())
+    if s.startswith(TMP_ROOTS) or (os.environ.get("TMPDIR") and s.startswith(os.environ["TMPDIR"])):
+        return None
+    if re.search(r"/\.claude/projects/[^/]+/memory/", s):
+        return None
+    return why
+
+
+HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_]\w*)\1")
+QUOTED = re.compile(r"'[^']*'|\"(?:\\.|[^\"\\])*\"", re.S)
+SPLIT = re.compile(r"\|\||&&|[;|&\n(){}]|\$\(|`")
+WRAPPERS = {"command", "exec", "nohup", "time", "nice", "env", "timeout", "xargs", "caffeinate"}
+GIT_WRITES = {"commit", "push", "merge", "rebase", "reset", "checkout", "switch", "stash", "tag", "cherry-pick",
+              "revert", "am", "apply", "clean", "add", "rm", "mv", "worktree", "pull", "submodule", "restore"}
+
+
+def commands(cmd: str):
+    """Each simple command's program and arguments; heredoc bodies and quoted text are skipped."""
+    lines, kept, term = cmd.split("\n"), [], None
+    for line in lines:
+        if term is not None:
+            if line.strip() == term:
+                term = None
+            continue
+        kept.append(line)
+        m = HEREDOC.search(line)
+        if m:
+            term = m.group(2)
+    text = QUOTED.sub("''", "\n".join(kept))
+    for seg in SPLIT.split(text):
+        toks = seg.split()
+        while toks and (re.match(r"^[A-Za-z_]\w*=", toks[0]) or toks[0] in WRAPPERS):
+            w = toks.pop(0)
+            if w == "timeout" and toks:
+                toks.pop(0)
+        if toks:
+            yield os.path.basename(toks[0]), toks[1:]
+
+
+def git_verb(args: list[str]) -> tuple[str | None, list[str], str | None]:
+    i, cdir = 0, None
+    while i < len(args) and args[i].startswith("-"):
+        if args[i] in ("-C", "-c") and i + 1 < len(args):
+            cdir = args[i + 1] if args[i] == "-C" else cdir
+            i += 2
+        else:
+            i += 1
+    return (args[i], args[i + 1:], cdir) if i < len(args) else (None, [], cdir)
+
+
+def push_reason(rest: list[str], cdir, cwd, branch: str) -> str | None:
+    flags = [x for x in rest if x.startswith("-")]
+    if any(f in ("--all", "--mirror", "--tags", "--follow-tags", "--prune") or f.startswith(("--delete", "-d"))
+           for f in flags):
+        return f"push only your branch {branch}: no --all, --mirror, --tags or --delete"
+    refspecs = [x for x in rest if not x.startswith("-")][1:]
+    d = Path(cdir) if cdir and os.path.isabs(cdir) else Path(cwd) / (cdir or ".")
+    current = git(d, "branch", "--show-current", check=False)
+    for rs in refspecs or ["HEAD"]:
+        src, _, dst = rs.lstrip("+").partition(":")
+        dst = (dst or src).removeprefix("refs/heads/")
+        if dst == "HEAD":
+            dst = current
+        if dst != branch:
+            return f"you may push only your branch {branch} (this pushes {dst or 'a detached HEAD'})"
+    return None
+
+
+def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
+    role, mode, branch = reg["role"], reg["mode"], reg.get("branch")
+    for prog, args in commands(cmd):
+        if prog == "sudo":
+            return "nothing the crew does on the Mac needs sudo"
+        if prog in ("diskutil", "fdisk", "asr") or prog.startswith(("newfs", "mkfs")) or \
+                (prog == "dd" and any(x.startswith("of=") for x in args)):
+            return "Sam flashes and formats disks himself; never touch a disk"
+        if prog in ("pkill", "killall"):
+            return "never kill by name: other agents' qemu, docker and pi-qemu share this Mac; kill only PIDs you started"
+        if prog == "docker" and (args[:1] == ["rmi"] or args[:2] == ["volume", "rm"] or "prune" in args[:2]):
+            return "freeing Docker space is Sam's call: report it"
+        if prog == "gh":
+            return "use `crew gh ...`: it pins the usr-ein account and usr-ein/* repositories (plain gh may act as " \
+                   "another account, or open a PR on upstream mixxxdj/mixxx)"
+        if prog == "pi-qemu":
+            if args[:2] in (["deck", "golden"], ["image", "build"]):
+                return "that rebuilds the golden card everyone's decks start from: Sam's call"
+            if "--host" in args or any(x.startswith("--host=") for x in args):
+                if mode == "night" or role != "minion":
+                    return "no real decks at night, and only a minion with Sam's go uses one"
+            if args[:1] == ["deck"] and len(args) > 2 and not args[2].startswith("-"):
+                verb, name = args[1], args[2]
+                if role == "minion" and verb in ("up", "rm", "stop", "kill") and not (
+                        name == branch or name.startswith(f"{branch}-")):
+                    return f"your decks are named {branch} or {branch}-*; never touch another's"
+                if role == "bitch" and verb not in ("list", "status", "shot", "leds", "where"):
+                    return "the bitch only looks at decks (list, status, shot, leds)"
+                if role == "nightman" and verb in ("up", "deploy"):
+                    return "minions run decks; the nightman only stops or removes them to shed load"
+        if prog == "claude":
+            launches = {"--bg", "-p", "--print", "-r", "--resume", "-c", "--continue", "attach", "rm", "stop",
+                        "kill", "respawn", "-w", "--worktree", "--from-pr"}
+            if role != "nightman" and launches.intersection(args):
+                return f"a {role} is a single agent: only the nightman (or Sam) starts and stops sessions"
+        if prog == "crew" or prog.endswith("/crew"):
+            sub = args[:1]
+            if sub in (["minion"], ["bitch"], ["resume"]) and role != "nightman":
+                return f"a {role} does not start sessions"
+            if sub in (["merge"], ["clean"]) and not (role == "nightman" or (role == "bitch" and mode == "day")):
+                return "merges are the nightman's at night, and the bitch's after Sam's yes in the day"
+        if prog == "git":
+            verb, rest, cdir = git_verb(args)
+            if verb is None:
+                continue
+            if role == "bitch" and verb in GIT_WRITES | {"branch"} and not (verb == "branch" and not rest):
+                return "the bitch is read-only: no git writes"
+            if role == "nightman" and verb in GIT_WRITES:
+                return "the nightman does not write to git itself: `crew merge` and `crew clean` do"
+            if role == "minion" and verb == "push":
+                return push_reason(rest, cdir, cwd, branch)
+            if role == "minion" and verb in GIT_WRITES and cdir:
+                d = Path(cdir) if os.path.isabs(cdir) else Path(cwd) / cdir
+                if under(d, MAIN) and not under(d, MAIN / ".claude" / "worktrees"):
+                    return f"that is the main checkout: work in your worktree {reg['worktree']}"
+    return None
+
+
+def hook_guard(data: dict, reg: dict):
+    tool, ti = data.get("tool_name"), data.get("tool_input") or {}
+    reason = None
+    if tool == "Bash":
+        reason = bash_reason(ti.get("command", ""), reg, data.get("cwd") or os.getcwd())
+    elif tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
+        reason = write_reason(ti.get("file_path") or ti.get("notebook_path") or "", reg)
+    if reason:
+        return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
+                                       "permissionDecisionReason": f"crew guard ({reg['role']}, {reg['mode']}): {reason}."}}
+    return None
+
+
+def hook_drift(data: dict, reg: dict):
+    if reg["role"] != "minion":
+        return None
+    lim, path = limits(), CREW / "sessions" / f"{reg['sid']}.drift.json"
+    try:
+        st = json.loads(path.read_text())
+    except (OSError, ValueError):
+        st = {"calls": 0, "last": time.time()}
+    st["calls"] += 1
+    mins = (time.time() - st["last"]) / 60
+    if st["calls"] < lim["DRIFT_EVERY_CALLS"] and not (mins >= lim["DRIFT_EVERY_MIN"] and st["calls"] >= 3):
+        path.write_text(json.dumps(st))
+        return None
+    path.write_text(json.dumps({"calls": 0, "last": time.time()}))
+    wt, b = Path(reg["worktree"]), reg["branch"]
+    try:
+        title = (wt / ".crew" / "pitch.md").read_text().strip().splitlines()[0].lstrip("# ")
+    except (OSError, IndexError):
+        title = "(no .crew/pitch.md yet: write it first)"
+    areas = []
+    for path_, _ in REPOS:
+        d = wt / path_
+        if (d / ".git").exists() and tip(d, f"refs/heads/{b}"):
+            stat = git(d, "diff", "--shortstat", f"main...{b}", check=False)
+            if stat:
+                areas.append(f"{path_}: {stat}")
+    dirty = len(git(wt, "status", "--porcelain", "--ignore-submodules=dirty", check=False).splitlines())
+    text = (
+        f"Crew drift check ({mins:.0f} min, {st['calls']} tool calls since the last). Pause before your next step.\n"
+        f"1. Your pitch: \"{title}\" ({wt}/.crew/pitch.md). Re-read it if it has been a while.\n"
+        f"2. Your branch so far: {'; '.join(areas) or 'no commits yet'}; {dirty} uncommitted path(s). "
+        f"Last status: \"{notes_status(wt) or 'none written'}\".\n"
+        "3. Answer for yourself, in a line each: what am I doing right now, and which part of the pitch does it "
+        "serve? Is anything in the diff outside the pitch? Have I been stuck on one problem for more than ~45 min?\n"
+        "4. Drifted: stop, write the detour under Follow-ups in .crew/notes.md, return to the pitch. Stuck: change "
+        "approach, or escalate (day: ask Sam; night: message the nightman). On track: carry on.\n"
+        "5. Update the Status line of .crew/notes.md (one line, with the time)."
+    )
+    return {"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": text}}
+
+
+def hook_session(data: dict, reg: dict):
+    hso = {"hookEventName": "SessionStart", "sessionTitle": session_name(reg)}
+    if data.get("source") in ("resume", "compact"):
+        where = f"{CREW}/night/plan.md" if reg["role"] == "nightman" else \
+            f"{reg['worktree']}/.crew/pitch.md and notes.md"
+        hso["additionalContext"] = (
+            f"Crew: this session is the {reg['role']}" + (f" for {reg['branch']}" if reg.get("branch") else "") +
+            f", in {reg['mode']} mode. Before going on, re-read .claude/skills/{reg['role']}/SKILL.md and {where}.")
+    return {"hookSpecificOutput": hso}
+
+
+def hook_prompt(data: dict, reg: dict):
+    return {"hookSpecificOutput": {"hookEventName": "UserPromptSubmit", "sessionTitle": session_name(reg)}}
+
+
+HOOKS = {"guard": hook_guard, "drift": hook_drift, "session": hook_session, "prompt": hook_prompt}
+
+
+def cmd_hook(a) -> int:
+    """Runs on every hook of every session in the project: silent and quick unless the session is crew."""
+    try:
+        data = json.loads(_HOOK_INPUT if _HOOK_INPUT is not None else sys.stdin.read())
+        reg = registration(data.get("session_id"))
+        if reg:
+            result = HOOKS[a.kind](data, reg)
+            if result:
+                print(json.dumps(result))
+    except Exception as e:  # a crew bug must never block or break a session
+        print(f"crew hook {a.kind}: {e}", file=sys.stderr)
+    return 0
+
+
+def cmd_install(a) -> int:
+    link = Path.home() / ".local" / "bin" / "crew"
+    target = MAIN / ".claude" / "crew" / "crew"
+    link.parent.mkdir(parents=True, exist_ok=True)
+    if link.is_symlink() or link.exists():
+        link.unlink()
+    link.symlink_to(target)
+    print(f"{link} -> {target}")
+    return 0
+
+
+# --- command line -------------------------------------------------------------
+
+def main(argv=None) -> int:
+    p = argparse.ArgumentParser(prog="crew", description=__doc__.strip().splitlines()[0],
+                                epilog="How it fits together: .claude/crew/README.md")
+    sub = p.add_subparsers(dest="cmd", metavar="VERB", required=True)
+
+    s = sub.add_parser("minion", help="start (or resume) the minion for a branch: worktree, submodules, session")
+    s.add_argument("branch")
+    s.add_argument("text", nargs="*", help="the pitch, in Sam's words (day mode)")
+    s.add_argument("--pitch", help="a pitch file to use as .crew/pitch.md (the nightman's)")
+    s.add_argument("--night", action="store_true", help="started by the nightman: background, Sam asleep")
+    s.add_argument("--bg", action="store_true", help="day mode, but in the background (`claude agents` to watch)")
+    s.add_argument("--resume", action="store_true", help="resume the branch's last minion session")
+    s.add_argument("--no-launch", action="store_true", help="only make the worktree")
+    s.add_argument("--force", action="store_true", help="dispatch even when resources say hold")
+    s.add_argument("--prompt", help="the session's first prompt instead of /minion")
+    s.add_argument("--model", help=argparse.SUPPRESS)
+    s.set_defaults(fn=cmd_minion)
+
+    s = sub.add_parser("bitch", help="start (or resume) the reviewer of a branch's PR, in its worktree")
+    s.add_argument("branch")
+    s.add_argument("--night", action="store_true")
+    s.add_argument("--bg", action="store_true")
+    s.add_argument("--resume", action="store_true")
+    s.add_argument("--brief", help="the nightman's review brief, copied to .crew/review-brief.md")
+    s.add_argument("--prompt")
+    s.add_argument("--model", help=argparse.SUPPRESS)
+    s.set_defaults(fn=cmd_bitch)
+
+    s = sub.add_parser("resume", help="wake a stopped crew session (BRANCH, BRANCH-bitch, nightman) in the background")
+    s.add_argument("name")
+    s.add_argument("--prompt")
+    s.add_argument("--model", help=argparse.SUPPRESS)
+    s.set_defaults(fn=cmd_resume)
+
+    s = sub.add_parser("register", help="(from a session) record this session's crew role, for the hooks")
+    s.add_argument("role", choices=ROLES)
+    s.add_argument("--mode", choices=("day", "night"), default="day")
+    s.add_argument("--branch")
+    s.set_defaults(fn=cmd_register)
+
+    s = sub.add_parser("status", help="every crew branch: sessions, PR, review state, decks; and the load")
+    s.set_defaults(fn=cmd_status)
+
+    s = sub.add_parser("resources", help="the Mac's load against limits.env: ok (0), hold (10) or shed (11)")
+    s.add_argument("--for", dest="purpose", choices=("minion", "deck", "build"), default="minion")
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_resources)
+
+    s = sub.add_parser("preflight", help="is the Mac ready to be left alone tonight?")
+    s.add_argument("--keep-awake", type=int, metavar="PID", help="hold the Mac awake while PID lives")
+    s.set_defaults(fn=cmd_preflight)
+
+    sub.add_parser("gh", help="gh as usr-ein, on usr-ein/* repositories only (crew gh ARGS...)")
+
+    s = sub.add_parser("pr", help="a branch's PRs in every repo, with labels and AI review rounds")
+    s.add_argument("branch")
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_pr)
+
+    s = sub.add_parser("label", help="set the review state of a branch's TriMixxx PR")
+    s.add_argument("branch")
+    s.add_argument("state", choices=list(STATES))
+    s.set_defaults(fn=cmd_label)
+
+    s = sub.add_parser("review", help="post the bitch's review on a branch's PR, and set its state")
+    s.add_argument("branch")
+    s.add_argument("verdict", choices=("approved", "changes", "needs-sam"))
+    s.add_argument("--body-file", required=True)
+    s.add_argument("--comments", help="JSON list of {path, line, body} for inline comments")
+    s.add_argument("--repo", choices=list(REPO_KEYS), default="trimixxx", help="a companion PR instead")
+    s.set_defaults(fn=cmd_review)
+
+    s = sub.add_parser("merge", help="fast-forward a branch into main, deepest repo first, and push")
+    s.add_argument("branch")
+    s.add_argument("--dry-run", action="store_true")
+    s.add_argument("--unapproved", action="store_true", help=argparse.SUPPRESS)
+    s.set_defaults(fn=cmd_merge)
+
+    s = sub.add_parser("clean", help="after a merge: stop its sessions and decks, drop its worktree and branches")
+    s.add_argument("branch")
+    s.add_argument("--abandon", action="store_true", help="unmerged: stop sessions and decks, keep the rest")
+    s.set_defaults(fn=cmd_clean)
+
+    s = sub.add_parser("hook", help="(Claude Code hooks) guard, drift, session, prompt")
+    s.add_argument("kind", choices=list(HOOKS))
+    s.set_defaults(fn=cmd_hook)
+
+    s = sub.add_parser("install", help="link this tool as ~/.local/bin/crew (the main checkout's copy)")
+    s.set_defaults(fn=cmd_install)
+
+    argv = sys.argv[1:] if argv is None else argv
+    if argv[:1] == ["gh"]:
+        try:
+            return cmd_gh(argv[1:])
+        except Fail as e:
+            print(f"crew gh: {e}", file=sys.stderr)
+            return e.code
+    a = p.parse_args(argv)
+    try:
+        return a.fn(a)
+    except Fail as e:
+        print(f"crew {a.cmd}: {e}", file=sys.stderr)
+        return e.code
+
+
+if __name__ == "__main__":
+    sys.exit(main())
