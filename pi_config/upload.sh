@@ -19,6 +19,11 @@
 #   * ~/.bash_profile, trimixxx-debug, rescue-* -- the session entry point and
 #                                 the rescue console (hold CUE at boot)
 #   * dj-usb/*                 -- USB auto-mount (delegated to its own installer)
+#   * trimixxx-identity.*, trimixxx-health.*, rauc/rpi-tryboot
+#                              -- a release card's per-deck identity, the check
+#                                 that keeps or drops a release, RAUC's backend
+#                                 (installed, not enabled: see their units)
+#   * rpi-eeprom-update masked -- bootloader updates are a deliberate step
 set -eux
 
 # ssh alias for the deck's Pi. Override for a one-off: HOST=other ./upload.sh
@@ -265,6 +270,36 @@ ssh "$HOST" '
 # framebuffer geometry off the Pi and renders the SVG to match, here, so the
 # deck needs no image tooling. Deliberately not shown now (`--test` does that on
 # demand) -- taking the screen away from a running Mixxx mid-deploy is rude.
+# ---- a release card's pieces, inert on a dev deck -------------------------------
+# A release card (pi-qemu/PLAN.md Part 1) runs this same system read-only, with
+# its deck's identity applied from /data at every start. The files are
+# installed on every deck, so the dev decks run what the release runs; `make
+# release` enables them when it seals a release, with the /data mount they
+# need. Here nothing starts them.
+#
+# The bootloader's own update service is masked on every deck: at each start it
+# would stage an EEPROM update without asking, and on an A/B card it stages it
+# where the boot ROM never looks (the ROM reads recovery.bin from p1).
+#
+# RAUC's backend (rauc/rpi-tryboot) and the health check that keeps or drops a
+# release (trimixxx-health.*) are installed the same way. RAUC's own
+# configuration, /etc/rauc/system.conf, only goes onto a release card.
+scp "$HERE/trimixxx-identity" "$HERE/trimixxx-identity.service" \
+    "$HERE/trimixxx-health" "$HERE/trimixxx-health.service" "$HERE/rauc/rpi-tryboot" "$HOST":/tmp/
+ssh "$HOST" '
+    set -eux
+    sudo install -d -m 0755 /usr/local/lib/trimixxx /usr/lib/rauc
+    sudo install -m 0755 /tmp/trimixxx-identity /usr/local/lib/trimixxx/identity
+    sudo install -m 0755 /tmp/trimixxx-health /usr/local/lib/trimixxx/health
+    sudo install -m 0755 /tmp/rpi-tryboot /usr/lib/rauc/rpi-tryboot
+    sudo install -m 0644 /tmp/trimixxx-identity.service /etc/systemd/system/trimixxx-identity.service
+    sudo install -m 0644 /tmp/trimixxx-health.service /etc/systemd/system/trimixxx-health.service
+    rm -f /tmp/trimixxx-identity /tmp/trimixxx-identity.service /tmp/trimixxx-health \
+        /tmp/trimixxx-health.service /tmp/rpi-tryboot
+    sudo systemctl mask --quiet rpi-eeprom-update.service
+    sudo systemctl daemon-reload
+'
+
 HOST="$HOST" "$HERE/splash-install.sh"
 
 # ---- eth0 for the Pro DJ Link network ----------------------------------------

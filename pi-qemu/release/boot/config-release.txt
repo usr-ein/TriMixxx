@@ -1,0 +1,13 @@
+
+# ---- release (pi-qemu/release): appended to the deck's config.txt ------------
+# Both boot slots carry this same file. Each picks its command line by the
+# partition config.txt was read from (pi-qemu/PLAN.md invariant 5, measured in
+# phase 1).
+[boot_partition=2]
+cmdline=cmdline-a.txt
+[boot_partition=3]
+cmdline=cmdline-b.txt
+[all]
+# The watchdog left running into Linux, with watchdog.open_timeout: a start
+# that hangs before systemd resets, and a trial then falls back (phase 1, T8).
+kernel_watchdog_timeout=60

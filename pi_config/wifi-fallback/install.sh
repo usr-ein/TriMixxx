@@ -23,14 +23,13 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # accept passwords -- see ../fresh-install.md, "Access".
 PASSWORD='trimixxx-debug-Kmj3Df'
 
-# One 2.4 GHz channel per deck, so two decks at the same venue never share one.
-# Hardcoded on purpose: count up for each new deck. Anything not listed is
-# Trimixxx1.
+# One 2.4 GHz channel per deck, so two decks at the same venue never share one:
+# its unit file's hotspotChannel (mixxx_config/units/<deck>.json), where a
+# release card's `make card` reads it too. Count up for each new deck. A deck
+# with no unit file, or none set, gets 6: Trimixxx1.
 DECK="$(ssh "$HOST" hostname)"
-case "$DECK" in
-    trimixxx2) CHANNEL=7 ;;
-    *)         CHANNEL=6 ;;
-esac
+CHANNEL="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("hotspotChannel", 6))' \
+    "$HERE/../../mixxx_config/units/$DECK.json" 2>/dev/null || echo 6)"
 echo "==> $DECK: hotspot \"$DECK\" on 2.4 GHz channel $CHANNEL"
 
 scp -q "$HERE/trimixxx-wifi-fallback" "$HERE/trimixxx-wifi-fallback.service" "$HOST":/tmp/

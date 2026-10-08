@@ -17,6 +17,14 @@
 # conflict detection, which is precisely what a CDJ does. It is also instant,
 # where `auto` costs a DHCP timeout on every boot.
 #
+# HOW. eth0-link-local.nmconnection, a NetworkManager keyfile bound to eth0,
+# the same file every release card carries. Not netplan's profile, edited:
+# Pi OS's NetworkManager rewrites that one into a profile matching every
+# Ethernet NIC (pi-qemu/PLAN.md, phase 1). Its priority wins over the old
+# profile, which is deleted when it sits alone in its own netplan file
+# (/etc/netplan/90-NM-<uuid>.yaml) and left alone otherwise: cloud-init's
+# 50-cloud-init.yaml can also hold the deck's Wi-Fi.
+#
 # TRADE-OFF: eth0 can no longer take a DHCP lease. That is the right call for a
 # port whose only job is the CDJ network, but it does mean plugging eth0 into an
 # ordinary LAN will not get an address. wlan0 remains the deck's route to the
@@ -33,45 +41,52 @@ set -euo pipefail
 
 HOST="${HOST:-trimixxx-pi}"
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+scp -q "$HERE/eth0-link-local.nmconnection" "$HOST":/tmp/
 ssh "$HOST" 'bash -seu' <<'REMOTE'
 # --- what wlan0 looks like now, so we can prove we did not disturb it --------
 wlan_before="$(ip -4 -o addr show wlan0 2>/dev/null | awk '{print $4}' || true)"
 route_before="$(ip -4 route show default 2>/dev/null || true)"
 echo "wlan0 before : ${wlan_before:-<none>}"
 
-# --- find eth0's NetworkManager profile -------------------------------------
-# By device and type rather than by name or UUID: the profile is called
-# "netplan-eth0" with a generated UUID today, and neither survives a re-image.
-profile="$(nmcli -t -f NAME,TYPE,DEVICE connection show |
-    awk -F: '$2=="802-3-ethernet" && ($3=="eth0" || $3=="") {print $1; exit}')"
-
-if [ -z "$profile" ]; then
-    echo "ERROR: no ethernet connection profile found; nothing to configure" >&2
-    exit 1
+# --- eth0's keyfile ------------------------------------------------------------
+# NetworkManager ignores a keyfile that isn't root's alone. `reload` reads the
+# files again without touching any device.
+kf=/etc/NetworkManager/system-connections/eth0-link-local.nmconnection
+if sudo cmp -s /tmp/eth0-link-local.nmconnection "$kf"; then
+    echo "eth0 profile : eth0-link-local, already installed"
+else
+    sudo install -m 0600 -o root -g root /tmp/eth0-link-local.nmconnection "$kf"
+    sudo nmcli connection reload
+    echo "eth0 profile : eth0-link-local installed"
 fi
-echo "eth0 profile : $profile"
+rm -f /tmp/eth0-link-local.nmconnection
 
-current="$(nmcli -g ipv4.method connection show "$profile")"
+# --- netplan's old eth0 profile --------------------------------------------------
+# Deleted only when NetworkManager keeps it alone in its own file; deleting it
+# removes that file and nothing else.
+nmcli -t -f UUID,TYPE,NAME connection show |
+while IFS=: read -r uuid type name; do
+    [ "$type" = "802-3-ethernet" ] && [ "$name" != eth0-link-local ] || continue
+    # NetworkManager writes netplan files readable by root only.
+    if sudo grep -qs '^    eth0:' "/etc/netplan/90-NM-$uuid.yaml"; then
+        sudo nmcli connection delete uuid "$uuid" >/dev/null
+        echo "old profile  : $name ($uuid) deleted"
+    fi
+done
 
 # --- is anything plugged in? -------------------------------------------------
 # With no cable, NetworkManager refuses to activate the profile ("no carrier")
-# and there is no address to wait for -- which on a fresh unit with nothing in
-# eth0 yet failed the whole of upload.sh. The profile change is the part that
-# matters, and it persists: NM brings eth0 up link-local by itself the moment a
-# CDJ or a switch is plugged in. So with no link, change it and say so.
+# and there is no address to wait for. The profile is what matters, and it
+# persists: NM brings eth0 up link-local by itself the moment a CDJ or a switch
+# is plugged in. So with no link, say so and stop there.
 carrier="$(cat /sys/class/net/eth0/carrier 2>/dev/null || echo 0)"
-
-if [ "$current" = "link-local" ]; then
-    echo "already link-local; nothing to change"
-else
-    echo "ipv4.method   : $current -> link-local"
-    sudo nmcli connection modify "$profile" ipv4.method link-local
-    # Bring up this profile on this device only. Deliberately not
-    # `nmcli networking` or a NetworkManager restart, either of which would
-    # bounce wlan0 and drop this ssh session.
-    if [ "$carrier" = 1 ]; then
-        sudo nmcli connection up "$profile" ifname eth0 >/dev/null
-    fi
+if [ "$carrier" = 1 ] &&
+   [ "$(nmcli -g GENERAL.CONNECTION device show eth0 2>/dev/null)" != eth0-link-local ]; then
+    # This profile on this device only. Deliberately not `nmcli networking`
+    # or a NetworkManager restart, either of which would bounce wlan0 and
+    # drop this ssh session.
+    sudo nmcli connection up eth0-link-local ifname eth0 >/dev/null
 fi
 
 if [ "$carrier" = 1 ]; then

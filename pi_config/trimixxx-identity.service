@@ -1,0 +1,24 @@
+[Unit]
+# A release card's per-deck identity, applied in RAM at every start: the
+# hostname, the deck's NetworkManager profiles and ssh host keys, and its own
+# Mixxx skin and mapping. It all comes from /data (the card's p7, written once
+# by `make card`), so one release image serves every deck.
+#
+# Installed on every deck, enabled only on a release card: `make release` adds
+# its /data mount and this unit's link. A dev card has neither, so its start
+# never waits on a partition it doesn't have.
+Description=TriMixxx: this deck's identity, from /data
+Documentation=file:/usr/local/lib/trimixxx/identity
+DefaultDependencies=no
+RequiresMountsFor=/data
+After=local-fs.target
+Before=sysinit.target NetworkManager.service ssh.service systemd-hostnamed.service
+ConditionPathExists=/data/trimixxx.conf
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/lib/trimixxx/identity
+
+[Install]
+WantedBy=sysinit.target

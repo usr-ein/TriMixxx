@@ -2,19 +2,34 @@
 #
 #   make -C pi-qemu/release phase1   phase 1's test card for trimixxx3:
 #                                      out/phase1/trimixxx3-phase1.img
+#   make -C pi-qemu/release release VERSION=1.0.0
+#                                    the release: out/1.0.0/trimixxx-1.0.0.img (the
+#                                    card, every deck's), trimixxx-1.0.0.raucb (the
+#                                    update), manifest.txt
+#   make -C pi-qemu/release card DECK=trimixxx2 VERSION=1.0.0
+#                                    that card with the deck's identity on p7:
+#                                    out/1.0.0/trimixxx2-1.0.0.img, to flash
+#   make -C pi-qemu/release ship DECK=trimixxx2 VERSION=1.0.0
+#                                    the update onto a running deck, over ssh; for an
+#                                    emulated one: pi-qemu/instance.sh run NAME -- make ...
 #
 # A target builds the release container (Dockerfile), then runs again inside
-# it, without privileges: the tools are Debian trixie's, the decks' own. The
-# inputs come from the main checkout, also from a git worktree: Pi OS's image
-# (pi-qemu/.cache, fetched by image/build.sh) and the console password
-# (pi-qemu/image/secrets.env). SSH_KEY is the key the card trusts:
-# ~/.ssh/no_pass/rsa_sam by default, as for image/build.sh; on MBP-NJ,
-# SSH_KEY=~/.ssh/with_pass/rsa_sam.
+# it: the tools are Debian trixie's, the decks' own. Only `release` runs it
+# privileged, to mount the built card read-only. The inputs come from the main
+# checkout, also from a git worktree: Pi OS's image and the built system card
+# (pi-qemu/.cache), and the console password (pi-qemu/image/secrets.env).
+# SSH_KEY is the key the cards trust: ~/.ssh/no_pass/rsa_sam by default, as
+# for image/build.sh; on MBP-NJ, SSH_KEY=~/.ssh/with_pass/rsa_sam.
+#
+# `release` builds the system with image/build.sh trimixxx-release (SKIP_BUILD=1
+# seals the card already built), from a clean tree whose commit is tagged
+# v$(VERSION). REHEARSAL=1 lets an untagged or dirty tree through, for trying
+# releases on emulated decks; its manifest says so.
 
 SHELL := /bin/bash
 .SHELLFLAGS := -euo pipefail -c
 .ONESHELL:
-.PHONY: phase1
+.PHONY: phase1 release card ship
 
 # The card's MBR disk signature, the same on every card for good (PLAN.md
 # invariant 7): partitions are PARTUUID=5d0bc1ec-0N, so the command lines never
@@ -22,22 +37,97 @@ SHELL := /bin/bash
 export DISK_ID := 0x5d0bc1ec
 ID := $(DISK_ID:0x%=%)
 PIOS := 2026-09-15-raspios-trixie-arm64-lite.img
+SYSTEM := trimixxx-release
+# The decks' screens, as their framebuffers report them (WxHxBPPxSTRIDE):
+# trimixxx1's panel, and trimixxx2's (the emulated trimixxx0's too). The splash
+# carries a labelled image for each (pi_config/trimixxx-splash.sh).
+SPLASH_SCREENS := 1024x600x16x2048 1280x800x16x2560
 
 ifndef IN_CONTAINER # ---- on the Mac ------------------------------------------------
 
 MAIN := $(shell dirname "$$(git -C '$(CURDIR)' rev-parse --path-format=absolute --git-common-dir)")
+REPO := $(abspath $(CURDIR)/../..)
 SSH_KEY ?= $(HOME)/.ssh/no_pass/rsa_sam
 SECRETS := $(MAIN)/pi-qemu/image/secrets.env
+CACHE := $(MAIN)/pi-qemu/.cache
+DECKS := $(CACHE)/decks
+CONTAINER := docker build -q -t trimixxx-release - < Dockerfile > /dev/null && docker run --rm -e IN_CONTAINER=1 \
+    --mount type=bind,src='$(CURDIR)',dst=/release -w /release \
+    --mount type=bind,src='$(REPO)',dst=/repo,readonly
 
 phase1:
-	[ -f '$(MAIN)/pi-qemu/.cache/$(PIOS)' ] || { echo "no Pi OS image: pi-qemu/image/build.sh fetches it" >&2; exit 1; }
-	[ -f '$(SSH_KEY).pub' ] || { echo "no $(SSH_KEY).pub: set SSH_KEY" >&2; exit 1; }
-	docker build -q -t trimixxx-release - < Dockerfile > /dev/null
-	docker run --rm -e IN_CONTAINER=1 $(if $(wildcard $(SECRETS)),--env-file '$(SECRETS)') \
-	    --mount type=bind,src='$(CURDIR)',dst=/release -w /release \
-	    --mount type=bind,src='$(MAIN)/pi-qemu/.cache',dst=/cache,readonly \
+	@set -euo pipefail; \
+	[ -f '$(CACHE)/$(PIOS)' ] || { echo "no Pi OS image: pi-qemu/image/build.sh fetches it" >&2; exit 1; }; \
+	[ -f '$(SSH_KEY).pub' ] || { echo "no $(SSH_KEY).pub: set SSH_KEY" >&2; exit 1; }; \
+	$(CONTAINER) $(if $(wildcard $(SECRETS)),--env-file '$(SECRETS)') \
+	    --mount type=bind,src='$(CACHE)',dst=/cache,readonly \
 	    --mount type=bind,src='$(SSH_KEY).pub',dst=/key.pub,readonly \
 	    trimixxx-release make $@
+
+# macOS's make is 3.81: no .ONESHELL or .SHELLFLAGS. So each recipe on this
+# side is one shell command, `set -euo pipefail` first.
+release:
+	@set -euo pipefail; \
+	[ -n '$(VERSION)' ] || { echo "make release VERSION=1.0.0" >&2; exit 1; }; \
+	commit="$$(git -C '$(REPO)' describe --tags --match 'v[0-9]*' --always --dirty)"; \
+	if [ -z '$(REHEARSAL)' ]; then \
+	    [ -z "$$(git -C '$(REPO)' status --porcelain)" ] || { echo "the tree has changes: commit them (or REHEARSAL=1)" >&2; exit 1; }; \
+	    [ "$$(git -C '$(REPO)' tag --points-at HEAD)" = 'v$(VERSION)' ] || \
+	        { echo "HEAD is not tagged v$(VERSION): git tag v$(VERSION) (or REHEARSAL=1)" >&2; exit 1; }; \
+	else commit="$$commit (rehearsal)"; fi; \
+	[ -n '$(SKIP_BUILD)' ] || SSH_KEY='$(SSH_KEY)' '$(REPO)/pi-qemu/image/build.sh' $(SYSTEM); \
+	[ -f '$(CACHE)/build/$(SYSTEM).img' ] || { echo "no $(SYSTEM) card in pi-qemu/.cache/build" >&2; exit 1; }; \
+	$(CONTAINER) --privileged -e VERSION='$(VERSION)' -e COMMIT="$$commit" \
+	    --mount type=bind,src='$(CACHE)/build',dst=/build,readonly \
+	    trimixxx-release make $@
+
+# The deck's identity, kept in pi-qemu/.cache/decks/<deck>/ (gitignored) and
+# made the first time: its name, its ssh host keys (kept, so known_hosts
+# survives a reflash), its hotspot, and for an emulated deck the profile of
+# pi-qemu's management NIC. Its Wi-Fi goes there by hand, as NetworkManager
+# keyfiles (NetworkManager/*.nmconnection).
+card:
+	@set -euo pipefail; \
+	[ -n '$(DECK)' ] && [ -n '$(VERSION)' ] || { echo "make card DECK=trimixxx2 VERSION=1.0.0" >&2; exit 1; }; \
+	[ -f 'out/$(VERSION)/trimixxx-$(VERSION).img' ] || { echo "no release $(VERSION): make release first" >&2; exit 1; }; \
+	d='$(DECKS)/$(DECK)'; \
+	mkdir -p "$$d/ssh" "$$d/NetworkManager"; \
+	[ -f "$$d/trimixxx.conf" ] || echo '$(DECK)' > "$$d/trimixxx.conf"; \
+	if ! ls "$$d"/ssh/ssh_host_*_key >/dev/null 2>&1; then \
+	    t="$$(mktemp -d)"; mkdir -p "$$t/etc/ssh"; ssh-keygen -A -f "$$t" >/dev/null; \
+	    cp "$$t"/etc/ssh/ssh_host_* "$$d/ssh/"; rm -rf "$$t"; \
+	fi; \
+	channel="$$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("hotspotChannel", 6))' \
+	    '$(REPO)/mixxx_config/units/$(DECK).json' 2>/dev/null || echo 6)"; \
+	psk="$$(sed -n "s/^PASSWORD='\(.*\)'$$/\1/p" '$(REPO)/pi_config/wifi-fallback/install.sh')"; \
+	sed -e 's/@DECK@/$(DECK)/' -e "s/@CHANNEL@/$$channel/" -e "s/@PSK@/$$psk/" hotspot.nmconnection.in \
+	    > "$$d/NetworkManager/trimixxx-hotspot.nmconnection"; \
+	[ '$(DECK)' != trimixxx0 ] || cp phase1/pi-qemu-home.nmconnection "$$d/NetworkManager/"; \
+	rm -f 'out/$(VERSION)/$(DECK)-$(VERSION).img'; \
+	cp -c 'out/$(VERSION)/trimixxx-$(VERSION).img' 'out/$(VERSION)/$(DECK)-$(VERSION).img'; \
+	$(CONTAINER) -e DECK='$(DECK)' -e VERSION='$(VERSION)' \
+	    --mount type=bind,src="$$d",dst=/deck,readonly \
+	    trimixxx-release make $@
+
+# The update onto a running deck: the bundle into RAUC's state partition, the
+# install into the other slot, a reboot into it as a trial, then what the deck
+# says: its version, its slot, its health check, RAUC's status.
+ship:
+	@set -euo pipefail; \
+	[ -n '$(DECK)' ] && [ -n '$(VERSION)' ] || { echo "make ship DECK=trimixxx2 VERSION=1.0.0" >&2; exit 1; }; \
+	b='out/$(VERSION)/trimixxx-$(VERSION).raucb'; \
+	[ -f "$$b" ] || { echo "no $$b: make release first" >&2; exit 1; }; \
+	scp -q "$$b" '$(DECK)':/tmp/; \
+	ssh '$(DECK)' 'sudo mv /tmp/trimixxx-$(VERSION).raucb /var/lib/rauc/ && sudo rauc install /var/lib/rauc/trimixxx-$(VERSION).raucb; r=$$?; sudo rm -f /var/lib/rauc/trimixxx-$(VERSION).raucb; exit $$r'; \
+	old="$$(ssh '$(DECK)' cat /proc/sys/kernel/random/boot_id)"; \
+	ssh '$(DECK)' 'sudo systemd-run --quiet --on-active=1 systemctl reboot'; \
+	echo "$(DECK): installed $(VERSION); rebooting into it as a trial"; \
+	for _ in $$(seq 1 120); do \
+	    sleep 2; \
+	    now="$$(ssh -o ConnectTimeout=2 '$(DECK)' cat /proc/sys/kernel/random/boot_id 2>/dev/null)" || continue; \
+	    [ -n "$$now" ] && [ "$$now" != "$$old" ] && break; \
+	done; \
+	ssh '$(DECK)' 'cat /etc/trimixxx-release; /usr/lib/rauc/rpi-tryboot booted; sudo systemctl is-active trimixxx-health || true; rauc status'
 
 else # ---- in the container ------------------------------------------------------------
 
@@ -107,5 +197,125 @@ phase1:
 	genimage --config genimage-phase1.cfg --rootpath $(WORK)/root --inputpath $(WORK)/in \
 	    --tmppath $(WORK)/tmp --outputpath out/phase1
 	sfdisk -l out/phase1/trimixxx3-phase1.img
+
+# The release's kernel command line, for slot $(1): its root and boot partitions.
+slot_cmdline = sed -e 's/@ID@/$(ID)/g' -e 's/@SLOT@/$(1)/' -e 's/@ROOT@/$(2)/' -e 's/@BOOT@/$(3)/' boot/cmdline.txt.in
+
+release:
+	o=out/$(VERSION) card=/build/$(SYSTEM).img r=/merged p=/repo/pi_config
+	rm -rf $(WORK) $$o
+	mkdir -p $(WORK)/boot $(WORK)/bootsel $(WORK)/root $(WORK)/bundle $(WORK)/img $$o
+	read -r boot_start _ < <(partx -g -o START,SECTORS -n 1 $$card)
+	read -r root_start root_size < <(partx -g -o START,SECTORS -n 2 $$card)
+
+	# ---- the system: the built card's root, sealed, as SquashFS --------------------
+	# Read-only underneath, the seal's changes in RAM on top: the built card is
+	# never written.
+	mkdir -p /lower /up $$r
+	mount -t tmpfs tmpfs /up && mkdir -p /up/u /up/w
+	mount -o loop,ro,offset=$$((root_start * 512)),sizelimit=$$((root_size * 512)) -t ext4 $$card /lower
+	mount -t overlay overlay -o lowerdir=/lower,upperdir=/up/u,workdir=/up/w $$r
+	trap 'umount $$r /lower /up 2>/dev/null || true' EXIT
+	# The build's identity and leftovers (exclude.txt). Each deck's comes from
+	# /data at every start (trimixxx-identity).
+	shopt -s nullglob dotglob
+	while read -r g; do for f in $$r/$$g; do rm -rf "$$f"; done; done \
+	    < <(sed -e 's/#.*//' -e '/^[[:space:]]*$$/d' exclude.txt)
+	find $$r/var/log -type f -delete
+	: > $$r/etc/machine-id
+	echo trimixxx > $$r/etc/hostname
+	sed -i 's/^127\.0\.1\.1.*/127.0.1.1\ttrimixxx/' $$r/etc/hosts
+	# The release's own files, from the repo whatever the build deployed: its
+	# mounts, RAUC's configuration and backend, the identity and health units,
+	# eth0's profile.
+	install -m 0644 rootfs/etc/fstab $$r/etc/fstab
+	install -D -m 0644 $$p/rauc/system.conf $$r/etc/rauc/system.conf
+	install -D -m 0644 $$p/rauc/keyring.pem $$r/etc/rauc/keyring.pem
+	install -D -m 0755 $$p/rauc/rpi-tryboot $$r/usr/lib/rauc/rpi-tryboot
+	install -D -m 0755 $$p/trimixxx-identity $$r/usr/local/lib/trimixxx/identity
+	install -D -m 0755 $$p/trimixxx-health $$r/usr/local/lib/trimixxx/health
+	install -m 0644 $$p/trimixxx-identity.service $$p/trimixxx-health.service $$r/etc/systemd/system/
+	install -D -m 0600 $$p/eth0-link-local.nmconnection $$r/etc/NetworkManager/system-connections/eth0-link-local.nmconnection
+	install -m 0755 $$p/trimixxx-splash.sh $$r/usr/local/bin/trimixxx-splash
+	mkdir -p $$r/data $$r/var/lib/rauc
+	# The splash says which slot started: an image per screen and per start,
+	# labelled with the slot, the version, and the trial.
+	for g in $(SPLASH_SCREENS); do
+	    IFS=x read -r w h bpp stride <<< "$$g"
+	    dst=$$r/usr/local/share/trimixxx/splash.d/$$g
+	    mkdir -p $$dst
+	    for s in A B; do
+	        python3 $$p/splash-render.py $$p/trimixxx_logo_crt.svg -o $$dst/$$s.raw \
+	            --width $$w --height $$h --bpp $$bpp --stride $$stride --label "$$s  ·  v$(VERSION)" > /dev/null
+	        python3 $$p/splash-render.py $$p/trimixxx_logo_crt.svg -o $$dst/$$s-trial.raw \
+	            --width $$w --height $$h --bpp $$bpp --stride $$stride --label "$$s  ·  trial  ·  v$(VERSION)" --trial > /dev/null
+	    done
+	done
+	# Started at every start: the deck's identity, and the health check. Masked:
+	# the first-start jobs a read-only root would run at every start (systemd
+	# counts each as a first start, /etc/machine-id being empty): new ssh host
+	# keys over the deck's own, and growing the root.
+	mkdir -p $$r/etc/systemd/system/sysinit.target.wants $$r/etc/systemd/system/multi-user.target.wants
+	ln -sf /etc/systemd/system/trimixxx-identity.service $$r/etc/systemd/system/sysinit.target.wants/
+	ln -sf /etc/systemd/system/trimixxx-health.service $$r/etc/systemd/system/multi-user.target.wants/
+	for u in regenerate_ssh_host_keys.service rpi-resize.service; do ln -sf /dev/null $$r/etc/systemd/system/$$u; done
+	printf 'VERSION=%s\nCOMMIT=%s\n' '$(VERSION)' "$$COMMIT" > $$r/etc/trimixxx-release
+	dpkg-query --admindir=$$r/var/lib/dpkg -W -f='$${Package} $${Version}\n' > $(WORK)/packages.txt
+	# POSIX ACLs (the journal's directory) have no place in SquashFS: left out.
+	mksquashfs $$r $(WORK)/img/rootfs.squashfs -comp zstd -xattrs -xattrs-exclude '^system\.posix_acl' \
+	    -noappend -quiet -no-progress
+	umount $$r /lower /up; trap - EXIT
+
+	# ---- the boot files: the built card's, with both slots' command lines ----------
+	mcopy -snm -i "$$card@@$$((boot_start * 512))" '::*' $(WORK)/boot/
+	rm -f $(WORK)/boot/{cmdline.txt,user-data,network-config,meta-data,config.txt.pre-trimixxx,cmdline.txt.pre-trimixxx}
+	cat boot/config-release.txt >> $(WORK)/boot/config.txt
+	$(call slot_cmdline,A,05,02) > $(WORK)/boot/cmdline-a.txt
+	$(call slot_cmdline,B,06,03) > $(WORK)/boot/cmdline-b.txt
+	cp boot/autoboot.txt $(WORK)/bootsel/
+
+	# ---- the card ---------------------------------------------------------------------
+	# All of it made in the container's own filesystem, then copied out. Read
+	# through Docker's share of the Mac's disk, a file just written can claim to
+	# be one big hole, and `cp` then copies nothing but zeros.
+	genimage --config genimage.cfg --rootpath $(WORK)/root --inputpath $(WORK)/img \
+	    --tmppath $(WORK)/tmp --outputpath $(WORK)/img
+	# The release's p1 holds no firmware: a damaged autoboot.txt then starts p2
+	# (PLAN.md invariant 13).
+	! mdir -b -i "$(WORK)/img/trimixxx.img@@$$((16384 * 512))" ::/ | grep -i '\.elf$$'
+
+	# ---- the update: a RAUC bundle of both slot images -----------------------------
+	# Signed with signing-key.pem, public on purpose (Sam, 2026-10-08): TriMixxx
+	# is open hardware, and anyone may sign a release for it. The signature,
+	# which RAUC requires, guards against a damaged bundle, not a hostile one.
+	sed -e 's|@VERSION@|$(VERSION)|' -e "s|@BUILD@|$$COMMIT|" manifest.raucm.in > $(WORK)/bundle/manifest.raucm
+	ln $(WORK)/img/rootfs.squashfs $(WORK)/img/boot.vfat $(WORK)/bundle/
+	# Made and checked in the container's own filesystem: RAUC won't read a
+	# plain bundle off a FUSE mount such as Docker's share of the Mac's disk.
+	rauc bundle --cert=$$p/rauc/keyring.pem --key=signing-key.pem $(WORK)/bundle $(WORK)/trimixxx-$(VERSION).raucb
+	rauc info --keyring=$$p/rauc/keyring.pem $(WORK)/trimixxx-$(VERSION).raucb | grep -E "Compatible|Version|Build"
+	cp --sparse=always $(WORK)/img/trimixxx.img $$o/trimixxx-$(VERSION).img
+	cp $(WORK)/img/rootfs.squashfs $(WORK)/img/boot.vfat $(WORK)/trimixxx-$(VERSION).raucb $$o/
+
+	# ---- what went in -----------------------------------------------------------------
+	{
+	    echo "TriMixxx $(VERSION), from $$COMMIT, built $$(date -u +%Y-%m-%dT%H:%MZ)"
+	    echo
+	    (cd $$o && sha256sum trimixxx-$(VERSION).img trimixxx-$(VERSION).raucb rootfs.squashfs boot.vfat)
+	    echo
+	    cat $(WORK)/packages.txt
+	} > $$o/manifest.txt
+	ls -l $$o
+
+# The deck's identity onto p7 of its copy of the release card (an APFS clone
+# made on the Mac).
+card:
+	img=out/$(VERSION)/$(DECK)-$(VERSION).img
+	read -r start size < <(partx -g -o START,SECTORS -n 7 $$img)
+	rm -rf $(WORK) && mkdir -p $(WORK)
+	mke2fs -q -t ext4 -L trimixxx-data -d /deck $(WORK)/data.ext4 $$((size / 2))k
+	dd if=$(WORK)/data.ext4 of=$$img bs=1M seek=$$((start * 512)) oflag=seek_bytes conv=notrunc,sparse status=none
+	debugfs -R 'ls -l /' $(WORK)/data.ext4 2>/dev/null | awk 'NR > 2 {print $$NF}' | tr '\n' ' '; echo
+	ls -l $$img
 
 endif

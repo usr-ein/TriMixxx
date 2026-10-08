@@ -76,6 +76,30 @@ else
     apt-get install -y -q "${missing_pkgs[@]}"
 fi
 
+# ---- a release card's read-only root and A/B updates (pi-qemu/PLAN.md Part 1) ----
+# overlayroot puts RAM over a read-only root when the kernel command line asks
+# for it (overlayroot=tmpfs:...), which only a release card's does. RAUC installs
+# updates into the other slot; nothing starts it without /etc/rauc/system.conf,
+# which only a release card carries. The initramfs gets what mounts a release's
+# root: squashfs, and overlay.
+ab_pkgs=(overlayroot rauc rauc-service)
+missing_pkgs=()
+for p in "${ab_pkgs[@]}"; do
+    dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q '^install ok installed$' || missing_pkgs+=("$p")
+done
+if [ "${#missing_pkgs[@]}" -gt 0 ]; then
+    apt-get update -q
+    apt-get install -y -q "${missing_pkgs[@]}"
+fi
+modules_changed=0
+for m in squashfs overlay; do
+    grep -qx "$m" /etc/initramfs-tools/modules && continue
+    [ "$modules_changed" = 1 ] || echo "# TriMixxx: a release card's root (pi-qemu/PLAN.md Part 1)" >> /etc/initramfs-tools/modules
+    echo "$m" >> /etc/initramfs-tools/modules
+    modules_changed=1
+done
+[ "$modules_changed" = 0 ] || update-initramfs -u -k "$(uname -r)"
+
 # en_US.UTF-8 alongside the image's own en_GB: a Mac's ssh forwards its
 # LC_ALL, and without the locale every login warns "cannot change locale".
 if ! locale -a 2>/dev/null | grep -qx 'en_US.utf8'; then

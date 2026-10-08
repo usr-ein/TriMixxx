@@ -1,0 +1,16 @@
+# A TriMixxx release as a RAUC bundle (`make release`): the two images of a
+# slot, for any deck (PLAN.md §5.3). Plain, while the decks carry RAUC 1.13
+# (invariant 10).
+[update]
+compatible=trimixxx-pi4
+version=@VERSION@
+build=@BUILD@
+
+[bundle]
+format=plain
+
+[image.rootfs]
+filename=rootfs.squashfs
+
+[image.boot]
+filename=boot.vfat

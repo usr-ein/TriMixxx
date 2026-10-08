@@ -1,0 +1,68 @@
+#!/bin/sh
+# This deck's identity, from /data, applied in RAM before the network and sshd
+# start (trimixxx-identity.service). On a release card the root is read-only
+# with RAM on top (overlayroot): everything written here lasts until the next
+# start, which applies it again. So NetworkManager and sshd keep their stock
+# configuration, and a dev card, which has no /data, is untouched.
+#
+#   /data/trimixxx.conf             the deck's name: trimixxx2
+#   /data/NetworkManager/*.nmconnection
+#                                   its Wi-Fi, its hotspot (and for trimixxx0,
+#                                   pi-qemu-home), into NetworkManager's own
+#                                   volatile directory, /run/NetworkManager
+#   /data/ssh/ssh_host_*            its host keys, so known_hosts survives a
+#                                   reflash
+#
+# Its Mixxx skin and mapping are the image's, rendered for every deck at build
+# time (mixxx_config/upload.sh): /usr/share/trimixxx/decks/<deck>, or
+# .../standard for a deck wired as the canonical files say.
+set -eu
+
+deck="$(sed -n 's/#.*//; s/[[:space:]]//g; /./{p;q}' /data/trimixxx.conf)"
+case "$deck" in
+    ""|*[!a-z0-9-]*) echo "identity: /data/trimixxx.conf names no deck: [$deck]" >&2; exit 1 ;;
+esac
+
+# ---- hostname ------------------------------------------------------------------
+hostname "$deck"
+echo "$deck" > /etc/hostname
+if grep -q '^127\.0\.1\.1' /etc/hosts; then
+    sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t$deck/" /etc/hosts
+else
+    printf '127.0.1.1\t%s\n' "$deck" >> /etc/hosts
+fi
+
+# ---- NetworkManager profiles -----------------------------------------------------
+# A keyfile must be root's alone, or NetworkManager ignores it.
+if [ -d /data/NetworkManager ]; then
+    install -d -m 0755 /run/NetworkManager/system-connections
+    for f in /data/NetworkManager/*.nmconnection; do
+        [ -f "$f" ] || continue
+        install -m 0600 -o root -g root "$f" /run/NetworkManager/system-connections/
+    done
+fi
+
+# ---- ssh host keys ---------------------------------------------------------------
+if ls /data/ssh/ssh_host_*_key >/dev/null 2>&1; then
+    rm -f /etc/ssh/ssh_host_*
+    for f in /data/ssh/ssh_host_*; do
+        case "$f" in
+            *.pub) install -m 0644 -o root -g root "$f" /etc/ssh/ ;;
+            *)     install -m 0600 -o root -g root "$f" /etc/ssh/ ;;
+        esac
+    done
+fi
+
+# ---- the deck's Mixxx skin and mapping -------------------------------------------
+src=/usr/share/trimixxx/decks/$deck
+[ -d "$src" ] || src=/usr/share/trimixxx/decks/standard
+mixxx=/home/sam1902/.mixxx
+if [ -d "$src" ] && [ -d "$mixxx" ]; then
+    rm -rf "$mixxx/skins/TriMixxx"
+    ln -s "$src/TriMixxx_skin" "$mixxx/skins/TriMixxx"
+    for f in TriMixxx.midi.xml TriMixxx.scripts.js; do
+        ln -sf "$src/$f" "$mixxx/controllers/$f"
+    done
+fi
+
+echo "identity: $deck ($(basename "$src") skin and mapping)"

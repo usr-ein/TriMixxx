@@ -1,0 +1,94 @@
+#!/bin/sh
+# Keep the release this start runs, or fall back (trimixxx-health.service,
+# pi-qemu/PLAN.md §5.2). The slots and autoboot.txt are rpi-tryboot's business
+# (RAUC's backend); this decides from what the deck does.
+#
+#   a trial (the firmware's tryboot)
+#       The deck works and runs the version RAUC installed: `rauc status
+#       mark-good`, which commits the slot. It doesn't within 150 s: `rauc
+#       status mark-bad` and exit 1; systemd then reboots, and with the trial
+#       flag used up the committed slot starts.
+#   a normal start
+#       autoboot.txt missing or damaged: restore it from its copy, and reboot
+#       if that commits the other slot. Then, if a valid autoboot.txt commits
+#       another slot than the one running -- the bootloader's watchdog started
+#       A because the committed slot failed before Linux (phase 1, T10), or a
+#       `reboot N` by hand -- and this one works: mark the other bad and commit
+#       this one. If it doesn't work, change nothing.
+#
+# Exits non-zero only for a trial it marked bad, so a normal start is never
+# rebooted by it.
+set -u
+backend=/usr/lib/rauc/rpi-tryboot
+
+log() {
+    echo "health: $*"
+    echo "trimixxx-health: $*" > /dev/kmsg 2>/dev/null || true
+}
+
+# The deck works, as pi-qemu/instance.sh's mixxx_ready() checks it: Mixxx
+# running with its own log open, its sound stream started, the S3's
+# controller open, and the MIDI bridge older than this Mixxx.
+deck_works() {
+    p=$(pgrep -xo mixxx) || return 1
+    ls -l "/proc/$p/fd" 2>/dev/null | grep -q '/tmp/mixxx/mixxx.log' || return 1
+    grep -q 'Started stream successfully' /tmp/mixxx/mixxx.log || return 1
+    grep -q 'Opening controller: "TriMixxx"' /tmp/mixxx/mixxx.log || return 1
+    b=$(pgrep -xo ttymidi) || return 1
+    [ "$(ps -o etimes= -p "$b")" -ge "$(ps -o etimes= -p "$p")" ]
+}
+
+# This slot runs the version RAUC installed into it. A slot RAUC never wrote
+# (the card as flashed) has no record, and passes.
+version_ok() {
+    installed=$(rauc status --output-format=json 2>/dev/null | python3 -c '
+import json, sys
+for slot in json.load(sys.stdin).get("slots", []):
+    for name, s in slot.items():
+        if s.get("class") == "rootfs" and s.get("state") == "booted":
+            print(((s.get("slot_status") or {}).get("bundle") or {}).get("version", ""))
+' 2>/dev/null)
+    [ -z "$installed" ] && return 0
+    running=$(sed -n 's/^VERSION=//p' /etc/trimixxx-release 2>/dev/null)
+    [ "$installed" = "$running" ] || { log "slot runs $running, RAUC installed $installed"; return 1; }
+}
+
+works_within() { # seconds
+    end=$(( $(date +%s) + $1 ))
+    while [ "$(date +%s)" -lt "$end" ]; do
+        deck_works && version_ok && return 0
+        sleep 2
+    done
+    return 1
+}
+
+booted=$("$backend" booted) || { log "cannot tell which slot started; leaving everything as it is"; exit 0; }
+case "$booted" in
+*" trial")
+    slot=${booted% trial}
+    log "trial of slot $slot ($(sed -n 's/^VERSION=//p' /etc/trimixxx-release 2>/dev/null))"
+    if works_within 150; then
+        rauc status mark-good && log "slot $slot works: committed"
+        exit 0
+    fi
+    rauc status mark-bad
+    log "slot $slot did not work within 150 s: marked bad, rebooting to the committed slot"
+    exit 1
+    ;;
+esac
+
+if [ "$("$backend" repair)" = reboot ]; then
+    log "autoboot.txt restored; rebooting into the committed slot"
+    systemctl reboot
+    exit 0
+fi
+committed=$("$backend" committed) || exit 0
+[ "$committed" = "$booted" ] && exit 0
+log "slot $booted started, but $committed is committed: the bootloader's watchdog fell back (or a reboot by hand)"
+if works_within 150; then
+    rauc status mark-bad other && rauc status mark-good &&
+        log "slot $booted works: committed, $committed marked bad"
+else
+    log "slot $booted does not work either: nothing changed"
+fi
+exit 0

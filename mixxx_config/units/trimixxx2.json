@@ -4,6 +4,7 @@
   "jogReversed": true,
   "bezel": false,
   "accent": "#FF7092",
+  "hotspotChannel": 7,
   "buttons": {
     "0x02": "0x03",
     "0x03": "0x04",

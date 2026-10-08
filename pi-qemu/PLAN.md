@@ -60,7 +60,6 @@ They come from the repo's `CLAUDE.md` and the `trimixxx0` skill:
 | Any hands-on step | Inserting a card, cabling, power-cycling trimixxx3 |
 | Changing a board's EEPROM (`rpi-eeprom-update`, `rpi-eeprom-config --apply`) | Persistent hardware state |
 | Replacing the shared golden snapshot (`instance.sh golden`), or rebuilding `.cache/build/trimixxx0.img` | Every agent's emulated deck starts from them |
-| Creating, moving or using the RAUC signing key | Sam decides where the private key lives |
 | A hang test on the **committed** slot (phase 1, T9) | It can loop the Pi until the card is fixed on the Mac |
 | Anything on a real deck, and phase 6 as a whole | Gig equipment |
 | Pushing | Sam pushes |
@@ -94,10 +93,14 @@ Everything built must keep these true. They are what makes updates safe.
 10. **Bundles are `format=plain`** while the image carries RAUC 1.13.
 11. **pi-qemu copies only firmware behaviour that is documented or was measured
     on trimixxx3.** Where the two disagree, the hardware wins.
-12. **The dev card stays writable.** The release-only switches are
-    `overlayroot=tmpfs` and the slot command lines. The `/data` and
-    `/var/lib/rauc` mounts are `nofail`, and do nothing where those partitions
-    don't exist.
+12. **The dev card stays writable.** The release-only switches, all made by
+    `make release`'s seal, are:
+    - `overlayroot=tmpfs` and the slot command lines;
+    - the `/data` and `/var/lib/rauc` mounts (`nofail`);
+    - RAUC's configuration;
+    - the identity and health units, enabled.
+
+    A dev deck carries the same files, installed but inert.
 13. **p1 holds `autoboot.txt` and no firmware: never a `start*.elf`.** A
     missing, empty or garbled `autoboot.txt` then starts p2 (phase 1, T6c and
     T7). With firmware files on p1, the same damage can leave a deck dark
@@ -544,11 +547,17 @@ They go into the normal build, so the dev deck carries them too, inert.
   - install `overlayroot`, `rauc` and `rauc-service`;
   - add `squashfs` and `overlay` to `/etc/initramfs-tools/modules`, then run
     `update-initramfs -u`.
-- **fstab entries** (in `pi_config`'s system step):
+- **fstab entries**, in the release's own fstab (`release/rootfs/etc/fstab`,
+  written by the seal), not the dev card's:
   ```
   LABEL=trimixxx-data   /data          ext4  ro,noatime,nofail  0 2
   LABEL=trimixxx-state  /var/lib/rauc  ext4  noatime,nofail     0 2
   ```
+  On a dev card, which has neither partition, a `nofail` line still leaves a
+  device job pending until its timeout, and a unit ordered after that mount
+  (the identity unit, before NetworkManager) would wait for it. So the seal
+  also enables the identity and health units; the system step installs them,
+  inert.
 - **The identity unit** (`trimixxx-identity.service`). It runs early:
   `After=local-fs.target`, `Before=NetworkManager.service ssh.service`. It
   does nothing when `/data/trimixxx.conf` is missing (the dev card). Otherwise
@@ -582,7 +591,8 @@ They go into the normal build, so the dev deck carries them too, inert.
 - **Pre-render every deck.** `mixxx_config/upload.sh` renders each
   `units/<deck>.json` (wiring, accent) into the image, under
   `/usr/share/trimixxx/decks/<deck>/`, instead of only the build host's.
-- **Core dumps:** a `coredump.conf` drop-in with `Storage=none`.
+- **Core dumps:** nothing to do. Pi OS lite has no `systemd-coredump`, and the
+  core size limit is 0.
 - **Swap: zram only.** Change `pi_config/trimixxx-swap-sizes.conf`. A swap file
   on a read-only root would land in RAM. Ask Sam whether the dev deck may lose
   its swap file too (one shared setting), or the release sets it alone. Pi
@@ -695,14 +705,43 @@ pi-qemu/instance.sh up rel --from pi-qemu/release/out/0.0.1/trimixxx0-0.0.1.img
 **Done when** a tag gives a card that passes these checks, with the RAM
 measurement recorded.
 
+**Done on 2026-10-08,** with rehearsal release 0.0.1 on trimixxx0's card:
+- **Locked boot:** every check above passes.
+  - `/` is overlayroot's overlay, a SquashFS p5 under a tmpfs.
+  - A file written to `/etc` is gone after a reboot.
+  - `/data` is read-only and `/var/lib/rauc` writable; `/boot/firmware` is
+    p2, read-only.
+  - `rauc.slot=A`, and the device tree's partition is 2.
+  - The hostname, NetworkManager profiles, host keys and Mixxx files all come
+    from `/data`.
+  - The splash showed `A.raw`; p1 holds only `autoboot.txt`; the console
+    answers; Mixxx is ready; no unit failed.
+  - `rauc status` says booted from A, A activated.
+- **RAM:** recorded in `rauc-pi-4-setup.md` §3.3. The layer grows about
+  130 KiB per analysed track; the fork's own track cache, in `/tmp`, bounds
+  itself.
+- **Found and fixed:**
+  - The deck listed overlayroot's `/media/root-ro` and `/media/root-rw` as
+    sticks. The fork now counts a USB disk only.
+  - genimage reads its inputs correctly through Docker's share of the Mac's
+    disk, but `cp` doesn't: a file just written there can claim to be one
+    hole, and the copy was zeros (a 6 KB bundle). The release now makes
+    everything inside the container.
+  - RAUC won't read a plain bundle off that share ("unsafe filesystem").
+  - macOS's make (3.81) has no `.ONESHELL`, so the Mac-side recipes are
+    single commands.
+  - The backend printed its slot twice.
+
 ---
 
 ## 5. Phase 4: RAUC on the deck
 
 ### 5.1 Signing key
 
-**Stop point:** Sam decides where the private key lives, for example
-`~/.config/trimixxx/rauc/`. Generate it once:
+**Decided (Sam, 2026-10-08): the private key is public,** in the repo
+(`pi-qemu/release/signing-key.pem`). TriMixxx is open hardware: anyone may sign
+a release. RAUC still requires a signature, which then guards against a damaged
+bundle, not a hostile one. Generated once, as planned:
 
 ```sh
 openssl req -x509 -newkey rsa:4096 -nodes -days 36500 \

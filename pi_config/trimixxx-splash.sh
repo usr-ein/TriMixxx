@@ -41,9 +41,24 @@ WAIT="${SPLASH_WAIT:-20}"
 VT="${SPLASH_VT:-7}"
 HOLD="${1:-${SPLASH_HOLD:-8}}"
 
-[ -r "$IMG" ] || { echo "no splash image at $IMG, skipping splash" >&2; exit 0; }
-[ -r "$GEOM" ] || { echo "no geometry file at $GEOM, skipping splash" >&2; exit 0; }
-want="$(cat "$GEOM")"
+# A release card says which slot started (pi-qemu/PLAN.md §4.1): it carries an
+# image per screen and per start, rendered by `make release` with a label under
+# the logo, in splash.d/<WIDTH>x<HEIGHT>x<BPP>x<STRIDE>/<slot>.raw. The slot is
+# the command line's (rauc.slot=), -trial when the firmware started it as a
+# trial (its tryboot flag, in the device tree). A dev card has no slot, and its
+# one image from splash-install.sh.
+SETS="${SPLASH_SETS:-/usr/local/share/trimixxx/splash.d}"
+slot="$(sed -n 's/.*rauc\.slot=\([AB]\).*/\1/p' /proc/cmdline)"
+if [ -n "$slot" ] && [ -d "$SETS" ]; then
+    tryboot="$(od -An -tu4 --endian=big /proc/device-tree/chosen/bootloader/tryboot 2>/dev/null | tr -d ' ')"
+    [ "$tryboot" = 1 ] && slot="$slot-trial"
+    want="a screen splash.d has an image for"
+else
+    slot=
+    [ -r "$IMG" ] || { echo "no splash image at $IMG, skipping splash" >&2; exit 0; }
+    [ -r "$GEOM" ] || { echo "no geometry file at $GEOM, skipping splash" >&2; exit 0; }
+    want="$(cat "$GEOM")"
+fi
 
 # What /dev/fb0 is RIGHT NOW: "WIDTH HEIGHT BPP STRIDE". virtual_size is
 # comma-separated ("1024,600"); the rest are one number each.
@@ -72,6 +87,10 @@ current_geom() {
 i=0
 while [ "$i" -lt "$((WAIT * 10))" ]; do
     now="$(current_geom || true)"
+    if [ -n "$slot" ]; then
+        set="$SETS/$(echo "$now" | tr ' ' x)/$slot.raw"
+        [ -n "$now" ] && [ -r "$set" ] && { IMG="$set"; want="$now"; break; }
+    fi
     [ "$now" = "$want" ] && break
     sleep 0.1
     i=$((i + 1))
@@ -103,7 +122,7 @@ cat "$IMG" >"$FB"
 # One line in the journal saying what it drew and where. The previous version of
 # this script had no such line, and "it looks wrong on the panel" was the only
 # evidence there was that it had picked the wrong framebuffer.
-echo "splash up on vt$VT, framebuffer [$now], holding ${HOLD}s"
+echo "splash up on vt$VT, framebuffer [$now], $(basename "$IMG"), holding ${HOLD}s"
 # The same line in the kernel log, which is the clock to measure boot by: this
 # early, journald is not up yet and stamps the line above when it gets round to
 # reading it -- seconds late -- while dmesg stamps it the moment it is written.

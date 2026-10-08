@@ -1,0 +1,7 @@
+# A release card's mounts (pi-qemu/release). The root -- the slot's SquashFS
+# with RAM on top -- is the initramfs's (overlayroot), and /boot/firmware the
+# command line's (systemd.mount-extra): both depend on the slot that started.
+# nofail: a damaged p7 or p8 never stops the deck from starting.
+proc                   /proc          proc  defaults            0 0
+LABEL=trimixxx-data    /data          ext4  ro,noatime,nofail   0 2
+LABEL=trimixxx-state   /var/lib/rauc  ext4  noatime,nofail      0 2

@@ -1,0 +1,1 @@
+console=tty1 root=PARTUUID=@ID@-@ROOT@ rootfstype=squashfs rootwait rootdelay=20 panic=10 overlayroot=tmpfs:recurse=0 rauc.slot=@SLOT@ systemd.mount-extra=PARTUUID=@ID@-@BOOT@:/boot/firmware:vfat:ro

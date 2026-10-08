@@ -82,7 +82,7 @@ sha256("trimixxx"), set in `release/Makefile`), so `<id>` below is `5d0bc1ec`:
 | p5 | rootfs-A | SquashFS (raw) | 4 GiB | the whole system, zstd-compressed (about 1–1.5 GB today, estimated) | `/`, underneath the RAM layer | by RAUC, idle slot only |
 | p6 | rootfs-B | SquashFS (raw) | 4 GiB | | | |
 | p7 | data | ext4 | 64 MiB | identity: deck name, Wi-Fi (NetworkManager keyfiles), ssh host keys | `/data`, read-only | when unlocked by hand (`mount -o remount,rw /data`) |
-| p8 | state | ext4 | the rest, sized for the smallest card (32 GB) | RAUC's data directory, downloaded bundles | `/var/lib/rauc`, read-write | by RAUC only |
+| p8 | state | ext4 | 4 GiB: a bundle (about 1.1 GB) and RAUC's status. The card image ends here, at about 13 GiB, so it flashes in minutes; a bigger card's rest stays unused | RAUC's data directory, downloaded bundles | `/var/lib/rauc`, read-write | by RAUC only |
 
 **Why each partition exists:**
 - **p1 on its own:** the file that decides which slot starts is never written
@@ -114,15 +114,19 @@ kernel_watchdog_timeout=60
 `rauc.slot=B` and `-03`:
 
 ```
-console=tty1 root=PARTUUID=<id>-05 rootfstype=squashfs rootwait=20 panic=10 overlayroot=tmpfs:recurse=0 rauc.slot=A systemd.mount-extra=PARTUUID=<id>-02:/boot/firmware:vfat:ro …the deck's current flags (quiet, splash…)
+console=tty1 root=PARTUUID=<id>-05 rootfstype=squashfs rootwait rootdelay=20 panic=10 overlayroot=tmpfs:recurse=0 rauc.slot=A systemd.mount-extra=PARTUUID=<id>-02:/boot/firmware:vfat:ro
 ```
 
 Each part of that line comes from a standard component:
 - `root=PARTUUID=…`: the kernel.
-- `rootwait=20 panic=10`: the kernel and initramfs-tools. A missing root
+- `rootdelay=20 panic=10`: initramfs-tools, which mounts the root on Pi OS
+  (the kernel's own `rootwait=N` doesn't apply there). It waits 20 s for the
+  root, and on a failure reboots after 10 s instead of opening a shell. A
+  missing root
   reboots instead of hanging, and a reboot ends the trial.
-- `overlayroot=…`: Debian's overlayroot (§3.3). **Unverified:** that
-  `recurse=0` leaves `/data` and `/var/lib/rauc` as plain mounts.
+- `overlayroot=…`: Debian's overlayroot (§3.3). With `recurse=0` it rewrites
+  only `/` and leaves `/data` and `/var/lib/rauc` as plain mounts (its
+  script, and the release card in pi-qemu: phase 3).
 - `rauc.slot=`: RAUC (App. B.4).
 - `systemd.mount-extra=`: systemd ≥ 254 (trixie has 257) mounts the slot's own
   boot partition, by PARTUUID like `root=`, with no fstab logic. Checked on
@@ -165,8 +169,14 @@ Committing slot B means writing it again with 2 and 3 swapped.
 |---|---|
 | Mixxx logs | `/tmp/mixxx`, 2 × 32 MiB |
 | journald | Volatile already, capped at 10 % of `/run` by default |
-| Core dumps | Turned off by a `coredump.conf` drop-in (`Storage=none`). One Mixxx crash could otherwise put hundreds of MB in RAM |
-| Mixxx library and analysis (`~/.mixxx`) | 964 KB at idle (measured). Growth per analysed track is measured in phase 3 (§8) |
+| Core dumps | None: Pi OS lite has no `systemd-coredump`, and the core size limit is 0 |
+| Mixxx library and analysis (`~/.mixxx`) | **Measured** (phase 3): about 130 KiB per analysed track, so about 10 MB over a 4-hour set of 80 tracks |
+| Mixxx's track cache, tier 1 (`/tmp/trimixxx/cache`) | Copies of the loaded tracks, in `/tmp`'s own tmpfs, not this layer. Bounded by the fork: two thirds of a budget it measures from `/tmp`'s free space (371 MB on the 2 GB emulated board). Evicting drops a copy whose stick is still plugged in |
+| Its tier 2 (`~/.cache/Mixxx/trimixxx/tracks`) | In this layer on a release card. Only a copy whose stick was pulled spills there, so at most what tier 1 held; wiped at every start |
+
+**Measured on the emulated release deck** (2 GB board, 10 tracks of five
+minutes): the layer grew from 3.7 MB to 5.0 MB, tier 1 to 70 MB, and nothing
+spilled. Half the RAM is a generous bound: no tighter cap is needed.
 
 **Only if the measurement calls for it:**
 - Set a tighter cap with one `remount,size=` mount option.
@@ -569,8 +579,6 @@ The tasks, commands, tests and stop points for each phase are in `PLAN.md`.
 
 ## 9. Open questions
 
-- **overlayroot `recurse=0`:** confirm it leaves `/data` and `/var/lib/rauc`
-  as plain mounts (phase 3).
 - **Where per-deck screen settings live:**
   - `[0x<serial>]` sections in `config.txt`: in git, recommended;
   - or each board's EEPROM `[config.txt]` section: kept with the hardware,

@@ -1,0 +1,152 @@
+#!/bin/bash
+#
+# Copyright 2023-2024 Gaël PORTAY, Rtone
+#           2026 Samuel Prevost
+#
+# SPDX-License-Identifier: LGPL-2.1-only
+#
+# RAUC's custom bootloader backend for TriMixxx's A/B card, on the Raspberry Pi
+# firmware's own tryboot. After Rtone's raspberrypi-firmware-rauc-bootloader-
+# backend (https://github.com/Rtone/raspberrypi-firmware-rauc-bootloader-backend,
+# commit c8aa8ab), which reads the same firmware facts and arms the trial the
+# same way. What differs, from pi-qemu/PLAN.md Part 1:
+#
+#  - autoboot.txt (p1, the only file written outside RAUC's slots) is always
+#    generated whole, written to a new file, synced and renamed: never edited.
+#  - A copy goes first to the state partition (/var/lib/rauc, ext4 with a
+#    journal). A damaged autoboot.txt makes the firmware start p2 whichever
+#    slot was committed (phase 1, T6c and T7), so the copy, not the running
+#    slot, says what to restore (`repair`).
+#  - `set-state X good` commits X when X is the slot running: on a trial, and
+#    after the bootloader's watchdog started A because the committed slot
+#    failed before Linux (phase 1, T10; the health unit's reconcile).
+#
+# The card (PLAN.md §1.4): slot A is boot partition 2 and root 5, slot B boot
+# partition 3 and root 6; p1 holds autoboot.txt and nothing else.
+#
+#   rpi-tryboot get-primary | set-primary SLOT | get-state SLOT |
+#               set-state SLOT good|bad | get-current     (RAUC calls these)
+#   rpi-tryboot repair     restore a missing or invalid autoboot.txt from its
+#                          copy; prints `reboot` when the committed slot isn't
+#                          the one running
+#   rpi-tryboot committed  the slot autoboot.txt commits ([all])
+#   rpi-tryboot booted     the slot running, and whether as a trial: "B trial"
+#
+# Only what RAUC expects goes to stdout; success is exit 0.
+set -eu
+
+BOOTSEL=/dev/disk/by-partuuid/5d0bc1ec-01
+MNT=/run/rauc/bootsel
+COPY=/var/lib/rauc/autoboot.txt
+DT=/proc/device-tree/chosen/bootloader
+
+die() { echo "rpi-tryboot: $*" >&2; exit 1; }
+
+part_of() { case "$1" in A) echo 2 ;; B) echo 3 ;; *) die "no slot $1" ;; esac; }
+slot_of() { case "$1" in 2) echo A ;; 3) echo B ;; *) return 1 ;; esac; }
+other() { case "$1" in A) echo B ;; B) echo A ;; esac; }
+
+# A u32 the firmware wrote into the device tree (big-endian).
+dt_u32() { od -An -tu4 --endian=big "$DT/$1" 2>/dev/null | tr -d ' '; }
+
+booted() { slot_of "$(dt_u32 partition)" || die "the firmware started partition $(dt_u32 partition): not a slot"; }
+on_trial() { [ "$(dt_u32 tryboot)" = 1 ]; }
+
+# autoboot.txt for this committed slot: the firmware's documented A/B example,
+# with [tryboot] on the other slot.
+autoboot_for() {
+    printf '[all]\ntryboot_a_b=1\nboot_partition=%s\n[tryboot]\nboot_partition=%s\n' \
+        "$(part_of "$1")" "$(part_of "$(other "$1")")"
+}
+
+# The committed slot a file names, if it's a valid autoboot.txt of ours.
+committed_in() {
+    local f="$1" p
+    [ -f "$f" ] || return 1
+    p="$(sed -n '/^\[all\]/,/^\[/{s/^boot_partition=//p}' "$f" | head -1)"
+    slot_of "$p" > /dev/null || return 1
+    cmp -s "$f" <(autoboot_for "$(slot_of "$p")") || return 1
+    slot_of "$p"
+}
+
+mount_bootsel() {
+    mkdir -p "$MNT"
+    mountpoint -q "$MNT" || mount -t vfat -o rw,sync "$BOOTSEL" "$MNT"
+}
+umount_bootsel() { ! mountpoint -q "$MNT" || umount "$MNT"; }
+
+# Write the file whole: a new file, synced, renamed over the old one, synced.
+write_whole() {
+    local dest="$1" tmp="$1.new"
+    cat > "$tmp"
+    sync "$tmp"
+    mv -f "$tmp" "$dest"
+    sync "$(dirname "$dest")"
+}
+
+# Commit SLOT: the copy first, then p1.
+commit() {
+    autoboot_for "$1" | write_whole "$COPY"
+    mount_bootsel
+    trap umount_bootsel EXIT
+    autoboot_for "$1" | write_whole "$MNT/autoboot.txt"
+}
+
+# The committed slot: p1's file, else the copy, else the slot running.
+committed() {
+    mount_bootsel
+    trap umount_bootsel EXIT
+    committed_in "$MNT/autoboot.txt" || committed_in "$COPY" || booted
+}
+
+cmd="${1:-}"
+case "$cmd" in
+get-primary)
+    committed
+    ;;
+set-primary)
+    # The slot RAUC just wrote: start it once, as a trial. autoboot.txt already
+    # names the other slot under [tryboot]; it's rewritten whole anyway, so a
+    # deck whose file was damaged gets it back before the trial.
+    [ "$2" != "$(committed)" ] || exit 0
+    commit "$(other "$2")"
+    vcmailbox 0x00038064 4 0 1 >/dev/null
+    ;;
+get-state)
+    if [ "$2" = "$(booted)" ]; then echo good; else echo bad; fi
+    ;;
+set-state)
+    # bad: nothing to undo, as [all] still names the committed slot and the
+    # trial flag lasts one start. good: commit the slot if it's the one running.
+    if [ "$3" = good ] && [ "$2" = "$(booted)" ] && [ "$2" != "$(committed)" ]; then
+        commit "$2"
+    fi
+    ;;
+get-current)
+    booted
+    ;;
+repair)
+    mount_bootsel
+    trap umount_bootsel EXIT
+    if committed_in "$MNT/autoboot.txt" >/dev/null; then
+        s="$(committed_in "$MNT/autoboot.txt")"
+        # Keep the copy in step with the file the firmware reads.
+        committed_in "$COPY" >/dev/null && [ "$(committed_in "$COPY")" = "$s" ] ||
+            autoboot_for "$s" | write_whole "$COPY"
+        exit 0
+    fi
+    s="$(committed_in "$COPY" || booted)"
+    echo "rpi-tryboot: autoboot.txt was missing or invalid; restored for slot $s" >&2
+    autoboot_for "$s" | write_whole "$MNT/autoboot.txt"
+    [ "$s" = "$(booted)" ] || echo reboot
+    ;;
+committed)
+    committed
+    ;;
+booted)
+    if on_trial; then echo "$(booted) trial"; else booted; fi
+    ;;
+*)
+    die "usage: get-primary | set-primary SLOT | get-state SLOT | set-state SLOT good|bad | get-current | repair | committed | booted"
+    ;;
+esac

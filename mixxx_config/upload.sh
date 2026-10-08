@@ -64,6 +64,32 @@ else
     cp TriMixxx.midi.xml TriMixxx.scripts.js "$STAGE/"
 fi
 
+# ---- Every deck's skin and mapping, for a release card --------------------------
+# A release card runs on any deck (pi-qemu/PLAN.md Part 1): at each start its
+# identity unit links the deck's own files from /usr/share/trimixxx/decks/<deck>
+# into ~/.mixxx, or from .../standard for a deck wired as the canonical files
+# say. So every unit file is rendered here, whatever deck this is. Nothing
+# reads them on a dev deck.
+DECKS="$(mktemp -d)"
+trap 'rm -rf "$STAGE" "$DECKS"' EXIT
+for unit in units/*.json; do
+    d="$DECKS/$(basename "$unit" .json)"
+    mkdir -p "$d"
+    cp -R TriMixxx_skin "$d/"
+    python3 units/apply.py "$unit" . "$d" >/dev/null
+done
+mkdir -p "$DECKS/standard"
+cp -R TriMixxx_skin "$DECKS/standard/"
+cp TriMixxx.midi.xml TriMixxx.scripts.js "$DECKS/standard/"
+tar -C "$DECKS" -cf - . | ssh "$HOST" '
+    sudo rm -rf /usr/share/trimixxx/decks.new
+    sudo mkdir -p /usr/share/trimixxx/decks.new
+    sudo tar -C /usr/share/trimixxx/decks.new --no-same-owner -xf -
+    sudo chmod -R u=rwX,go=rX /usr/share/trimixxx/decks.new
+    sudo rm -rf /usr/share/trimixxx/decks
+    sudo mv /usr/share/trimixxx/decks.new /usr/share/trimixxx/decks
+    ls /usr/share/trimixxx/decks'
+
 # ---- Fonts -----------------------------------------------------------------
 # MesloLGL Nerd Font is not a stock Raspberry Pi OS font, and both
 # mixxx.cfg ([Library] Font) and the skin's stylesheet name it. Qt resolves font

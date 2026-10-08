@@ -34,7 +34,7 @@ import sys
 from io import BytesIO
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 # The artwork's own background, so the logo card bleeds into the surrounding
 # screen instead of sitting in a letterbox. This is the SVG's inner CRT panel
@@ -46,6 +46,13 @@ DEFAULT_BG = "#07190f"
 # Fraction of the screen the artwork spans. The rest is margin -- a splash that
 # runs edge to edge on a 7" panel reads as a glitch, not as a logo.
 DEFAULT_FILL = 0.92
+
+# A release card's label under the logo (pi-qemu/PLAN.md §4.1): which slot
+# started, whether as a trial, and the version. In the deck's own font, in the
+# artwork's phosphor green, or its pink while a release is on trial.
+LABEL_FONT = Path(__file__).resolve().parent.parent / "mixxx_config" / "fonts" / "MesloLGLNerdFont-Bold.ttf"
+LABEL_GREEN = "#2c8c5a"
+LABEL_PINK = "#ff2f5e"
 
 
 def rasterise(svg: Path, width: int) -> Image.Image:
@@ -61,8 +68,10 @@ def rasterise(svg: Path, width: int) -> Image.Image:
     return Image.open(BytesIO(png)).convert("RGBA")
 
 
-def compose(svg: Path, w: int, h: int, bg: str, fill: float) -> Image.Image:
-    """The full screen: artwork scaled to `fill` of it, centred on `bg`."""
+def compose(svg: Path, w: int, h: int, bg: str, fill: float,
+            label: str = "", label_colour: str = LABEL_GREEN) -> Image.Image:
+    """The full screen: artwork scaled to `fill` of it, centred on `bg`, and
+    `label` centred in the band below it."""
     art = rasterise(svg, round(w * fill))
     # Rasterise, then re-rasterise if the height overflowed. Cheaper in code
     # than parsing the SVG's viewBox to predict the aspect ratio, and it stays
@@ -72,6 +81,11 @@ def compose(svg: Path, w: int, h: int, bg: str, fill: float) -> Image.Image:
 
     screen = Image.new("RGBA", (w, h), bg)
     screen.alpha_composite(art, ((w - art.width) // 2, (h - art.height) // 2))
+    if label:
+        art_bottom = (h + art.height) // 2
+        font = ImageFont.truetype(str(LABEL_FONT), max(12, h // 22))
+        ImageDraw.Draw(screen).text((w // 2, (art_bottom + h) // 2), label,
+                                    font=font, fill=label_colour, anchor="mm")
     return screen.convert("RGB")
 
 
@@ -116,13 +130,16 @@ def main() -> None:
     ap.add_argument("--bg", default=DEFAULT_BG)
     ap.add_argument("--fill", type=float, default=DEFAULT_FILL)
     ap.add_argument("--preview", type=Path, help="also write the composed image as a PNG")
+    ap.add_argument("--label", default="", help="a line under the logo: a release card's slot")
+    ap.add_argument("--trial", action="store_true", help="the label in the pink of a release on trial")
     args = ap.parse_args()
 
     stride = args.stride or args.width * args.bpp // 8
     if stride < args.width * args.bpp // 8:
         sys.exit(f"splash-render: stride {stride} too small for {args.width}px at {args.bpp}bpp")
 
-    img = compose(args.svg, args.width, args.height, args.bg, args.fill)
+    img = compose(args.svg, args.width, args.height, args.bg, args.fill,
+                  args.label, LABEL_PINK if args.trial else LABEL_GREEN)
     if args.preview:
         img.save(args.preview)
     args.out.write_bytes(pack(img, args.bpp, stride))

@@ -1,0 +1,21 @@
+# What a release leaves out of the system it was built from (`make release`):
+# one path or glob per line, relative to the root, deleted before the root
+# becomes the release's SquashFS. The build's identity and its leftovers: each
+# deck's own identity comes from /data at every start (trimixxx-identity).
+#
+# The NetworkManager profiles all go: the build's pi-qemu-home and its hotspot
+# are per deck, and eth0's keyfile is put back from pi_config.
+etc/ssh/ssh_host_*
+etc/NetworkManager/system-connections/*
+etc/netplan/*
+var/lib/NetworkManager/*
+var/lib/systemd/random-seed
+var/lib/systemd/credential.secret
+var/lib/cloud/*
+var/cache/apt/*.bin
+var/cache/apt/archives/*.deb
+var/swap
+home/*/.bash_history
+root/.bash_history
+tmp/*
+var/tmp/*
