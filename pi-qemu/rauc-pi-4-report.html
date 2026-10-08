@@ -832,7 +832,7 @@ ssh trimixxx2 sudo reboot      <span class="cm"># rollback: a trial of the old s
     <div class="sec-num" aria-hidden="true">8</div>
     <div class="sec-body">
       <h2 id="s8-h"><span class="h-num">8</span>When something goes wrong</h2>
-      <p>Every one of these is rehearsed on the emulated deck first, then on trimixxx3. On the emulated deck, all of them passed on 2026-10-08.</p>
+      <p>Every one of these is rehearsed on the emulated deck first, then on trimixxx3. All of them passed on the emulated deck on 2026-10-08, and on trimixxx3 the same day, power cut and watchdog included.</p>
       <div class="table-wrap">
         <table class="t-wide">
           <thead><tr><th scope="col">What goes wrong</th><th scope="col">What catches it</th><th scope="col">Where the deck ends up</th></tr></thead>
@@ -890,7 +890,7 @@ ssh trimixxx2 sudo reboot      <span class="cm"># rollback: a trial of the old s
         <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">Tryboot in pi-qemu</p><p class="state"><span class="chip same">done</span>2026-10-08</p><p>The QEMU patch for the trial flag; firmware-step filters, tryboot, <code>/chosen/bootloader</code>, the boot partition and watchdog rules as measured, cards of any size.</p><p class="done"><b>Done when</b>the phase 1 card behaves the same in pi-qemu as on trimixxx3.</p></li>
         <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">A locked card</p><p class="state"><span class="chip same">done</span>2026-10-08</p><p>The read-only system (overlayroot, initramfs modules), the <code>/data</code> and state mounts, the identity unit; <code>make release</code> builds the card with genimage in Docker.</p><p class="done"><b>Done when</b>a tag gives a card that boots locked in QEMU, and the RAM layer is measured over a set.</p></li>
         <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">RAUC on the deck</p><p class="state"><span class="chip same">done</span>2026-10-08: the fault table passes in QEMU</p><p>The signing key, <code>system.conf</code>, the backend, the health check; <code>make release</code> adds the bundle, <code>make ship</code> sends it.</p><p class="done"><b>Done when</b>the whole fault table passes in QEMU.</p></li>
-        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">trimixxx3 end to end</p><p class="state"><span class="chip set">next</span>when trimixxx3 is back on the bench</p><p>Its card, flashed once; two releases shipped over the air.</p><p class="done"><b>Done when</b>the fault table passes on hardware.</p></li>
+        <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">trimixxx3 end to end</p><p class="state"><span class="chip same">done</span>2026-10-08: the fault table passes on hardware</p><p>Its card, flashed once; two releases shipped over the air.</p><p class="done"><b>Done when</b>the fault table passes on hardware.</p></li>
         <li class="phase"><span class="ph-n" aria-hidden="true"></span><p class="ph-t">The decks</p><p class="state"><span class="chip set">with Sam</span>one deck at a time</p><p>Bootloader updated, backed up, reflashed once each.</p><p class="done"><b>Done when</b>every deck has taken a release over the air.</p></li>
       </ol>
     </div>

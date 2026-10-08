@@ -8,10 +8,10 @@ records why it is built the way it is.
 the air: A/B slots, chosen by the Pi firmware's own **tryboot** and installed by
 **RAUC**, rehearsed on the emulated deck before any deck sees them. Part 1 is
 that plan, phase by phase, written so that an agent can carry it out. Status on
-2026-10-08: **phases 1 to 4 are done**: the firmware measured on trimixxx3
-(§2.3), pi-qemu starting as it does (§3.5), a locked card (§4.3), and RAUC's
-updates through the whole fault table on the emulated deck (§5.4). Phase 5
-waits for trimixxx3 to be back on the bench; phase 6 is Sam's.
+2026-10-08: **phases 1 to 5 are done**: the firmware measured on trimixxx3
+(§2.3), pi-qemu starting as it does (§3.5), a locked card (§4.3), RAUC's
+updates through the whole fault table on the emulated deck (§5.4), and the
+same on trimixxx3 (§6). Phase 6, the decks, is Sam's.
 
 | Read | For |
 |---|---|
@@ -984,6 +984,58 @@ that the deck can take the next release, and the Ethernet cable gives it
 that. Its HDMI screen shows the splash's slot label (F9).
 
 **Done when** F1 to F9 pass on trimixxx3. F10 was phase 1's T9.
+
+**Done on 2026-10-08.** trimixxx3, its 64 GB card flashed by Sam from
+`pi/v0.0.1` (built from scratch: every cache deleted first), took rehearsals
+0.0.2 and 0.0.3 and 0.0.2's broken releases over the air. Sam agreed to stop
+once the hardware-specific rows had passed: F3 and F7a didn't run.
+
+**The card, §4.3's checks:** all pass but the console, which the bench
+doesn't have cabled.
+- A, partition 2, a normal start: 2.5 s of kernel and 11 s of userspace.
+- `/` is overlayroot's RAM layer over SquashFS p5; a file written to `/etc` is
+  gone after a reboot. `/data` (p7) is read-only, p8 read-write,
+  `/boot/firmware` p2 read-only; `/etc/netplan` is empty.
+- The hostname, the home Wi-Fi, the hotspot profile and the host keys come
+  from `/data`: home Wi-Fi joined 16 s after the start, Wi-Fi country NL.
+- The splash showed `A.raw` on the bench's 1024×600 HDMI screen, and Sam saw
+  "B · trial · v0.0.2" on the first trial.
+- p1 holds `autoboot.txt`, and the `.fseventsd` that macOS left when the card
+  was mounted after flashing: no firmware, so harmless.
+- Mixxx opened the UCA202, once restarted: it was plugged in after the first
+  start. Bootloader 2026-05-17; no failed unit.
+
+| # | On trimixxx3 |
+|---|---|
+| F1 | A bundle cut at 100 MB: "Invalid bundle format: Signature size … exceeds bundle size"; p5 and `rauc status` unchanged |
+| F2 | Sam pulled the power 5 s into the copy of 0.0.2 over A's 0.0.3: B started, a normal start. A is bad, RAUC records its write as `pending`, and p5 matches neither release |
+| F3 | Not run: the trial flag dies with the power (phase 1, T4 and T5) |
+| F4a | `-nonet`: marked bad 159 s after the kernel started ("no network"), back on B 224 s after the reboot command |
+| F4b | `-nossh`: marked bad at 160 s ("sshd isn't running"), B after 228 s |
+| F5 | `-noinitramfs`: the kernel panics, `panic=10` reboots: B after 67 s |
+| F6a | `-panic`: the initramfs gives up and reboots 10 s later: B after 72 s |
+| F6b | `-hang`: the watchdog resets it: B after 120 s (T8: 118 s) |
+| F7a | Not run: F7b covers what the firmware does, and `repair` without a reboot passed in QEMU |
+| F7b | `autoboot.txt` cut short, B committed: p2 (A) started, `repair` restored the copy and rebooted 10 s in; B 54 s after the reboot command |
+| F8 | `mark-active other`: a trial of B with the older 0.0.2, committed 17 s in |
+| F9 | 0.0.2 into B: trial committed 23 s in, once the Wi-Fi was up; 0.0.3 into A: 14 s in |
+
+**Found:**
+- **Over Wi-Fi a bundle crawls, and twice the connection broke.** 4.2 MB/s
+  on the home network, so 263 s for 1.1 GB, then 61 s to install. One ssh
+  handshake was reset and one transfer stalled, with nothing on the deck's
+  side to say why; each time nothing was installed, and the next try went
+  through. The Ethernet cable (eth0's link-local IPv6 is built from its MAC,
+  so the same at every start) did 37 MB/s: about 100 s to send and install.
+  Ship over the cable at the bench, and rerun `make ship` if it stops.
+- **The health log's wall clock is the image's saved time until NTP
+  answers,** which a trial without a network never gets. Its uptime is the
+  one to read.
+- **A trial that dies before userspace (F5, F6) leaves no line in the health
+  log.** RAUC's record says what happened: the version installed, and bad.
+- **The Mac knew none of the new card's host keys.** They're the identity's,
+  in `.cache/decks/trimixxx3/ssh/`, so they can go into `known_hosts` without
+  trusting the first connection; the tests checked the deck against them.
 
 ---
 

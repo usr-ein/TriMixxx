@@ -11,8 +11,9 @@ with the rendered figure beside it for people.
 | `rauc-pi-4-setup.md` | **Design and evidence**: every configuration file, the research, the sources |
 | `rauc-pi-4-report.html`, `rauc-pi-4-figures/` | The visual report and its figures |
 
-Built and tested through phase 4 (2026-10-08): the card, the updates, and
-the whole fault table on the emulated deck. trimixxx3 and the decks come next.
+Built and tested through phase 5 (2026-10-08): the card, the updates, and the
+fault table, on the emulated deck and on trimixxx3, the bench Pi. The decks
+come next.
 Where this file and `PLAN.md` differ, `PLAN.md` wins.
 
 ---
@@ -307,7 +308,9 @@ make card DECK=trimixxx4                      # the release card with that deck'
 ## 8. When something goes wrong
 
 Every row is rehearsed on the emulated deck first, then on trimixxx3. All of
-them passed on the emulated deck on 2026-10-08 (`PLAN.md` §5.4).
+them passed on the emulated deck, and on trimixxx3 where only hardware can
+tell, power cuts and the watchdog included, on 2026-10-08 (`PLAN.md` §5.4,
+§6).
 
 | Fault | What catches it | Ends on |
 |---|---|---|
