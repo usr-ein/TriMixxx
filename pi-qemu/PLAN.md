@@ -1072,8 +1072,15 @@ run those systems.
   `--eeprom` writes the boot watchdog into the newest bootloader image the
   deck's `rpi-eeprom` has (`rpi-eeprom-config --apply`), once `vclog` shows
   Linux starting well within 45 s, reboots the deck to flash it, and checks
-  the version and the config. Run on an emulated dev deck: all of it but the
-  EEPROM, which QEMU doesn't have.
+  the version and the config. The script shows that newest image's date
+  beside the current one: a newer bootloader needs the deck's `rpi-eeprom`
+  upgraded first. Run on an emulated dev deck, all of it but the EEPROM,
+  which QEMU doesn't have; `--eeprom` itself on trimixxx3's A/B card
+  (2026-10-08): Linux at 14.6 s, the update staged on p1 (the boot ROM's
+  place, phase 1), flashed by one reboot, `BOOT_WATCHDOG_TIMEOUT=45` and
+  `BOOT_WATCHDOG_PARTITION=2` read back, p1 tidied to `autoboot.txt` again.
+  The decks run dev cards tonight, whose `/boot/firmware` is p1: the stock
+  path.
 
 **Tonight, for trimixxx1 (alias `trimixxx-pi`) and trimixxx2 (`trimixxx-pi-2`):**
 1. **Prepare each deck** on its current system, with the deck's ssh working:

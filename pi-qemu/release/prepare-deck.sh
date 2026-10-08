@@ -99,6 +99,10 @@ if [[ "$version" =~ ^([0-9]{4})/([0-9]{2})/([0-9]{2}) ]]; then
         echo "  $version: knows tryboot_a_b"
     fi
     D 'vcgencmd bootloader_config 2>/dev/null | grep -E "^(BOOT_WATCHDOG|BOOT_ORDER|NET_INSTALL)" | sed "s/^/  /"' || true
+    # What --eeprom would flash: the newest image this deck's rpi-eeprom package
+    # has. A newer one needs the package upgraded on the deck first
+    # (`sudo apt update && sudo apt install --only-upgrade rpi-eeprom`).
+    D 'sudo rpi-eeprom-update 2>/dev/null | grep -E "^ *(CURRENT|LATEST):" | head -2 | sed "s/^ */  /"' || true
 else
     echo "  none readable (an emulated deck has none)"
 fi
@@ -118,8 +122,10 @@ echo "  its own config.txt lines, for its unit file (a panel's dtoverlay: panelO
 tar -xzOf "$CAPTURE/files.tgz" boot/firmware/config.txt > "$CAPTURE/config.txt" 2>/dev/null || true
 base="$(ls -t "$MAIN"/pi-qemu/release/out/*/boot.vfat 2>/dev/null | head -1)"
 if [ -s "$CAPTURE/config.txt" ] && [ -n "$base" ]; then
-    norm() { sed -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' -e '/^\[all\]$/d'; }
-    MTOOLS_SKIP_CHECK=1 mtype -i "$base" ::/config.txt | sed '/^# Each deck.s own lines/,$d; /^# ---- release/,$d' | norm | sort -u > "$CAPTURE/.base"
+    # Up to the lines a release adds (each deck's sections, its own block), on
+    # both sides: a deck may run a release card already.
+    norm() { sed -e '/^# Each deck.s own lines/,$d' -e '/^# ---- release/,$d' -e 's/#.*//' -e 's/[[:space:]]*$//' -e '/^$/d' -e '/^\[all\]$/d'; }
+    MTOOLS_SKIP_CHECK=1 mtype -i "$base" ::/config.txt | norm | sort -u > "$CAPTURE/.base"
     lines="$(norm < "$CAPTURE/config.txt" | grep -vxF -f "$CAPTURE/.base" || true)"
     rm -f "$CAPTURE/.base"
     if [ -n "$lines" ]; then printf '%s\n' "$lines" | sed 's/^/    /'; else echo "    none: it starts as every deck does"; fi
@@ -147,7 +153,8 @@ if [ -n "$WATCHDOG" ]; then
         printf "BOOT_WATCHDOG_TIMEOUT=45\nBOOT_WATCHDOG_PARTITION=2\n" >> /tmp/boot.conf
         if [ -e /etc/rauc/system.conf ]; then
             # An A/B card: the boot ROM reads recovery.bin from p1, not from the
-            # slot mounted at /boot/firmware.
+            # slot mounted at /boot/firmware. rpi-eeprom-update then warns that
+            # p1 holds no .elf: by design (invariant 13).
             sudo mount /dev/disk/by-partuuid/5d0bc1ec-01 /mnt
             sudo env BOOTFS=/mnt rpi-eeprom-config --apply /tmp/boot.conf
             sync; sudo umount /mnt
@@ -171,6 +178,13 @@ if [ -n "$WATCHDOG" ]; then
     if [ "${day:-0}" -lt 20221201 ] || ! D 'vcgencmd bootloader_config | grep -qx BOOT_WATCHDOG_PARTITION=2'; then
         echo "  the flash didn't take: check the deck before swapping its card" >&2; exit 1
     fi
+    # On an A/B card, the update's files stay on p1: the service that clears
+    # them is masked on a release. p1 keeps autoboot.txt alone (invariant 13).
+    D 'if [ -e /etc/rauc/system.conf ]; then
+        sudo mount /dev/disk/by-partuuid/5d0bc1ec-01 /mnt
+        sudo rm -f /mnt/recovery.bin /mnt/RECOVERY.[0-9]* /mnt/pieeprom.upd /mnt/pieeprom.sig
+        sync; echo "  p1 tidied: $(ls -A /mnt | tr "\n" " ")"; sudo umount /mnt
+    fi'
     status=0
 fi
 
