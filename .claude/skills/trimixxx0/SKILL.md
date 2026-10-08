@@ -119,8 +119,12 @@ pi-qemu deck where NAME                   # the pointer's position
 
 - **A copy of a real stick** (a DJ's files on an external drive): insert
   its folder, or a `.stick` file that also gives the real stick's layout,
-  boot sector, size and speed. See "A folder as a stick" in
-  `pi-qemu/README.md`. A `.stick` with `bytesPerSecond` plays a slow stick.
+  boot sector and size. See "A folder as a stick" in `pi-qemu/README.md`.
+- **A slow stick:** `stick NAME speed ID 4M` (or `4M/300` for reads a
+  second too, `full` to lift it), before or while it is in. Sticks range
+  from ~3 MB/s to over 100, so try what you change at a few speeds.
+  `stick NAME reads ID [reset]` says what the Pi read off a folder stick, by
+  file.
 - **Load a track:** `stick NAME insert SAM3`, `press NAME push`, then browse
   and push until it loads, with a screenshot between steps. With no track
   loaded, most presses change nothing visible.

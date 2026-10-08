@@ -46,6 +46,48 @@ QString plistValue(const QByteArray& plist, const QString& key) {
 
 } // namespace
 
+bool StickSpeed::parse(const QString& text, StickSpeed* out) {
+    // RATE[/READS]: bytes a second with k, M or G for thousands, millions or
+    // billions ("4M" is 4 MB/s), and optionally reads a second; "full" or 0
+    // for no limit.
+    StickSpeed s;
+    const QString t = text.trimmed();
+    if (t.compare("full", Qt::CaseInsensitive) != 0) {
+        const QStringList parts = t.split('/');
+        QString rate = parts.value(0).trimmed();
+        double scale = 1;
+        if (rate.endsWith('k', Qt::CaseInsensitive)) scale = 1e3;
+        else if (rate.endsWith('M', Qt::CaseInsensitive)) scale = 1e6;
+        else if (rate.endsWith('G', Qt::CaseInsensitive)) scale = 1e9;
+        if (scale != 1) rate.chop(1);
+        bool ok = false;
+        const double value = rate.toDouble(&ok);
+        if (!ok || value < 0 || parts.size() > 2) return false;
+        s.bytesPerSecond = qint64(value * scale);
+        if (parts.size() == 2) {
+            s.readsPerSecond = parts[1].trimmed().toInt(&ok);
+            if (!ok || s.readsPerSecond < 0) return false;
+        }
+    }
+    *out = s;
+    return true;
+}
+
+QString StickSpeed::text() const {
+    if (bytesPerSecond <= 0 && readsPerSecond <= 0) return "full speed";
+    QStringList parts;
+    if (bytesPerSecond > 0) parts << QString("%1 MB/s").arg(double(bytesPerSecond) / 1e6, 0, 'f', 1);
+    if (readsPerSecond > 0) parts << QString("%1 reads/s").arg(readsPerSecond);
+    return parts.join(", ");
+}
+
+QJsonObject StickSpeed::limits() const {
+    // Both, always: qom-set leaves alone whatever it is not given, so a limit
+    // lifted has to be said as 0.
+    return QJsonObject{{"bps-read", bytesPerSecond > 0 ? bytesPerSecond : 0},
+                       {"iops-read", readsPerSecond > 0 ? readsPerSecond : 0}};
+}
+
 Sticks::Sticks(Machine* m, QString imagesDir, QObject* parent)
     : QObject(parent), m_machine(m), m_imagesDir(std::move(imagesDir)) {
     connect(m, &Machine::poweredOff, this, [this] { if (m_fdMon >= 0) { ::close(m_fdMon); m_fdMon = -1; } });
@@ -193,29 +235,76 @@ QString Sticks::resolve(const QString& name) const {
     return id;
 }
 
-// The drive under QEMU's usb-storage, read-only whatever is beneath it.
-void Sticks::plug(const QString& id, int n, const QJsonObject& file, const QString& note, Done done) {
-    const QString node = QString("stick%1").arg(n), dev = QString("usbstick%1").arg(n);
+// The drive under QEMU's usb-storage, read-only whatever is beneath it, and
+// read through a throttle group of its own: the stick's speed, which can
+// change while it is in.
+void Sticks::plug(const QString& id, int n, const QJsonObject& file, const StickSpeed& speed, const QString& note,
+                  Done done) {
+    const QString node = QString("stick%1").arg(n), dev = QString("usbstick%1").arg(n), group = QString("tg%1").arg(n);
     auto failed = [=, this](const QString& why) {
+        m_machine->qmp("object-del", QJsonObject{{"id", group}});
         m_servers.erase(n);
         done(false, why);
     };
-    QJsonObject bd{{"node-name", node}, {"driver", "raw"}, {"read-only", true}, {"file", file}};
-    m_machine->qmp("blockdev-add", bd, [=, this](const QJsonObject& r) {
-        if (r.contains("error")) { failed(r["error"].toObject()["desc"].toString()); return; }
-        m_machine->qmp("device_add",
-                       QJsonObject{{"driver", "usb-storage"}, {"id", dev}, {"bus", "xhci.0"}, {"drive", node}},
-                       [=, this](const QJsonObject& r2) {
-                           if (r2.contains("error")) {
-                               m_machine->qmp("blockdev-del", QJsonObject{{"node-name", node}});
-                               failed(r2["error"].toObject()["desc"].toString());
-                               return;
-                           }
-                           m_inserted[id] = n;
-                           emit changed();
-                           done(true, id + " inserted" + (note.isEmpty() ? QString() : ": " + note));
-                       });
+    m_machine->qmp("object-add", QJsonObject{{"qom-type", "throttle-group"}, {"id", group}, {"limits", speed.limits()}},
+                   [=, this](const QJsonObject& r0) {
+        if (r0.contains("error")) { m_servers.erase(n); done(false, r0["error"].toObject()["desc"].toString()); return; }
+        QJsonObject throttled{{"driver", "throttle"}, {"throttle-group", group}, {"read-only", true}, {"file", file}};
+        QJsonObject bd{{"node-name", node}, {"driver", "raw"}, {"read-only", true}, {"file", throttled}};
+        m_machine->qmp("blockdev-add", bd, [=, this](const QJsonObject& r) {
+            if (r.contains("error")) { failed(r["error"].toObject()["desc"].toString()); return; }
+            m_machine->qmp("device_add",
+                           QJsonObject{{"driver", "usb-storage"}, {"id", dev}, {"bus", "xhci.0"}, {"drive", node}},
+                           [=, this](const QJsonObject& r2) {
+                               if (r2.contains("error")) {
+                                   m_machine->qmp("blockdev-del", QJsonObject{{"node-name", node}});
+                                   failed(r2["error"].toObject()["desc"].toString());
+                                   return;
+                               }
+                               m_inserted[id] = n;
+                               m_deviceSpeed[n] = speed;
+                               emit changed();
+                               QString said = id + " inserted";
+                               if (!note.isEmpty()) said += ": " + note;
+                               if (speed.bytesPerSecond > 0 || speed.readsPerSecond > 0) said += ", read at " + speed.text();
+                               done(true, said);
+                           });
+        });
     });
+}
+
+void Sticks::setSpeed(const QString& name, const StickSpeed& speed, Done done) {
+    const QString id = resolve(name);
+    m_speeds[id] = speed;
+    if (!m_inserted.contains(id)) {
+        done(true, id + " will read at " + speed.text() + " when it goes in");
+        return;
+    }
+    const int n = m_inserted.value(id);
+    m_deviceSpeed[n] = speed;
+    const QString group = QString("tg%1").arg(n);
+    m_machine->qmp("qom-set",
+                   QJsonObject{{"path", "/objects/" + group}, {"property", "limits"}, {"value", speed.limits()}},
+                   [=](const QJsonObject& r) {
+                       if (r.contains("error")) done(false, r["error"].toObject()["desc"].toString());
+                       else done(true, id + " reads at " + speed.text());
+                   });
+}
+
+QString Sticks::speedOf(const QString& id) const {
+    if (m_inserted.contains(id)) return m_deviceSpeed.value(m_inserted.value(id)).text();
+    return m_speeds.contains(id) ? m_speeds.value(id).text() + " when it goes in" : QString();
+}
+
+QString Sticks::reads(const QString& name, bool reset) {
+    const QString id = resolve(name);
+    const auto it = m_inserted.find(id);
+    if (it == m_inserted.end()) return id + " is not in";
+    const auto server = m_servers.find(it.value());
+    if (server == m_servers.end()) return id + ": reads are counted for folder sticks only";
+    const QString report = server->second->readsReport();
+    if (reset) server->second->resetReads();
+    return report;
 }
 
 // A folder, or a .stick file naming one: a FAT32 disk made up from it, served
@@ -245,19 +334,20 @@ void Sticks::insertFolder(const QString& id, int n, Done done) {
             self->m_pending.remove(id);
             if (!volume) { done(false, error); return; }
             if (!self->m_machine->running()) { done(false, "the Pi is not running"); return; }
-            auto server = std::make_unique<NbdServer>(volume, socket, spec.bytesPerSecond);
+            auto server = std::make_unique<NbdServer>(volume, socket);
             QString err;
             if (!server->start(&err)) { done(false, err); return; }
             self->m_servers[n] = std::move(server);
-            const QString rate = spec.bytesPerSecond > 0
-                                     ? QString(", read at %1 MB/s").arg(double(spec.bytesPerSecond) / 1e6, 0, 'f', 1)
-                                     : QString();
+            // A speed set for it beforehand wins over the .stick file's.
+            const StickSpeed speed = self->m_speeds.contains(id)
+                                         ? self->m_speeds.value(id)
+                                         : StickSpeed{spec.bytesPerSecond, spec.readsPerSecond};
             self->plug(id, n,
                        QJsonObject{{"driver", "nbd"},
                                    {"server", QJsonObject{{"type", "unix"}, {"path", socket}}},
                                    {"export", NbdServer::kExport},
                                    {"read-only", true}},
-                       volume->summary() + rate, done);
+                       speed, volume->summary(), done);
         }, Qt::QueuedConnection);
     }).detach();
 }
@@ -269,7 +359,7 @@ void Sticks::insert(const QString& name, Done done) {
     if (!m_machine->running()) { done(false, "the Pi is not running"); return; }
 
     const int n = m_next++;
-    auto plug = [=, this](const QJsonObject& file) { this->plug(id, n, file, QString(), done); };
+    auto plug = [=, this](const QJsonObject& file) { this->plug(id, n, file, m_speeds.value(id), QString(), done); };
     if (QFileInfo(id).isDir() || (QFileInfo(id).isFile() && id.endsWith(".stick"))) {
         insertFolder(id, n, done);
         return;
@@ -318,6 +408,8 @@ void Sticks::unplug(const QString& name, Done done) {
     m_machine->qmp("device_del", QJsonObject{{"id", dev}}, [=, this](const QJsonObject&) {
         QTimer::singleShot(500, this, [=, this] {
             m_machine->qmp("blockdev-del", QJsonObject{{"node-name", node}}, [=, this](const QJsonObject&) {
+                m_machine->qmp("object-del", QJsonObject{{"id", QString("tg%1").arg(n)}});
+                m_deviceSpeed.remove(n);
                 dropFdset(100 + n);
                 m_servers.erase(n); // QEMU has let go of a folder stick's socket
                 if (id.startsWith("disk")) run("diskutil", {"mountDisk", id});
@@ -333,5 +425,6 @@ void Sticks::forgetAll() {
         if (it.key().startsWith("disk")) run("diskutil", {"mountDisk", it.key()});
     m_inserted.clear();
     m_servers.clear();
+    m_deviceSpeed.clear();
     emit changed();
 }

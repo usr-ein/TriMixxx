@@ -208,6 +208,7 @@ FatSpec FatSpec::load(const QString& file) {
     s.label = o.value("label").toString();
     s.clusterBytes = quint32(o.value("clusterKiB").toInt() * 1024);
     s.bytesPerSecond = qint64(o.value("bytesPerSecond").toDouble());
+    s.readsPerSecond = o.value("readsPerSecond").toInt();
     if (o.contains("serial")) {
         bool ok = false;
         s.serial = o.value("serial").toString().remove('-').toUInt(&ok, 16);
@@ -515,18 +516,26 @@ bool FatVolume::readData(quint64 rel, char* out, quint64 n, QString* error) cons
                 std::memcpy(out, e.dirData.constData() + within, have);
             } else if (have) {
                 std::lock_guard<std::mutex> lock(m_fdLock);
-                const int fd = fileFd(r.entry, error);
-                if (fd < 0) return false;
+                // Twice at most: a descriptor that fails is dropped and the
+                // file opened again by its path, so a drive that went away
+                // for a moment (a cable knocked out and back) does not leave
+                // the stick failing for good on descriptors to its old mount.
                 quint64 got = 0;
+                int failures = 0;
                 while (got < have) {
+                    const int fd = fileFd(r.entry, error);
+                    if (fd < 0) return false;
                     const ssize_t k = ::pread(fd, out + got, have - got, off_t(within + got));
                     if (k < 0 && errno == EINTR) continue;
-                    if (k <= 0) {
-                        *error = QString("%1: %2").arg(QString::fromUtf8(e.hostPath),
-                                                       k < 0 ? QString::fromLocal8Bit(strerror(errno)) : "shorter than it was");
-                        return false;
+                    if (k > 0) {
+                        got += quint64(k);
+                        continue;
                     }
-                    got += quint64(k);
+                    *error = QString("%1: %2").arg(QString::fromUtf8(e.hostPath),
+                                                   k < 0 ? QString::fromLocal8Bit(strerror(errno)) : "shorter than it was");
+                    m_fdOrder.removeOne(r.entry);
+                    ::close(m_fds.take(r.entry));
+                    if (++failures > 1) return false;
                 }
             }
             std::memset(out + have, 0, chunk - have); // the rest of its last cluster
@@ -568,6 +577,27 @@ bool FatVolume::read(quint64 offset, char* out, quint64 length, QString* error) 
         length -= n;
     }
     return true;
+}
+
+QString FatVolume::pathOf(int entry) const {
+    QStringList parts;
+    for (int e = entry; e > 0; e = m_entries[e].parent) parts.prepend(m_entries[e].name);
+    return "/" + parts.join('/');
+}
+
+QString FatVolume::describe(quint64 offset) const {
+    const quint64 volume = m_volumeOffset, fats = volume + quint64(m_reserved.size()),
+                  data = volume + m_dataOffset, end = volume + m_volumeBytes;
+    if (offset < volume) return offset < kSector ? "partition table" : "before the partition";
+    if (offset < fats) return "boot sectors";
+    if (offset < data) return "FAT";
+    if (offset >= end) return "past the volume";
+    const quint32 cluster = quint32((offset - data) / m_clusterBytes) + 2;
+    auto it = std::upper_bound(m_runs.begin(), m_runs.end(), cluster,
+                               [](quint32 c, const Run& r) { return c < r.first; });
+    if (it == m_runs.begin() || cluster >= (it - 1)->first + (it - 1)->count) return "free space";
+    const int entry = (it - 1)->entry;
+    return m_entries[entry].dir ? "folder " + (entry == 0 ? QString("/") : pathOf(entry) + "/") : pathOf(entry);
 }
 
 QString FatVolume::summary() const {

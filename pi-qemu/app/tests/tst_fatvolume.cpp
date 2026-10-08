@@ -224,6 +224,31 @@ private slots:
         QVERIFY(!QFileInfo::exists(socket));
     }
 
+    // What a read lands on, by name: what the read report counts.
+    void describesWhatIsWhere() {
+        QTemporaryDir tmp;
+        makeStick(tmp.filePath("stick"));
+        FatSpec spec;
+        spec.folder = tmp.filePath("stick");
+        spec.size = 300ull << 20;
+        const FatVolume v(spec);
+        QCOMPARE(v.describe(0), QString("partition table"));
+        QCOMPARE(v.describe(4096), QString("before the partition"));
+        QCOMPARE(v.describe(2048 * 512), QString("boot sectors"));
+        QCOMPARE(v.describe(2048 * 512 + 32 * 512), QString("FAT"));
+        QCOMPARE(v.describe(v.size() - 1), QString("free space"));
+        // Everything up to the free space: the folders and files, each found.
+        QHash<QString, int> seen;
+        for (quint64 at = 2048 * 512; at < v.size(); at += 4096) {
+            const QString what = v.describe(at);
+            if (what == "free space") break;
+            seen[what]++;
+        }
+        QVERIFY2(seen.contains("folder /"), qPrintable(QStringList(seen.keys()).join(", ")));
+        QVERIFY2(seen.contains("folder /PIONEER/"), qPrintable(QStringList(seen.keys()).join(", ")));
+        QVERIFY2(seen.contains("/PIONEER/rekordbox/EXPORT.PDB"), qPrintable(QStringList(seen.keys()).join(", ")));
+    }
+
     // What cannot be a FAT32 stick is said, not served wrong.
     void refusals() {
         QTemporaryDir tmp;

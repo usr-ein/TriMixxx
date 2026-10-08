@@ -23,6 +23,8 @@ QString ControlServer::help() {
                           "USB sticks (two slots, read-only):\n"
                           "  stick list | stick insert ID | stick unplug ID\n"
                           "      ID: diskN, an image file, a folder, or a .stick file describing one\n"
+                          "  stick speed RATE ID    how fast it reads: 4M (bytes/s), 4M/300 (and reads/s), full\n"
+                          "  stick reads ID | stick reads-reset ID   what the Pi read off a folder stick, by file\n"
                           "Its eth0, the CDJ port:\n"
                           "  link                   its link (the network it shares with other decks), and\n"
                           "                         the player it announces there\n"
@@ -89,17 +91,27 @@ void ControlServer::onLine(QLocalSocket* client, const QString& line) {
     } else if (cmd == "stick" && !w.isEmpty()) {
         if (w[0] == "list") {
             QStringList out;
-            for (const auto& s : m_sticks->list())
-                out << QString("%1  %2  %3 MB  %4").arg(s.id, -8).arg(s.name, -28)
-                           .arg(s.size / 1000000).arg(s.inserted ? "INSERTED" : "-");
+            for (const auto& s : m_sticks->list()) {
+                const QString speed = m_sticks->speedOf(s.id);
+                out << QString("%1  %2  %3 MB  %4%5").arg(s.id, -8).arg(s.name, -28)
+                           .arg(s.size / 1000000).arg(s.inserted ? "INSERTED" : "-")
+                           .arg(speed.isEmpty() ? QString() : "  (" + speed + ")");
+            }
             reply(c, true, out.isEmpty() ? "no USB storage on this computer" : out.join('\n'));
+        } else if (w[0] == "speed" && w.size() > 2) {
+            StickSpeed speed;
+            if (!StickSpeed::parse(w[1], &speed)) { reply(c, false, w[1] + ": not a speed (4M, 3.7M/300, full)"); return; }
+            m_sticks->setSpeed(line.section(' ', 3, -1, QString::SectionSkipEmpty), speed,
+                               [this, c](bool ok, const QString& msg) { reply(c, ok, msg); });
+        } else if ((w[0] == "reads" || w[0] == "reads-reset") && w.size() > 1) {
+            reply(c, true, m_sticks->reads(line.section(' ', 2, -1, QString::SectionSkipEmpty), w[0] == "reads-reset"));
         } else if ((w[0] == "insert" || w[0] == "unplug") && w.size() > 1) {
             auto done = [this, c](bool ok, const QString& msg) { reply(c, ok, msg); };
             // The rest of the line, spaces and all: a folder's name may have some.
             const QString id = line.section(' ', 2, -1, QString::SectionSkipEmpty);
             if (w[0] == "insert") m_sticks->insert(id, done); else m_sticks->unplug(id, done);
         } else {
-            reply(c, false, "stick list | stick insert ID | stick unplug ID");
+            reply(c, false, "stick list | insert ID | unplug ID | speed RATE ID | reads ID | reads-reset ID");
         }
     } else if (cmd == "status") {
         const Link* link = m_machine->options().link;

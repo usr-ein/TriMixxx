@@ -499,12 +499,47 @@ A `.stick` file (JSON) says how the stick was laid out. Every key but
 | `mbr` | a real stick's first sector, partition table included |
 | `label`, `serial` | the volume label, and the serial blkid reports as the UUID (`"E02C-5D1B"`) |
 | `clusterKiB` | the cluster size (default: mkfs.fat's for the size) |
-| `bytesPerSecond` | reads no faster than this, like a slow stick (a USB 2 Cruzer Blade: `3700000`) |
+| `bytesPerSecond` | reads no faster than this, like a slow stick (a USB 2 Cruzer Blade: `3700000`); see "A slow stick" |
+| `readsPerSecond` | and no more reads a second than this, small or large (what makes a cheap stick's small reads slow too) |
 
 Names go onto the stick NFC, as rekordbox's sticks have them: macOS hands a
 folder's accented names back decomposed, and serving those as they come would
 make a stick no deck has ever seen. A file of 4 GiB or more, or two names that
 differ only in case, cannot be on a FAT32 stick, and the insert says so.
+
+### A slow stick, and what the deck reads off it
+
+Every stick reads through a QEMU throttle group of its own, so any stick --
+a folder, an image, the Mac's own -- can be made as slow as a real one, and
+its speed changed while it is in:
+
+```sh
+pi-qemu deck stick mix speed SANDISK 4M        # 4 MB/s, a cheap USB 2 stick
+pi-qemu deck stick mix speed SANDISK 4M/300    # ...and 300 reads a second
+pi-qemu deck stick mix speed SANDISK full      # as fast as it goes
+pi-qemu deck stick mix list                    # an inserted stick shows its speed
+```
+
+A speed set before the stick goes in applies from its first read; one set
+while it is in takes effect at once (QMP `qom-set` on its group's `limits`).
+Sticks really do vary that much: a Cruzer Blade gave 3.7 MB/s, a SanDisk 3.2
+on USB 3 well over 100.
+
+For a folder stick, pi-qemu also counts what the Pi reads, file by file:
+what a browse reads, what a load reads, and what was read that nobody asked
+for:
+
+```sh
+pi-qemu deck stick mix reads SANDISK           # since it went in, or the last reset
+pi-qemu deck stick mix reads SANDISK reset     # the same, then start counting again
+```
+
+```text
+139.3 MB in 3612 reads over 46.4 s (3.0 MB/s on average), from 1102 files and regions
+   80.4 MB     643 reads  /Contents/Zoe/UnknownAlbum/Zoe - Transient Shift.wav
+   58.3 MB     466 reads  /Contents/FAÏG/South West EP/FAÏG - South West EP - 03 Deep Within.aiff
+    0.3 MB     598 reads  FAT
+```
 
 ### Check the audio without hearing it
 

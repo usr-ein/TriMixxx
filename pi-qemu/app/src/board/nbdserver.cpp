@@ -3,13 +3,14 @@
 #include "board/fatvolume.h"
 
 #include <QFile>
+#include <QStringList>
 #include <QtEndian>
 
-#include <chrono>
 #include <cstring>
 #include <poll.h>
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <algorithm>
 #include <unistd.h>
 #include <vector>
 
@@ -75,8 +76,10 @@ bool optionReply(int fd, quint32 option, quint32 type, const Out& data = {}) {
 
 } // namespace
 
-NbdServer::NbdServer(std::shared_ptr<const FatVolume> volume, QString socketPath, qint64 bytesPerSecond)
-    : m_volume(std::move(volume)), m_path(std::move(socketPath)), m_rate(bytesPerSecond) {}
+NbdServer::NbdServer(std::shared_ptr<const FatVolume> volume, QString socketPath)
+    : m_volume(std::move(volume)), m_path(std::move(socketPath)) {
+    m_since.start();
+}
 
 NbdServer::~NbdServer() { stop(); }
 
@@ -173,8 +176,6 @@ void NbdServer::serve(int fd) {
     }
 
     // Transmission.
-    using Clock = std::chrono::steady_clock;
-    Clock::time_point free = Clock::now(); // when a slow stick can start on the next read
     std::vector<char> buf;
     while (!m_stop) {
         char req[28];
@@ -194,10 +195,7 @@ void NbdServer::serve(int fd) {
                 if (!reply(kEio)) return;
                 continue;
             }
-            if (m_rate > 0) { // a slow stick: each read takes its time, after the one before it
-                free = std::max(free, Clock::now()) + std::chrono::microseconds(quint64(length) * 1000000 / quint64(m_rate));
-                std::this_thread::sleep_until(free);
-            }
+            count(offset, length);
             if (!reply(0) || !writeAll(fd, buf.data(), length)) return;
             continue;
         }
@@ -210,4 +208,46 @@ void NbdServer::serve(int fd) {
         if (type == kCmdFlush || type == kCmdCache) { if (!reply(0)) return; continue; }
         if (!reply(type == 4 || type == 6 ? kEperm : kEinval)) return; // trim, write zeroes; anything else
     }
+}
+
+void NbdServer::count(quint64 offset, quint32 length) {
+    // By where the read starts: a read spanning two files is rare (they are
+    // laid out a cluster apart) and short.
+    const QString what = m_volume->describe(offset);
+    std::lock_guard<std::mutex> lock(m_readsLock);
+    Read& r = m_reads[what];
+    r.bytes += length;
+    r.count++;
+}
+
+void NbdServer::resetReads() {
+    std::lock_guard<std::mutex> lock(m_readsLock);
+    m_reads.clear();
+    m_since.restart();
+}
+
+QString NbdServer::readsReport(int top) const {
+    std::lock_guard<std::mutex> lock(m_readsLock);
+    QList<QPair<QString, Read>> items;
+    quint64 total = 0;
+    int reads = 0;
+    for (auto it = m_reads.constBegin(); it != m_reads.constEnd(); ++it) {
+        items.append({it.key(), it.value()});
+        total += it.value().bytes;
+        reads += it.value().count;
+    }
+    std::sort(items.begin(), items.end(), [](const auto& a, const auto& b) { return a.second.bytes > b.second.bytes; });
+    auto mb = [](quint64 b) { return QString::number(double(b) / 1e6, 'f', 1) + " MB"; };
+    const double secs = std::max(0.001, m_since.elapsed() / 1000.0);
+    QStringList out{QString("%1 in %2 reads over %3 s (%4/s on average), from %5 files and regions")
+                        .arg(mb(total)).arg(reads).arg(secs, 0, 'f', 1).arg(mb(quint64(double(total) / secs)))
+                        .arg(items.size())};
+    for (int i = 0; i < items.size() && i < top; i++)
+        out << QString("%1  %2 reads  %3").arg(mb(items[i].second.bytes), 10).arg(items[i].second.count, 6).arg(items[i].first);
+    if (items.size() > top) {
+        quint64 rest = 0;
+        for (int i = top; i < items.size(); i++) rest += items[i].second.bytes;
+        out << QString("%1  in %2 more").arg(mb(rest), 10).arg(items.size() - top);
+    }
+    return out.join('\n');
 }

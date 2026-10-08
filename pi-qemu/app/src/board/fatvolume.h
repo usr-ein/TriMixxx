@@ -29,7 +29,8 @@ struct FatSpec {
     quint32    clusterBytes = 0;       // 0: as mkfs.fat would choose for the size
     QByteArray volumeStart;            // a real volume's reserved sectors (boot sector, FSInfo, backup), as they were
     QByteArray mbr;                    // a real disk's first sector, partition table and all
-    qint64     bytesPerSecond = 0;     // read no faster than this, like a slow stick (0: as fast as it goes)
+    qint64     bytesPerSecond = 0;     // reads no faster than this, like a slow stick (0: as fast as it goes)
+    int        readsPerSecond = 0;     // and no more reads a second than this, small or large (0: no limit)
 
     // A .stick file: JSON naming the folder and any of the above (README, "USB sticks").
     static FatSpec load(const QString& file); // throws Failure
@@ -49,6 +50,9 @@ public:
     bool read(quint64 offset, char* out, quint64 length, QString* error) const;
     // "8128 files in 1406 folders, 76.2 GB on a 123.0 GB superfloppy"
     QString summary() const;
+    // What the disk holds at *offset*: a file's path on the stick, "folder
+    // /PIONEER/", "FAT", "boot sectors", "free space". Thread-safe.
+    QString describe(quint64 offset) const;
 
 private:
     struct Entry;
@@ -61,6 +65,7 @@ private:
     void layOut(const FatSpec& spec, quint64 neededBytes);
     void allocate(int index);
     QByteArray directoryBytes(int dir) const;
+    QString pathOf(int entry) const;
     bool readData(quint64 rel, char* out, quint64 n, QString* error) const;
     int  fileFd(int entry, QString* error) const;
 
