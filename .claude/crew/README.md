@@ -97,9 +97,11 @@ Mac recovers.
 
 ## Safety
 
-The hooks in `.claude/settings.json` act on registered crew sessions only
-(`crew register`, the first thing each skill does). Other sessions pay ~30 ms
-a tool call and are otherwise untouched.
+The hooks in `.claude/settings.json` act on registered crew sessions only.
+A session `crew` launches is registered before its first tool call (a resumed
+one too, though Claude Code brings it back as a copy with a new id); one Sam
+starts by hand registers with `crew register`, its skill's first step. Other
+sessions pay ~30 ms a tool call and are otherwise untouched.
 
 - **guard** (before Bash and file writes) refuses a crew session:
   - pushing anything but its own branch, merging, or writing outside its

@@ -19,7 +19,9 @@ if __name__ == "__main__" and sys.argv[1:2] == ["hook"]:
     _sid = _HOOK_INPUT[_at:].split('"')[3] if _at >= 0 else ""
     _main = os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
     _state = os.environ.get("CREW_STATE") or os.path.join(_main.split("/.claude/worktrees/")[0], ".crew")
-    if not _sid or "/" in _sid or not os.path.exists(os.path.join(_state, "sessions", _sid + ".json")):
+    _launched_by_crew = sys.argv[2:3] == ["session"] and os.environ.get("CREW_ROLE")
+    if not _sid or "/" in _sid or not (os.path.exists(os.path.join(_state, "sessions", _sid + ".json"))
+                                       or _launched_by_crew):
         sys.exit(0)
 
 
@@ -76,7 +78,7 @@ ROLES = ("minion", "bitch", "nightman")
 HERE = Path(__file__).resolve().parent  # .claude/crew in the checkout this script lives in
 CHECKOUT = HERE.parents[1]  # that checkout: the main one, or a worktree under .claude/worktrees/
 MAIN = Path(str(CHECKOUT).split("/.claude/worktrees/")[0])  # the main checkout, where branches are merged
-CREW = Path(os.environ.get("CREW_STATE") or MAIN / ".crew")  # crew state, ignored by git: sessions/, night/, archive/
+CREW = Path(os.environ.get("CREW_STATE") or MAIN / ".crew")  # crew state, ignored by git: sessions/, drift/, night/, archive/
 
 
 class Fail(Exception):
@@ -160,6 +162,8 @@ def registration(sid) -> dict | None:
         reg = json.loads((CREW / "sessions" / f"{sid}.json").read_text())
     except (OSError, ValueError):
         return None
+    if not isinstance(reg, dict) or reg.get("role") not in ROLES:
+        return None
     reg["sid"] = sid
     return reg
 
@@ -188,7 +192,9 @@ def live_session(name: str, sessions=None) -> dict | None:
     return None
 
 
-def launch(name: str, wt: Path, bg: bool, prompt: str, resume_sid=None, model=None) -> int:
+def launch(name: str, wt: Path, bg: bool, prompt: str, crew_env: dict, resume_sid=None, model=None) -> int:
+    """crew_env (CREW_ROLE, CREW_MODE, CREW_BRANCH, CREW_WORKTREE) lets the session register itself at its
+    start, before its first tool call; a resumed session comes back as a copy with a new id, and does too."""
     live = live_session(name)
     if live and not resume_sid:
         print(f"{name} is already running ({live.get('kind')}, {live.get('status')}): send it a message, "
@@ -203,12 +209,23 @@ def launch(name: str, wt: Path, bg: bool, prompt: str, resume_sid=None, model=No
     # A session launched from another (the nightman's shell) must not inherit its identity.
     env = {k: v for k, v in os.environ.items()
            if not (k.startswith(("CLAUDE_CODE_", "CLAUDE_PID", "CLAUDECODE")) and k != "CLAUDE_CODE_EFFORT_LEVEL")}
+    env.update(crew_env)
     if not bg:
         os.chdir(wt)
         os.execvpe("claude", cmd, env)
     r = run(cmd, cwd=wt, timeout=120, env=env)
     m = re.search(r"backgrounded\W+(\w+)", r.stdout)
-    print(f"{name}: running in the background as {m.group(1) if m else '?'} in {wt}; "
+    short = m.group(1) if m else None
+    if short and crew_env.get("CREW_ROLE"):
+        # A resumed session comes back as a copy with a new id, and without the environment above: register it here.
+        for _ in range(20):
+            s = next((s for s in claude_sessions() if s.get("id") == short), None)
+            if s and s.get("sessionId"):
+                register_session(s["sessionId"], crew_env["CREW_ROLE"], crew_env["CREW_MODE"],
+                                 crew_env["CREW_BRANCH"] or None, Path(crew_env["CREW_WORKTREE"]))
+                break
+            time.sleep(0.5)
+    print(f"{name}: running in the background as {short or '?'} in {wt}; "
           f"`claude attach {name}` opens it, `claude agents` lists it")
     return 0
 
@@ -406,7 +423,7 @@ def cmd_minion(a) -> int:
     sid = None
     if a.resume:
         sid = latest_sid("minion", b)
-    return launch(b, wt, a.bg or a.night, a.prompt or f"/minion {mode}", sid, a.model)
+    return launch(b, wt, a.bg or a.night, a.prompt or f"/minion {mode}", crew_env("minion", mode, b, wt), sid, a.model)
 
 
 def cmd_bitch(a) -> int:
@@ -417,7 +434,8 @@ def cmd_bitch(a) -> int:
     if a.brief:
         shutil.copyfile(a.brief, wt / ".crew" / "review-brief.md")
     sid = latest_sid("bitch", b) if a.resume else None
-    return launch(f"{b}-bitch", wt, a.bg or a.night, a.prompt or f"/bitch {b} {mode}", sid, a.model)
+    return launch(f"{b}-bitch", wt, a.bg or a.night, a.prompt or f"/bitch {b} {mode}", crew_env("bitch", mode, b, wt),
+                  sid, a.model)
 
 
 def latest_sid(role: str, branch: str) -> str:
@@ -433,12 +451,31 @@ def cmd_resume(a) -> int:
         die(f"no registered crew session named {a.name}")
     reg = max(regs, key=lambda r: r.get("since", ""))
     live = live_session(a.name)
-    if live and live.get("sessionId") == reg["sid"]:
+    if live:
         print(f"{a.name} is alive ({live.get('status')}): send it a message instead")
         return 0
     wt = Path(reg["worktree"])
-    prompt = a.prompt or "You were resumed. Carry on per your crew skill (re-read it, your pitch and notes first)."
-    return launch(a.name, wt, True, prompt, reg["sid"], a.model)
+    skill = MAIN / ".claude" / "skills" / reg["role"] / "SKILL.md"
+    notes = f"{CREW}/night/plan.md" if reg["role"] == "nightman" else "your .crew/pitch.md and .crew/notes.md"
+    prompt = (f"You were resumed as the crew's {reg['role']}" + (f" for {reg['branch']}" if reg.get("branch") else "") +
+              f" ({reg['mode']} mode). First re-read {skill}, then {notes}. " +
+              (a.prompt or "Then carry on per your skill."))
+    return launch(a.name, wt, True, prompt, crew_env(reg["role"], reg["mode"], reg.get("branch"), wt), reg["sid"],
+                  a.model)
+
+
+def crew_env(role: str, mode: str, branch, wt: Path) -> dict:
+    return {"CREW_ROLE": role, "CREW_MODE": mode, "CREW_BRANCH": branch or "", "CREW_WORKTREE": str(wt)}
+
+
+def register_session(sid: str, role: str, mode: str, branch, top: Path) -> dict:
+    (CREW / "sessions").mkdir(parents=True, exist_ok=True)
+    old = registration(sid) or {}
+    reg = {"role": role, "mode": mode, "branch": branch, "worktree": str(top),
+           "since": old.get("since") if old.get("role") == role else now_iso(), "updated": now_iso()}
+    (CREW / "sessions" / f"{sid}.json").write_text(json.dumps(reg, indent=2) + "\n")
+    reg["sid"] = sid
+    return reg
 
 
 def cmd_register(a) -> int:
@@ -454,11 +491,7 @@ def cmd_register(a) -> int:
         branch = a.branch or git(top, "branch", "--show-current")
     else:
         top = MAIN
-    (CREW / "sessions").mkdir(parents=True, exist_ok=True)
-    old = registration(sid) or {}
-    reg = {"role": a.role, "mode": a.mode, "branch": branch, "worktree": str(top),
-           "since": old.get("since") if old.get("role") == a.role else now_iso(), "updated": now_iso()}
-    (CREW / "sessions" / f"{sid}.json").write_text(json.dumps(reg, indent=2) + "\n")
+    reg = register_session(sid, a.role, a.mode, branch, top)
     print(f"registered {session_name(reg)}: {a.role}, {a.mode} mode, in {top}")
     return 0
 
@@ -725,7 +758,7 @@ def cmd_clean(a) -> int:
     for reg in registrations():
         if reg.get("branch") == b:
             (CREW / "sessions" / f"{reg['sid']}.json").unlink(missing_ok=True)
-            (CREW / "sessions" / f"{reg['sid']}.drift.json").unlink(missing_ok=True)
+            (CREW / "drift" / f"{reg['sid']}.json").unlink(missing_ok=True)
     return 0
 
 
@@ -966,7 +999,8 @@ def hook_guard(data: dict, reg: dict):
 def hook_drift(data: dict, reg: dict):
     if reg["role"] != "minion":
         return None
-    lim, path = limits(), CREW / "sessions" / f"{reg['sid']}.drift.json"
+    lim, path = limits(), CREW / "drift" / f"{reg['sid']}.json"
+    path.parent.mkdir(exist_ok=True)
     try:
         st = json.loads(path.read_text())
     except (OSError, ValueError):
@@ -1029,6 +1063,10 @@ def cmd_hook(a) -> int:
     try:
         data = json.loads(_HOOK_INPUT if _HOOK_INPUT is not None else sys.stdin.read())
         reg = registration(data.get("session_id"))
+        if not reg and a.kind == "session" and os.environ.get("CREW_ROLE") in ROLES and data.get("session_id"):
+            reg = register_session(data["session_id"], os.environ["CREW_ROLE"], os.environ.get("CREW_MODE", "day"),
+                                   os.environ.get("CREW_BRANCH") or None,
+                                   Path(os.environ.get("CREW_WORKTREE") or data.get("cwd") or MAIN))
         if reg:
             result = HOOKS[a.kind](data, reg)
             if result:

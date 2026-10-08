@@ -7,6 +7,7 @@ on throwaway repositories (a parent with a submodule, as TriMixxx and the Mixxx 
 import argparse
 import importlib.machinery
 import importlib.util
+import json
 import os
 import shutil
 import subprocess
@@ -169,6 +170,33 @@ class HookTest(Sandbox):
         self.assertIn("hot-plug sticks", text)
         self.assertIn("1 file changed", text)
         self.assertIn("0 uncommitted", text)
+
+    def test_drift_state_is_not_a_session(self):
+        """Regression: drift counters next to the registrations broke `crew resume` and `crew status`."""
+        (crew.CREW / "sessions" / "s1.json").write_text(
+            '{"role": "minion", "mode": "night", "branch": "feat", "worktree": "%s"}' % self.wt)
+        (crew.CREW / "sessions" / "junk.json").write_text('{"calls": 3, "last": 1}')
+        for _ in range(4):
+            crew.hook_drift({}, self.reg)
+        self.assertEqual([r["sid"] for r in crew.registrations()], ["s1"])
+        self.assertTrue((crew.CREW / "drift" / "s1.json").exists())
+
+    def test_a_session_crew_launched_registers_itself(self):
+        env = dict(os.environ, CREW_LOCAL="1", CREW_STATE=str(crew.CREW), CREW_ROLE="minion", CREW_MODE="night",
+                   CREW_BRANCH="feat", CREW_WORKTREE=str(self.wt))
+
+        def start(sid, env):
+            hook = json.dumps({"session_id": sid, "source": "resume", "cwd": str(self.wt)})
+            return subprocess.run(["python3", str(HERE / "crew"), "hook", "session"], input=hook,
+                                  capture_output=True, text=True, env=env).stdout
+
+        out = json.loads(start("s7", env))["hookSpecificOutput"]
+        self.assertEqual(out["sessionTitle"], "feat")
+        self.assertIn("re-read", out["additionalContext"])
+        self.assertEqual((crew.registration("s7") or {}).get("role"), "minion")
+        env.pop("CREW_ROLE")
+        self.assertEqual(start("s8", env), "")
+        self.assertIsNone(crew.registration("s8"))
 
     def test_drift_only_for_minions(self):
         self.assertIsNone(crew.hook_drift({}, dict(self.reg, role="bitch")))
