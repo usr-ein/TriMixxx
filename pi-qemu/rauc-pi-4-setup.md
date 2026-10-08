@@ -116,7 +116,7 @@ kernel_watchdog_timeout=60
 `rauc.slot=B` and `-03`:
 
 ```
-console=tty1 root=PARTUUID=<id>-05 rootfstype=squashfs rootwait panic=10 overlayroot=tmpfs:recurse=0 rauc.slot=A systemd.mount-extra=PARTUUID=<id>-02:/boot/firmware:vfat:ro
+console=tty1 root=PARTUUID=<id>-05 rootfstype=squashfs rootwait panic=10 cfg80211.ieee80211_regdom=NL overlayroot=tmpfs:recurse=0 rauc.slot=A systemd.mount-extra=PARTUUID=<id>-02:/boot/firmware:vfat:ro
 ```
 
 Each part of that line comes from a standard component:
@@ -128,6 +128,9 @@ Each part of that line comes from a standard component:
   that long on every start before it looks for the root (phase 4 found 20 s
   added to each boot). `rootwait` is stock Pi OS's, and only applies when the
   kernel mounts the root itself.
+- `cfg80211.ieee80211_regdom=NL`: the Wi-Fi country, the Netherlands (Sam,
+  2026-10-08), set the way raspi-config sets it on Pi OS. Without one, Wi-Fi
+  runs on the restrictive world default.
 - `overlayroot=…`: Debian's overlayroot (§3.3). With `recurse=0` it rewrites
   only `/` and leaves `/data` and `/var/lib/rauc` as plain mounts (its
   script, and the release card in pi-qemu: phase 3).

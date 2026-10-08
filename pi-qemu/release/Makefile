@@ -22,8 +22,10 @@
 # privileged, to mount the built card read-only. The inputs come from the main
 # checkout, also from a git worktree: Pi OS's image and the built system card
 # (pi-qemu/.cache), and the console password (pi-qemu/image/secrets.env).
-# SSH_KEY is the key the cards trust: ~/.ssh/no_pass/rsa_sam by default, as
-# for image/build.sh; on MBP-NJ, SSH_KEY=~/.ssh/with_pass/rsa_sam.
+# SSH_KEY is the key pair the cards trust: ~/.ssh/no_pass/rsa_sam by default,
+# as for image/build.sh; on MBP-NJ, SSH_KEY=~/.ssh/with_pass/rsa_sam. Only its
+# .pub reaches a card (authorized_keys); the private half stays on the Mac,
+# where the build logs into the emulated Pi it builds on.
 #
 # `release` builds the system with image/build.sh trimixxx-release (SKIP_BUILD=1
 # seals the card already built), from a clean tree whose commit is tagged
@@ -87,9 +89,10 @@ release:
 
 # The deck's identity, kept in pi-qemu/.cache/decks/<deck>/ (gitignored) and
 # made the first time: its name, its ssh host keys (kept, so known_hosts
-# survives a reflash), its hotspot, and for an emulated deck the profile of
-# pi-qemu's management NIC. Its Wi-Fi goes there by hand, as NetworkManager
-# keyfiles (NetworkManager/*.nmconnection).
+# survives a reflash), its hotspot, the home Wi-Fi from image/secrets.env, and
+# for an emulated deck the profile of pi-qemu's management NIC. Any other
+# network goes there by hand, as a NetworkManager keyfile
+# (NetworkManager/*.nmconnection).
 card:
 	@set -euo pipefail; \
 	[ -n '$(DECK)' ] && [ -n '$(VERSION)' ] || { echo "make card DECK=trimixxx2 VERSION=1.0.0" >&2; exit 1; }; \
@@ -106,6 +109,15 @@ card:
 	psk="$$(sed -n "s/^PASSWORD='\(.*\)'$$/\1/p" '$(REPO)/pi_config/wifi-fallback/install.sh')"; \
 	sed -e 's/@DECK@/$(DECK)/' -e "s/@CHANNEL@/$$channel/" -e "s/@PSK@/$$psk/" hotspot.nmconnection.in \
 	    > "$$d/NetworkManager/trimixxx-hotspot.nmconnection"; \
+	HOME_WIFI_SSID= HOME_WIFI_PSK=; [ ! -f '$(SECRETS)' ] || . '$(SECRETS)'; \
+	if [ -n "$$HOME_WIFI_SSID" ]; then \
+	    HOME_WIFI_SSID="$$HOME_WIFI_SSID" HOME_WIFI_PSK="$$HOME_WIFI_PSK" python3 -c 'import os, sys, uuid; \
+	        s, k = os.environ["HOME_WIFI_SSID"], os.environ["HOME_WIFI_PSK"]; \
+	        u = str(uuid.uuid5(uuid.NAMESPACE_DNS, "home-wifi." + s)); \
+	        sys.stdout.write(open(sys.argv[1]).read().replace("@SSID@", s).replace("@PSK@", k).replace("@UUID@", u))' \
+	        home-wifi.nmconnection.in > "$$d/NetworkManager/home-wifi.nmconnection"; \
+	    chmod 600 "$$d/NetworkManager/home-wifi.nmconnection"; \
+	fi; \
 	[ '$(DECK)' != trimixxx0 ] || cp phase1/pi-qemu-home.nmconnection "$$d/NetworkManager/"; \
 	rm -f 'out/$(VERSION)/$(DECK)-$(VERSION).img'; \
 	cp -c 'out/$(VERSION)/trimixxx-$(VERSION).img' 'out/$(VERSION)/$(DECK)-$(VERSION).img'; \

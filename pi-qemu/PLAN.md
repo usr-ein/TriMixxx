@@ -673,8 +673,10 @@ They go into the normal build, so the dev deck carries them too, inert.
 **`make card DECK=name VERSION=v`** copies the release card and fills p7 from
 `pi-qemu/.cache/decks/<name>/`:
 - `trimixxx.conf`;
-- `NetworkManager/*.nmconnection`: Wi-Fi, the hotspot (generated), and, for
-  trimixxx0, `pi-qemu-home`;
+- `NetworkManager/*.nmconnection`, mode 0600: the home Wi-Fi, generated from
+  `HOME_WIFI_SSID` and `HOME_WIFI_PSK` in `image/secrets.env`
+  (`home-wifi.nmconnection.in`); the hotspot (generated); for trimixxx0,
+  `pi-qemu-home`; any other network, put there by hand;
 - `ssh/ssh_host_*`.
 
 Generate any missing host keys with `ssh-keygen -A -f`, and keep them: they
@@ -956,9 +958,10 @@ waiting for the next one. F4 became F4a and F4b, and `-nomapping` left
 
 1. Make the per-deck card with `make card DECK=trimixxx3`.
    - Its bootloader is already 2026-05-17 (phase 1, T0b).
-   - Secrets go in `pi-qemu/.cache/decks/trimixxx3/`.
-   - The bench works over the direct Ethernet cable (eth0 is link-local on
-     the decks anyway), so Wi-Fi is optional.
+   - Its identity goes in `pi-qemu/.cache/decks/trimixxx3/`, with the home
+     Wi-Fi from `image/secrets.env`. trimixxx3 joins it, in the Wi-Fi country
+     the release sets (`cfg80211.ieee80211_regdom=NL`, Sam's choice). The
+     direct Ethernet cable works too, link-local.
 2. Sam flashes the card.
 3. The checks of §4.3 on the hardware.
 4. Ship two releases with `make ship DECK=trimixxx3`.

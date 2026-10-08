@@ -1,0 +1,24 @@
+# Home Wi-Fi, from HOME_WIFI_SSID and HOME_WIFI_PSK in pi-qemu/image/secrets.env
+# (gitignored). `make card` writes it into each deck's /data, mode 0600, and
+# the identity unit hands it to NetworkManager at every start. WPA2 (or a
+# WPA2/WPA3 router); the hotspot is the way in where this network isn't.
+[connection]
+id=@SSID@
+uuid=@UUID@
+type=wifi
+autoconnect=true
+
+[wifi]
+mode=infrastructure
+ssid=@SSID@
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=@PSK@
+
+[ipv4]
+method=auto
+
+[ipv6]
+addr-gen-mode=default
+method=auto

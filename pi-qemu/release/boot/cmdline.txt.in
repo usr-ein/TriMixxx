@@ -1,1 +1,1 @@
-console=tty1 root=PARTUUID=@ID@-@ROOT@ rootfstype=squashfs rootwait panic=10 overlayroot=tmpfs:recurse=0 rauc.slot=@SLOT@ systemd.mount-extra=PARTUUID=@ID@-@BOOT@:/boot/firmware:vfat:ro
+console=tty1 root=PARTUUID=@ID@-@ROOT@ rootfstype=squashfs rootwait panic=10 cfg80211.ieee80211_regdom=NL overlayroot=tmpfs:recurse=0 rauc.slot=@SLOT@ systemd.mount-extra=PARTUUID=@ID@-@BOOT@:/boot/firmware:vfat:ro
