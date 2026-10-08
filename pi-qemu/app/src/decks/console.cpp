@@ -1,7 +1,7 @@
 #include "decks/console.h"
 
 #include "util/fail.h"
-#include "util/secrets.h"
+#include "util/envfile.h"
 
 #include <QDateTime>
 #include <QElapsedTimer>

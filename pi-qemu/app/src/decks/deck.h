@@ -51,4 +51,11 @@ std::unique_ptr<Deck> target(cli::Args& a);
 // The options every TARGET verb takes.
 QString hostOptionHelp();
 
+// Reboot the deck (a step line saying `why`) and wait until it answers again
+// from a new boot, `seconds` at most; returns the new boot's id.
+QString reboot(Deck& d, const QString& why, int seconds = 300);
+// The id of the boot it runs now (/proc/sys/kernel/random/boot_id); empty if
+// it does not answer.
+QString bootId(Deck& d, int connectTimeout = 10);
+
 } // namespace decks

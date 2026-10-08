@@ -1,11 +1,13 @@
-#include "util/secrets.h"
+#include "util/envfile.h"
 
+#include "util/fail.h"
+#include "util/files.h"
 #include "util/paths.h"
 
 #include <QFile>
 #include <QRegularExpression>
 
-namespace secrets {
+namespace envfile {
 
 QHash<QString, QString> parse(const QString& text) {
     static const QRegularExpression assignment(R"(^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$)");
@@ -39,12 +41,18 @@ QHash<QString, QString> parse(const QString& text) {
     return out;
 }
 
+QHash<QString, QString> read(const QString& path) { return parse(QString::fromUtf8(files::read(path))); }
+
+} // namespace envfile
+
+namespace secrets {
+
 QString value(const QString& key) {
     const QString env = qEnvironmentVariable(key.toUtf8().constData());
     if (!env.isEmpty()) return env;
     QFile f(paths::secretsFile());
     if (!f.open(QIODevice::ReadOnly)) return {};
-    return parse(QString::fromUtf8(f.readAll())).value(key);
+    return envfile::parse(QString::fromUtf8(f.readAll())).value(key);
 }
 
 } // namespace secrets

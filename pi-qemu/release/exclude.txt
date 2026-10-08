@@ -1,4 +1,4 @@
-# What a release leaves out of the system it was built from (`make release`):
+# What a release leaves out of the system it was built from (`pi-qemu release build`):
 # one path or glob per line, relative to the root, deleted before the root
 # becomes the release's SquashFS. The build's identity and its leftovers: each
 # deck's own identity comes from /data at every start (trimixxx-identity).

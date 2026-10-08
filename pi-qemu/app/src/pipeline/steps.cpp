@@ -69,29 +69,6 @@ QVector<Step> select(const QVector<Step>& all, const QStringList& names) {
     return out;
 }
 
-void reboot(Deck& deck) {
-    proc::Options quiet;
-    quiet.quiet = true;
-    quiet.timeoutMs = 20000;
-    const QString old = deck.ssh().capture("cat /proc/sys/kernel/random/boot_id", quiet).text();
-    if (old.isEmpty()) fail("cannot reach " + deck.name() + " to reboot it");
-    buildlog::say("rebooting " + deck.name() + " into its new boot flags");
-    deck.ssh().capture("sudo systemd-run --quiet --on-active=1 systemctl reboot", quiet);
-    QElapsedTimer t;
-    t.start();
-    for (;;) {
-        proc::sleep(2000);
-        if (deck.emulated()) deck.requireUp(); // its pi-qemu goes on through the reboot
-        proc::Options o = quiet;
-        o.timeoutMs = 10000;
-        const proc::Result r = proc::capture("ssh", deck.ssh().args({"-o", "ConnectTimeout=2", "-o", "BatchMode=yes"},
-                                                                    "cat /proc/sys/kernel/random/boot_id"), o);
-        if (r.ok() && !r.text().isEmpty() && r.text() != old) break;
-        if (t.elapsed() > 300000) fail(deck.name() + " did not come back within 300 s of its reboot");
-    }
-    QTextStream(stdout) << deck.name() << ": back after " << t.elapsed() / 1000 << " s" << Qt::endl;
-}
-
 Outcome run(Deck& deck, const QVector<Step>& steps, const Options& o) {
     deck.requireUp();
     const QString host = deck.hostname();
@@ -115,7 +92,7 @@ Outcome run(Deck& deck, const QVector<Step>& steps, const Options& o) {
     bool stale = false;
     for (const Step& s : steps) {
         if (out.rebootPending && o.rebootBetween) {
-            reboot(deck);
+            decks::reboot(deck, "into its new boot flags");
             out.rebootPending = false;
             out.sessionRestarted = true; // a new boot, a new session
             stale = false;

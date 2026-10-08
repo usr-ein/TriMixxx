@@ -1,4 +1,4 @@
-# A TriMixxx release as a RAUC bundle (`make release`): the two images of a
+# A TriMixxx release as a RAUC bundle (`pi-qemu release build`): the two images of a
 # slot, for any deck (PLAN.md §5.3). Plain, while the decks carry RAUC 1.13
 # (invariant 10).
 [update]

@@ -1,0 +1,13 @@
+# eth0 on DHCP, as the image ships it, but bound by name: a bare "eth0:"
+# renders as match-anything, and in the emulator the management USB NIC comes
+# up first and takes it -- leaving eth0 without a profile for the system
+# step's link-local one, and the build's own link on the NIC that would turn
+# link-local. On a deck, eth0 is the only Ethernet anyway.
+network:
+  version: 2
+  ethernets:
+    eth0:
+      match:
+        name: eth0
+      dhcp4: true
+      optional: true

@@ -1,10 +1,11 @@
 #pragma once
-// A window on a build (image/build.sh, or release/Makefile's `make release`,
-// which both open it): its log as it is written, in a terminal-like pane with
-// bash highlighting, and a progress bar over the build's steps with the time
-// elapsed since it started.
+// A window on a build (image build, release build, which both open it): its
+// log as it is written, in a terminal-like pane with bash highlighting, and a
+// progress bar over the build's steps with the time elapsed since it started.
+// The steps are the build's own: its "==> plan:" line (util/buildlog), or,
+// without one, its "==>" lines as they come.
 //
-//   pi-qemu build-log .cache/build/build.log
+//   pi-qemu build-log pi-qemu/.cache/build/trimixxx0.log
 
 #include <QDateTime>
 #include <QFile>
@@ -25,7 +26,9 @@ public:
 private:
     void poll();
     void onLine(const QString& line);
+    void setPlan(const QStringList& titles);
     void setStep(int index);
+    void showSteps();
     void tick();
 
     QString         m_path;
@@ -39,7 +42,9 @@ private:
     QListWidget*    m_steps;
     QTimer*         m_clock;
     QDateTime       m_start, m_last; // the build's first and latest stage stamps
+    QStringList     m_plan;    // the steps' titles
+    bool            m_planned = false; // from a plan line: other "==>" lines are not steps
     int             m_current = -1;
-    QVector<bool>   m_seen; // the steps that started, by index
-    bool            m_finished = false;
+    QVector<bool>   m_seen;    // the steps that started, by index
+    bool            m_finished = false, m_ok = false;
 };

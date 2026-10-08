@@ -106,6 +106,7 @@ int run(const QString& logPath, bool window, const QStringList& plan, const std:
     int status = 0;
     try {
         if (!plan.isEmpty()) printf("==> plan: %s\n", qPrintable(plan.join(" | ")));
+        fflush(stdout);
         build();
     } catch (const Failure& e) {
         fflush(stdout);

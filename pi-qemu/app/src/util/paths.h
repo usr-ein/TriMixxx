@@ -18,10 +18,12 @@ bool    isWorktree();    // the code checkout is a worktree of the main one
 QString piq();           // checkout()/pi-qemu: deploy steps, release and image files
 QString units();         // checkout()/mixxx_config/units
 QString shared();        // mainCheckout()/pi-qemu
-QString cache();         // shared()/.cache: cards, the golden snapshot, decks' identities
+QString cache();         // $PI_QEMU_CACHE, or shared()/.cache: cards, the golden pair, identities
 QString tools();         // shared()/qemu/.build/bin: qemu-system-aarch64, dtmerge
 QString instances();     // $PI_QEMU_INSTANCES, or ~/.pi-qemu/instances (short: socket paths)
 QString golden();        // cache()/golden/trimixxx0 (.img, .state)
+QString releases();      // shared()/release/out: every release built, out/VERSION/
+QString identities();    // cache()/decks: each deck's /data, made by `release card`
 QString secretsFile();   // shared()/image/secrets.env (gitignored)
 QString binary();        // this pi-qemu
 QString sshKey();        // $SSH_KEY, else ~/.ssh/no_pass/rsa_sam or with_pass/rsa_sam: the key the cards trust

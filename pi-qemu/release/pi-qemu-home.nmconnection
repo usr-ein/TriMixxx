@@ -1,0 +1,15 @@
+# pi-qemu's management NIC (usb0, QEMU's usb-net), which carries an emulated
+# deck's ssh: DHCP from QEMU, as `pi-qemu image build` gives every emulated
+# deck. NetworkManager's own profile for usb0 is link-local. A Pi has no usb0.
+# `pi-qemu release card trimixxx0` puts it in the emulated deck's /data.
+[connection]
+id=pi-qemu-home
+type=ethernet
+interface-name=usb0
+autoconnect-priority=100
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=auto

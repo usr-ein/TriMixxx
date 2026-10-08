@@ -52,9 +52,14 @@ bool isWorktree() { return QDir(checkout()) != QDir(mainCheckout()); }
 QString piq() { return checkout() + "/pi-qemu"; }
 QString units() { return checkout() + "/mixxx_config/units"; }
 QString shared() { return mainCheckout() + "/pi-qemu"; }
-QString cache() { return shared() + "/.cache"; }
+QString cache() {
+    const QString env = qEnvironmentVariable("PI_QEMU_CACHE"); // tests, and builds kept apart
+    return env.isEmpty() ? shared() + "/.cache" : env;
+}
 QString tools() { return shared() + "/qemu/.build/bin"; }
 QString golden() { return cache() + "/golden/trimixxx0"; }
+QString releases() { return shared() + "/release/out"; }
+QString identities() { return cache() + "/decks"; }
 QString secretsFile() { return shared() + "/image/secrets.env"; }
 QString binary() { return QCoreApplication::applicationFilePath(); }
 

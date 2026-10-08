@@ -1,0 +1,22 @@
+#cloud-config
+# The first boot's seed, as Raspberry Pi Imager would write it
+# (pi_config/fresh-install.md section 0): user sam1902, the deck's hostname,
+# ssh by key, passwordless sudo (1.1). Cloud-init reads it off the boot
+# partition at first boot. `pi-qemu image build` fills in the deck's name,
+# the password's hash from SAM1902_PASSWORD in secrets.env (only the hash
+# reaches the card; without a password the account has none at all, and only
+# keys get in), and the public half of the key the cards trust. Its
+# placeholders are the words between at-signs below, and only below.
+hostname: @DECK@
+manage_etc_hosts: true
+users:
+  - name: sam1902
+    groups: [users, adm, dialout, audio, netdev, video, plugdev, input, gpio, spi, i2c, render, sudo]
+    shell: /bin/bash
+@PASSWD@
+    sudo: "ALL=(ALL) NOPASSWD:ALL"
+    ssh_authorized_keys:
+      - @SSH_KEY@
+ssh_pwauth: false
+runcmd:
+  - [systemctl, enable, --now, ssh]

@@ -51,6 +51,8 @@ public:
         bool        window = false, fresh = false, boot = false;
         QString     from;    // a card of its own, booted
         QStringList runArgs; // for pi-qemu run, as they are
+        QString     deck = "trimixxx0"; // whose wiring its controls follow
+        int         sshWait = 300;      // seconds: a stock card's first boot takes longer
     };
     void up(const Up& o);
     void stop();   // suspend: the machine saved, then off
@@ -63,7 +65,7 @@ public:
 
 private:
     Instance(const QString& name, const QString& dir) : m_name(name), m_dir(dir) {}
-    void launch(const QStringList& runArgs);
+    void launch(const QStringList& runArgs, const QString& deck = "trimixxx0");
     void checkAlive() const;  // fails, with its logs, if pi-qemu has exited
     void pullPlug();          // pi-qemu and its QEMU stopped, whatever it takes
     void suspend();

@@ -10,23 +10,22 @@
 #include "decks/readiness.h"
 #include "decks/recorder.h"
 #include "decks/touchscreen.h"
+#include "pipeline/prepare.h"
+#include "pipeline/release.h"
+#include "pipeline/ship.h"
 #include "pipeline/steps.h"
 #include "s3/controls.h"
 #include "util/fail.h"
 #include "util/paths.h"
 #include "util/process.h"
 #include "util/tool.h"
+#include "util/print.h"
 
 #include <QDateTime>
 #include <QFileInfo>
 #include <QTextStream>
 
 namespace {
-
-QTextStream& out() {
-    static QTextStream s(stdout);
-    return s;
-}
 
 const cli::Option kHost{"host", "ALIAS", decks::hostOptionHelp()};
 
@@ -46,13 +45,13 @@ int up(cli::Args& a) {
 int list(cli::Args& a) {
     a.done();
     const QStringList names = Instance::all();
-    if (names.isEmpty()) { out() << "no instances\n"; return 0; }
+    if (names.isEmpty()) { print() << "no instances\n"; return 0; }
     for (const QString& n : names) {
         Instance i(n);
         const qint64 pid = i.pid();
         const QString state = pid ? QString("running (pid %1)").arg(pid)
                                   : QFileInfo::exists(i.state()) ? "suspended" : "stopped";
-        out() << n.leftJustified(20) << " ssh port " << (pid ? QString::number(i.sshPort()) : "-").leftJustified(5)
+        print() << n.leftJustified(20) << " ssh port " << (pid ? QString::number(i.sshPort()) : "-").leftJustified(5)
               << " " << state << "\n";
     }
     return 0;
@@ -89,7 +88,7 @@ int ready(cli::Args& a) {
     d->requireUp();
     readiness::waitMixxx(d->ssh(), seconds, d->spelled(), [&d] { d->requireUp(); });
     const proc::Result pid = d->ssh().capture("pgrep -xo mixxx");
-    out() << d->name() << ": Mixxx is ready (sound open, the S3 connected; pid " << pid.text() << ")\n";
+    print() << d->name() << ": Mixxx is ready (sound open, the S3 connected; pid " << pid.text() << ")\n";
     return 0;
 }
 
@@ -97,7 +96,7 @@ int env(cli::Args& a) {
     Instance i(a.take("NAME"));
     a.done();
     if (!QFileInfo::exists(i.binDir() + "/ssh")) fail("no instance " + i.name() + " (" + tool("deck up " + i.name()) + ")");
-    out() << "export PATH=" << proc::quote(i.binDir()) << ":\"$PATH\"\n";
+    print() << "export PATH=" << proc::quote(i.binDir()) << ":\"$PATH\"\n";
     return 0;
 }
 
@@ -116,7 +115,7 @@ int shot(cli::Args& a) {
     a.done();
     d->requireUp();
     d->shot(png);
-    out() << png << "\n";
+    print() << png << "\n";
     return 0;
 }
 
@@ -124,7 +123,7 @@ int shot(cli::Args& a) {
 int control(cli::Args& a, const QString& verb) {
     auto d = decks::target(a);
     d->requireUp();
-    out() << d->controls(QStringList{verb} + a.takeAll()) << "\n";
+    print() << d->controls(QStringList{verb} + a.takeAll()) << "\n";
     return 0;
 }
 
@@ -137,7 +136,7 @@ int board(cli::Args& a, const QString& verb) {
         if (words.size() != 2) cli::usage("save NAME FILE");
         words[1] = QFileInfo(words[1]).absoluteFilePath();
     }
-    out() << d.controls(words) << "\n";
+    print() << d.controls(words) << "\n";
     return 0;
 }
 
@@ -175,7 +174,7 @@ int key(cli::Args& a) {
 int where(cli::Args& a) {
     auto d = decks::target(a);
     a.done();
-    out() << touchscreen::where(*d) << "\n";
+    print() << touchscreen::where(*d) << "\n";
     return 0;
 }
 
@@ -194,6 +193,20 @@ int deploy(cli::Args& a) {
     const QVector<steps::Step> chosen = steps::select(all, a.takeAll());
     steps::run(*d, chosen);
     return 0;
+}
+
+int shipVerb(cli::Args& a) {
+    auto d = decks::target(a);
+    a.done();
+    ship::ship(*d, release::version(a.value("version")));
+    return 0;
+}
+
+int prepareVerb(cli::Args& a) {
+    auto d = decks::target(a);
+    const QString deck = a.take("DECK");
+    a.done();
+    return prepare::prepare(*d, deck, a.has("eeprom"));
 }
 
 } // namespace
@@ -312,6 +325,31 @@ void addDeck(cli::Registry& r) {
                 "in Docker need ~6 GB free on its disk. In a git worktree, its submodules are\n"
                 "checked out first (worktree prepare).",
         .options = {kHost}, .run = deploy,
+    });
+
+    r.add({
+        .group = "deck", .name = "ship", .synopsis = "TARGET [--version X.Y.Z]",
+        .summary = "a release's update onto a deck running a release card, then a reboot into it as a trial",
+        .help = "The bundle (pi-qemu/release/out/X.Y.Z/trimixxx-X.Y.Z.raucb, HEAD's pi/vX.Y.Z tag by\n"
+                "default) is streamed into RAUC's state partition and installed into the other\n"
+                "slot; the deck reboots into it as a trial, and its health check keeps it or\n"
+                "drops it. Then what the deck says: its version, its slot, its health, RAUC's\n"
+                "status. An emulated deck runs a release card with: deck up NAME --from CARD.",
+        .options = {kHost, {"version", "X.Y.Z", "another release than HEAD's (a fault test's: X.Y.Z-panic)"}},
+        .run = shipVerb,
+    });
+    r.add({
+        .group = "deck", .name = "prepare", .synopsis = "TARGET DECK [--eeprom]",
+        .summary = "ready a deck for its first release card, from the system it runs: serial, host keys, bootloader",
+        .help = "DECK is the name it will have (its unit file's). Reads the deck, unless --eeprom:\n"
+                "its board's serial into mixxx_config/units/DECK.json (the release's config.txt\n"
+                "then gives it its own section), its ssh host keys into its identity, its\n"
+                "bootloader checked (2022-12-01 or newer knows tryboot_a_b), and a capture of\n"
+                "its files in pi-qemu/.cache/captures/. --eeprom updates the bootloader and\n"
+                "sets its boot watchdog, rebooting the deck to flash it: the person's call.\n"
+                "Then commit the unit files, tag, release build, release card.",
+        .options = {kHost, {"eeprom", {}, "update the bootloader, with its boot watchdog (reboots the deck)"}},
+        .run = prepareVerb,
     });
 
     // ---- an emulated deck's own ----

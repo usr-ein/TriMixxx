@@ -39,7 +39,4 @@ struct Outcome {
 };
 Outcome run(Deck& deck, const QVector<Step>& steps, const Options& o = {});
 
-// Reboot the deck and wait until it answers again, a new boot.
-void reboot(Deck& deck);
-
 } // namespace steps

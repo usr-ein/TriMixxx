@@ -5,6 +5,7 @@
 #include "util/git.h"
 #include "util/paths.h"
 #include "util/process.h"
+#include "util/print.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -16,11 +17,6 @@ namespace worktree {
 namespace {
 
 const QStringList kSubs{"mixxx", "mixxx/lib/prolink", "mixxx_config/ttymidi"};
-
-QTextStream& out() {
-    static QTextStream s(stdout);
-    return s;
-}
 
 QString root() { return paths::checkout(); }
 QString mainRoot() { return paths::mainCheckout(); }
@@ -44,7 +40,7 @@ bool addSub(const QString& sub) {
     // Entries left by a worktree removed with --force, before this one is added.
     git::out(borrowed, {"worktree", "prune"});
     git::out(borrowed, {"worktree", "add", "--quiet", "--detach", root() + "/" + sub, sha});
-    out() << sub << ": at " << sha.left(10) << ", a worktree of " << borrowed << Qt::endl;
+    print() << sub << ": at " << sha.left(10) << ", a worktree of " << borrowed << Qt::endl;
     return true;
 }
 
@@ -68,7 +64,7 @@ void removeSub(const QString& sub) {
     const QString branch = git::tryOut(root() + "/" + sub, {"symbolic-ref", "--quiet", "--short", "HEAD"});
     git::out(mainRoot() + "/" + sub, {"worktree", "remove", root() + "/" + sub});
     QDir().mkpath(root() + "/" + sub);
-    out() << sub << ": released" << (branch.isEmpty() ? QString() : " (branch " + branch + " stays in " + mainRoot() + "/" + sub + ")")
+    print() << sub << ": released" << (branch.isEmpty() ? QString() : " (branch " + branch + " stays in " + mainRoot() + "/" + sub + ")")
           << Qt::endl;
 }
 
@@ -79,8 +75,8 @@ void dropBuilds() {
     o.quiet = true;
     o.env["CHECKOUT_ID"] = "";
     const QString id = proc::capture(root() + "/mixxx/checkout-id.sh", {}, o).text();
-    if (id.isEmpty()) { out() << "no Docker build trees to drop (the main checkout, or no mixxx)\n"; return; }
-    if (!proc::capture("docker", {"info"}, o).ok()) { out() << "Docker is not running: build trees left in place\n"; return; }
+    if (id.isEmpty()) { print() << "no Docker build trees to drop (the main checkout, or no mixxx)\n"; return; }
+    if (!proc::capture("docker", {"info"}, o).ok()) { print() << "Docker is not running: build trees left in place\n"; return; }
     QTemporaryDir tmp;
     files::write(tmp.filePath("Dockerfile"),
                  "FROM debian:trixie\n"
@@ -93,34 +89,34 @@ void dropBuilds() {
                                             "--build-arg", "TEST_ID=mixxx-build-test-debian:trixie" + id, "--output",
                                             "type=cacheonly", tmp.path()});
     if (status != 0) fail("could not empty the Docker build trees for " + id);
-    out() << "Docker build trees for " << id << ": emptied\n";
+    print() << "Docker build trees for " << id << ": emptied\n";
 }
 
 } // namespace
 
 void prepare(bool quiet) {
     if (!paths::isWorktree()) {
-        if (!quiet) out() << "this is the main checkout: its submodules are its own\n";
+        if (!quiet) print() << "this is the main checkout: its submodules are its own\n";
         return;
     }
     bool any = false;
     for (const QString& sub : kSubs) any |= addSub(sub);
-    if (!any && !quiet) out() << "already prepared: " << kSubs.join(", ") << " checked out\n";
+    if (!any && !quiet) print() << "already prepared: " << kSubs.join(", ") << " checked out\n";
 }
 
 void status() {
-    out() << "checkout: " << root() << (paths::isWorktree() ? "" : " (the main one)") << "\n";
+    print() << "checkout: " << root() << (paths::isWorktree() ? "" : " (the main one)") << "\n";
     for (const QString& sub : kSubs) {
-        if (!checkedOut(sub)) { out() << "  " << sub.leftJustified(22) << " not checked out\n"; continue; }
+        if (!checkedOut(sub)) { print() << "  " << sub.leftJustified(22) << " not checked out\n"; continue; }
         const QString dir = root() + "/" + sub;
         const QString branch = git::tryOut(dir, {"symbolic-ref", "--quiet", "--short", "HEAD"});
-        out() << "  " << sub.leftJustified(22) << " " << git::out(dir, {"rev-parse", "--short", "HEAD"}) << " "
+        print() << "  " << sub.leftJustified(22) << " " << git::out(dir, {"rev-parse", "--short", "HEAD"}) << " "
               << (branch.isEmpty() ? "(detached)" : branch) << "\n";
     }
     if (checkedOut("mixxx")) {
         proc::Options o;
         o.quiet = true;
-        out() << "  Mixxx build tree: mixxx-build-debian:trixie"
+        print() << "  Mixxx build tree: mixxx-build-debian:trixie"
               << proc::capture(root() + "/mixxx/checkout-id.sh", {}, o).text() << "\n";
     }
 }
@@ -132,7 +128,7 @@ void release() {
     for (const QString& sub : order) checkSub(sub);
     if (checkedOut("mixxx")) dropBuilds();
     for (const QString& sub : order) removeSub(sub);
-    out() << "released: git worktree remove " << root() << "\n";
+    print() << "released: git worktree remove " << root() << "\n";
 }
 
 } // namespace worktree

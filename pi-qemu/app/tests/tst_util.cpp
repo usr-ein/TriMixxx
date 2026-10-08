@@ -2,7 +2,7 @@
 
 #include "util/git.h"
 #include "util/process.h"
-#include "util/secrets.h"
+#include "util/envfile.h"
 
 #include <QTest>
 
@@ -11,7 +11,7 @@ class TestUtil : public QObject {
 
 private slots:
     void secretsQuoting() {
-        const auto s = secrets::parse("# the console\n"
+        const auto s = envfile::parse("# the console\n"
                                       "SAM1902_PASSWORD='p a$s'\n"
                                       "export HOME_WIFI_SSID=\"Odd \\\"name\\\"\"\n"
                                       "HOME_WIFI_PSK=bare # comment\n"

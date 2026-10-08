@@ -1,8 +1,8 @@
 # The deck's own hotspot when it has no other network (pi_config/wifi-fallback),
-# as wifi-fallback/install.sh makes it on a dev deck. `make card` writes it into
-# each deck's /data: its SSID is the deck's name, its channel the deck's own
-# (hotspotChannel in mixxx_config/units/<deck>.json, else 6), its password the
-# one install.sh has.
+# as deploy step 002_system makes it on a dev deck. `pi-qemu release card`
+# writes it into each deck's /data: its SSID is the deck's name, its channel the
+# deck's own (hotspotChannel in mixxx_config/units/<deck>.json, else 6), its
+# password pi_config/wifi-fallback/hotspot.env's.
 [connection]
 id=trimixxx-hotspot
 type=wifi

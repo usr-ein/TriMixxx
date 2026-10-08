@@ -7,6 +7,7 @@
 #include "util/paths.h"
 #include "util/process.h"
 #include "util/tool.h"
+#include "util/print.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -21,11 +22,6 @@
 #include <csignal>
 
 namespace {
-
-QTextStream& out() {
-    static QTextStream s(stdout);
-    return s;
-}
 
 qint64 readPid(const QString& file) {
     QFile f(file);
@@ -108,10 +104,10 @@ void Instance::writeSshConfig(int port) {
     ssh().writeWrappers(binDir());
 }
 
-void Instance::launch(const QStringList& runArgs) {
+void Instance::launch(const QStringList& runArgs, const QString& deck) {
     QDir().mkpath(runDir());
     QFile::remove(runDir() + "/ssh.port");
-    const QStringList args = QStringList{"run", "--deck", "trimixxx0"} + runArgs + QStringList{card()};
+    const QStringList args = QStringList{"run", "--deck", deck} + runArgs + QStringList{card()};
     files::write(m_dir + "/command", (proc::join(QStringList{paths::binary()} + args) + "\n").toUtf8());
     files::write(log(), {});
     QProcess p;
@@ -140,7 +136,7 @@ void Instance::up(const Up& o) {
         if (o.window || o.fresh || o.boot || !o.from.isEmpty() || !o.runArgs.isEmpty())
             fail(m_name + " is already running: its options cannot change now. " + tool("deck rm " + m_name) +
                  " (or deck stop " + m_name + "), then up again");
-        out() << m_name << " is already up: ssh port " << sshPort() << ", pid " << pid() << "\n"
+        print() << m_name << " is already up: ssh port " << sshPort() << ", pid " << pid() << "\n"
               << "  " << tool("deck ssh " + m_name) << "\n"
               << "  when done: " << tool("deck rm " + m_name) << "   (or deck stop " << m_name << " to keep it, suspended)\n";
         return;
@@ -187,13 +183,13 @@ void Instance::up(const Up& o) {
 
     QElapsedTimer t;
     t.start();
-    launch(args);
-    readiness::waitSsh(ssh(), 300, [this] { checkAlive(); });
+    launch(args, o.deck);
+    readiness::waitSsh(ssh(), o.sshWait, [this] { checkAlive(); });
     if (!restoring.isEmpty()) {
         // The machine wakes with the clock it was saved with: give it now.
         ssh().capture(QString("sudo date -u -s @%1 >/dev/null").arg(QDateTime::currentSecsSinceEpoch()));
     }
-    out() << m_name << " is up (" << (restoring.isEmpty() ? "booted" : "restored") << " in " << t.elapsed() / 1000
+    print() << m_name << " is up (" << (restoring.isEmpty() ? "booted" : "restored") << " in " << t.elapsed() / 1000
           << " s): ssh port " << sshPort() << ", pid " << pid() << (o.window ? ", with windows" : "") << "\n"
           << "  " << tool("deck ssh " + m_name) << "\n"
           << "  " << tool("deck status " + m_name) << "\n"
@@ -229,13 +225,13 @@ void Instance::suspend() {
 }
 
 void Instance::stop() {
-    if (!running()) { out() << m_name << " is not running\n"; return; }
+    if (!running()) { print() << m_name << " is not running\n"; return; }
     suspend();
-    out() << m_name << " suspended: " << tool("deck up " + m_name) << " resumes it\n";
+    print() << m_name << " suspended: " << tool("deck up " + m_name) << " resumes it\n";
 }
 
 void Instance::down() {
-    if (!running()) { out() << m_name << " is not running\n"; return; }
+    if (!running()) { print() << m_name << " is not running\n"; return; }
     QFile::remove(state());
     proc::Options o;
     o.quiet = true;
@@ -250,19 +246,19 @@ void Instance::down() {
         QTextStream(stderr) << m_name << " did not power off: pulling the plug\n";
         pullPlug();
     }
-    out() << m_name << " is off\n";
+    print() << m_name << " is off\n";
 }
 
 void Instance::kill() {
     QFile::remove(state());
     pullPlug();
-    out() << m_name << ": plug pulled\n";
+    print() << m_name << ": plug pulled\n";
 }
 
 void Instance::remove() {
     pullPlug();
     if (!QDir(m_dir).removeRecursively()) fail("cannot delete " + m_dir);
-    out() << m_name << " removed\n";
+    print() << m_name << " removed\n";
 }
 
 void Instance::golden(QString card) {
@@ -276,7 +272,7 @@ void Instance::golden(QString card) {
     QDir(g.m_dir).removeRecursively();
     QDir().mkpath(g.m_dir);
     files::clone(card, g.card());
-    out() << "booting " << card << " (headless, silent) to save it..." << Qt::endl;
+    print() << "booting " << card << " (headless, silent) to save it..." << Qt::endl;
     g.launch({"--no-controls", "--display", "none"});
     readiness::waitSsh(g.ssh(), 300, [&g] { g.checkAlive(); });
     // Saved once Mixxx has its sound device open and has settled: that is the
@@ -303,6 +299,6 @@ void Instance::golden(QString card) {
         if (!QFile::rename(to + ".new", to)) fail("cannot move " + to + ".new");
     }
     QDir(g.m_dir).removeRecursively();
-    out() << "golden: " << golden << ".img + .state ("
+    print() << "golden: " << golden << ".img + .state ("
           << QFileInfo(golden + ".state").size() / (1024 * 1024) << " MB of machine)\n";
 }
