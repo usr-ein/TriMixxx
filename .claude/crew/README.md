@@ -127,6 +127,30 @@ review's header and the PR's `review:` label: `ready`, `changes`, `approved`,
 
 The repositories are public: so are PRs and reviews.
 
+## Adjusting the crew
+
+While you use it, in any session: **`/crew-tune <what went wrong, or what you
+want>`**, or just ask to tune the crew.
+
+1. It looks at what happened: `crew status`, the feedback log, the
+   nightman's log, the PR, the session's own transcript.
+2. It changes the right layer and runs the tests.
+3. On your OK, it commits to main and tells the running sessions.
+
+- **The feedback log:** crew sessions note where the rules or tools got in
+  their way with `crew feedback "..."`. `crew feedback` alone shows the log
+  (`.crew/feedback.md`); `/crew-tune` with no argument works through it.
+- **The layers:**
+  - `limits.env`: numbers
+  - `.claude/skills/{minion,bitch,nightman}`: behaviour
+  - `crew` and `test_crew.py`: the tool and its guard
+  - `.claude/settings.json`: hook wiring
+  - this README
+- **Fixes reach running sessions.** Every copy of `crew` (a worktree's, a
+  hook's) runs the main checkout's, so a fix there takes effect at once.
+  `CREW_LOCAL=1` runs a worktree's own copy instead, to try a change.
+  Sessions re-read their skill from the main checkout when told it changed.
+
 ## State
 
 - `.claude/worktrees/BRANCH/.crew/`: `pitch.md`, `notes.md` (its Status line
@@ -135,6 +159,7 @@ The repositories are public: so are PRs and reviews.
 - `.crew/` in the main checkout:
   - `sessions/`: registrations (role, mode, branch, worktree)
   - `night/`: plan, pitches, review briefs, morning reports
+  - `feedback.md`: the crew's complaints, for `/crew-tune`
   - `archive/`
 - On GitHub, the TriMixxx PR is the record: the pitch, the decisions, the
   testing, every review.

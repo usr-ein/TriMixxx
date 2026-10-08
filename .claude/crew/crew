@@ -22,6 +22,27 @@ if __name__ == "__main__" and sys.argv[1:2] == ["hook"]:
     if not _sid or "/" in _sid or not os.path.exists(os.path.join(_state, "sessions", _sid + ".json")):
         sys.exit(0)
 
+
+def _run_main_checkouts_copy():
+    """Every copy of crew (a worktree's, a hook's) runs the main checkout's, so a fix to the crew
+    reaches the sessions already running. CREW_LOCAL=1 runs this copy instead (to try a change)."""
+    here = os.path.realpath(__file__)
+    checkout = os.path.dirname(os.path.dirname(os.path.dirname(here)))
+    main_copy = os.path.join(checkout.split("/.claude/worktrees/")[0], ".claude", "crew", "crew")
+    if os.environ.get("CREW_LOCAL") or not os.path.isfile(main_copy) or os.path.samefile(main_copy, here):
+        return
+    if _HOOK_INPUT is None:
+        os.execv(sys.executable, [sys.executable, main_copy] + sys.argv[1:])
+    import subprocess as sp
+    r = sp.run([sys.executable, main_copy] + sys.argv[1:], input=_HOOK_INPUT, text=True, capture_output=True)
+    sys.stdout.write(r.stdout)
+    sys.stderr.write(r.stderr)
+    sys.exit(r.returncode)
+
+
+if __name__ == "__main__":
+    _run_main_checkouts_copy()
+
 import argparse
 import datetime as dt
 import json
@@ -684,6 +705,7 @@ def cmd_clean(a) -> int:
     if (wt / ".crew").is_dir():
         dest = CREW / "archive" / f"{b}-{dt.date.today().isoformat()}"
         shutil.copytree(wt / ".crew", dest, dirs_exist_ok=True)
+        shutil.rmtree(wt / ".crew")  # archived; git may not ignore it in a worktree older than the crew
         print(f"kept its pitch and notes in {dest}")
     if wt.exists():
         r = run(["pi-qemu", "worktree", "release"], cwd=wt, check=False, timeout=600)
@@ -987,9 +1009,11 @@ def hook_session(data: dict, reg: dict):
     if data.get("source") in ("resume", "compact"):
         where = f"{CREW}/night/plan.md" if reg["role"] == "nightman" else \
             f"{reg['worktree']}/.crew/pitch.md and notes.md"
+        skill = MAIN / ".claude" / "skills" / reg["role"] / "SKILL.md"
         hso["additionalContext"] = (
             f"Crew: this session is the {reg['role']}" + (f" for {reg['branch']}" if reg.get("branch") else "") +
-            f", in {reg['mode']} mode. Before going on, re-read .claude/skills/{reg['role']}/SKILL.md and {where}.")
+            f", in {reg['mode']} mode. Before going on, re-read {skill} (the main checkout's copy is the "
+            f"current one) and {where}.")
     return {"hookSpecificOutput": hso}
 
 
@@ -1011,6 +1035,28 @@ def cmd_hook(a) -> int:
                 print(json.dumps(result))
     except Exception as e:  # a crew bug must never block or break a session
         print(f"crew hook {a.kind}: {e}", file=sys.stderr)
+    return 0
+
+
+def cmd_feedback(a) -> int:
+    log = CREW / "feedback.md"
+    if not a.text:
+        print(log.read_text() if log.exists() else "no feedback yet")
+        return 0
+    reg = registration(os.environ.get("CLAUDE_CODE_SESSION_ID"))
+    who = f"{session_name(reg)} ({reg['role']}, {reg['mode']})" if reg else \
+        ("a session" if os.environ.get("CLAUDE_CODE_SESSION_ID") else "Sam")
+    CREW.mkdir(parents=True, exist_ok=True)
+    if not log.exists():
+        log.write_text("# Crew feedback\n\nWhere the crew's rules or tools got in the way. `/crew-tune` works from it.\n\n")
+    with log.open("a") as f:
+        f.write(f"- {now_iso()} {who}: {' '.join(a.text)}\n")
+    print(f"noted in {log}")
+    return 0
+
+
+def cmd_root(a) -> int:
+    print(MAIN)
     return 0
 
 
@@ -1113,6 +1159,13 @@ def main(argv=None) -> int:
     s = sub.add_parser("hook", help="(Claude Code hooks) guard, drift, session, prompt")
     s.add_argument("kind", choices=list(HOOKS))
     s.set_defaults(fn=cmd_hook)
+
+    s = sub.add_parser("feedback", help="log where the crew's rules or tools got in the way (no text: show the log)")
+    s.add_argument("text", nargs="*")
+    s.set_defaults(fn=cmd_feedback)
+
+    s = sub.add_parser("root", help="the main checkout's path: where the crew's current files are")
+    s.set_defaults(fn=cmd_root)
 
     s = sub.add_parser("install", help="link this tool as ~/.local/bin/crew (the main checkout's copy)")
     s.set_defaults(fn=cmd_install)

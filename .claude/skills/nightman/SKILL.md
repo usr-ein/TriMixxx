@@ -160,6 +160,7 @@ Every 20 minutes, or whenever you wonder:
 - the questions waiting for him, with their options and the minion's
   recommendation
 - the night's load: holds, sheds, stops; disk used
+- the crew's own complaints: the lines `.crew/feedback.md` gained tonight
 - what still runs or was kept: sessions (`claude attach NAME`), decks,
   worktrees, and the commands to stop them
 
@@ -169,6 +170,15 @@ Sam writing to you means he is here. You may ask him things again; pass his
 answers to the minions ("Sam is here: ..."). Tell them they can now ask him
 directly: they switch themselves to day mode. Anything that waited for him
 merges only with his yes.
+
+## When the crew gets in your way
+
+- A rule, a limit or the guard stops what Sam's pitches need, or an
+  instruction here doesn't fit the night: log it in a line with
+  `crew feedback "..."`, then carry on within the rules. Sam tunes the crew
+  from that log.
+- Told the crew was updated: re-read `.claude/skills/nightman/SKILL.md`,
+  and pass the news on to the minions and bitches it concerns.
 
 ## Never
 

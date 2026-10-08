@@ -271,6 +271,16 @@ When a call is expensive to switch later and nobody can make it tonight:
 4. `pi-qemu deck stop BRANCH`. SendMessage `nightman`: "parked: BRANCH:
    <the question>". End your turn.
 
+## When the crew gets in your way
+
+- A rule, a limit or the guard stops what the pitch needs, or an instruction
+  here doesn't fit the case: log it in a line with `crew feedback "..."`,
+  then carry on within the rules (or escalate, as above). Sam tunes the crew
+  from that log.
+- Told the crew was updated: re-read this skill from the main checkout,
+  `$(crew root)/.claude/skills/minion/SKILL.md`. Your worktree's copy is the
+  one from when you started.
+
 ## Never
 
 The guard enforces most of these:

@@ -147,6 +147,16 @@ The repos are public: no secrets, keys or private addresses in a review.
 approved|changes|needs-sam: <the top point>". End your turn. The nightman
 wakes you for the next round.
 
+## When the crew gets in your way
+
+- A rule, a limit or the guard stops a fair review, or an instruction
+  here doesn't fit the case: log it in a line with `crew feedback "..."`,
+  then carry on within the rules (or put it to Sam). Sam tunes the crew
+  from that log.
+- Told the crew was updated: re-read this skill from the main checkout,
+  `$(crew root)/.claude/skills/bitch/SKILL.md`. Your worktree's copy is the
+  one from when you started.
+
 ## Never
 
 - edit, commit, push or rebase: you are read-only

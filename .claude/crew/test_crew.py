@@ -36,7 +36,7 @@ class Sandbox(unittest.TestCase):
     """A temp dir with its own git config, so no test reads Sam's (signing, identities)."""
 
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp(prefix="crew-test-"))
+        self.tmp = Path(tempfile.mkdtemp(prefix="crew-test-")).resolve()  # /var is /private/var
         cfg = self.tmp / "gitconfig"
         cfg.write_text("[user]\n\tname = T\n\temail = t@t\n[commit]\n\tgpgsign = false\n"
                        "[protocol \"file\"]\n\tallow = always\n[init]\n\tdefaultBranch = main\n"
@@ -180,6 +180,41 @@ class HookTest(Sandbox):
         self.assertEqual(title({"role": "nightman", "mode": "night"}), "nightman")
         resumed = crew.hook_session({"source": "compact"}, self.reg)["hookSpecificOutput"]
         self.assertIn(".claude/skills/minion/SKILL.md", resumed["additionalContext"])
+
+
+class DelegationTest(Sandbox):
+    """A worktree's copy of crew runs the main checkout's, so fixes reach running sessions."""
+
+    def setUp(self):
+        super().setUp()
+        src = (HERE / "crew").read_text()
+        self.main_copy = self.tmp / "main" / ".claude" / "crew" / "crew"
+        self.wt_copy = self.tmp / "main" / ".claude" / "worktrees" / "feat" / ".claude" / "crew" / "crew"
+        for path, text in ((self.main_copy, src.replace("    print(MAIN)\n", "    print('main copy', MAIN)\n")),
+                           (self.wt_copy, src)):
+            path.parent.mkdir(parents=True)
+            path.write_text(text)
+            (path.parent / "limits.env").write_text((HERE / "limits.env").read_text())
+
+    def crew(self, *args, env=None, input=None):
+        return subprocess.run(["python3", str(self.wt_copy), *args], capture_output=True, text=True, input=input,
+                              env=dict(os.environ, CREW_STATE=str(crew.CREW), **(env or {})))
+
+    def test_runs_the_main_checkouts_copy(self):
+        self.assertEqual(self.crew("root").stdout.strip(), f"main copy {self.tmp / 'main'}")
+        self.assertEqual(self.crew("root", env={"CREW_LOCAL": "1"}).stdout.strip(), str(self.tmp / "main"))
+
+    def test_hooks_too(self):
+        (crew.CREW / "sessions").mkdir(parents=True)
+        wt = self.main_copy.parents[2] / ".claude" / "worktrees" / "feat"
+        (crew.CREW / "sessions" / "s1.json").write_text(
+            '{"role": "minion", "mode": "night", "branch": "feat", "worktree": "%s"}' % wt)
+        self.main_copy.write_text(self.main_copy.read_text().replace(
+            "crew guard ({reg['role']}", "main copy guard ({reg['role']}"))
+        hook = '{"session_id": "s1", "cwd": "%s", "tool_name": "Bash", "tool_input": {"command": "sudo ls"}}' % wt
+        self.assertIn("main copy guard (minion, night)", self.crew("hook", "guard", input=hook).stdout)
+        other = hook.replace('"s1"', '"not-crew"')
+        self.assertEqual(self.crew("hook", "guard", input=other).stdout, "")
 
 
 class MergeTest(Sandbox):
