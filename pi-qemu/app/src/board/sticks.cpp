@@ -1,6 +1,8 @@
 #include "board/sticks.h"
 
+#include "board/fatvolume.h"
 #include "board/machine.h"
+#include "util/fail.h"
 
 #include <QFile>
 #include <QDir>
@@ -8,6 +10,8 @@
 #include <fcntl.h>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QCoreApplication>
+#include <QPointer>
 #include <QProcess>
 #include <QTimer>
 
@@ -15,6 +19,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <thread>
 #include <unistd.h>
 
 extern char** environ;
@@ -62,13 +67,16 @@ QVector<HostStick> Sticks::list() {
         out << s;
     }
     QStringList images;
-    for (const QFileInfo& f : QDir(m_imagesDir).entryInfoList({"*.img"}, QDir::Files, QDir::Name))
+    for (const QFileInfo& f : QDir(m_imagesDir).entryInfoList({"*.img", "*.stick"}, QDir::Files, QDir::Name))
         images << f.absoluteFilePath();
     for (auto it = m_inserted.begin(); it != m_inserted.end(); ++it)
         if (!it.key().startsWith("disk") && !images.contains(it.key())) images << it.key();
-    for (const QString& path : images)
-        out << HostStick{path, QFileInfo(path).completeBaseName() + " (image)", QFileInfo(path).size(),
-                         m_inserted.contains(path)};
+    for (const QString& path : images) {
+        const QFileInfo f(path);
+        const bool folder = f.isDir() || f.suffix() == "stick";
+        out << HostStick{path, (f.isDir() ? f.fileName() : f.completeBaseName()) + (folder ? " (folder)" : " (image)"),
+                         folder ? 0 : f.size(), m_inserted.contains(path)};
+    }
     return out;
 }
 
@@ -173,38 +181,99 @@ void Sticks::dropFdset(int fdset) {
     while (::read(m_fdMon, &ch, 1) == 1 && ch != '\n') {}
 }
 
-void Sticks::insert(const QString& name, Done done) {
-    // A bare name finds the image in the sticks folder: "SAM3" -> SAM3.img.
+// A bare name finds the stick in the sticks folder: "SAM3" -> SAM3.img,
+// "SANDISK" -> SANDISK.stick.
+QString Sticks::resolve(const QString& name) const {
     QString id = name;
     if (!id.startsWith("disk") && !id.startsWith("fd:") && !QFileInfo::exists(id)) {
-        for (const QString& cand : {id, id + ".img"})
-            if (QFileInfo::exists(QDir(m_imagesDir).filePath(cand))) id = QDir(m_imagesDir).filePath(cand);
+        for (const QString& cand : {id, id + ".img", id + ".stick"})
+            if (QFileInfo::exists(QDir(m_imagesDir).filePath(cand))) { id = QDir(m_imagesDir).filePath(cand); break; }
     }
     if (QFileInfo::exists(id)) id = QFileInfo(id).absoluteFilePath();
-    if (m_inserted.contains(id)) { done(false, id + " is already in"); return; }
-    if (m_inserted.size() >= kSlots) { done(false, "the deck has two USB slots, both taken"); return; }
+    return id;
+}
+
+// The drive under QEMU's usb-storage, read-only whatever is beneath it.
+void Sticks::plug(const QString& id, int n, const QJsonObject& file, const QString& note, Done done) {
+    const QString node = QString("stick%1").arg(n), dev = QString("usbstick%1").arg(n);
+    auto failed = [=, this](const QString& why) {
+        m_servers.erase(n);
+        done(false, why);
+    };
+    QJsonObject bd{{"node-name", node}, {"driver", "raw"}, {"read-only", true}, {"file", file}};
+    m_machine->qmp("blockdev-add", bd, [=, this](const QJsonObject& r) {
+        if (r.contains("error")) { failed(r["error"].toObject()["desc"].toString()); return; }
+        m_machine->qmp("device_add",
+                       QJsonObject{{"driver", "usb-storage"}, {"id", dev}, {"bus", "xhci.0"}, {"drive", node}},
+                       [=, this](const QJsonObject& r2) {
+                           if (r2.contains("error")) {
+                               m_machine->qmp("blockdev-del", QJsonObject{{"node-name", node}});
+                               failed(r2["error"].toObject()["desc"].toString());
+                               return;
+                           }
+                           m_inserted[id] = n;
+                           emit changed();
+                           done(true, id + " inserted" + (note.isEmpty() ? QString() : ": " + note));
+                       });
+    });
+}
+
+// A folder, or a .stick file naming one: a FAT32 disk made up from it, served
+// by an NbdServer of its own on a socket in the run directory, which QEMU's
+// NBD client reads as it would a file.
+void Sticks::insertFolder(const QString& id, int n, Done done) {
+    m_pending.insert(id);
+    QString socket = QDir(m_machine->runDir()).filePath(QString("stick%1.nbd").arg(n));
+    if (QFile::encodeName(socket).size() > 100) // past what a Unix socket's path can hold
+        socket = QString("/tmp/pi-qemu-%1-stick%2.nbd").arg(QCoreApplication::applicationPid()).arg(n);
+    // The walk reads every folder on the stick, which takes seconds on a disk
+    // that was asleep: not on the event loop.
+    QPointer<Sticks> self(this);
+    std::thread([=] {
+        std::shared_ptr<FatVolume> volume;
+        FatSpec spec;
+        QString error;
+        try {
+            if (QFileInfo(id).isDir()) spec.folder = id;
+            else spec = FatSpec::load(id);
+            volume = std::make_shared<FatVolume>(spec);
+        } catch (const Failure& f) {
+            error = f.message;
+        }
+        QMetaObject::invokeMethod(qApp, [=] {
+            if (!self) return;
+            self->m_pending.remove(id);
+            if (!volume) { done(false, error); return; }
+            if (!self->m_machine->running()) { done(false, "the Pi is not running"); return; }
+            auto server = std::make_unique<NbdServer>(volume, socket, spec.bytesPerSecond);
+            QString err;
+            if (!server->start(&err)) { done(false, err); return; }
+            self->m_servers[n] = std::move(server);
+            const QString rate = spec.bytesPerSecond > 0
+                                     ? QString(", read at %1 MB/s").arg(double(spec.bytesPerSecond) / 1e6, 0, 'f', 1)
+                                     : QString();
+            self->plug(id, n,
+                       QJsonObject{{"driver", "nbd"},
+                                   {"server", QJsonObject{{"type", "unix"}, {"path", socket}}},
+                                   {"export", NbdServer::kExport},
+                                   {"read-only", true}},
+                       volume->summary() + rate, done);
+        }, Qt::QueuedConnection);
+    }).detach();
+}
+
+void Sticks::insert(const QString& name, Done done) {
+    const QString id = resolve(name);
+    if (m_inserted.contains(id) || m_pending.contains(id)) { done(false, id + " is already in"); return; }
+    if (m_inserted.size() + m_pending.size() >= kSlots) { done(false, "the deck has two USB slots, both taken"); return; }
     if (!m_machine->running()) { done(false, "the Pi is not running"); return; }
 
     const int n = m_next++;
-    const QString node = QString("stick%1").arg(n), dev = QString("usbstick%1").arg(n);
-    auto plug = [=, this](const QJsonObject& file) {
-        QJsonObject bd{{"node-name", node}, {"driver", "raw"}, {"read-only", true}, {"file", file}};
-        m_machine->qmp("blockdev-add", bd, [=, this](const QJsonObject& r) {
-            if (r.contains("error")) { done(false, r["error"].toObject()["desc"].toString()); return; }
-            m_machine->qmp("device_add",
-                           QJsonObject{{"driver", "usb-storage"}, {"id", dev}, {"bus", "xhci.0"}, {"drive", node}},
-                           [=, this](const QJsonObject& r2) {
-                               if (r2.contains("error")) {
-                                   m_machine->qmp("blockdev-del", QJsonObject{{"node-name", node}});
-                                   done(false, r2["error"].toObject()["desc"].toString());
-                                   return;
-                               }
-                               m_inserted[id] = n;
-                               emit changed();
-                               done(true, id + " inserted");
-                           });
-        });
-    };
+    auto plug = [=, this](const QJsonObject& file) { this->plug(id, n, file, QString(), done); };
+    if (QFileInfo(id).isDir() || (QFileInfo(id).isFile() && id.endsWith(".stick"))) {
+        insertFolder(id, n, done);
+        return;
+    }
 
     if (id.startsWith("fd:")) { // an image file, through the same descriptor route as a real stick
         int fd = ::open(QFile::encodeName(id.mid(3)).constData(), O_RDONLY);
@@ -241,13 +310,7 @@ void Sticks::insert(const QString& name, Done done) {
 }
 
 void Sticks::unplug(const QString& name, Done done) {
-    // A bare name finds the image in the sticks folder: "SAM3" -> SAM3.img.
-    QString id = name;
-    if (!id.startsWith("disk") && !id.startsWith("fd:") && !QFileInfo::exists(id)) {
-        for (const QString& cand : {id, id + ".img"})
-            if (QFileInfo::exists(QDir(m_imagesDir).filePath(cand))) id = QDir(m_imagesDir).filePath(cand);
-    }
-    if (QFileInfo::exists(id)) id = QFileInfo(id).absoluteFilePath();
+    const QString id = resolve(name);
     if (!m_inserted.contains(id)) { done(false, id + " is not in"); return; }
     const int n = m_inserted.take(id);
     const QString node = QString("stick%1").arg(n), dev = QString("usbstick%1").arg(n);
@@ -256,6 +319,7 @@ void Sticks::unplug(const QString& name, Done done) {
         QTimer::singleShot(500, this, [=, this] {
             m_machine->qmp("blockdev-del", QJsonObject{{"node-name", node}}, [=, this](const QJsonObject&) {
                 dropFdset(100 + n);
+                m_servers.erase(n); // QEMU has let go of a folder stick's socket
                 if (id.startsWith("disk")) run("diskutil", {"mountDisk", id});
                 emit changed();
                 done(true, id + " unplugged");
@@ -268,5 +332,6 @@ void Sticks::forgetAll() {
     for (auto it = m_inserted.begin(); it != m_inserted.end(); ++it)
         if (it.key().startsWith("disk")) run("diskutil", {"mountDisk", it.key()});
     m_inserted.clear();
+    m_servers.clear();
     emit changed();
 }

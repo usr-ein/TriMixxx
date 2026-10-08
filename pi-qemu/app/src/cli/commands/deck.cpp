@@ -136,6 +136,9 @@ int board(cli::Args& a, const QString& verb) {
         if (words.size() != 2) cli::usage("save NAME FILE");
         words[1] = QFileInfo(words[1]).absoluteFilePath();
     }
+    // A stick named by a path here: the board runs elsewhere, so absolute.
+    if (verb == "stick" && words.size() == 3 && QFileInfo::exists(words[2]))
+        words[2] = QFileInfo(words[2]).absoluteFilePath();
     print() << d.controls(words) << "\n";
     return 0;
 }
@@ -356,7 +359,7 @@ void addDeck(cli::Registry& r) {
     r.add({.group = "deck", .name = "leds", .synopsis = "NAME", .summary = "what the deck's lights show now (JSON)",
            .run = [](cli::Args& a) { return board(a, "leds"); }});
     r.add({.group = "deck", .name = "stick", .synopsis = "NAME list | insert ID | unplug ID",
-           .summary = "USB sticks: the Mac's own (diskN) or images, two slots, read-only",
+           .summary = "USB sticks: the Mac's own (diskN), images, or folders as FAT32 sticks; two slots, read-only",
            .run = [](cli::Args& a) { return board(a, "stick"); }});
     r.add({.group = "deck", .name = "power", .synopsis = "NAME on|off", .summary = "power: off pulls the plug",
            .run = [](cli::Args& a) { return board(a, "power"); }});

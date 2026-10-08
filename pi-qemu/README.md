@@ -118,8 +118,8 @@ board itself (`pi-qemu run --help` lists its options):
   - the S3 link light;
   - Power on, and Pull the plug (no shutdown, like the mains switch);
   - the sound mode;
-  - every USB storage device on the Mac and every image in `.cache/sticks/`,
-    each with Insert / Unplug (two slots, read-only).
+  - every USB storage device on the Mac, and every image and `.stick` file
+    in `.cache/sticks/`, each with Insert / Unplug (two slots, read-only).
 
 ### Driving it from the command line
 
@@ -397,6 +397,50 @@ cd pi-qemu/.cache/sticks
 hdiutil create -srcfolder /Volumes/SAM3 -volname SAM3 -fs FAT32 -layout MBRSPUD -format UDTO -size 256m SAM3
 mv SAM3.cdr SAM3.img
 ```
+
+### A folder as a stick, with nothing copied
+
+A folder on the Mac goes in as a FAT32 stick made up on the fly: a copy of
+a DJ's stick on an external drive, say, however big. Nothing is copied and
+the folder is only ever read. pi-qemu builds the stick's directories and FATs
+in memory when it goes in, then hands the Pi each file's bytes as it reads
+them, through QEMU's NBD client (`app/src/board/fatvolume.*`, `nbdserver.*`).
+The Pi sees a real USB disk, so udev, dj-usb and Mixxx's own checks all run
+as they would on the deck.
+
+```sh
+pi-qemu deck stick mix insert /Volumes/Drive/DJ-stick-copy   # a folder: MBR, FAT32, sized to fit
+pi-qemu deck stick mix insert SANDISK                        # .cache/sticks/SANDISK.stick
+```
+
+A `.stick` file (JSON) says how the stick was laid out. Every key but
+`folder` is optional, and relative paths are from the `.stick` file:
+
+```json
+{
+  "folder": "/Volumes/BIGBOY2/TriMixxx-USB-dumps/SanDisk-E02C-5D1B/files",
+  "superfloppy": true,
+  "size": 123048296448,
+  "volumeStart": "/Volumes/BIGBOY2/TriMixxx-USB-dumps/SanDisk-E02C-5D1B/sda-first-31MiB-bootsector-and-FATs.raw",
+  "bytesPerSecond": 3700000
+}
+```
+
+| Key | What it does |
+|---|---|
+| `superfloppy` | no partition table: the filesystem starts at sector 0, as some sticks have it |
+| `partitionStart` | where the FAT32 partition starts, in sectors (default 2048) |
+| `size` | the disk's size in bytes (default: what the files need, plus a quarter) |
+| `volumeStart` | a raw copy of a real stick's filesystem start (`{"file": F, "offset": N}`, or just `F`): its reserved sectors are served as they were (boot code, serial, label, dirty flag), and the FATs, FSInfo and directories are laid out to match |
+| `mbr` | a real stick's first sector, partition table included |
+| `label`, `serial` | the volume label, and the serial blkid reports as the UUID (`"E02C-5D1B"`) |
+| `clusterKiB` | the cluster size (default: mkfs.fat's for the size) |
+| `bytesPerSecond` | reads no faster than this, like a slow stick (a USB 2 Cruzer Blade: `3700000`) |
+
+Names go onto the stick NFC, as rekordbox's sticks have them: macOS hands a
+folder's accented names back decomposed, and serving those as they come would
+make a stick no deck has ever seen. A file of 4 GiB or more, or two names that
+differ only in case, cannot be on a FAT32 stick, and the insert says so.
 
 ### Check the audio without hearing it
 

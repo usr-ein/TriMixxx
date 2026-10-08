@@ -69,8 +69,14 @@ pi-qemu deck shot NAME "$TMPDIR/NAME-1.png"   # the 1280x800 screen, headless; R
 pi-qemu deck leds NAME                        # the S3's LEDs as JSON: play, cue, loopIn/Out, ringA/ringB
 pi-qemu deck status NAME                      # Pi running, S3 link, ssh port, run dir
 pi-qemu deck ssh NAME 'tail -50 /tmp/mixxx/mixxx.log'   # Mixxx (also stderr.log; .1 = previous run)
+pi-qemu deck ssh NAME 'tail -f /tmp/mixxx/stderr.log'    # the same lines as they happen, without times
 pi-qemu deck ssh NAME 'journalctl -b -u trimixxx-launchd -n 50'
 ```
+
+`mixxx.log` is written in batches (Mixxx flushes it at `critical`), so its
+last minutes may not be there yet; `stderr.log` has every line at once. To
+time something, stamp `stderr.log` as it grows (a `tail -F` into a small
+Python loop on the deck) and read that.
 
 Put screenshots in a temp or scratch directory, not in the repo. Take one
 after anything you expect to change the screen, and look at it before you
@@ -87,11 +93,12 @@ pi-qemu deck press NAME play              # press+release, 80 ms; `press NAME cu
 pi-qemu deck down NAME cue                # ... `deck up NAME cue` releases
 pi-qemu deck jog NAME 3240                # +clockwise, 12960 ticks per turn
 pi-qemu deck touch NAME on                # platter touch (scratch); `touch NAME off`
-pi-qemu deck browse NAME -2               # the track encoder, + is up
+pi-qemu deck browse NAME -2               # the track encoder, + is up (50 at most at once: more loses detents)
 pi-qemu deck press NAME push              # encoder push: opens the library, then activates the selection
 pi-qemu deck tempo NAME center            # fader 0..16383, 8192 (center) the middle
 pi-qemu deck midi NAME 90 3C 7F           # raw bytes, for anything else
 pi-qemu deck stick NAME insert SAM3       # a rekordbox USB stick image (read-only); `stick NAME list`
+pi-qemu deck stick NAME insert /some/dir  # a folder as a FAT32 stick, nothing copied (or a .stick file)
 ```
 
 Controls: `tempo-range keylock loop8 loop4 loop-double loop-halve back hotcue1
@@ -110,6 +117,10 @@ pi-qemu deck key NAME Down Return         # X key events
 pi-qemu deck where NAME                   # the pointer's position
 ```
 
+- **A copy of a real stick** (a DJ's files on an external drive): insert
+  its folder, or a `.stick` file that also gives the real stick's layout,
+  boot sector, size and speed. See "A folder as a stick" in
+  `pi-qemu/README.md`. A `.stick` with `bytesPerSecond` plays a slow stick.
 - **Load a track:** `stick NAME insert SAM3`, `press NAME push`, then browse
   and push until it loads, with a screenshot between steps. With no track
   loaded, most presses change nothing visible.

@@ -20,7 +20,8 @@ QString ControlServer::help() {
            QStringLiteral("\n"
                           "  leds                   what the deck's lights show now (JSON)\n"
                           "USB sticks (two slots, read-only):\n"
-                          "  stick list | stick insert ID | stick unplug ID   (ID: diskN or an image file)\n"
+                          "  stick list | stick insert ID | stick unplug ID\n"
+                          "      ID: diskN, an image file, a folder, or a .stick file describing one\n"
                           "The board:\n"
                           "  status | power on | power off (pulls the plug) | screenshot FILE.png\n"
                           "  save FILE      the whole machine to FILE, then off (run --restore FILE CARD)\n");
@@ -89,7 +90,9 @@ void ControlServer::onLine(QLocalSocket* client, const QString& line) {
             reply(c, true, out.isEmpty() ? "no USB storage on this computer" : out.join('\n'));
         } else if ((w[0] == "insert" || w[0] == "unplug") && w.size() > 1) {
             auto done = [this, c](bool ok, const QString& msg) { reply(c, ok, msg); };
-            if (w[0] == "insert") m_sticks->insert(w[1], done); else m_sticks->unplug(w[1], done);
+            // The rest of the line, spaces and all: a folder's name may have some.
+            const QString id = line.section(' ', 2, -1, QString::SectionSkipEmpty);
+            if (w[0] == "insert") m_sticks->insert(id, done); else m_sticks->unplug(id, done);
         } else {
             reply(c, false, "stick list | stick insert ID | stick unplug ID");
         }
