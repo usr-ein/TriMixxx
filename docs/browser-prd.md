@@ -1100,13 +1100,13 @@ back before the rest have played.
 **Back to back, on the one deck.** At the end of a track (its play position
 reaching the end) the next loads on `[Channel1]` and starts at once: no second
 deck, no crossfade, nothing copied ahead. The gap on an emulated deck is about
-0.2 s. A track that ends less than 0.6 s after it loaded — a one-shot, or a
-second quick seek to the end — is followed once those 0.6 s have passed: Mixxx
-takes a second load to a deck within half a second for the DJ's double tap and
-clones another deck instead; with no other deck loaded, nothing would load. A
-pause waits; a loop never reaches the end, so nothing happens until the track
-really ends; the tempo fader sets the next track's rate as it does for a track
-loaded by hand.
+0.2 s, however soon the end comes: a one-shot, or a second quick seek to the
+end, is followed like any track. (Mixxx takes a second load to a deck within
+half a second for the DJ's double tap, and clones another deck instead; with
+no deck to clone, as here, the fork loads the track like any load.) A pause
+waits; a loop never reaches the end, so nothing happens until the track really
+ends; the tempo fader sets the next track's rate as it does for a track loaded
+by hand.
 
 **The screen stays as the DJ has it.** A track autoplay picks by itself
 neither closes nor moves the browser: the mapping returns to the deck on a load
