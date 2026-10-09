@@ -52,7 +52,9 @@ slot_cmdline() {
 }
 
 seal() {
-    : "${COMMIT:?}" "${HASH:?}"
+    # A pi-qemu built before HASH was passed comes here after building the
+    # system: say how to finish, rather than only what is missing.
+    : "${COMMIT:?}" "${HASH:?not passed by this pi-qemu, which is older than this script: rebuild it (pi-qemu/build.sh app), then release build --keep-system to seal the system just built}"
     local o=out/$VERSION card=/build/$SYSTEM.img r=/merged p=/repo/pi_config
     local boot_start root_start root_size
     # The release's date: when it was sealed, in the release file and the
