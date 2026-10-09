@@ -1079,7 +1079,9 @@ played. Drifting over a long run is accepted.
 
 **Rounds.** The starting track counts as played. When every track of the genre
 has played, a new round starts — never with the track that has just played,
-unless it is the genre's only one.
+unless it is the genre's only one. A genre started again after its last round
+finished opens the new round with the starting track, so that one does not come
+back before the rest have played.
 
 **Back to back, on the one deck.** At the end of a track (its play position
 reaching the end) the next loads on `[Channel1]` and starts at once: no second
