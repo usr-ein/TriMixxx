@@ -554,6 +554,8 @@ def cmd_status(a) -> int:
             print("  ".join(str(c).ljust(w) for c, w in zip(r, widths)).rstrip())
     else:
         print("no crew worktrees")
+    held = locks()
+    print("\nreal decks: " + ("".join(f"\n  {lock_line(u, lk)}" for u, lk in held.items()) or "none locked"))
     night = by_name.get("nightman")
     print(f"\nnightman: {night.get('status') if night else 'not running'}")
     v, why = verdict(snap, lim, "minion")
@@ -813,7 +815,10 @@ def cmd_clean(a) -> int:
             run(["pi-qemu", "deck", "rm", name], check=False, timeout=180)
             print(f"removed deck {name}")
     if a.abandon:
-        print(f"{b}: sessions and decks stopped; worktree and branches kept")
+        for u, lk in locks().items():
+            if lk["holder"] == b:
+                print(f"{b} still holds {u}, which may be mid-check: `crew unlock {u}` once its state is known")
+        print(f"{b}: sessions and decks stopped; worktree, branches and locks kept")
         return 0
     if blocking:
         die(f"{', '.join(blocking)} still open in a terminal: exit it, then `crew clean {b}` again", 2)
@@ -842,6 +847,8 @@ def cmd_clean(a) -> int:
         if reg.get("branch") == b:
             (CREW / "sessions" / f"{reg['sid']}.json").unlink(missing_ok=True)
             (CREW / "drift" / f"{reg['sid']}.json").unlink(missing_ok=True)
+    for u in release_locks(b):
+        print(f"{u} is free (it was {b}'s)")
     return 0
 
 
@@ -921,6 +928,143 @@ def cmd_review(a) -> int:
     return 0
 
 
+# --- real decks: one holder per unit -----------------------------------------------------
+
+UNIT = re.compile(r"trimixxx[1-9]\d*")  # a real deck by its own name, as in mixxx_config/units/
+
+
+def resolve_host(name: str) -> str:
+    """What ssh reaches for name: its HostName in ~/.ssh/config (trimixxx-pi -> 192.168.1.80), or the name itself."""
+    if not name or name.startswith("-"):
+        return name.lower()
+    try:
+        r = subprocess.run(["ssh", "-G", name], capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return name.lower()
+    m = re.search(r"^hostname (\S+)$", r.stdout, re.M)
+    return (m.group(1) if m else name).lower()
+
+
+def host_names(host: str) -> set[str]:
+    """A host as the locks compare it: its name, and the address ssh resolves it to."""
+    host = host.rsplit("@", 1)[-1].strip("[]").lower()
+    return {host, resolve_host(host)}
+
+
+def locks() -> dict:
+    """The real decks held, by unit: {unit, holder (a minion's branch, or Sam), names, since, by, why}."""
+    held = {}
+    for p in sorted((CREW / "locks").glob("*.json")):
+        try:
+            lk = json.loads(p.read_text())
+        except (OSError, ValueError):
+            continue
+        if isinstance(lk, dict) and lk.get("holder") and isinstance(lk.get("names"), list):
+            held[p.stem] = lk
+    return held
+
+
+def lock_on(names: set[str], held: dict) -> tuple[str, dict] | None:
+    return next(((u, lk) for u, lk in held.items() if names & set(lk["names"])), None)
+
+
+def units_named(names) -> list[str]:
+    """The units a host's names spell out: trimixxx2.local, the HostName of trimixxx-pi-2, is trimixxx2."""
+    return sorted({f"trimixxx{d}" for n in names for d in re.findall(r"trimixxx([1-9]\d*)", n)})
+
+
+def lock_line(unit: str, lk: dict) -> str:
+    via = [n for n in lk["names"] if n not in (unit, f"{unit}.local")]
+    return (f"{unit}: {lk['holder']}'s since {(lk.get('since') or '')[11:16]}, granted by {lk.get('by') or '?'}"
+            + (f" ({lk['why']})" if lk.get("why") else "") + (f"; reached as {', '.join(via)}" if via else ""))
+
+
+def cmd_lock(a) -> int:
+    held = locks()
+    if not a.unit:
+        print("\n".join(lock_line(u, lk) for u, lk in held.items()) or "no real deck is locked")
+        return 0
+    unit = a.unit.lower()
+    if not UNIT.fullmatch(unit):
+        die(f"{a.unit} is not a unit. A unit is a real deck's own name (trimixxx1, trimixxx2, ...); the ssh aliases "
+            "and addresses it is reached by come after it: `crew lock trimixxx1 trimixxx-pi 169.254.232.146`", 2)
+    reg = registration(os.environ.get("CLAUDE_CODE_SESSION_ID"))  # None: Sam, from his shell or a session of his
+    role = reg["role"] if reg else None
+    if role == "bitch":
+        die("the bitch never uses a real deck", 2)
+    if role == "minion":
+        holder = reg["branch"]
+        if a.holder and a.holder != holder:
+            die(f"a minion locks units for itself ({holder}) only", 2)
+    elif a.holder:
+        holder = "Sam" if a.holder.lower() == "sam" else a.holder
+    elif role:
+        die("say who holds it: --for BRANCH (the minion you grant it to), or --for Sam", 2)
+    else:
+        holder = "Sam"
+    if holder != "Sam":
+        check_branch(holder)
+        if not worktree_of(holder).is_dir():
+            die(f"{holder} has no crew worktree ({worktree_of(holder)}): --for BRANCH, or --for Sam", 2)
+    cur = held.get(unit)
+    if cur and cur["holder"] != holder:
+        die(f"{lock_line(unit, cur)}. One holder at a time: it is free once they `crew unlock {unit}`", 3)
+    if role == "minion" and reg["mode"] == "night" and not cur:
+        die(f"at night the nightman grants real decks, on Sam's go: ask it for {unit}, saying what you will do on it, "
+            "for how long, and how you will leave it", 2)
+    names = set(cur["names"]) if cur else {unit, f"{unit}.local"}
+    for n in a.names:
+        new = host_names(n)
+        others = [u for u in units_named(new) if u != unit]
+        if others:
+            die(f"{n} is {others[0]}'s name, not {unit}'s", 2)
+        taken = lock_on(new, {u: lk for u, lk in held.items() if u != unit})
+        if taken:
+            die(f"{n} is in the lock on {lock_line(*taken)}. One holder per unit", 3)
+        names |= new
+    lk = {"unit": unit, "holder": holder, "names": sorted(names), "since": cur["since"] if cur else now_iso(),
+          "by": cur["by"] if cur else session_name(reg) if reg else "Sam", "why": a.why or (cur or {}).get("why", "")}
+    path = CREW / "locks" / f"{unit}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(lk, indent=2) + "\n"
+    if cur:
+        tmp = path.with_name(f".{unit}.{os.getpid()}.tmp")
+        tmp.write_text(text)
+        tmp.replace(path)
+    else:
+        try:
+            with open(path, "x") as f:  # of two sessions locking one unit at the same moment, one gets it
+                f.write(text)
+        except FileExistsError:
+            now = locks().get(unit)
+            die(f"{lock_line(unit, now) if now else unit}: locked just now. One holder at a time", 3)
+    print(lock_line(unit, lk))
+    return 0
+
+
+def cmd_unlock(a) -> int:
+    unit = a.unit.lower()
+    cur = locks().get(unit)
+    if not cur:
+        print(f"{unit} is not locked")
+        return 0
+    reg = registration(os.environ.get("CLAUDE_CODE_SESSION_ID"))
+    if reg and reg["role"] == "bitch":
+        die("the bitch never uses a real deck", 2)
+    if reg and reg["role"] == "minion" and cur["holder"] != reg["branch"]:
+        die(f"{lock_line(unit, cur)}. Only its holder, the nightman or Sam frees it", 2)
+    (CREW / "locks" / f"{unit}.json").unlink(missing_ok=True)
+    print(f"{unit} is free (it was {cur['holder']}'s since {(cur.get('since') or '')[11:16]})")
+    return 0
+
+
+def release_locks(holder: str) -> list[str]:
+    freed = [u for u, lk in locks().items() if lk["holder"] == holder]
+    for u in freed:
+        (CREW / "locks" / f"{u}.json").unlink(missing_ok=True)
+    return freed
+
+
 # --- hooks ---------------------------------------------------------------------
 
 TMP_ROOTS = ("/tmp/", "/private/tmp/", "/var/folders/", "/private/var/folders/")
@@ -965,7 +1109,9 @@ GIT_WRITES = {"commit", "push", "merge", "rebase", "reset", "checkout", "switch"
               "revert", "am", "apply", "clean", "add", "rm", "mv", "worktree", "pull", "submodule", "restore",
               "branch", "remote", "config", "update-ref", "update-index", "notes", "gc", "prune", "filter-branch"}
 SSH_VALUE_OPTS = set("bcDEeFIiJLlmOoPpQRSWw")
-REAL_DECK = re.compile(r"^(trimixxx(?!0$)[\w.-]*|192\.168\.\d+\.\d+)$", re.I)  # trimixxx0 is the emulated one
+# trimixxx0 is the emulated one. 169.254 and fe80:: are link-local: a deck's Ethernet, cabled to the Mac's dock.
+REAL_DECK = re.compile(r"^(trimixxx(?!0$)[\w.-]*|192\.168\.\d+\.\d+|169\.254\.\d+\.\d+"
+                       r"|fe[89ab][0-9a-f]:[0-9a-f:]*(%[\w.-]+)?)$", re.I)
 
 
 def strip_heredocs(cmd: str) -> str:
@@ -1054,8 +1200,13 @@ def git_writes(verb: str, rest: list[str]) -> bool:
 
 
 def remote_hosts(prog: str, args: list[str]) -> list[str]:
-    """The hosts an ssh, sftp, scp or rsync command reaches."""
+    """The hosts an ssh, sftp, scp or rsync command reaches, an `-o HostName=` among them."""
     targets = []
+    for i, x in enumerate(args):
+        opt = (args[i + 1] if i + 1 < len(args) else "") if x == "-o" else x[2:] if x.startswith("-o") else ""
+        m = re.match(r"(?i)\s*hostname[=\s]+(\S+)", opt)
+        if m:
+            targets.append(m.group(1))
     if prog in ("ssh", "sftp", "mosh"):
         i = 0
         while i < len(args):
@@ -1065,8 +1216,11 @@ def remote_hosts(prog: str, args: list[str]) -> list[str]:
             targets.append(args[i])
             break
     elif prog in ("scp", "rsync"):
-        targets = [x.split(":", 1)[0] for x in args if ":" in x and not x.startswith(("-", "/", "."))]
-    return [t.rsplit("@", 1)[-1] for t in targets]
+        for x in args:
+            m = re.match(r"([^@/:\[]+@)?(\[[^\]]+\]|[^:/\[]+):", x)  # [user@]host:path, [user@][fe80::1%en12]:path
+            if m and not x.startswith(("-", ".")):
+                targets.append(m.group(2))
+    return [t.rsplit("@", 1)[-1].strip("[]") for t in targets]
 
 
 def deck_names(branch: str) -> tuple[str, str]:
@@ -1090,9 +1244,44 @@ def push_reason(rest: list[str], d: Path, branch: str) -> str | None:
     return None
 
 
+def host_flag(args: list[str]) -> str | None:
+    """pi-qemu's --host: a real deck, whatever its name."""
+    for i, x in enumerate(args):
+        if x == "--host":
+            return args[i + 1] if i + 1 < len(args) else ""
+        if x.startswith("--host="):
+            return x.split("=", 1)[1]
+    return None
+
+
+def real_deck_reason(host: str, reg: dict, flagged=False) -> str | None:
+    """A minion reaches a real deck only through a lock of its own that names it (`crew lock`), by day or night; the
+    bitch and the nightman never do. flagged: pi-qemu's --host, a real deck whatever its name."""
+    if re.search(r"[$`]", host):
+        return f"{host}: name the host itself, not a variable: the guard knows real decks by name"
+    if not host:
+        return "--host names no deck"
+    names, held = host_names(host), locks()
+    found = lock_on(names, held)
+    if not (found or flagged or any(REAL_DECK.match(n) for n in names)):
+        return None
+    if reg["role"] != "minion":
+        return f"{host} is a real deck: only a minion uses one, under the unit's lock"
+    if found and found[1]["holder"] == reg.get("branch"):
+        return None
+    if found:
+        return f"{host} is {lock_line(*found)}. One holder at a time: wait until it is free"
+    mine = next((u for u, lk in held.items() if lk["holder"] == reg.get("branch")), None)
+    named = units_named(names)
+    if mine and named in ([], [mine]):
+        return (f"{host} is a real deck your lock on {mine} does not name. If it is {mine}, `crew lock {mine} {host}` "
+                "adds it; another unit needs a lock of its own")
+    return (f"{host} is a real deck, and no lock of yours names it. By day, once Sam says go: "
+            f"`crew lock {named[0] if named else 'UNIT'} {host}`; at night the nightman grants units, on Sam's go")
+
+
 def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
     role, mode, branch = reg["role"], reg["mode"], reg.get("branch")
-    no_real_decks = mode == "night" or role != "minion"
     here = Path(cwd or ".")
     for prog, args in commands(cmd):
         if prog in ("cd", "pushd"):
@@ -1114,14 +1303,17 @@ def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
             return "use `crew gh ...`: it pins the usr-ein account and usr-ein/* repositories (plain gh may act as " \
                    "another account, or open a PR on upstream mixxxdj/mixxx)"
         if prog in ("ssh", "sftp", "mosh", "scp", "rsync"):
-            real = [h for h in remote_hosts(prog, args) if REAL_DECK.match(h)]
-            if real and no_real_decks:
-                return f"{real[0]} is a real deck: none at night, and only a minion with Sam's go uses one"
+            for h in remote_hosts(prog, args):
+                why = real_deck_reason(h, reg)
+                if why:
+                    return why
         if prog == "pi-qemu":
             if args[:2] in (["deck", "golden"], ["image", "build"]):
                 return "that rebuilds the golden card everyone's decks start from: Sam's call"
-            if ("--host" in args or any(x.startswith("--host=") for x in args)) and no_real_decks:
-                return "no real decks at night, and only a minion with Sam's go uses one"
+            host = host_flag(args)
+            why = real_deck_reason(host, reg, flagged=True) if host is not None else None
+            if why:
+                return why
             if args[:1] == ["deck"] and len(args) > 2 and not args[2].startswith("-"):
                 verb, name = args[1], args[2]
                 if role == "minion" and verb in ("up", "rm", "stop", "kill") and name not in deck_names(branch):
@@ -1372,10 +1564,23 @@ def main(argv=None) -> int:
     s.add_argument("--dry-run", action="store_true")
     s.set_defaults(fn=cmd_merge)
 
-    s = sub.add_parser("clean", help="after a merge: stop its sessions and decks, drop its worktree and branches")
+    s = sub.add_parser("clean", help="after a merge: stop its sessions and decks, drop its worktree and branches, "
+                                     "free its real decks")
     s.add_argument("branch")
     s.add_argument("--abandon", action="store_true", help="unmerged: stop sessions and decks, keep the rest")
     s.set_defaults(fn=cmd_clean)
+
+    s = sub.add_parser("lock", help="hold a real deck, one holder per unit: UNIT, then the ssh aliases and addresses "
+                                    "it is reached by (no UNIT: the locks)")
+    s.add_argument("unit", nargs="?", help="trimixxx1, trimixxx2, ...")
+    s.add_argument("names", nargs="*", help="e.g. trimixxx-pi 169.254.232.146")
+    s.add_argument("--for", dest="holder", help="the minion's BRANCH it is granted to (the nightman), or Sam")
+    s.add_argument("--why", help="what it is for: Sam's go, in his words")
+    s.set_defaults(fn=cmd_lock)
+
+    s = sub.add_parser("unlock", help="free a real deck: its holder, the nightman or Sam")
+    s.add_argument("unit")
+    s.set_defaults(fn=cmd_unlock)
 
     s = sub.add_parser("hook", help="(Claude Code hooks) guard, drift, session, prompt")
     s.add_argument("kind", choices=list(HOOKS))
@@ -1398,7 +1603,11 @@ def main(argv=None) -> int:
         except Fail as e:
             print(f"crew gh: {e}", file=sys.stderr)
             return e.code
-    a = p.parse_args(argv)
+    a, extra = p.parse_known_args(argv)
+    if extra and a.cmd == "lock" and a.unit and not any(x.startswith("-") for x in extra):
+        a.names += extra  # `crew lock UNIT --for BRANCH ADDR...`: names after the options too
+    elif extra:
+        p.error(f"unrecognized arguments: {' '.join(extra)}")
     try:
         return a.fn(a)
     except Fail as e:

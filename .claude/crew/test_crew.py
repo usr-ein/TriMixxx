@@ -45,8 +45,9 @@ class Sandbox(unittest.TestCase):
         self.env = {k: os.environ.get(k) for k in ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM")}
         os.environ.update(GIT_CONFIG_GLOBAL=str(cfg), GIT_CONFIG_NOSYSTEM="1")
         self.saved = {k: getattr(crew, k) for k in ("MAIN", "CREW", "find_prs", "gh_json", "limits", "approved_commit",
-                                                    "run", "live_session", "claude_sessions")}
+                                                    "run", "live_session", "claude_sessions", "resolve_host", "locks")}
         crew.CREW = self.tmp / "crewstate"
+        crew.resolve_host = lambda name: name.lower()  # not this Mac's ~/.ssh/config
 
     def tearDown(self):
         for k, v in self.saved.items():
@@ -114,7 +115,7 @@ class GuardTest(Sandbox):
         self.assertFalse(self.denied(self.minion, "pi-qemu deck up feat-b --boot"))
         self.assertTrue(self.denied(self.minion, "pi-qemu deck rm usb-speed"))
         self.assertTrue(self.denied(self.minion, "pi-qemu deck shot --host trimixxx-pi-2 /tmp/x.png"))
-        self.assertFalse(self.denied(self.day_minion, "pi-qemu deck shot --host trimixxx-pi-2 /tmp/x.png"))
+        self.assertTrue(self.denied(self.day_minion, "pi-qemu deck shot --host trimixxx-pi-2 /tmp/x.png"))  # no lock
         self.assertTrue(self.denied(self.bitch, "pi-qemu deck deploy feat mixxx"))
         self.assertFalse(self.denied(self.bitch, "pi-qemu deck shot feat /tmp/x.png"))
         self.assertTrue(self.denied(self.nightman, "pi-qemu deck up x"))
@@ -152,12 +153,16 @@ class GuardTest(Sandbox):
         self.assertFalse(self.denied(self.minion, f"cd {main} && git push origin feat"))  # its own branch
 
     def test_real_decks_over_ssh(self):
+        """Without a lock of its own, no minion reaches one, by day or night (LockTest: with one)."""
         for cmd in ("ssh trimixxx-pi-2 ls", "ssh -o BatchMode=yes pi@trimixxx2 true", "scp f pi@192.168.1.118:/tmp",
-                    "rsync -av dir/ trimixxx-pi:/home/pi/x", "sftp trimixxx3"):
+                    "rsync -av dir/ trimixxx-pi:/home/pi/x", "sftp trimixxx3", "ssh sam1902@169.254.232.146 true",
+                    "ssh sam1902@fe80::dea6:32ff:fe88:2118%en12 true", "scp f 'pi@[fe80::1%en12]:/tmp'",
+                    "ssh -o HostName=169.254.48.149 deck true"):
             self.assertTrue(self.denied(self.minion, cmd), cmd)
-            self.assertFalse(self.denied(self.day_minion, cmd), cmd)
+            self.assertTrue(self.denied(self.day_minion, cmd), cmd)
             self.assertTrue(self.denied(self.bitch, cmd), cmd)
-        for cmd in ("ssh deck ls", "ssh -p 2222 trimixxx0 ls", "scp f feat:/tmp", "rsync -e 'ssh -p 22' a b"):
+        for cmd in ("ssh deck ls", "ssh -p 2222 trimixxx0 ls", "scp f feat:/tmp", "rsync -e 'ssh -p 22' a b",
+                    "scp ./a:b /tmp/c", "ssh -o HostKeyAlias=192.168.1.80 deck true"):
             self.assertFalse(self.denied(self.minion, cmd), cmd)
 
     def test_decks_by_exact_name(self):
@@ -188,6 +193,116 @@ class GuardTest(Sandbox):
         self.assertIsNone(crew.write_reason(str(crew.CREW / "night" / "plan.md"), self.nightman))
         self.assertIsNotNone(crew.write_reason(str(self.wt / "x.py"), self.nightman))
         self.assertTrue(self.denied(self.nightman, "git push origin main"))
+
+
+class LockTest(Sandbox):
+    """Real decks: one holder per unit, and a minion reaches one only through a lock of its own, by day or night."""
+
+    def setUp(self):
+        super().setUp()
+        crew.MAIN = self.tmp / "main"
+        self.wt = self.repo(crew.MAIN / ".claude" / "worktrees" / "feat")
+        self.repo(crew.MAIN / ".claude" / "worktrees" / "other")
+        ssh_config = {"trimixxx-pi": "192.168.1.80", "trimixxx-pi-2": "trimixxx2.local", "t1": "192.168.1.80"}
+        crew.resolve_host = lambda name: ssh_config.get(name.lower(), name.lower())
+        sid = os.environ.get("CLAUDE_CODE_SESSION_ID")
+        self.addCleanup(lambda: os.environ.update(CLAUDE_CODE_SESSION_ID=sid) if sid else
+                        os.environ.pop("CLAUDE_CODE_SESSION_ID", None))
+        self.regs = {sid: crew.register_session(sid, role, mode, branch, self.wt) for sid, role, mode, branch in (
+            ("feat-day", "minion", "day", "feat"), ("feat-night", "minion", "night", "feat"),
+            ("other-day", "minion", "day", "other"), ("bitch", "bitch", "night", "feat"),
+            ("nightman", "nightman", "night", None))}
+
+    def lock(self, sid, unit, *names, holder=None, why=None) -> int:
+        """`crew lock` as that session; sid None: Sam."""
+        os.environ["CLAUDE_CODE_SESSION_ID"] = sid or "sams-own-session"
+        return crew.cmd_lock(argparse.Namespace(unit=unit, names=list(names), holder=holder, why=why))
+
+    def unlock(self, sid, unit) -> int:
+        os.environ["CLAUDE_CODE_SESSION_ID"] = sid or "sams-own-session"
+        return crew.cmd_unlock(argparse.Namespace(unit=unit))
+
+    def refused(self, fn, code, words):
+        with self.assertRaises(crew.Fail) as cm:
+            fn()
+        self.assertEqual(cm.exception.code, code, str(cm.exception))
+        self.assertIn(words, str(cm.exception))
+
+    def reason(self, sid, cmd):
+        return crew.bash_reason(cmd, self.regs[sid], str(self.wt))
+
+    def test_one_holder_per_unit(self):
+        self.assertEqual(self.lock("feat-day", "trimixxx1", "trimixxx-pi"), 0)
+        self.refused(lambda: self.lock("other-day", "trimixxx1"), 3, "feat's")
+        self.refused(lambda: self.lock("other-day", "trimixxx2", "192.168.1.80"), 3, "trimixxx1")  # trimixxx-pi's
+        self.refused(lambda: self.lock("other-day", "trimixxx2", "t1"), 3, "trimixxx1")  # another alias of it
+        self.assertEqual(self.lock("other-day", "trimixxx2", "trimixxx-pi-2"), 0)
+        self.assertEqual(sorted(crew.locks()), ["trimixxx1", "trimixxx2"])
+        self.refused(lambda: self.lock("feat-day", "trimixxx-pi"), 2, "not a unit")
+
+    def test_two_at_the_same_moment(self):
+        crew.locks = lambda: {}  # both read the unit as free...
+        self.assertEqual(self.lock("feat-day", "trimixxx1"), 0)
+        self.refused(lambda: self.lock("other-day", "trimixxx1"), 3, "locked just now")  # ...one gets it
+        crew.locks = self.saved["locks"]
+        self.assertEqual(crew.locks()["trimixxx1"]["holder"], "feat")
+
+    def test_the_lock_is_the_way_in(self):
+        cmds = ("ssh trimixxx-pi ls", "scp f sam1902@192.168.1.80:/tmp", "rsync -a d/ t1:/tmp/d",
+                "pi-qemu deck ship --host trimixxx-pi", "pi-qemu deck shot --host=trimixxx1.local /tmp/x.png")
+        for cmd in cmds:
+            self.assertIn("no lock of yours", self.reason("feat-night", cmd), cmd)
+        self.lock("nightman", "trimixxx1", "trimixxx-pi", holder="feat")
+        for cmd in cmds:
+            self.assertIsNone(self.reason("feat-night", cmd), cmd)  # at night too: the nightman granted it
+            self.assertIsNone(self.reason("feat-day", cmd), cmd)
+            self.assertIn("feat's", self.reason("other-day", cmd), cmd)
+            self.assertIn("only a minion", self.reason("bitch", cmd), cmd)
+            self.assertIn("only a minion", self.reason("nightman", cmd), cmd)
+
+    def test_addresses_the_lock_does_not_name(self):
+        self.lock("nightman", "trimixxx1", "trimixxx-pi", holder="feat")
+        self.assertIn("`crew lock trimixxx1 169.254.232.146` adds it",
+                      self.reason("feat-night", "ssh sam1902@169.254.232.146 true"))
+        self.assertEqual(self.lock("feat-night", "trimixxx1", "169.254.232.146", "fe80::dea6:32ff:fe88:2118%en12"), 0)
+        for cmd in ("ssh sam1902@169.254.232.146 true", "scp f 'sam1902@[fe80::dea6:32ff:fe88:2118%en12]:/tmp'",
+                    "ssh -o HostName=fe80::dea6:32ff:fe88:2118%en12 -o HostKeyAlias=192.168.1.80 trimixxx-pi true"):
+            self.assertIsNone(self.reason("feat-night", cmd), cmd)
+        self.assertIsNotNone(self.reason("feat-night", "ssh -o HostName=169.254.48.149 trimixxx-pi true"))
+        self.assertIn("`crew lock trimixxx2 trimixxx-pi-2`", self.reason("feat-night", "ssh trimixxx-pi-2 true"))
+        for cmd in ("ssh $DECK true", 'scp f "$H":/tmp', "pi-qemu deck ship --host $D"):
+            self.assertIn("not a variable", self.reason("feat-day", cmd), cmd)
+
+    def test_at_night_the_nightman_grants_it(self):
+        self.refused(lambda: self.lock("feat-night", "trimixxx1", "trimixxx-pi"), 2, "the nightman grants")
+        self.refused(lambda: self.lock("nightman", "trimixxx1"), 2, "--for")
+        self.refused(lambda: self.lock("nightman", "trimixxx1", holder="nosuch"), 2, "no crew worktree")
+        self.refused(lambda: self.lock("feat-day", "trimixxx2", holder="other"), 2, "for itself")
+        self.refused(lambda: self.lock("bitch", "trimixxx2"), 2, "bitch")
+        self.assertEqual(self.lock("nightman", "trimixxx1", "trimixxx-pi", holder="feat", why="Sam 18:01: go"), 0)
+        self.assertEqual(self.lock("feat-night", "trimixxx1", "169.254.232.146"), 0)  # it adds to its own
+        lk = crew.locks()["trimixxx1"]
+        self.assertEqual((lk["holder"], lk["by"], lk["why"]), ("feat", "nightman", "Sam 18:01: go"))
+        self.assertIn("169.254.232.146", lk["names"])
+        self.refused(lambda: self.lock("feat-night", "trimixxx1", "trimixxx-pi-2"), 2, "trimixxx2's name")
+
+    def test_who_frees_a_unit(self):
+        self.lock("nightman", "trimixxx1", holder="feat")
+        self.refused(lambda: self.unlock("other-day", "trimixxx1"), 2, "Only its holder")
+        self.assertEqual(self.unlock("feat-night", "trimixxx1"), 0)
+        self.lock("nightman", "trimixxx1", holder="feat")
+        self.assertEqual(self.unlock("nightman", "trimixxx1"), 0)
+        self.assertEqual(self.lock(None, "trimixxx2"), 0)  # Sam keeps one for himself
+        self.assertEqual(crew.locks()["trimixxx2"]["holder"], "Sam")
+        self.assertIn("Sam's", self.reason("feat-day", "ssh trimixxx-pi-2 true"))
+        self.assertEqual(self.unlock(None, "trimixxx2"), 0)
+        self.assertEqual(crew.locks(), {})
+
+    def test_clean_frees_the_branchs_units(self):
+        self.lock("nightman", "trimixxx1", holder="feat")
+        self.lock("nightman", "trimixxx2", "trimixxx-pi-2", holder="other")
+        self.assertEqual(crew.release_locks("feat"), ["trimixxx1"])
+        self.assertEqual(list(crew.locks()), ["trimixxx2"])
 
 
 class HookTest(Sandbox):

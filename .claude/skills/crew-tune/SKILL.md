@@ -87,7 +87,8 @@ holds commits he hasn't pushed himself.
 
 ## Never
 
-- weaken a safety rule (the guard, the merge's refusals, no real decks at
-  night, no AskUserQuestion at night) without Sam saying so explicitly
+- weaken a safety rule (the guard, the merge's refusals, a real deck only on
+  Sam's go and under its lock, no AskUserQuestion at night) without Sam
+  saying so explicitly
 - change a role's instructions without its mirrors and the README
 - rewrite history, or push, without Sam's word

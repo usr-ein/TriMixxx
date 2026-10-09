@@ -16,8 +16,8 @@ Their tool is `crew` (this directory). Each is one Claude session at max effort.
 
 **By day** Sam is around and is the puppet master: he starts minions and
 bitches, and they ask him (AskUserQuestion) for architecture and design
-calls. A minion uses a real deck only with his go, and a bitch merges only
-after his yes.
+calls. A minion uses a real deck only with his go, under the unit's lock,
+and a bitch merges only after his yes.
 
 **By night** the nightman started them, and nobody can be asked:
 
@@ -28,7 +28,8 @@ after his yes.
     logs it `[for Sam]`, and goes on. The PR waits for Sam instead of merging.
   - A call **expensive to switch later**: it parks the pitch, with the
     question.
-- **Real decks:** none at night.
+- **Real decks:** only the units Sam gave his go for, under a lock the
+  nightman grants, one minion per unit, hands-off (nobody is at the bench).
 - **Merges:** the nightman merges what a bitch approved, unless it waits for
   Sam.
 
@@ -85,6 +86,34 @@ two trivial pitches that touch the same file. That exercises:
 - a merge
 - an exit 3 on the second merge, and its rebase
 
+## Real decks: one minion per unit
+
+A minion reaches a real deck only while it holds the unit's lock, so two
+never ship to, deploy to or reboot the same deck at once.
+
+```sh
+crew lock                                        # who holds what (crew status too)
+crew lock trimixxx1 trimixxx-pi 169.254.232.146  # a minion, by day, on your go: the unit, then the aliases and addresses it uses
+crew lock trimixxx1 trimixxx-pi --for BRANCH --why "Sam 18:01: ..."   # the nightman's grant, on your go
+crew lock trimixxx2                              # you, from your shell: keeps the minions off it while you work on it
+crew unlock trimixxx1                            # its holder once the deck is back as agreed; the nightman; you
+```
+
+- **Units** go by the decks' own names: `trimixxx1`, `trimixxx2`, `trimixxx3`.
+  A lock knows a host by its name and by what `ssh -G` makes of it, so
+  `trimixxx-pi` and `192.168.1.80` are one host.
+- **The guard** refuses a minion's ssh, scp, rsync, sftp, mosh and
+  `pi-qemu --host` to a real deck unless its own lock names it. A real deck
+  is a `trimixxx` name, a 192.168.x.x, a link-local 169.254.x.x or fe80::
+  (a deck's Ethernet on the dock), or any host a lock names. The bitch and
+  the nightman never reach one.
+- **At night** a minion can't take a lock itself: the nightman grants it, on
+  your go for that unit, and the minion may add that unit's other addresses.
+- `crew clean` frees a branch's units; `--abandon` keeps them, since the
+  deck may be mid-check.
+- **Your own sessions are not guarded.** The lock binds the crew. From your
+  shell, `crew lock UNIT` reserves a unit for you.
+
 ## Limits
 
 `limits.env`, read by `crew resources`, which the nightman checks before every
@@ -122,7 +151,8 @@ and are otherwise untouched.
   - `sudo`, disk commands, Docker prunes, `pkill`/`killall`, `deck golden`,
     `image build`
   - another agent's decks, starting sessions (minion and bitch)
-  - real decks at night
+  - a real deck no lock of its own names (the bitch and the nightman: any
+    real deck)
 - **drift** (after each tool call) interrupts a minion every 25 minutes or
   40 tool calls with a drift check: its pitch, its diff so far, and "what am
   I doing, and does the pitch need it?"
@@ -185,6 +215,7 @@ want>`**, or just ask to tune the crew.
   `.crew/archive/` by `crew clean`.
 - `.crew/` in the main checkout:
   - `sessions/`: registrations (role, mode, branch, worktree)
+  - `locks/`: who holds which real deck, and the names it is reached by
   - `night/`: plan, pitches, review briefs, morning reports
   - `feedback.md`: the crew's complaints, for `/crew-tune`
   - `archive/`
@@ -197,5 +228,6 @@ want>`**, or just ask to tune the crew.
 python3 -m unittest discover -s .claude/crew -v
 ```
 
-The guard's rules, the drift check, session names, and `crew merge` on
-throwaway repositories (a parent and a submodule).
+The guard's rules, the real-deck locks, the drift check, session names and
+registration, and `crew merge` on throwaway repositories (a parent and a
+submodule).

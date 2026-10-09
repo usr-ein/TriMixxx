@@ -24,7 +24,7 @@ Arguments: `$ARGUMENTS`. The first word is the mode, `day` (the default) or
 |  | Day: Sam is around | Night: the nightman started you; Sam sleeps |
 |---|---|---|
 | Sam's calls | ask Sam (AskUserQuestion) | message `nightman`; **never AskUserQuestion**: nobody answers, and you would wait all night |
-| Real decks | with Sam's go | never |
+| Real decks | Sam's go, then you take the unit's lock | the nightman grants the unit's lock, on Sam's go; hands-off only |
 | You report to | Sam, in your final message | `nightman`, by SendMessage |
 | Who merges | the bitch, after Sam's yes | the nightman |
 
@@ -140,22 +140,50 @@ It is a real checkpoint, not noise:
 - The pitch turning out wrong, impossible or much bigger is a call of
   Sam's, never a reason to quietly build something else.
 
-## Real decks: by day, with Sam's go
+## Real decks: on Sam's go, under the unit's lock
 
 `trimixxx-pi`, `trimixxx-pi-2`, `trimixxx2`... are gig equipment. Use one only
 for what the emulator cannot show (the real panel, real CDJs on the network,
-Wi-Fi, a power cut, the real S3), and only once Sam says go:
+Wi-Fi, a power cut, the real S3), only on Sam's go, and only while you hold
+the unit's lock. One minion holds a unit at a time, so two never ship to,
+deploy to or reboot the same deck at once.
 
-- Ask with AskUserQuestion: which deck, what you will change on it and for how
-  long, what his hands must do and when, and how you will put it back.
-- The bench rules in memory hold: only what hardware alone can show;
-  announce a hands-on step and wait for his "go"; no silent waits (a reboot
-  has started within ~15 s, is back within ~90 s); never a disk command (he
-  flashes cards); on the boot path, network and ssh come up first.
-- Afterwards, say so: "trimixxx-pi-2 is yours again", and the state it is in.
+- **Units** go by their own names: `trimixxx1`, `trimixxx2`, `trimixxx3`. The
+  lock also names the ssh aliases and addresses you reach the unit by:
+  `crew lock trimixxx1 trimixxx-pi 169.254.232.146`. `crew lock` alone lists
+  who holds what, and so does `crew status`.
+- **The guard** refuses your ssh, scp, rsync, sftp, mosh and `pi-qemu --host`
+  to a real deck no lock of yours names, and says who holds it. An address
+  of your unit the lock lacks (its Ethernet's link-local, say):
+  `crew lock UNIT ADDR` adds it. Write hosts out: a `$VAR` host is refused.
+- **Day:** ask Sam (AskUserQuestion): which deck, what you will change on it
+  and for how long, what his hands must do and when, and how you will leave
+  it. On his go, `crew lock UNIT ALIAS...`. Another holds it: tell him who,
+  and work on the rest meanwhile.
+- **Night:** SendMessage `nightman` the same, without the hands: which unit,
+  what you will do, for how long, how you will leave it. It grants the lock
+  (`crew lock ... --for BRANCH`) only on Sam's go for that deck; you cannot
+  take one yourself at night. Held by another: work on the rest, and the
+  nightman tells you when the unit is yours.
+- **Hold it for the whole check:** ship or deploy, reboot, check, put it
+  back as agreed. Then `crew unlock UNIT`, and report the state you left it
+  in ("trimixxx1 is free, on 0.1.1"): to Sam by day, to the nightman at night.
+- **The bench rules in memory hold:**
+  - only what hardware alone can show
+  - no silent waits: a reboot has started within ~15 s and is back within ~90 s
+  - never a disk command: Sam flashes cards
+  - on the boot path, network and ssh come up first
+  - by day, announce a hands-on step and wait for his "go"
+  - at night nobody is at the bench: hands-off only (ssh, deploy, ship, a
+    reboot over ssh, screenshots, taps); no power pulls, no sticks
+- **A deck that doesn't come back** (no ssh ~90 s after a reboot, a ship's
+  included): stop, don't retry, keep the lock, and report it at once (Sam by
+  day, the nightman at night) and in the PR. Nobody else touches it until
+  its state is known.
 
-At night, never. If the pitch needs hardware, finish everything else, and
-write in the PR exactly what the hardware check must show: it waits for Sam.
+A check you can't do (no go from Sam, a hands-on step at night): finish
+everything else, and write in the PR exactly what the hardware check must
+show. It waits for Sam.
 
 ## Done: when you are satisfied
 
@@ -206,7 +234,7 @@ title reads like a commit subject; its body:
 - [for Sam] (night) the option taken, the alternative, the cost to switch
 ## Testing
 - Emulated deck: what you did, what you saw (numbers; screenshots described)
-- Real deck: what, when, with Sam's go; or none
+- Real deck: which unit, what, when, on whose go; or none
 - Not tested, and why
 ## Risks and follow-ups
 ## Companion PRs
@@ -303,7 +331,8 @@ The guard enforces most of these:
 - touch another agent's worktree, branch, deck or session; kill by name; start
   Claude sessions
 - `sudo`, disk commands, Docker prunes, `deck golden`, `image build`
-- a real deck at night, or by day without Sam's go; AskUserQuestion at night
+- a real deck without Sam's go and the unit's lock; a hands-on step at night;
+  AskUserQuestion at night
 - grow the pitch
 
 ## `.crew/notes.md`
