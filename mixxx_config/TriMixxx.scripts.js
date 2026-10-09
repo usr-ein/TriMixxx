@@ -290,9 +290,16 @@ TriMixxx.init = function(id, debugging) {
     // Return to the waveform whenever a track is loaded (from the hardware
     // encoder push or an on-screen library tap), so the library never stays up
     // over the deck. [Master],show_library is the skin's deck/library toggle.
+    //
+    // Except for a track autoplay picked by itself ([Browser],autoplay_picked):
+    // the DJ may be in the library looking for what comes next, and a load
+    // nobody asked for must not throw them out of it. The track autoplay
+    // starts from is the DJ's pick, and returns to the waveform like any other.
     TriMixxx.trackLoadedConn = engine.makeConnection(TriMixxx.DECK, "track_loaded", function(value) {
         if (value) {
-            engine.setValue("[Master]", "show_library", 0);
+            if (!engine.getValue("[Browser]", "autoplay_picked")) {
+                engine.setValue("[Master]", "show_library", 0);
+            }
             TriMixxx.onTrackLoaded();
         }
     });

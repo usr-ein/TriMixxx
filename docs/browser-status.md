@@ -165,6 +165,25 @@ fingers.
     it is complete, and its wait counters. **Written to card** should read `none`
     for the whole session.
 
+### Autoplay (PRD §18) — checked on an emulated deck, not yet by a finger
+48. **Home → Autoplay → a stick → a genre → long-press a track.** It starts
+    playing and the screen returns to the deck, with `AUTOPLAY` and the genre in
+    the waveform's bottom-left corner. Is that box readable at arm's length, and
+    clear of anything a finger reaches for?
+49. **Let a track end.** The next of the genre starts by itself, nearest in BPM;
+    the gap should be well under a second (0.2 s on the emulator). Listen for a
+    click at the join.
+50. **Open the browser and wander while a track ends.** The browser should stay
+    exactly where you are, selection included.
+51. **Home → Autoplay → Stop autoplay**, and separately **load a track by hand**
+    while autoplay runs: either ends it, the box goes, and the track playing
+    plays on. Is one tap on `Stop autoplay` the right weight, or too easy?
+52. **Pull the stick mid-track**: a toast says autoplay is off, and the track
+    plays out from the cache. Put it back in the other port and start the same
+    genre again: what played before is still skipped.
+53. **A genre on a CDJ's stick, over the link.** It goes through the same
+    tables and load path as a local stick, but has not been tried yet.
+
 ---
 
 ## 2. What the second hardware round settled

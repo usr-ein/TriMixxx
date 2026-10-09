@@ -662,6 +662,16 @@
                     <TempoColor>#ff6600</TempoColor>
                   </TempoPanel>
 
+                  <!-- AUTOPLAY and its genre, in the bottom-left corner while
+                       autoplay is on: the tempo box's twin, painted the same
+                       way for the same reason, and taking no touches. Stopping
+                       it is in the browser (Autoplay, Stop autoplay). -->
+                  <DeckAutoplay>
+                    <ObjectName>DeckAutoplayBadge</ObjectName>
+                    <MinimumSize>1024,414</MinimumSize>
+                    <MaximumSize>1024,-1</MaximumSize>
+                  </DeckAutoplay>
+
                 </Children>
               </WidgetGroup>
 

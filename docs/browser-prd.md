@@ -188,7 +188,8 @@ subtlety is the hover-versus-press distinction above.
 
 ## 5. Level 0 — the source list
 
-The root. Every medium the deck can play from, then diagnostics, then shutdown.
+The root. Every medium the deck can play from, then Autoplay (§18), then
+diagnostics, then shutdown.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
@@ -198,6 +199,7 @@ The root. Every medium the deck can play from, then diagnostics, then shutdown.
 │  ▊USB   SAM2                                     921 tracks · 10 playlists │  80
 │  ⇄▊USB  1  BOUNCY_USB                             234 tracks ·  9 playlists│  80
 │  ⇄▊SD   2  SD                                      56 tracks ·  2 playlists│  80
+│  ⟳      Autoplay                                              House · SAM1 │  80
 │  ⚙      Diagnostics                                                        │  80
 │  ⏻      Shut down                                                          │  80
 ├────────────────────────────────────────────────────────────────────────────┤
@@ -217,9 +219,9 @@ The root. Every medium the deck can play from, then diagnostics, then shutdown.
 
 **Ordering:** local media first, in slot order (`DJ_USB_1`, `DJ_USB_2`), then
 remote media by player number then slot (USB before SD). Diagnostics and Shut
-down are always the last two rows, in that order. Order is otherwise stable — a
-medium that disappears and comes back lands where it was, and nothing below it
-shifts under the selection mid-turn.
+down are always the last two rows, in that order, with Autoplay just above
+them. Order is otherwise stable — a medium that disappears and comes back lands
+where it was, and nothing below it shifts under the selection mid-turn.
 
 **Row states:**
 
@@ -912,6 +914,9 @@ exactly when you need to know.
 | …and not cached | `<icon> SAM2 removed — current track is NOT cached and may stop.` |
 | Unmounted while a peer is consuming it | `<link><icon> SAM2 removed — player 2 is still being fed from cache.` |
 | Medium unreadable | `<icon> SAM4 — no rekordbox database` (once, on insert) |
+| Autoplay ended by its drive going (§18) | `Autoplay off — SAM2 was removed` |
+| …by a track loaded by hand | `Autoplay off — a track was loaded by hand` |
+| …by three tracks in a row that would not load | `Autoplay off — 3 tracks in a row would not load` |
 
 - 360 × 72 px, 16 px from the top and right edges. The two eject-while-playing
   variants are wider and two lines, since they say something that matters.
@@ -988,6 +993,7 @@ Within a session:
 | Local play log (§7.6) | Session; wiped at boot |
 | Track cache (§12) | Session. Tier 1 is tmpfs and evaporates; tier 2 is wiped at boot. LRU-capped within the session. |
 | Browser position (level, selection) | Not restored — the browser always opens at level 0 |
+| Autoplay's played tracks (§18) | Until Mixxx restarts; in RAM only, per drive and genre |
 
 ## 16. Decisions taken
 
@@ -1039,3 +1045,65 @@ rather than by argument, and neither blocks starting.
    player asks for and what it draws. The capture decides whether "report it
    empty" is enough or whether the medium has to keep answering browse queries
    with a stale listing.
+
+## 18. Autoplay
+
+The deck plays one genre of one drive by itself, track after track. Sam's
+pitch, 2026-10-09: pick a drive, a genre and a track to start from; each next
+track is close in BPM to the one playing, and no track of the genre plays twice
+until every one of them has.
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│  ⌂ › Autoplay                                                              │  48
+├────────────────────────────────────────────────────────────────────────────┤
+│  ■      Stop autoplay                                         House · SAM1 │  80
+│  ▊USB 1 SAM1                                                     22 genres │  80
+│  ▊USB 2 SAM2                                                     14 genres │  80
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Levels.** `Autoplay` on the home list → the drives, counted in genres → a
+drive's genres, exactly as its medium menu's Genre lists them, `—` included →
+the genre's tracks, a track list like any other (sort, info layout). Activating
+a track there — long press or encoder push — starts autoplay on it instead of
+loading it. `Stop autoplay` heads the drives while autoplay is on.
+
+**The rule.** The next track is, among the genre's tracks not yet played this
+round, the nearest in BPM to the one that has just played; ties (within 0.001
+BPM) at random. A track with no BPM is not near anything, so those come only
+once every track with one has played, at random. A starting track with no BPM is
+followed by any track with one. The reference is the library's BPM for the
+track, so a stick's untagged track counts with the BPM Mixxx analysed while it
+played. Drifting over a long run is accepted.
+
+**Rounds.** The starting track counts as played. When every track of the genre
+has played, a new round starts — never with the track that has just played,
+unless it is the genre's only one.
+
+**Back to back, on the one deck.** At the end of a track (its play position
+reaching the end) the next loads on `[Channel1]` and starts at once: no second
+deck, no crossfade, nothing copied ahead. The gap on an emulated deck is about
+0.2 s. A pause waits; a loop never reaches the end, so nothing happens until
+the track really ends; the tempo fader sets the next track's rate as it does for
+a track loaded by hand.
+
+**The screen stays as the DJ has it.** A track autoplay picks by itself
+neither closes nor moves the browser: the mapping returns to the deck on a load
+only when `[Browser],autoplay_picked` is 0. The track autoplay starts from is
+the DJ's pick, and returns to the deck like any load.
+
+**What says so.** The home list's Autoplay row shows `House · SAM1` while on;
+the deck view shows `AUTOPLAY` and the genre in the waveform's bottom-left
+corner, the tempo box's twin, which takes no touches.
+
+**What ends it.** `Stop autoplay`; a track loaded by hand; an eject; the drive
+going away, after which the track playing plays out from the cache; three tracks
+in a row that would not load (a failed one is skipped, after a second); the
+starting track failing to load. The track playing always plays on; only what
+would have followed it is gone. A toast says why, unless the DJ stopped it.
+
+**Memory.** What has played is kept in RAM, per drive and genre, until Mixxx
+restarts — nothing on the card or the stick. A drive is its filesystem UUID
+where it has one, so a stick pulled and put back, in either port, is still the
+same stick; a track is its path on the drive.
