@@ -235,8 +235,8 @@ analyze_path  →  prolink::readAnlz()  →  AnlzFile::parse
 
 **This already exists.** `read_anlz` was added to `crates/prolink-cxx` when the
 Kaitai reader was retired (§13), with `AnlzContents::preview` carrying the
-`PWAV` payload as its 400 packed bytes, and `network/prolink/prolinkanlz.h`
-wraps it in Qt types the way `prolinkpdb.h` wraps the database. So the preview
+`PWAV` payload as its 400 packed bytes, and `library/rekordbox/rekordboxanlz.h`
+wraps it in Qt types the way `rekordboxpdb.h` wraps the database. So the preview
 feature has no parser work left in it at all — it reads
 `contents.preview` and decodes one byte per column.
 
@@ -285,7 +285,7 @@ is wrong three times over, and each of the three is already written down in this
 codebase:
 
 - **NFS runs one transfer at a time**, and a streaming audio fetch holds that
-  turn for the length of a whole track. `MediaRegistry::startStreaming()` fetches
+  turn for the length of a whole track. `RemoteTrackStreamer::startStreaming()` fetches
   the grid *before* the audio for precisely this reason. A preview queued behind
   a download would arrive minutes after the row it belongs to.
 - **Asking NFS for small files by the hundred churns the player's filehandle
@@ -344,7 +344,7 @@ temp file and reading it back is what `isDatabase` does in
 remembering if `take_waveform_preview` turns out awkward, but a filesystem round
 trip for 900 bytes we are holding is silly.
 
-On the C++ side, `ProLinkNetworkService` gains a `isPreview` flag on `Pending`,
+On the C++ side, `ProLinkNetworkService` gains a preview kind of `Pending`,
 takes the bytes in the `TransferDone` arm of `poll()`, and emits
 
 ```cpp
@@ -384,7 +384,8 @@ The deck has been burned by all four of these:
    from a stick that is spinning up.
 2. **No `block_on`, and no nested `QEventLoop`.** `Session::metadata()` and
    `root_menu()` block the calling thread inside the tokio runtime;
-   `fetchCompanionBlocking()` spins a nested loop with `ExcludeUserInputEvents`.
+   `RemoteTrackStreamer::fetchCompanionBlocking()` spins a nested loop with
+   `ExcludeUserInputEvents`.
    Both are freezes with a timeout on them. Neither is allowed here — the
    `fetch_artwork` spawn-and-report shape is the only one this feature uses.
 3. **Workers return values; the GUI thread mutates state.** The worker builds a

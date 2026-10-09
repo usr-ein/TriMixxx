@@ -6,7 +6,7 @@ Pi over a UART.
 
 | Path | What it is |
 |---|---|
-| `mixxx/` | the Mixxx fork the deck runs: a submodule, its own repo (`usr-ein/mixxx`); `mixxx/lib/prolink` is a third repo inside it |
+| `mixxx/` | the Mixxx fork the deck runs: a submodule, its own repo (`usr-ein/mixxx`); `mixxx/lib/prolink` is a third repo inside it. Its map: `docs/fork-map.md` |
 | `mixxx_config/` | the deck's Mixxx setup: mapping and scripts, skin, `mixxx.cfg`, each deck's wiring (`units/<deck>.json`); `ttymidi/` (a submodule) bridges the UART to ALSA MIDI |
 | `pi_config/` | the Pi's system: units, session, splash, networking, and `fresh-install.md` |
 | `trimixxx-launcher/` | boot modes and the deck's own keys on the Pi |

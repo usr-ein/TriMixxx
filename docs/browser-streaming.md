@@ -28,7 +28,7 @@ design is about one question: *which bytes are really there?*
  fetch_file_streaming
    open + stat  ──────────►  onFetchProgress(total)
                              build StreamingFile
-                             register it ─────────────────► SoundSourceProLink
+                             register it ─────────────────► SoundSourceStreaming
    read head    ──────────►  markPresent(0, 1M)              claims the path
    read tail    ──────────►  markPresent(size-256k, 256k)    AVIOContext
    read middle  ──────────►  markPresent(...)                read → blocks
@@ -44,7 +44,7 @@ Five pieces, each with one job:
 | `fetch_streaming` | `crates/prolink-cxx/src/session.rs` | Fetch them, announce each one |
 | `PresentRanges` | `src/library/deck/streamingfile.h` | Which bytes have arrived |
 | `StreamingFile` | same | A read of an absent range **blocks** |
-| `SoundSourceProLink` | `src/sources/` | An `AVIOContext` served by the above |
+| `SoundSourceStreaming` | `src/sources/` | An `AVIOContext` served by the above |
 
 ## Order: head, tail, middle
 
@@ -91,10 +91,10 @@ Two related rules, both learned the same way:
 
 ## What blocks, and for how long
 
-`WDeckBrowser::loadSelectedTrack()` runs on the GUI thread, and two things on
+A load (`DeckLoader::loadRow()`) runs on the GUI thread, and two things on
 this path make it wait.
 
-**The size.** `MediaRegistry::startStreaming()` spins a nested event loop until
+**The size.** `RemoteTrackStreamer::startStreaming()` spins a nested event loop until
 the first progress event arrives. That event carries nothing but `total`, and
 is emitted the moment the file has been opened and stat'd — so the wait is one
 connect, mount, lookup and stat. Well under a second, and it is the minimum
@@ -187,7 +187,7 @@ up, and it is invisible everywhere else.
 - **ANLZ `.DAT`/`.EXT`** — fetched whole, up front, as above.
 - **Artwork** — over dbserver, not NFS, and fire-and-forget. A cover that
   arrives late is used the next time the row is drawn.
-- **Anything on a local stick.** `SoundSourceProviderProLink::newSoundSource`
+- **Anything that has arrived in full.** `SoundSourceProviderStreaming::newSoundSource`
   returns null for a path that is not in the `StreamingFileRegistry`, and
   `SoundSourceProxy` falls straight through to the ordinary decoders.
 

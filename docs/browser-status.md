@@ -340,9 +340,9 @@ Two were races; the other two were stale answers nobody had asked to be refreshe
    about it.
 
 2. **The phase meter's top row went on marching for a CDJ that had stopped.**
-   Which deck that row follows is chosen in `publishMaster()`, and the choice
-   asked two questions of a candidate — is there a phase to draw, and is it
-   playing — of which the tempo master was asked neither. A CDJ that holds
+   Which deck that row follows is chosen in `ProLinkSync::publishMaster()`,
+   and the choice asked two questions of a candidate — is there a phase to
+   draw, and is it playing — of which the tempo master was asked neither. A CDJ that holds
    master and is then paused goes on saying it is master, so it went on being
    drawn, with a beat phase extrapolated from a beat that never arrived.
 

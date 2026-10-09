@@ -23,7 +23,7 @@ section says how.
    (D13). If the network loses its master, a deck that is playing and following
    nobody claims it after a few seconds (D2, D3; see *Taking it unasked*).
 
-   **Enforced, not assumed** — `ProLinkNetworkService::reconcileMastership()`,
+   **Enforced, not assumed** — `ProLinkSync::reconcileMastership()`,
    every poll. Our claim is ours to set and nobody else's to clear, so it used
    to outlive every way a handover can fail to reach us: a master request lost
    on the wire, a `0x27` reply the requester never heard, or a CDJ that asserts
@@ -363,11 +363,11 @@ network:
   `chooseMeterDeck()` in `src/network/prolink/syncsource.{h,cpp}`, tested in
   `src/test/syncsource_test.cpp`.
 * **Mastership** — `reconcileMastership()` and `manageMasterLikeACdj()` in
-  `ProLinkNetworkService`, on the rules in `automaster.{h,cpp}`
+  `ProLinkSync`, on the rules in `automaster.{h,cpp}`
   (`src/test/automaster_test.cpp`). Taking and yielding on the wire are
   `Session::take_tempo_master` and its tests in `lib/prolink`
   (`crates/prolink-cxx/src/session.rs`).
-* **Phase** — `ProLinkNetworkService::followMaster()`; our clock is
+* **Phase** — `ProLinkSync::followMaster()`; our clock is
   `AudibleBeatClock` (`src/test/audiblebeatclock_test.cpp`), the trim is
   `RateControl`'s `phase_trim`, and the seek is Mixxx's `beatjump` (both in
   `src/test/enginebuffertest.cpp`).
