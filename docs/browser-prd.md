@@ -939,6 +939,20 @@ still safe to open mid-set. Both are kept in `~/.mixxx/trimixxx-levels`, not
 `mixxx.cfg`, which the config deploy step (`pi-qemu/deploy/005_config.sh`)
 replaces on every deploy (`decklevels.h` in the fork).
 
+On a release card (`pi-qemu/PLAN.md` Part 1), Identity names the release the
+deck runs: its version, `git describe` and commit hash, and the date it was
+sealed, from `/etc/trimixxx-release`. A **Slots** section under it says which of
+the card's two slots started, whether as a trial and whether the health check
+kept it, and what the other slot holds. Its **RESTART INTO A/B**, a tap only,
+raises a confirm like Shut down's; `trimixxx-launchd` then has RAUC mark the
+other slot, which arms the firmware's trial of it, and reboots, and the health
+check keeps it or falls back, as for an update. The button is dimmed, with the
+reason, while the other slot is empty (B on a new card), holds an unfinished
+install, or failed its last trial, and while this start isn't settled. A dev
+card says it has no release and no slots. All of it is read from files
+(`deckrelease.h` in the fork): every `rauc status` mounts the card's p1 to
+answer, too often for a page refreshed each second.
+
 The brief is "all the shit I need to fix TriMixxx", to be rearranged later, so
 this is a first cut of sections in a sensible order:
 
