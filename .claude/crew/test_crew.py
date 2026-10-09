@@ -44,7 +44,8 @@ class Sandbox(unittest.TestCase):
                        "[advice]\n\tdetachedHead = false\n")
         self.env = {k: os.environ.get(k) for k in ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM")}
         os.environ.update(GIT_CONFIG_GLOBAL=str(cfg), GIT_CONFIG_NOSYSTEM="1")
-        self.saved = {k: getattr(crew, k) for k in ("MAIN", "CREW", "find_prs", "gh_json", "limits", "approved_commit")}
+        self.saved = {k: getattr(crew, k) for k in ("MAIN", "CREW", "find_prs", "gh_json", "limits", "approved_commit",
+                                                    "run", "live_session", "claude_sessions")}
         crew.CREW = self.tmp / "crewstate"
 
     def tearDown(self):
@@ -226,8 +227,8 @@ class HookTest(Sandbox):
         env = dict(os.environ, CREW_LOCAL="1", CREW_STATE=str(crew.CREW), CREW_ROLE="minion", CREW_MODE="night",
                    CREW_BRANCH="feat", CREW_WORKTREE=str(self.wt))
 
-        def start(sid, env):
-            hook = json.dumps({"session_id": sid, "source": "resume", "cwd": str(self.wt)})
+        def start(sid, env, cwd=self.wt):
+            hook = json.dumps({"session_id": sid, "source": "resume", "cwd": str(cwd)})
             return subprocess.run(["python3", str(HERE / "crew"), "hook", "session"], input=hook,
                                   capture_output=True, text=True, env=env).stdout
 
@@ -235,9 +236,28 @@ class HookTest(Sandbox):
         self.assertEqual(out["sessionTitle"], "feat")
         self.assertIn("re-read", out["additionalContext"])
         self.assertEqual((crew.registration("s7") or {}).get("role"), "minion")
+        # Claude's daemon gives every background session the environment of the launch that started it: one that
+        # starts anywhere else (a crew-tune session in the main checkout) is not that minion.
+        self.assertEqual(start("s9", env, cwd=crew.MAIN), "")
+        self.assertIsNone(crew.registration("s9"))
         env.pop("CREW_ROLE")
         self.assertEqual(start("s8", env), "")
         self.assertIsNone(crew.registration("s8"))
+
+    def test_a_background_launch_carries_no_crew_role(self):
+        """Or Claude's daemon, if this launch starts it, hands that role to every background session after it."""
+        seen = {}
+
+        def run(cmd, cwd=None, env=None, **kw):
+            seen["env"] = env
+            return subprocess.CompletedProcess(cmd, 0, "backgrounded · a1b2c3\n", "")
+        crew.run, crew.live_session = run, lambda name, sessions=None: None
+        crew.claude_sessions = lambda: [{"id": "a1b2c3", "sessionId": "s5", "name": "feat"}]
+        os.environ["CREW_ROLE"] = "bitch"  # a launcher whose own environment came from such a daemon
+        self.addCleanup(os.environ.pop, "CREW_ROLE", None)
+        crew.launch("feat", self.wt, True, "/minion night", crew.crew_env("minion", "night", "feat", self.wt))
+        self.assertFalse([k for k in seen["env"] if k.startswith("CREW_")])
+        self.assertEqual(crew.registration("s5")["role"], "minion")  # registered by crew, once `claude agents` shows it
 
     def test_drift_only_for_minions(self):
         self.assertIsNone(crew.hook_drift({}, dict(self.reg, role="bitch")))

@@ -106,10 +106,14 @@ Mac recovers.
 ## Safety
 
 The hooks in `.claude/settings.json` act on registered crew sessions only.
-A session `crew` launches is registered before its first tool call (a resumed
-one too, though Claude Code brings it back as a copy with a new id); one Sam
-starts by hand registers with `crew register`, its skill's first step. Other
-sessions pay ~30 ms a tool call and are otherwise untouched.
+A session `crew` launches is registered as it starts. In a tab, it registers
+itself from its environment. In the background, crew registers it once
+`claude agents` shows it: Claude's daemon gives every background session the
+environment of the launch that started the daemon, so crew passes it no role.
+A resumed session is registered the same way, though Claude Code brings it
+back as a copy with a new id. One Sam starts by hand registers with
+`crew register`, its skill's first step. Other sessions pay ~30 ms a tool call
+and are otherwise untouched.
 
 - **guard** (before Bash and file writes) refuses a crew session:
   - pushing anything but its own branch, merging, or writing outside its

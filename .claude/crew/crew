@@ -74,6 +74,7 @@ STATES = {"ready": "ready for review", "changes": "changes requested", "approved
 LABEL_COLORS = {"ready": "1d76db", "changes": "fbca04", "approved": "0e8a16", "needs-sam": "b60205"}
 REVIEW_MARK = "**AI review"
 ROLES = ("minion", "bitch", "nightman")
+CREW_ENV = ("CREW_ROLE", "CREW_MODE", "CREW_BRANCH", "CREW_WORKTREE")  # a launched session's role, for its first hook
 
 HERE = Path(__file__).resolve().parent  # .claude/crew in the checkout this script lives in
 CHECKOUT = HERE.parents[1]  # that checkout: the main one, or a worktree under .claude/worktrees/
@@ -195,8 +196,10 @@ def live_session(name: str, sessions=None) -> dict | None:
 
 
 def launch(name: str, wt: Path, bg: bool, prompt: str, crew_env: dict, resume_sid=None, model=None) -> int:
-    """crew_env (CREW_ROLE, CREW_MODE, CREW_BRANCH, CREW_WORKTREE) lets the session register itself at its
-    start, before its first tool call; a resumed session comes back as a copy with a new id, and does too."""
+    """A session in the foreground registers itself at its start from crew_env (CREW_ROLE, CREW_MODE, CREW_BRANCH,
+    CREW_WORKTREE), before its first tool call. One in the background is registered here once `claude agents` shows
+    it: Claude's daemon spawns every background session with its own environment, the one of whichever launch
+    started the daemon, so crew_env stays out of it (or every session after this one would carry its role)."""
     live = live_session(name)
     if live and not resume_sid:
         print(f"{name} is already running ({live.get('kind')}, {live.get('status')}): send it a message, "
@@ -208,18 +211,18 @@ def launch(name: str, wt: Path, bg: bool, prompt: str, crew_env: dict, resume_si
     if resume_sid:
         cmd += ["--resume", resume_sid]
     cmd.append(prompt)
-    # A session launched from another (the nightman's shell) must not inherit its identity.
+    # A session launched from another (the nightman's shell) must not inherit its identity, nor its crew role.
     env = {k: v for k, v in os.environ.items()
-           if not (k.startswith(("CLAUDE_CODE_", "CLAUDE_PID", "CLAUDECODE")) and k != "CLAUDE_CODE_EFFORT_LEVEL")}
-    env.update(crew_env)
+           if not (k.startswith(("CLAUDE_CODE_", "CLAUDE_PID", "CLAUDECODE")) and k != "CLAUDE_CODE_EFFORT_LEVEL")
+           and k not in CREW_ENV}
     if not bg:
         os.chdir(wt)
-        os.execvpe("claude", cmd, env)
+        os.execvpe("claude", cmd, dict(env, **crew_env))
     r = run(cmd, cwd=wt, timeout=120, env=env)
     m = re.search(r"backgrounded\W+(\w+)", r.stdout)
     short = m.group(1) if m else None
     if short and crew_env.get("CREW_ROLE"):
-        # A resumed session comes back as a copy with a new id, and without the environment above: register it here.
+        # Its environment is the daemon's, and a resumed session comes back as a copy with a new id: register it here.
         for _ in range(20):
             s = next((s for s in claude_sessions() if s.get("id") == short), None)
             if s and s.get("sessionId"):
@@ -1240,10 +1243,13 @@ def cmd_hook(a) -> int:
     try:
         data = json.loads(_HOOK_INPUT if _HOOK_INPUT is not None else sys.stdin.read())
         reg = registration(data.get("session_id"))
-        if not reg and a.kind == "session" and os.environ.get("CREW_ROLE") in ROLES and data.get("session_id"):
-            reg = register_session(data["session_id"], os.environ["CREW_ROLE"], os.environ.get("CREW_MODE", "day"),
-                                   os.environ.get("CREW_BRANCH") or None,
-                                   Path(os.environ.get("CREW_WORKTREE") or data.get("cwd") or MAIN))
+        role, wt = os.environ.get("CREW_ROLE"), os.environ.get("CREW_WORKTREE")
+        # The role crew launched the session with, if it starts where crew launched it: Claude's daemon hands the
+        # environment of the launch that started it to every background session after it, wherever they start.
+        if not reg and a.kind == "session" and role in ROLES and wt and data.get("session_id") and \
+                os.path.realpath(data.get("cwd") or ".") == os.path.realpath(wt):
+            reg = register_session(data["session_id"], role, os.environ.get("CREW_MODE", "day"),
+                                   os.environ.get("CREW_BRANCH") or None, Path(wt))
         if reg:
             result = HOOKS[a.kind](data, reg)
             if result:
