@@ -149,9 +149,19 @@ Opcodes are blocked by direction and by kind, so a MIDI dump reads unambiguously
 | `0x00` | `ping` | nothing (logs only) |
 | `0x01` | `shutdown` | `systemctl poweroff` |
 | `0x02` | `reboot` | `systemctl reboot` |
+| `0x03` + `"SLOT"` | `switch-slot` | `rauc status mark-active other`, then `systemctl reboot` |
 
 `ping` exists to prove the whole Mixxx→daemon path works without powering the
 deck off.
+
+`switch-slot` is Diagnostics' RESTART on a release card: the deck restarts
+into its other A/B slot as a trial (`F0 7D 03 53 4C 4F 54 F7`). RAUC has the
+backend arm the firmware's tryboot for that slot
+(`pi_config/rauc/rpi-tryboot set-primary`), and the health check
+(`pi_config/trimixxx-health`) keeps it if the deck comes up with a network and
+ssh, or falls back to the slot committed before. A step that fails ends the
+action, so on a dev card, which has no RAUC, nothing reboots. It carries magic,
+as the mode commands below do, because it changes what the deck boots.
 
 **`0x1x` — events, daemon → Mixxx** (this happened):
 

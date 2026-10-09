@@ -183,8 +183,12 @@ func main() {
 
 	// Mixxx's SysEx. Raw MIDI bytes, so a command arrives exactly as it went on
 	// the wire. Registered last: nothing above should be able to fire mid-startup.
+	run := stepRunner(execStep)
+	if *dryRun {
+		run = dryRunStep
+	}
 	if err := in.SetCallback(func(_ rtmidi.MIDIIn, msg []byte, _ float64) {
-		dispatch(msg, *dryRun, mgr.request)
+		dispatch(msg, run, mgr.request)
 	}); err != nil {
 		log.Fatalf("set callback: %v", err)
 	}
