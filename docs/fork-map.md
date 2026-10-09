@@ -79,7 +79,7 @@ Usable and testable without a Library: nothing here includes `library/` or
 
 | File | What it is |
 |---|---|
-| `deckservices.{h,cpp}` | `DeckServices`: the one owner of everything below that lives as long as Mixxx does, and of the network side. Made by `CoreServices` after the library and before the skin; the skin's deck widgets are handed it. See [Ownership](#ownership-and-lifetime). |
+| `deckservices.{h,cpp}` | `DeckServices`: the one owner of the deck's services, the network side included. Made by `CoreServices` with the `[ProLink]` controls, before anything parses a skin; started by the skin's first deck node; the skin's deck widgets are handed it. See [Ownership](#ownership-and-lifetime). |
 | `mediaregistry.{h,cpp}` | `MediaRegistry`: every medium the deck can play from (local sticks, other players' slots), read as soon as it appears; toasts and the browser's level 0 come from its signals. Turns network events into media, asks for remote covers and previews, says what the deck has loaded in the network's terms, and resolves the tempo master's key for KEY SYNC. |
 | `remotetrackstreamer.{h,cpp}` | `RemoteTrackStreamer`: a remote track played while it arrives. Fetches its grid first, then streams the audio head first into the track cache, and keeps the `StreamingFile` told which ranges landed. |
 | `deckloader.{h,cpp}` | `DeckLoader`: a `deck_library` row onto the deck. A local copy or a stream, never the medium; the `Track` filled in from the pdb (metadata, key, cover, rekordbox analysis); a folder track's BPM written back; announced to the network; this boot's play log. The browser and autoplay both load through it. |
@@ -129,10 +129,12 @@ Beside them: `widget/wtempopanel` (`<TempoPanel>`) and
 
 ```
 CoreServices                                    (upstream; owns one fork member)
- └─ DeckServices          made at the end of CoreServices::initialize(), before
-     │                    the skin and the controllers; gone first in finalize(),
-     │                    after the skin
-     ├─ ProLinkControls          the [ProLink] controls
+ └─ DeckServices          made where CoreServices made the [ProLink] controls,
+     │                    before anything parses a skin
+     ├─ ProLinkControls          the [ProLink] controls; go at the end of finalize()
+     │
+     │   from start(), which the skin's first deck node calls; stop() at the
+     │   start of finalize() takes these down in today's order, after the skin:
      ├─ the deck_* tables        dropped and made again; the boot purge
      ├─ TrackCache
      ├─ ProLinkNetworkService    the Rust session ─┐
@@ -154,13 +156,38 @@ the skin (rebuilt on a skin reload; the services above are not)
 **Why not the browser.** Until this refactor the browser widget owned the
 registry, the cache, autoplay, and through the registry the Pro DJ Link
 session, tempo sync and KEY SYNC. Widgets built before it (the toast, the
-autoplay badge) had to wait for it through `whenReady()` queues, three classes
-grew an `instance()`, the `[ProLink]` controls moved to `CoreServices` to
-escape the skin's creation order, and a skin reload rebuilt the network
-session. One owner made before the skin ends all four.
+autoplay badge) had to wait for it through `whenReady()` queues, and three
+classes grew an `instance()`. An owner outside the skin, which every deck
+widget is handed as it is built, ends both. The `[ProLink]` controls keep
+their place before any skin, as `DeckServices`'s own.
+
+**Started by the skin, not by `CoreServices`.** On the deck's build
+(`MIXXX_USE_QOPENGL`) the skin does not follow `CoreServices` at once:
+`main()` sets up the controllers and enters the event loop first, and
+`MixxxMainWindow::initialize()` builds the skin only once the first GL widget
+is up. Services started in `CoreServices` would read sticks and poll the
+network with the event loop running and no deck widget yet to hear them. So
+`DeckServices` makes its controls when it is made, and everything else in
+`start()`, which `parseDeckNode()` calls for the skin's first deck node (the
+toast, on the TriMixxx skin). That is the skin parse in which the browser's
+constructor built them until now, and a skin parse runs no event loop. So,
+as today:
+- every deck widget is built after `start()` and connects as it is built,
+  before any read, poll or transfer can land: a boot stick whose read fails,
+  or is browsed as folders, still gets its toast;
+- the signals `start()` itself sends, the first rescan's among them, reach no
+  widget: a stick that was in at boot still raises no toast.
+
+A skin reload finds the services started and leaves them be.
+
+**What stays as it is.** The `[Browser]` controls are still the browser's,
+made with it. The mapping's `init()` runs on the controller thread while the
+skin is parsed and can watch them before they exist; that is a bug of today's,
+left alone here (see Follow-ups).
 
 `DeckServices::instance()` exists for one caller, `parseDeckNode()`, which
-hands the services to the widgets it builds. Nothing else reaches for it.
+starts the services and hands them to the widgets it builds. Nothing else
+reaches for it.
 
 ## Threads
 
@@ -311,8 +338,11 @@ document, and the docs that name moved code.
    block and option, `__PROLINK__` (`library.cpp`, `MediaRegistry`,
    `DlgDeveloperTools`), the `ShowProLinkLibrary` branch, the three icons and
    their `.qrc` lines, `willLoadTrack()` (`TrackModel`, `WTrackTableView`, the
-   browser's call). The service's one-session guard stays: one process, one
-   set of sockets is still the rule.
+   browser's call). The controls that go with them are made only while the
+   old sidebar is on (`[ProLink],refresh`, `[ProLink],device_count`) or serve
+   only a sidebar (`[Library],sort_reset`, step 2); nothing on the deck sends
+   or reads them. The service's one-session guard stays: one process, one set
+   of sockets is still the rule.
 2. **Patches the deck never reaches go back to upstream**, one commit per
    area: the sidebar and library widgets; `TreeItem`; `LibraryControl`;
    `Library`'s default selection; `WOverview`'s RGB overview; with them a stale
@@ -354,13 +384,18 @@ document, and the docs that name moved code.
    log, the loaded row. The browser reads its own model's row and hands it
    over; autoplay calls `DeckLoader::loadLibraryRow()` instead of a callback
    into the browser.
-10. **`DeckServices`.** The owner of [Ownership](#ownership-and-lifetime),
-    made by `CoreServices` at the end of `initialize()` (after the library,
-    the decks and the skin controls; before the command-line tracks, the
-    skin and the controllers), and destroyed first in `finalize()`. The
-    `[ProLink]` controls move into it from `CoreServices`: still before any
-    skin. It takes the tables' setup and the boot purge out of the browser's
-    constructor, in the same order. `MediaRegistry::instance()`,
+10. **`DeckServices`.** The owner of [Ownership](#ownership-and-lifetime).
+    `CoreServices` makes it where it makes the `[ProLink]` controls today
+    (they become its own, made at the same moment), stops it as the first
+    thing `finalize()` does and drops it where it drops the controls today.
+    `start()` does, in today's order, what the browser's constructor did
+    from its first line to its last service: the tables, the boot purge, the
+    track cache, then the registry with its first rescan, watcher, poll and
+    the session's start; then the streamer, the loader and autoplay, and the
+    wiring between them that the browser held. `parseDeckNode()` calls it for
+    the skin's first deck node; a second call does nothing. `stop()`
+    destroys them in the order the browser's members went, and does nothing
+    a destructor did not do already. `MediaRegistry::instance()`,
     `whenReady()`, `TrackCache::instance()`, `DeckAutoplay::instance()`,
     `whenReady()` and `ProLinkControls::instance()` go: each user is handed
     what it uses. The deck group is named once, in `DeckServices`.
@@ -389,16 +424,37 @@ touched from 57 to about 47, their added lines from ~1.6k to ~1.0k.
   the suites it touches. A test changes only where a signature does (a
   constructor handed what it used to look up), and only `availableFrom()`'s
   assertions go, with it.
-- **Emulated decks, one scenario, before and after**, from a script kept in
-  `.crew/evidence/`, so the two runs are the same keystrokes: boot to the deck
-  view; every browser level; a rekordbox stick and a folder stick inserted and
-  browsed; a track loaded and played, with its waveform, tempo, cues and a
-  loop; autoplay across a track change; Diagnostics; two decks linked
-  (`deck up --link`) with SYNC, MASTER and the phase meter; a stick pulled
-  mid-track. Screenshots of still screens are compared pixel for pixel (the
-  clock and CPU figures masked), moving ones by eye; the logs are compared for
-  the lines each step writes (loads, reads, streams, mastership). The baseline
-  is the `792027c` build deployed to the same deck, not the golden image.
+- **Emulated decks, one scenario, before and after**, from scripts kept in
+  `.crew/evidence/`, so the runs are the same keystrokes:
+  - boot to the deck view; every browser level; a rekordbox stick and a
+    folder stick inserted and browsed;
+  - a track loaded and played, with its waveform, tempo, cues and a loop;
+    autoplay across a track change; Diagnostics; a stick pulled mid-track;
+  - two decks linked (`deck up --link`): SYNC, MASTER and the phase meter;
+    KEY SYNC across the pair; a track of the other deck's stick loaded,
+    streamed head first with its cover and preview, then that deck's cable
+    pulled mid-stream (`deck link NAME unplug`);
+  - two boots, one with a stick already in and one with the linked deck
+    already up: the toasts and the log lines;
+  - a clean stop, SIGTERM as `systemctl stop` sends it, with a stick in and a
+    stream running: the shutdown lines and the exit status;
+  - the menu bar: shown under a real pointer at the top edge (xdotool, no
+    button held), hidden under a tap.
+
+  Screenshots of still screens are compared pixel for pixel (the clock and CPU
+  figures masked), moving ones by eye; the logs are compared for the lines
+  each part writes (loads, reads, streams, mastership, toasts, shutdown). The
+  baseline is the `792027c` build deployed to the same decks, not the golden
+  image.
+- **Each risky step shows its own evidence.** The code steps 7–10 move has no
+  unit test (only the pure rules have), so after each of them the part of the
+  scenario it moves runs again, against the baseline, before the next step
+  starts:
+  - after 7: the linked pair, SYNC, MASTER, the meter, and a link capture;
+  - after 8: the remote track and its pulled cable, and KEY SYNC;
+  - after 9: loads (stick, folder stick, remote) and autoplay;
+  - after 10: all of it, the two boots and the clean stop included;
+  - after 11: the screens the skin builds, and the menu bar.
 - **Pro DJ Link, no change on the wire.** From the code: every call into the
   Rust session after step 7 is the same call with the same arguments at the
   same point of the same poll, which the step's diff shows (the sync code moves
@@ -407,25 +463,23 @@ touched from 57 to about 47, their added lines from ~1.6k to ~1.0k.
   kind and rate (`pi-qemu link capture`). A check against real CDJs is listed
   in the PR for Sam.
 - **No new work on the GUI or audio threads.** Steps 7–10 move code; they add
-  no timer, no poll and no query. `DeckServices` does at the end of
-  `CoreServices::initialize()` what the browser did while the skin was
-  parsed, a second or so earlier. The audio thread is not touched.
+  no timer, no poll and no query. `DeckServices::start()` does, in the same
+  skin parse, what the browser's constructor did. The audio thread is not
+  touched.
 - **The real deck, last.** trimixxx1, lent for the final test: the result
   deployed into RAM, the scenario's single-deck half run over ssh with
   screenshots, then the deck rebooted onto its own 0.1.1, committed.
 
 ### Behaviour that does change, knowingly
 
-None the deck shows. Two things move in time, on purpose:
+None the deck shows. Two things happen at other moments, on purpose:
 
-- The Pro DJ Link session, the media registry and the track cache start when
-  `CoreServices` finishes rather than while the skin is parsed: the same work,
-  a moment earlier. On a skin with no deck widgets they now run anyway; no deck
-  has such a skin. The boot purge now also runs before a track given on the
-  command line loads, which is what its own comment asks for; the deck gives
-  none.
 - A skin reload (Preferences) keeps the session, the registry and the cache
   instead of rebuilding them. A deck never reloads its skin.
+- On the way out, the services stop as the first thing
+  `CoreServices::finalize()` does, instead of while the skin is deleted a
+  moment before. They go after the skin either way, and before the library,
+  the players and the database, as now.
 
 ### Left alone, and why
 
@@ -462,3 +516,11 @@ None the deck shows. Two things move in time, on purpose:
 - `Dockerfile`'s comment says `GTEST_FILTER` defaults to the ProLink tests;
   it defaults to `*`.
 - The browser's menu payloads as a struct rather than strings.
+- The mapping's `init()` races the browser's `[Browser]` controls: at
+  trimixxx2's 2026-10-04 boot the log has "LED not connected" for
+  `sort_column`, `sort_order` and `in_track_list`, so for that gig the SORT
+  pad did not follow the list or the sort (found by the plan review).
+  `DeckServices` is where a fix would make them, before the controllers.
+- `mixxx_config/PiMidiDaemon.scripts.js`: `refreshRekordbox()` sends
+  `[Playlist],ToggleSelectedSidebarItem`, which has done nothing since the
+  sidebar left (found by the plan review).
