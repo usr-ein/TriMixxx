@@ -1,0 +1,5 @@
+{
+  "deck": "trimixxx1",
+  "about": "trimixxx1's board, given its own section of the release's config.txt by its serial (pi-qemu deck prepare). No S3 wiring of its own here: the canonical one.",
+  "serial": "0x6e622552"
+}
