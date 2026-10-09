@@ -18,8 +18,9 @@
 #
 # Mounts: /release (this directory, its out/ the main checkout's), /repo (the
 # checkout, read-only), /build (seal: pi-qemu/.cache/build, read-only), /deck
-# (card: the deck's identity, read-only). Environment: VERSION; COMMIT (seal);
-# DECK (card); TZ, the Mac's offset, so the step lines carry the Mac's time.
+# (card: the deck's identity, read-only). Environment: VERSION; COMMIT and HASH
+# (seal); DECK (card); TZ, the Mac's offset, so the step lines carry the Mac's
+# time.
 set -euo pipefail
 if [ -z "${IN_CONTAINER:-}" ]; then
     echo "container.sh runs in the release container: pi-qemu release build|card|faults" >&2
@@ -51,9 +52,13 @@ slot_cmdline() {
 }
 
 seal() {
-    : "${COMMIT:?}"
+    : "${COMMIT:?}" "${HASH:?}"
     local o=out/$VERSION card=/build/$SYSTEM.img r=/merged p=/repo/pi_config
     local boot_start root_start root_size
+    # The release's date: when it was sealed, in the release file and the
+    # manifest alike.
+    local built
+    built=$(date -u +%Y-%m-%dT%H:%MZ)
     rm -rf "$WORK" "$o"
     mkdir -p "$WORK"/boot "$WORK"/bootsel "$WORK"/root "$WORK"/bundle "$WORK"/img "$o"
     read -r boot_start _ < <(partx -g -o START,SECTORS -n 1 "$card")
@@ -112,7 +117,11 @@ seal() {
     ln -sf /etc/systemd/system/trimixxx-identity.service "$r"/etc/systemd/system/sysinit.target.wants/
     ln -sf /etc/systemd/system/trimixxx-health.service "$r"/etc/systemd/system/multi-user.target.wants/
     for u in regenerate_ssh_host_keys.service rpi-resize.service; do ln -sf /dev/null "$r"/etc/systemd/system/$u; done
-    printf 'VERSION=%s\nCOMMIT=%s\n' "$VERSION" "$COMMIT" > "$r"/etc/trimixxx-release
+    # What the deck runs, for anything on it that asks (the health check's
+    # log, Mixxx's Diagnostics): the version, `git describe` of the commit
+    # (the tag, or how far past it, -dirty, rehearsal), the commit's hash, and
+    # the date it was sealed. Readers take the lines they know.
+    printf 'VERSION=%s\nCOMMIT=%s\nHASH=%s\nBUILT=%s\n' "$VERSION" "$COMMIT" "$HASH" "$built" > "$r"/etc/trimixxx-release
     dpkg-query --admindir="$r"/var/lib/dpkg -W -f='${Package} ${Version}\n' > "$WORK"/packages.txt
     # POSIX ACLs (the journal's directory) have no place in SquashFS: left out.
     mksquashfs "$r" "$WORK"/img/rootfs.squashfs -comp zstd -xattrs -xattrs-exclude '^system\.posix_acl' \
@@ -161,7 +170,7 @@ seal() {
 
     # ---- what went in -----------------------------------------------------------------
     {
-        echo "TriMixxx $VERSION, from $COMMIT, built $(date -u +%Y-%m-%dT%H:%MZ)"
+        echo "TriMixxx $VERSION, from $COMMIT, built $built"
         echo
         (cd "$o" && sha256sum "trimixxx-$VERSION.img" "trimixxx-$VERSION.raucb" rootfs.squashfs boot.vfat)
         echo

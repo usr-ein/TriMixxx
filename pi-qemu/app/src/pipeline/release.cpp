@@ -73,6 +73,8 @@ QStringList plan(const BuildOptions& o) {
 int build(const BuildOptions& o) {
     const QString repo = paths::checkout();
     QString v, commit = git::out(repo, {"describe", "--tags", "--match", QString(kTagPrefix) + "[0-9]*", "--always", "--dirty"});
+    // The commit itself, which a tag's name alone doesn't pin down.
+    const QString hash = git::out(repo, {"rev-parse", "HEAD"});
     if (!o.rehearsal.isEmpty()) {
         v = o.rehearsal;
         commit += " (rehearsal)";
@@ -83,8 +85,8 @@ int build(const BuildOptions& o) {
     return buildlog::run(paths::cache() + "/build/" + kSystem + ".log", o.window, plan(o), [&] {
         if (!o.keepSystem) imagebuild::build(kSystem, {});
         if (!QFileInfo::exists(imagebuild::card(kSystem))) fail("no " + QString(kSystem) + " card in pi-qemu/.cache/build");
-        container("seal", {"--privileged", "-e", "VERSION=" + v, "-e", "COMMIT=" + commit, "--mount",
-                           "type=bind,src=" + paths::cache() + "/build,dst=/build,readonly"});
+        container("seal", {"--privileged", "-e", "VERSION=" + v, "-e", "COMMIT=" + commit, "-e", "HASH=" + hash,
+                           "--mount", "type=bind,src=" + paths::cache() + "/build,dst=/build,readonly"});
         buildlog::say("release " + v + ": " + outDir(v));
     });
 }

@@ -678,7 +678,10 @@ Sam's ssh key (`tag.gpgSign`).
    - `/var/swap`, Pi OS's 2 GiB swap file;
    - `/var/lib/cloud`, logs, apt caches, shell histories, `/tmp`.
      `/etc/cloud/cloud-init.disabled` stays.
-5. **Writes `/etc/trimixxx-release`** with the version.
+5. **Writes `/etc/trimixxx-release`**: `VERSION`, `COMMIT` (`git describe`, the
+   tag or how far past it), `HASH` (the commit's) and `BUILT` (the seal's
+   time, as in the manifest). The health check's log and Mixxx's Diagnostics
+   read it; a fault build rewrites `VERSION` only.
 6. **Builds the images with genimage:**
    - `rootfs.squashfs`: zstd, xattrs kept.
    - `boot.vfat`: the card's boot files, plus `config-release.txt` appended to
