@@ -183,6 +183,10 @@ fingers.
     genre again: what played before is still skipped.
 53. **A genre on a CDJ's stick, over the link.** It goes through the same
     tables and load path as a local stick, but has not been tried yet.
+54. **Two loads in quick succession, off a slow stick**, an M4A first: its
+    index is at its end, so it opens slowest. Load it, then another track
+    before it has opened, by hand and also just as autoplay picks. The second
+    loads, and no toast blames the first.
 
 ---
 
