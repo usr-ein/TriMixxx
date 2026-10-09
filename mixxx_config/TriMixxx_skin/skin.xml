@@ -21,6 +21,11 @@
            come up mid-confirm, let alone mid-shutdown. -->
       <attribute persist="false" config_key="[TriMixxx],shutdown_confirm">0</attribute>
       <attribute persist="false" config_key="[TriMixxx],shutdown_now">0</attribute>
+      <!-- The same pair for Diagnostics' RESTART into the other A/B slot, on a
+           release card: slot_switch_confirm raises its overlay, and RESTART
+           there pulses slot_switch_now. -->
+      <attribute persist="false" config_key="[TriMixxx],slot_switch_confirm">0</attribute>
+      <attribute persist="false" config_key="[TriMixxx],slot_switch_now">0</attribute>
       <!-- Where the tempo fader physically is, in the same -1..1 the deck's own
            `rate` uses, so the tempo panel can show what the fader is ASKING for
            while the mapping's pickup is still holding it off. Without it there is
@@ -202,6 +207,92 @@
                     <State><Number>0</Number><Text>SHUT DOWN</Text></State>
                     <Connection>
                       <ConfigKey persist="false">[TriMixxx],shutdown_now</ConfigKey>
+                      <ButtonState>LeftButton</ButtonState>
+                    </Connection>
+                  </PushButton>
+
+                  <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
+                </Children>
+              </WidgetGroup>
+            </Children>
+          </WidgetGroup>
+
+          <WidgetGroup><SizePolicy>e,e</SizePolicy><Children/></WidgetGroup>
+        </Children>
+      </WidgetGroup>
+
+      <!-- The other A/B slot's confirm, Shut down's twin: Diagnostics' RESTART
+           INTO A/B sets slot_switch_confirm (a release card only), and RESTART
+           here pulses slot_switch_now, which the PiMidiDaemon mapping turns
+           into SysEx F0 7D 03 "SLOT" F7. trimixxx-launchd then has RAUC mark
+           the other slot, which arms the firmware's trial of it, and reboots.
+           The page names the slot and its release; this says what a trial
+           means. CANCEL and RESTART work as CANCEL and SHUT DOWN do above,
+           LeftClickIsPushButton and all. -->
+      <WidgetGroup>
+        <ObjectName>SlotSwitchOverlay</ObjectName>
+        <Layout>vertical</Layout>
+        <MinimumSize>1024,600</MinimumSize>
+        <MaximumSize>1024,-1</MaximumSize>
+        <Connection>
+          <ConfigKey persist="false">[TriMixxx],slot_switch_confirm</ConfigKey>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+        <Children>
+          <WidgetGroup><SizePolicy>e,e</SizePolicy><Children/></WidgetGroup>
+
+          <WidgetGroup>
+            <ObjectName>SlotSwitchDialog</ObjectName>
+            <Layout>vertical</Layout>
+            <MinimumSize>1024,270</MinimumSize>
+            <MaximumSize>1024,270</MaximumSize>
+            <Children>
+              <Label>
+                <ObjectName>SlotSwitchTitle</ObjectName>
+                <MinimumSize>1024,80</MinimumSize>
+                <MaximumSize>1024,80</MaximumSize>
+                <Text>Restart into the other slot?</Text>
+              </Label>
+              <Label>
+                <ObjectName>SlotSwitchHint</ObjectName>
+                <MinimumSize>1024,40</MinimumSize>
+                <MaximumSize>1024,40</MaximumSize>
+                <Text>A trial: kept if the deck comes up with a network and ssh, otherwise back to this one.</Text>
+              </Label>
+              <WidgetGroup>
+                <Layout>horizontal</Layout>
+                <MinimumSize>1024,140</MinimumSize>
+                <MaximumSize>1024,140</MaximumSize>
+                <Children>
+                  <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
+
+                  <PushButton>
+                    <ObjectName>SlotSwitchNo</ObjectName>
+                    <MinimumSize>220,110</MinimumSize>
+                    <MaximumSize>220,110</MaximumSize>
+                    <NumberStates>1</NumberStates>
+                    <LeftClickIsPushButton>true</LeftClickIsPushButton>
+                    <State><Number>0</Number><Text>CANCEL</Text></State>
+                    <Connection>
+                      <ConfigKey persist="false">[TriMixxx],slot_switch_confirm</ConfigKey>
+                      <ButtonState>LeftButton</ButtonState>
+                    </Connection>
+                  </PushButton>
+
+                  <WidgetGroup><MinimumSize>60,10</MinimumSize><MaximumSize>60,10</MaximumSize><Children/></WidgetGroup>
+
+                  <!-- Stays up after the press, as SHUT DOWN's does: the deck
+                       is on its way down, and if nothing happens (RAUC
+                       refused), CANCEL still gets you out. -->
+                  <PushButton>
+                    <ObjectName>SlotSwitchYes</ObjectName>
+                    <MinimumSize>220,110</MinimumSize>
+                    <MaximumSize>220,110</MaximumSize>
+                    <NumberStates>1</NumberStates>
+                    <LeftClickIsPushButton>true</LeftClickIsPushButton>
+                    <State><Number>0</Number><Text>RESTART</Text></State>
+                    <Connection>
+                      <ConfigKey persist="false">[TriMixxx],slot_switch_now</ConfigKey>
                       <ButtonState>LeftButton</ButtonState>
                     </Connection>
                   </PushButton>

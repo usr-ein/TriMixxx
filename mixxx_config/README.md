@@ -19,8 +19,9 @@ Mixxx, so a mapping tweak can never disturb the deck's system config.
   startup rainbow-wave animation.
 - `PiMidiDaemon.midi.xml` / `PiMidiDaemon.scripts.js` — the mapping for
   [`../trimixxx-launcher`](../trimixxx-launcher), a second MIDI device. Turns the
-  skin's POWER menu into a shutdown SysEx, and turns the daemon's USB-mount
-  events into a Rekordbox device rescan. The **device is still named
+  skin's POWER menu into a shutdown SysEx, Diagnostics' RESTART INTO (a release
+  card's other A/B slot, as a trial) into a slot-switch SysEx, and the daemon's
+  USB-mount events into a Rekordbox device rescan. The **device is still named
   `pi-midi-daemon`** even though the daemon behind it was renamed: `mixxx.cfg`
   binds mappings by device name, so renaming the port would orphan this one.
 - `TriMixxx_skin/` — single-deck CDJ-style skin for the 1024×600 touchscreen.

@@ -290,6 +290,57 @@ QMenu::separator {
     color: #0c0c0c;
 }
 
+/* The slot switch's confirm, the same dialog in Diagnostics' amber (its
+   warnings' colour): it stops the set and restarts the deck, but into a
+   release it comes back from by itself. */
+#SlotSwitchOverlay {
+    background-color: rgba(8, 8, 8, 242);
+}
+
+#SlotSwitchDialog {
+    background-color: #161616;
+    border-top: 2px solid #ff6600;
+    border-bottom: 2px solid #ff6600;
+}
+
+#SlotSwitchTitle {
+    color: #ffffff;
+    font-size: 34px;
+    font-weight: bold;
+    qproperty-alignment: 'AlignCenter';
+}
+
+#SlotSwitchHint {
+    color: #909090;
+    font-size: 15px;
+    qproperty-alignment: 'AlignCenter';
+}
+
+#SlotSwitchNo, #SlotSwitchYes {
+    border-radius: 6px;
+    font-size: 20px;
+    font-weight: bold;
+    margin: 3px;
+}
+#SlotSwitchNo {
+    background-color: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    color: #e0e0e0;
+}
+#SlotSwitchNo:pressed {
+    background-color: #88ff00;
+    color: #0c0c0c;
+}
+#SlotSwitchYes {
+    background-color: #2a2a2a;
+    border: 2px solid #ff6600;
+    color: #ff8833;
+}
+#SlotSwitchYes:pressed {
+    background-color: #ff6600;
+    color: #0c0c0c;
+}
+
 /* ============== LIBRARY ==============
    Selectors here are WIDGET CLASS NAMES, not <ObjectName>s, which is how every
    stock skin styles the library. The previous rules targeted #LibraryTable /
