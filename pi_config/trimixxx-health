@@ -35,6 +35,12 @@ why="not checked yet"
 history=/var/lib/rauc/trimixxx-health.log
 [ "$(stat -c %s "$history" 2>/dev/null || echo 0)" -lt 65536 ] || mv -f "$history" "$history.1"
 
+# Its lines are a contract with Mixxx. RAUC keeps no record of a slot marked
+# bad, so Diagnostics reads this file to know which slot failed its last trial
+# and refuses to restart into it (DeckRelease::verdictOf, in the fork's
+# src/widget/deck/deckrelease.cpp; its tests, deckrelease_test.cpp, copy these
+# lines). A line's shape, and the messages for a trial started, a slot
+# committed and a slot marked bad, change only together with those.
 log() {
     echo "health: $*"
     echo "trimixxx-health: $*" > /dev/kmsg 2>/dev/null || true
