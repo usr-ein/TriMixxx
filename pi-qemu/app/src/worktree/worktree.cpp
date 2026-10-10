@@ -1,11 +1,13 @@
 #include "worktree/worktree.h"
 
+#include "cdj/cdj.h"
 #include "util/fail.h"
 #include "util/files.h"
 #include "util/git.h"
 #include "util/paths.h"
 #include "util/process.h"
 #include "util/print.h"
+#include "util/tool.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -79,10 +81,16 @@ void checkSub(const QString& sub) {
     if (!git::out(dir, {"status", "--porcelain", "--ignore-submodules=all"}).isEmpty())
         fail(sub + " has uncommitted changes: commit them (on a branch) or discard them first");
     if (privateClone(sub)) {
-        // Its commits are nowhere else: they have to be on its origin.
+        // Its commits are nowhere else: they have to be on its origin. Not
+        // its tags: a mixxx clone holds upstream's, which no branch reaches.
         if (!git::out(dir, {"rev-list", "--max-count=1", "HEAD", "--branches", "--not", "--remotes"}).isEmpty())
             fail(sub + " is a clone of its own, with commits its origin lacks: push them first (git -C " + sub +
                  " push origin BRANCH)");
+        // A stash cleans the tree, and its commits are on no branch: it would
+        // go with the clone. (A borrowed copy's stash is the main checkout's.)
+        if (!git::out(dir, {"stash", "list"}).isEmpty())
+            fail(sub + " is a clone of its own with stashed work (git -C " + sub +
+                 " stash list): commit it on a branch and push it, or drop it, first");
         return;
     }
     const QString branch = git::tryOut(dir, {"symbolic-ref", "--quiet", "--short", "HEAD"});
@@ -177,6 +185,13 @@ void status() {
 void release() {
     if (!paths::isWorktree()) fail("this is the main checkout: nothing to release");
     // Everything checked before anything is undone: a refusal changes nothing.
+    // A CDJ running from this checkout's emulator would run on, unseen, with
+    // its files gone.
+    for (const QString& n : cdj::Cdj::all()) {
+        const cdj::Cdj c(n);
+        if (c.running() && c.config().value("checkout").toString() == root())
+            fail("CDJ " + n + " runs from this checkout's cdj2000-emulator: " + tool("cdj rm " + n) + " first");
+    }
     const QStringList order{"mixxx/lib/prolink", "mixxx", "mixxx_config/ttymidi", "cdj2000-emulator"};
     for (const QString& sub : order) checkSub(sub);
     // git refuses to remove a worktree while its modules/ exists, even empty:

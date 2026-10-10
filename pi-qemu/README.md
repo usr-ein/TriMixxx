@@ -446,9 +446,12 @@ repo, each deploying its own code to its own emulated deck. The root
   `--force`, which leaves the build trees behind. `release` refuses itself if
   they hold uncommitted changes, or commits no branch has.
   - A submodule that is a clone of its own, as `git submodule update` makes,
-    is taken back too, once its origin has all of its commits.
+    is taken back too, once its origin has all of its commits and it holds
+    no stash.
   - Its git directory is in the worktree's `modules/`, which `release`
     removes, since git will not remove a worktree with it.
+  - `release` also refuses while a CDJ runs from the worktree's emulator:
+    `cdj rm` it first.
   `pi-qemu worktree status` shows what a worktree has checked out.
 
 pi-qemu acts on the checkout it runs in: `deck deploy` from a worktree

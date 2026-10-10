@@ -117,11 +117,15 @@ It builds this checkout's emulator, in the submodule's own (ignored)
     work, or commits no branch has.
   - **A private clone,** which `git submodule update` makes, with its gitdir
     in the worktree's own `modules/`:
-    - it refuses while the clone holds uncommitted work, or commits its
-      origin lacks
-    - otherwise it deinitialises the clone and removes its `modules/` entry
-  - git will not remove a worktree that still holds a submodule's gitdir, so
-    `git worktree remove` (and `crew clean`) succeed only after this.
+    - it refuses while the clone holds uncommitted work, a stash, or commits
+      its origin lacks
+    - otherwise it removes the clone's files, then the worktree's whole
+      `modules/` directory; not `git submodule deinit`, which edits the
+      `.git/config` the main checkout shares
+  - git will not remove a worktree while its `modules/` exists, even empty,
+    so `git worktree remove` (and `crew clean`) succeed only after this.
+  - It also refuses while a CDJ runs from this checkout's emulator:
+    `cdj rm` it first.
 - **The emulator's build lives in the submodule's ignored `build/`,** so it
   goes with the worktree.
 
