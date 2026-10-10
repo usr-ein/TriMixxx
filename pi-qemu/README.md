@@ -32,6 +32,12 @@ deck's NAME (`pi-qemu deck list`), or `--host ALIAS` for a real deck by its
 ssh alias. There is no default deck: nothing reaches a real deck unless it is
 named.
 
+A real deck on the Mac's switch is reached over Ethernet too, much faster
+than over Wi-Fi: `pi-qemu deck alias --host trimixxx-pi` writes
+`trimixxx-pi-eth` into `~/.ssh/config`, by its eth0's IPv6 link-local
+address through the Mac's wired interface, and `--host trimixxx-pi-eth`
+then takes that link.
+
 ## What is in here
 
 | Path | What it is |
