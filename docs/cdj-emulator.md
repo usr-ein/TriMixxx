@@ -238,18 +238,51 @@ own, in Qt, in the deck panel's look.
   - `down` and `up` for a click, held at least 100 ms, as `press` holds a key
   - `rotary 7 N` for the selector
   - `level 15 02 0|1` for the DIRECTION lever, `sd-lid` for the SD lid
+  - `analog 3 32768`, then `analog 2 N`, for the TEMPO fader (below)
+  - what `state` says of the lever, the lid and the fader, so the window
+    starts as the CDJ is and follows another client's moves
 - **The channel takes several clients at once** (the fork's own change,
   below). Before it, each newcomer closed the connection before it, so a
   window that polls would have knocked `cdj press` off between its command
   and its answer.
 - **Keys left down:** the channel's held contacts are the panel's, shared
-  by every client. So a window that goes lets go of what it held: in its
-  destructor, and on SIGTERM, SIGINT and SIGHUP.
-- **Not in it:**
-  - the jog: not emulated; only its touch-sensitive top is a pad
-  - the tempo fader: the emulator does not know which of the panel's
-    analogue fields is the NXS's slider (field 3 drove the tempo to -10%
-    whatever its value)
+  by every client.
+  - A window that goes lets go of what it held: in its destructor, and on
+    SIGTERM, SIGINT and SIGHUP.
+  - A key let go of while the channel reconnects is let go of once it is
+    back.
+  - A crash or a SIGKILL still leaves one down, until a window clicks it
+    again. The fix belongs in the emulator: a connection that drops lets go
+    of what it held (a follow-up).
+- **Not in it:** the jog. It is not emulated; only its touch-sensitive top
+  is a pad.
+
+**The TEMPO fader.** The NXS takes its slider as upstream's RUNNING.md
+documents the CDJ-2000's: analogue field 2 is the position and field 3 its
+centre, 0..65535. The tempo is worked out again when the position changes,
+against the centre, which goes first. The NXS profile starts both at 0.
+Tried on one NXS on 2026-10-10 (a track from Sam's stick, `--dsp-model`),
+reading its TEMPO % and the pitch words of its status packets:
+
+| order | fields | TEMPO % | pitch words |
+| --- | --- | ---: | --- |
+| at boot | both 0 | 0.00 | `+0x8c` 0x00000000, `+0x98` 0x00100000 |
+| position first | 2 = 32768, then 3 = 0 | 0.00 | unchanged |
+| | 3 = 16384, 49152, 65535 | +3.35 each | 0x00108937 |
+| centre first | 3 = 32768, then 2 = 16384 | -5.10 | 0x000f2f1a |
+| | 2 = 49152 | +5.10 | 0x0010d0e5 |
+| | 2 = 65535 | +10.00 | 0x00119999 |
+| | 2 = 32768 | 0.00 | 0x00100000 |
+
+- **The window's fader goes centre first:** its first move sends
+  `analog 3 32768`, then the position.
+- **A first move to where the field already is** gets a one-step nudge,
+  since the CDJ sees no change otherwise.
+- **The pitch word at `+0x8c` is 0 until the slider first moves,** while
+  `+0x98` and the TEMPO readout say 0 %. A deck that follows an emulated
+  NXS's tempo from that word sees 0 BPM. The CDJ-2000's profile starts its
+  slider at its centre for that reason; the NXS's does not. It is filed as a
+  ProLink problem.
 
 **Without `--dsp-model`, the emulated DSP limits the transport.** A CUE while
 playing, or a PLAY after a CUE, does nothing, through the window and `cdj

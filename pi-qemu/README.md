@@ -361,14 +361,19 @@ pi-qemu cdj rm a
   - **The selector:** drag or scroll it to turn it, click it to push.
     Keyboard: space is PLAY, C CUE, up and down turn the selector, return
     pushes it, backspace is BACK.
+  - **The TEMPO fader:** drag it; minus is at the top, as on the deck, and
+    a double-click puts it back on its centre. The CDJ's own screen shows
+    the tempo it took.
   - **The DIRECTION lever and the SD lid** are switches: a click flips them.
+    They, and the fader, start as the CDJ has them.
   - **The pads light as the CDJ's firmware lights its lamps:** what MAIN
     sends the panel, which the emulator decodes (`cdj lamps`). The sources,
     the browse keys, SYNC, MASTER and LOOP MODE glow dimly while available.
-  - **Not here:** the jog, which is not emulated (only its touch is), and
-    the tempo fader.
+  - **Not here:** the jog, which is not emulated (only its touch is).
   - **Closing it leaves the CDJ running.** The CDJ stopped, it closes, and
     it lets go of any key it held down.
+  - **A key left down** (a window that crashed, or was killed with -9):
+    open the window again and click the key once.
   - **A window and the command line share the CDJ:** the emulator's control
     channel takes several connections at once.
 - **Its state** is in `~/.pi-qemu/cdj/NAME/`: `cdj.json`, the `cdj run`
