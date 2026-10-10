@@ -76,7 +76,8 @@ real CDJ did in `S10-serve-to-cdj`, and its keep-alives then come 1.1-5.2 s
 apart (2.6 s median, the real one's too).
 
 It used to run at 0.64-0.74x (keep-alives every 2.7-3.1 s). Two things
-slowed it, each a commit on the fork's `cdj-realtime` branch:
+slowed it, each fixed by commits made for upstream ("The fork, and
+upstream"):
 - **The RTOS lost a quarter of its ticks on macOS.** Its tick is a 1 ms
   timer, and QEMU's main loop on macOS waits in whole milliseconds: two
   expiries often ran in one pass, which the guest took for one. A
@@ -366,15 +367,38 @@ pi-qemu link capture booth booth.pcap
   - So a change here is pushed before the TriMixxx commit that pins it.
   - Its pin is shown to be reachable: `git -C cdj2000-emulator branch -r
     --contains <pin>`, and a fresh `git clone --recurse-submodules`.
-- **Each change for upstream is a commit made directly on upstream main.**
-  The fork's `main` merges it in, so each one can go upstream alone:
+- **Each change for upstream is a commit made on the base its code lives
+  on:** upstream main, or geepot's series for a change to the series' own
+  code. The fork's `main` merges it in, so each one can go upstream alone:
   `git push origin <sha>:refs/heads/<name>`, then a PR from the fork. The
-  first two:
+  first two, opened upstream as cdj2k-revival/cdj2000-emulator#42 and #43:
   - `4529093`, *EtherC: a frame shorter than 60 bytes is padded on receive,
     as the wire pads it*
   - `7709d93`, *nxs_vm: --link-hub and --link-mac put the NXS on a Pro DJ
     Link segment*. It needs a small rebase once geepot's series lands: the
     series moves the launcher's Ethernet option into a group of its own.
+- **For real time, three, each measured alone on an NXS** and merged as
+  the fork's `cdj-upstream`:
+  - `bb68e37`, *QEMU on macOS: a wait under 4 ms ends on time, so no 1 ms
+    tick is lost*, on upstream main
+  - `b604eaa`, *QEMU TMU: an underflow the guest has not seen yet is
+    counted, not lost*, on upstream main. It replaces `380d147`: stopping a
+    channel also drops a UNF set again only for a kept underflow, since the
+    chip's own would be clear, so a handler that clears UNF and then stops
+    its channel takes no interrupt after the stop.
+  - `29f94cb`, *DSP thread: MAIN's waits for the DSP run on the wall clock
+    again*, on geepot's series tip (`30a4196`), where its code is. It
+    replaces `220d5af`, with its own measurement. It turns off by default
+    the held clock geepot chose (his #34), so it is offered to him for the
+    series, and as a PR on main only if he would rather have that.
+  - The two on upstream main add to the same two lists, the patch stack in
+    `build-qemu-sh4.sh` and the table in `patches/README.md`: whichever
+    lands second needs a one-line rebase.
+  - A checkout whose emulator was built with the old
+    `qemu-sh-tmu-catch-up.patch` (at `e6a4b82` or `dbc4e31`) fails its next
+    `pi-qemu cdj build`: "patch does not apply cleanly". Reset its QEMU tree
+    once, then build again:
+    `git -C cdj2000-emulator/build/qemu checkout -- . && git -C cdj2000-emulator/build/qemu clean -fd -e build`.
 - **For `cdj window`, a series of four,** one after the other on upstream
   main and merged as `dbc4e31`. The first can go upstream alone; the other
   three go together.
