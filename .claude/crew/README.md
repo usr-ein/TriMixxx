@@ -79,10 +79,12 @@ claude -n nightman               # in the main checkout, in a tab left open
 /nightman <your pitches>
 ```
 
-It asks what it must, checks the Mac (`crew preflight`: charger, ssh agent,
-pushed mains, Docker, permission mode, load) and keeps it awake. Once you say
-go, it runs until the queue is done. In the morning: its last message, and
-`.crew/night/report-DATE.md`.
+It asks what it must, your go included, in one round, then checks the Mac
+(`crew preflight`: charger, ssh agent, pushed mains, Docker and its disk,
+permission mode, load) and keeps it awake. Then it runs until the queue is
+done. Once minions run, it asks you things in plain text, never in a
+question box that would stop it until you answer. In the morning: its last
+message, and `.crew/night/report-DATE.md`.
 
 **Before the first real night, rehearse it once, awake.** Give the nightman
 two trivial pitches that touch the same file. That exercises:

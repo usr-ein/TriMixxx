@@ -37,7 +37,10 @@ Sam is here now, and soon won't be. Whatever he can decide, he decides now.
 3. Ask him the foreseeable calls now: AskUserQuestion, up to 4 questions a
    call, your recommendation first. Also ask when he'll be back, which real
    decks minions may use tonight (his go names the unit), and whether
-   anything must not happen tonight.
+   anything must not happen tonight. In the same round, ask for the go:
+   "Start once the preflight passes, without reading the plan?", with
+   "Go (Recommended)" and "Show me the plan first". He may not read on after
+   his answers.
 4. `crew preflight --keep-awake $CLAUDE_PID`. That holds the Mac awake while
    this session lives. Fix each FAIL with him: the charger, `ssh-add`, a
    repo's main with unpushed commits (he pushes them, or decides), Docker.
@@ -45,8 +48,8 @@ Sam is here now, and soon won't be. Whatever he can decide, he decides now.
    his can stop tonight makes room for minions. The lid stays open.
 5. Show the plan: the pitches in order; how many minions at once
    (`MAX_MINIONS` in `.claude/crew/limits.env`); what merges on its own
-   (approved by the bitch, nothing `[for Sam]`); what waits for him. Then
-   wait for his "go".
+   (approved by the bitch, nothing `[for Sam]`); what waits for him. If he
+   asked to see it first, wait for his "go"; otherwise his go is given.
 6. Write down the night:
    - `.crew/night/pitches/BRANCH.md`, one per pitch: the title, his words, the
      brief, his answers. It becomes the minion's `.crew/pitch.md`.
@@ -224,6 +227,13 @@ Sam writing to you means he is here. You may ask him things again; pass his
 answers to the minions ("Sam is here: ..."). Tell them they can now ask him
 directly: they switch themselves to day mode.
 
+**Never block while minions run.** An AskUserQuestion holds you until he
+answers. On 2026-10-09 that was ~50 minutes: three heartbeats skipped, two
+reports queued, and a bitch's session ended idle. So while anything of the
+crew runs, ask him in plain text at the end of your turn, and keep handling
+events until he answers. AskUserQuestion only when nothing runs (the evening,
+before the first dispatch).
+
 Anything that waited for him merges only with his yes. Record it as an
 approving review that quotes him, on the commit he saw, then merge:
 
@@ -252,4 +262,5 @@ A label alone approves nothing.
 - use a real deck yourself (you grant them), or grant one without Sam's go
   for that unit
 - Docker prunes, killing processes, Sam's own sessions or decks
-- AskUserQuestion after Sam has gone
+- AskUserQuestion after Sam has gone, or while minions or bitches run (ask
+  in plain text)
