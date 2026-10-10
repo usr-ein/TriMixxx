@@ -7,8 +7,9 @@ stability and compatibility: number claims, keep-alives, the master
 hand-over, sync, and what it asks and answers.
 
 Status (2026-10-11): **built, in prolink 0.4.0 and the fork; tested without
-a Mixxx build.** The plan was approved at review round 2. prolink's tests
-pass (778, the corpus included), and the fork's pure rules pass natively.
+a Mixxx build; result review round 1 addressed.** The plan was approved at
+review round 2. prolink's tests pass (779, the corpus included), and the
+fork's pure rules pass natively.
 Waiting on a build (Docker's VM is full until Sam frees it):
 - the fork compiled whole;
 - `automaster_test.cpp` under gtest;
@@ -243,21 +244,44 @@ device ends on its own number, and NXS b's proposal of NXS a's number is
 still met with a `0x03` from a while a says 1. Switching costs one commit in
 `virtual_cdj.rs`, and no new plan round.
 
-**Commits that revert alone.** prolink's `CHANGELOG.md` opens with an
-Unreleased section first. Each wire change (C1, C2, C5) then lands in its
-own commit with its own `PROTOCOL.md` and `CHANGELOG.md` lines, so dropping
-any one is a single revert. Last, a release commit names the section 0.4.0
-and bumps the crates. In order:
+**The commits.** prolink's `CHANGELOG.md` opened with an Unreleased
+section. Each wire change (C1, C2, C5) landed in its own commit with its own
+`PROTOCOL.md` and `CHANGELOG.md` lines, and a release commit named the
+section 0.4.0 and bumped the crates. In order, with review round 1's fixes
+on top:
 
-1. prolink: `CHANGELOG.md`; C1; C2; C5; the bridge's `is_playing`; the
-   work-log entry; 0.4.0.
-2. The fork: C3; C4; the `lib/prolink` bump.
-3. TriMixxx: `docs/tempo-sync.md` (C3, C4), this doc's status, the `mixxx`
-   bump.
+1. **prolink:** `CHANGELOG.md` 4ad558f; C1 e58c3bd; C2 d228efe; C5
+   7679ce5; the bridge's `is_playing` 17eef69; work log 75998bf; 0.4.0
+   f28b26b. Then round 1: one successor at a time, 861fbe8;
+   `PROTOCOL.md` on S18, 9779a46.
+2. **The fork:** the `lib/prolink` bump 6742ab2; C3 c6d3a9a; C4 e7f4600.
+   Then round 1: the bump 9981cd5, and C3's one successor at a time,
+   baa31c2.
+3. **TriMixxx:** `docs/tempo-sync.md` (C3, C4), this doc, the `mixxx` bumps.
 
-`PROTOCOL.md` gains: §2.3-2.4, `0x25` and `0x05` (with C1); §3.1, status on
-change (with C2); §3.3, the query and its retry (with C5); §3.3b, the
-hand-over rules (with C2). `docs/fork-map.md` changes only if a layer moves.
+**Dropping a `[for Sam]` change.** A trial revert (`git merge-tree`, read
+only) shows what each takes:
+- **C4:** reverting e7f4600 applies cleanly.
+- **C3:** revert baa31c2, then c6d3a9a. The second conflicts in
+  `automaster.cpp` and `prolinksync.cpp/.h` against C4's lines beside
+  C3's: keep C4's lines, drop C3's.
+- **C1:** revert 9779a46 (round 1's S18 correction, inside C1's §2.5),
+  then e58c3bd. The second conflicts in `CHANGELOG.md` and in the tests at
+  the end of `virtual_cdj.rs`, where the later commits' lines sit next to
+  C1's: keep theirs, drop C1's.
+- **C5:** reverting 7679ce5 conflicts in `CHANGELOG.md` only, in the same
+  way.
+
+Each is a few minutes of hand merge. The commits can't be rearranged now
+without force-pushing branches that have open PRs.
+
+`PROTOCOL.md` gains:
+- §2.5: `0x25` and `0x05` (with C1);
+- §3.2: status on change (with C2);
+- §3.3: the query and its retry (with C5);
+- §3.3b: the hand-over rules (with C2).
+
+`docs/fork-map.md` is unchanged: no layer moved.
 
 **A new version:** the prolink crates go from 0.3.0 to 0.4.0, with a
 `CHANGELOG.md` saying what changed on the wire. The fork bumps `lib/prolink`
@@ -269,9 +293,10 @@ Docker's VM has 7.9 GB free and a Mixxx build needs 8, so no Mixxx build
 runs until Sam frees it. The fork links prolink into Mixxx, so an emulated
 deck can only run the changes after a build.
 
-**Tonight, with no build** (`lib/prolink` on the Mac):
-- `cargo test --workspace` with the 37-capture corpus, clippy and fmt clean.
-  New tests:
+**Run, with no build** (`lib/prolink` on the Mac; the fork's pure rules
+natively):
+- `cargo test --workspace` with the 37-capture corpus: 779 passed. Clippy
+  is clean in the files changed, and fmt is clean. The new tests:
   - C1: a keep-alive saying 2 from another device makes ours say 1, ours
     staying 1 after; S13's and S26's `0x05`, replayed at our claim, end our
     burst and make us say 1; every keep-alive and `0x05` in the corpus
@@ -284,14 +309,21 @@ deck can only run the changes after a build.
     third try is asked three times, 5 s apart, then never again; none for an
     empty slot; a swap (loaded, empty, loaded) asks again.
   - The bridge: `is_playing` follows the `0x40` flag, not the play state.
+  - One successor at a time (round 1): an offer in flight is not written
+    over, a withdrawn one lets the next through.
 - `tools/emudump` builds against the new `prolink-proto` and reads E01-E17
-  as before.
+  as before: E10-E17's transcripts are byte-identical.
+- The fork's `automaster_test.cpp` and `syncsource_test.cpp`, compiled and
+  run natively against a googletest stand-in: 12/12 and 18/18. That covers
+  the pure rules only.
 
 **After a Mixxx build:**
-- The fork: C3 and C4, and `automaster_test.cpp` with E06's table (cases
-  A-E), S28's hand-overs, a plain-file deck (state 3, `0x40` clear) never
-  offered master, one offer per candidate per stop, and C4 claiming at once
-  only with every player heard. The other ProLink tests pass.
+- The fork compiled whole, and its ProLink tests under gtest proper,
+  `automaster_test.cpp` included:
+  - E06's table (cases A-E) and S28's hand-overs;
+  - a plain-file deck (state 3, `0x40` clear) never offered master;
+  - one successor at a time, two decks qualifying at the stop;
+  - C4 claiming at once only with every player heard.
 - On emulated CDJs (two NXSs and a TriMixxx deck on one link), B1 and B2
   again with the changes:
   - **A1 (C1):** TriMixxx first; NXS a joins, unanswered, and says 2; our
@@ -302,9 +334,16 @@ deck can only run the changes after a build.
     its session restarted mid-capture. If a keeps re-claiming beside our 1,
     C1 switches to its alternative and A1 runs again with that one's pass
     mark.
-  - **A2:** hand-over timings within S28's; E06's cases A-E with the deck as
-    the stopped master; the first play takes master at once; queries only
-    when a slot turns loaded.
+  - **A2:**
+    - hand-over timings within S28's;
+    - E06's cases A-E with the deck as the stopped master;
+    - **the deck master and stopping with both NXSs playing:** the lowest
+      numbered is named at `0x9f`, nobody else, and exactly one device ends
+      master;
+    - the first play takes master at once;
+    - queries only when a slot turns loaded;
+    - **a stick pulled from an NXS** leaves the deck's library within ~2 s of
+      the eject, and no query goes to the empty slot.
 
   Proposed: commit B1/B2 and A1/A2 as emu-captures E18-E21 ("a TriMixxx
   deck between two NXSs, before and after prolink 0.4"), with their NOTES.
@@ -315,19 +354,37 @@ None of this has met a real NXS; each wire change needs Sam's check before
 it merges. On real CDJ-2000NXSs and a deck on the new build, captured with
 `tools/capture-deck-to-deck.sh`:
 
-1. **C1.** The deck on the link first, then **two NXSs in AUTO**, one after
-   the other. **Each ends on its own number** (the pass mark); one NXS says
-   `0x25` = 2 and the deck 1; no `0x04` after each NXS's start-up;
-   keep-alives every 2.0 s. Then the same with the NXSs in MANUAL; then the
-   NXSs first and the deck second; then all powered together.
+1. **C1.** In every case, **each device ends on its own number**, and every
+   keep-alive is ~2.0 s apart once start-ups are over. Then, per case:
+   - **The deck first, then two NXSs in AUTO, one after the other.**
+     - The first NXS, unanswered, claims three times and says `0x25` = 2.
+     - The deck says 1 from its next keep-alive.
+     - That NXS may re-claim once more (its slot can come before our next
+       keep-alive), then never again.
+     - The second NXS is answered by the first (`0x05`), sends one or two
+       claims, and says 1.
+     - At the end, one NXS says 2.
+   - **The deck first, then two NXSs in MANUAL.** Each NXS hears a
+     keep-alive and says 1 with no `0x05` (S02, S2c). The deck keeps 2, and
+     no `0x04` follows any start-up.
+   - **The NXSs first, the deck second.** The deck says 1 from its first
+     keep-alive, and no NXS re-claims.
+   - **All powered together.** Within ~10 s one device says 2, the deck says
+     1 unless it is alone, and nothing re-claims after that.
 2. **C2.** MASTER on an NXS while the deck is master, then on the deck: the
    lamps settle within ~0.15 s; `0x9f`, the new claim and the release within
    S28's times.
-3. **C5.** A stick into an NXS and out again: the deck asks about it once,
-   0.3-1 s after it shows loaded, and its media appear on the deck.
-4. **C3 and C4** (no wire change, but DJ-visible): the deck master and
-   stopped with an NXS playing out of sync: the NXS becomes master. Nobody
-   master, the deck starts first: the deck is master at once.
+3. **C5.** A stick into an NXS: the deck asks about it once, 0.3-1 s after
+   it shows loaded, and its media appear on the deck. **Then pulled:** the
+   medium leaves the deck's library within ~2 s of the eject, and no query
+   goes to the empty slot.
+4. **C3 and C4** (no wire change, but DJ-visible):
+   - The deck master and stopped with an NXS playing out of sync: the NXS
+     becomes master.
+   - **The deck master and stopping with two NXSs playing:** only the
+     lowest-numbered NXS is named at `0x9f`, and exactly one device ends
+     master.
+   - Nobody master, the deck starts first: the deck is master at once.
 
 ## 6. Not in this work
 
