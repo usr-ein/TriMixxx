@@ -47,7 +47,11 @@ nightman ("adopt cdj-2k-emu"). The nightman writes it a brief, then
 - prints the message the nightman sends it by SendMessage; an ended session
   is resumed with that message instead
 
-It refuses one already in night mode, and the nightman's own session.
+It refuses one already in night mode, one waiting in a question box (no
+message reaches it until someone answers), and the nightman's own session.
+The other way round, the nightman's `crew send` and `crew resume`, and
+`crew minion|bitch --night`, refuse a session still in day mode, which would
+ask Sam and wait for him: the nightman adopts it instead.
 
 ## The loop
 

@@ -509,12 +509,15 @@ class AdoptTest(Sandbox):
                         os.environ.pop("CLAUDE_CODE_SESSION_ID", None))
         os.environ["CLAUDE_CODE_SESSION_ID"] = "s-night"  # the nightman adopts
 
-    def adopt(self, name, brief=None) -> tuple[int, str, str]:
-        """`crew adopt NAME --brief FILE`, through the command line: its exit code, stdout and stderr."""
+    def crew(self, *argv) -> tuple[int, str, str]:
+        """`crew ARGV...`, through the command line: its exit code, stdout and stderr."""
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = crew.main(["adopt", name, "--brief", str(brief or self.brief)])
+            code = crew.main(list(argv))
         return code, out.getvalue(), err.getvalue()
+
+    def adopt(self, name, brief=None) -> tuple[int, str, str]:
+        return self.crew("adopt", name, "--brief", str(brief or self.brief))
 
     def running(self, name, sid):
         return {"name": name, "status": "busy", "sessionId": sid, "cwd": str(self.wt), "kind": "interactive"}
@@ -586,6 +589,45 @@ class AdoptTest(Sandbox):
         os.environ["CLAUDE_CODE_SESSION_ID"] = "s-night"
         self.listed = [self.running("feat", "s-elsewhere") | {"cwd": str(crew.MAIN)}]
         refused("feat", "not adopting it")  # named like the minion, but no registration names it, nor its worktree
+        # In a question box (Sam's "Merge #N now?", say), a message reaches it only once someone answers.
+        self.listed = [self.running("feat-bitch", "s-bitch") | {"status": "waiting"}]
+        refused("feat-bitch", "waiting in a question box")
+        self.assertFalse((self.wt / ".crew" / "review-brief.md").exists())
+
+    def test_the_nightman_never_wakes_a_day_session(self):
+        """Round 1 of #27: once its minion was adopted, a bitch still in day mode, its session ended, was woken by the
+        next round's `crew send` in day mode, to ask Sam until morning."""
+        self.listed = [{"name": "feat-bitch", "status": None, "sessionId": "s-bitch"}]
+        for argv in (("send", "feat-bitch", "Round 2 on #7"), ("resume", "feat-bitch")):
+            code, out, err = self.crew(*argv)
+            self.assertEqual(code, 2, argv)
+            self.assertIn("in day mode", err)
+            self.assertIn("`crew adopt feat-bitch --brief FILE`", err)
+        self.listed = [self.running("feat-bitch", "s-bitch")]  # running: not "send it a message" either
+        self.assertEqual(self.crew("send", "feat-bitch", "Round 2 on #7")[0], 2)
+        code, out, err = self.crew("bitch", "feat", "--night", "--brief", str(self.brief))
+        self.assertEqual(code, 2)
+        self.assertIn("already running, in day mode", err)
+        self.assertFalse((self.wt / ".crew" / "review-brief.md").exists())  # refused before anything is written
+        self.listed = [self.running("feat", "s-min")]
+        pitch = self.pitch.read_text()
+        self.assertEqual(self.crew("minion", "feat", "--night", "--pitch", str(self.brief))[0], 2)
+        self.assertEqual(self.pitch.read_text(), pitch)  # Sam's words kept
+        self.assertEqual(self.launched, [])
+        # Adopted with the round's brief instead: woken in night mode, with it.
+        self.listed = [{"name": "feat-bitch", "status": None, "sessionId": "s-bitch"}]
+        self.brief.write_text("Round 2 on #7: the minion answered round 1; review again.\n")
+        self.assertEqual(self.adopt("feat-bitch")[0], 0)
+        self.assertIn("(night mode)", self.launched[-1][-1])
+        self.assertIn("Round 2 on #7", (self.wt / ".crew" / "review-brief.md").read_text())
+        self.assertEqual(crew.registration("s-new")["mode"], "night")
+
+    def test_sam_wakes_his_day_sessions(self):
+        """The refusal is the nightman's: Sam's own `crew send` wakes his day bitch as it is."""
+        os.environ["CLAUDE_CODE_SESSION_ID"] = "sams-own-session"
+        self.listed = [{"name": "feat-bitch", "status": None, "sessionId": "s-bitch"}]
+        self.assertEqual(self.crew("send", "feat-bitch", "Round 2 on #7")[0], 0)
+        self.assertIn("(day mode)", self.launched[-1][-1])
 
     def test_already_night_changes_nothing(self):
         """Run twice, it says so and changes nothing: one brief in the pitch, no session woken."""

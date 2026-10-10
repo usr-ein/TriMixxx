@@ -203,6 +203,24 @@ def live_session(name: str, sessions=None) -> dict | None:
     return None
 
 
+def current_registration(name: str, live: dict | None) -> dict | None:
+    """A minion's or bitch's registration as the guard sees it: the running session's, else the latest (the one
+    `crew resume` wakes). None when no minion or bitch of that name is registered."""
+    regs = [r for r in registrations() if session_name(r) == name and r["role"] in ("minion", "bitch")]
+    mine = next((r for r in regs if live and r["sid"] == live.get("sessionId")), None)
+    return mine or max(regs, key=lambda r: r.get("since", ""), default=None)
+
+
+def day_mode_refusal(name: str, reg: dict | None, running=False) -> str | None:
+    """A session in day mode woken or messaged at night asks Sam, who is away, in a question box, and waits for him
+    until morning. `crew adopt` puts it in night mode first, with the nightman's brief."""
+    if reg and reg["mode"] == "day":
+        return (f"{name} is {'already running, ' if running else ''}in day mode: woken or messaged now, it would ask "
+                "Sam, who is away, and wait for him. "
+                f"`crew adopt {name} --brief FILE` puts it in night mode, with your brief (a bitch's: the round's)")
+    return None
+
+
 def launch(name: str, wt: Path, bg: bool, prompt: str, crew_env: dict, resume_sid=None, model=None) -> int:
     """A session in the foreground registers itself at its start from crew_env (CREW_ROLE, CREW_MODE, CREW_BRANCH,
     CREW_WORKTREE), before its first tool call. One in the background is registered here once `claude agents` shows
@@ -438,6 +456,14 @@ def cmd_resources(a) -> int:
 
 # --- launching ----------------------------------------------------------------
 
+def night_launch_refusal(name: str):
+    """`crew minion|bitch --night` finds the session running in day mode: refused before anything is written."""
+    live = live_session(name)
+    why = day_mode_refusal(name, registration(live.get("sessionId")), running=True) if live else None
+    if why:
+        die(why, 2)
+
+
 def write_pitch(path: Path, branch: str, mode: str, text: str):
     title = text.strip().splitlines()[0][:72] if text.strip() else branch
     base = git(MAIN, "rev-parse", "--short", "main")
@@ -449,6 +475,8 @@ def cmd_minion(a) -> int:
     b = a.branch
     check_branch(b)
     wt, mode = worktree_of(b), ("night" if a.night else "day")
+    if a.night:
+        night_launch_refusal(b)
     if not wt.exists():
         if a.night and not a.force:
             v, why = verdict(snapshot(), limits(), "minion")
@@ -481,6 +509,8 @@ def cmd_bitch(a) -> int:
     wt, mode = worktree_of(b), ("night" if a.night else "day")
     if not wt.exists():
         die(f"no worktree for {b} ({wt})")
+    if a.night:
+        night_launch_refusal(f"{b}-bitch")
     if a.brief:
         shutil.copyfile(a.brief, wt / ".crew" / "review-brief.md")
     sid = latest_sid("bitch", b) if a.resume else None
@@ -502,6 +532,7 @@ def cmd_resume(a) -> int:
         die(f"no registered crew session named {a.name}")
     reg = max(regs, key=lambda r: r.get("since", ""))
     live = live_session(a.name)
+    nightman_waking_day_session(a.name, live)
     if live:
         print(f"{a.name} is alive ({live.get('status')}): send it a message instead")
         return 0
@@ -513,6 +544,14 @@ def cmd_resume(a) -> int:
               (a.prompt or "Then carry on per your skill."))
     return launch(a.name, wt, True, from_whom(prompt), crew_env(reg["role"], reg["mode"], reg.get("branch"), wt),
                   reg["sid"], a.model)
+
+
+def nightman_waking_day_session(name: str, live: dict | None):
+    """The nightman never wakes or messages a session in day mode through crew (exit 2): `crew adopt` first."""
+    me = registration(os.environ.get("CLAUDE_CODE_SESSION_ID"))
+    why = day_mode_refusal(name, current_registration(name, live)) if me and me["role"] == "nightman" else None
+    if why:
+        die(why, 2)
 
 
 NIGHTMANS = "From the nightman, not Sam:"
@@ -530,6 +569,7 @@ def cmd_send(a) -> int:
     """A message for a crew session that has ended (after its idle hour, say): it is resumed with it. A running one
     takes messages only through SendMessage, from inside a session, which crew can't send for you: exit 10."""
     live = live_session(a.name)
+    nightman_waking_day_session(a.name, live)
     if live:
         print(f"{a.name} is running ({live.get('status')}): send it with SendMessage (to: {a.name})")
         return 10
@@ -572,20 +612,21 @@ def cmd_adopt(a) -> int:
         die(f"{a.brief}: {e.strerror}", 2)
     if not brief:
         die(f"{a.brief} is empty: the brief says what tonight is for it", 2)
-    latest = max(regs, key=lambda r: r.get("since", ""))
     sessions = claude_sessions()
     live = live_session(a.name, sessions)
-    reg = latest
-    if live:  # the guard and the hooks go by the running session's registration
-        reg = next((r for r in regs if r["sid"] == live.get("sessionId")), None)
-        if not reg:  # resumed by hand, and not registered yet: the same conversation, if it runs in the worktree
-            if not live.get("sessionId") or not under(Path(live.get("cwd") or "/"), Path(latest["worktree"])):
-                die(f"{a.name} runs as session {live.get('sessionId')} in {live.get('cwd')}, which no registration "
-                    f"names and is not {latest['worktree']}: not adopting it", 2)
-            reg = dict(latest, sid=live["sessionId"], mode="day")
+    reg = current_registration(a.name, live)  # the guard and the hooks go by the running session's
+    if live and reg["sid"] != live.get("sessionId"):
+        # Resumed by hand, and not registered yet: the same conversation, if it runs in the worktree.
+        if not live.get("sessionId") or not under(Path(live.get("cwd") or "/"), Path(reg["worktree"])):
+            die(f"{a.name} runs as session {live.get('sessionId')} in {live.get('cwd')}, which no registration "
+                f"names and is not {reg['worktree']}: not adopting it", 2)
+        reg = dict(reg, sid=live["sessionId"], mode="day")
     if reg["mode"] == "night":
         die(f"{a.name} is already in night mode: nothing to adopt, nothing changed. To tell it something: "
             + ("SendMessage it" if live else f"`crew send {a.name} ...`"), 2)
+    if live and live.get("status") == "waiting":
+        die(f"{a.name} is waiting in a question box: a message reaches it only once someone answers, so it waits for "
+            "Sam. Nothing changed: he answers it before he goes, or it waits for him", 2)
     wt, b = Path(reg["worktree"]), reg["branch"]
     if not (wt / ".crew").is_dir():
         die(f"{a.name}'s worktree has no .crew/ ({wt}): not a crew worktree any more", 2)
@@ -606,10 +647,7 @@ def cmd_adopt(a) -> int:
     print(f"{a.name}: adopted into night mode (session {reg['sid'][:8]}, registered night); {where}")
 
     other = f"{b}-bitch" if reg["role"] == "minion" else b
-    theirs = [r for r in registrations() if session_name(r) == other and r["role"] in ("minion", "bitch")]
-    running = live_session(other, sessions)
-    o = next((r for r in theirs if running and r["sid"] == running.get("sessionId")), None) or \
-        max(theirs, key=lambda r: r.get("since", ""), default=None)
+    o = current_registration(other, live_session(other, sessions))
     if o and o["mode"] == "day":
         print(f"note: its {o['role']} {other} is in day mode too: `crew adopt {other} --brief FILE` before it is woken")
     if reg["role"] == "minion":

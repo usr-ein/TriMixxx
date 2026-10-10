@@ -98,6 +98,9 @@ if you had dispatched it:
 
 1. Where it stands: `crew status`, `crew pr BRANCH`, and its
    `.crew/pitch.md` and `.crew/notes.md` (in `.claude/worktrees/BRANCH/`).
+   `waiting` in `crew status` means a question box: no message reaches it
+   until someone answers, and `crew adopt` refuses it. Sam answers it before
+   he goes, or it waits for him (the report says so).
 2. Its brief, as for a pitch: done when, scope, latitude, resources, the
    calls Sam settled, when he is back. Not his words: its pitch has them.
    - a minion's: `.crew/night/pitches/BRANCH.md`
@@ -109,18 +112,21 @@ if you had dispatched it:
    bitch `crew adopt BRANCH-bitch --brief .crew/night/reviews/BRANCH-N.md`.
    It registers the session night and adds the brief: at the end of the
    minion's `.crew/pitch.md`, below Sam's words; as the bitch's
-   `.crew/review-brief.md`. It refuses one already in night mode.
+   `.crew/review-brief.md`. It refuses one already in night mode: a minion
+   Sam told himself he was going has put itself in night mode. SendMessage
+   that one the brief's path instead, for the end of its pitch.
 4. Running: SendMessage it the message `crew adopt` prints. Ended: crew has
    resumed it with that message.
 5. Subscribe to its idle notice, as for a dispatch.
 6. In plan.md, a row: its status where it stands (running, review, ...),
-   noted "adopted HH:MM". And a line in the log.
+   noted "adopted HH:MM". And a line in the log. If `crew adopt` noted the
+   other one (the minion's bitch, or the bitch's minion) still in day mode,
+   the row says so: "bitch: day".
 
-When the minion and its bitch both run, adopt both: `crew adopt` notes the
-other one still in day mode. A bitch whose session has ended: adopt it when
-its next round comes, with that round's brief, since adopting resumes it.
-A unit the minion holds stays its own: from now on, hands-off only. Log it
-with the real decks.
+When the minion and its bitch both run, adopt both. A bitch whose session has
+ended: adopt it when its next round comes, with that round's brief, since
+adopting resumes it. A unit the minion holds stays its own: from now on,
+hands-off only. Log it with the real decks.
 
 ## Real decks: one minion per unit
 
@@ -161,21 +167,29 @@ everyone's commands to a unit but its holder's.
 | Sam: "adopt X", a minion or bitch he started by day | "Adopting a session Sam started by day" above. |
 | minion: "plan ready" (a pitch with a plan review) | Write `.crew/night/reviews/BRANCH-plan-1.md` as below, for the plan. Then `crew bitch BRANCH --night --plan --brief .crew/night/reviews/BRANCH-plan-1.md`, and subscribe to `BRANCH-bitch`. |
 | bitch: plan approved | SendMessage the minion: "Plan approved, a green light, not a merge: build it (your skill's A plan review first)." Never merge on it: `crew merge` refuses a draft, and reads only the result's reviews. |
-| minion: "PR ready" | Write `.crew/night/reviews/BRANCH-1.md`: the round, the pitch's done-when, what you answered it, what deserves the hardest look. Then `crew bitch BRANCH --night --brief .crew/night/reviews/BRANCH-1.md`, and subscribe to `BRANCH-bitch`. After a plan review, its bitch may still run: SendMessage it "Result review round 1 on #M: brief at <path>" instead. |
+| minion: "PR ready" | Write `.crew/night/reviews/BRANCH-1.md`: the round, the pitch's done-when, what you answered it, what deserves the hardest look. Then `crew bitch BRANCH --night --brief .crew/night/reviews/BRANCH-1.md`, and subscribe to `BRANCH-bitch`. After a plan review, its bitch may still run: SendMessage it "Result review round 1 on #M: brief at <path>" instead. A bitch still in day mode: adopt it with that brief (below the table). |
 | minion: a question | Answer only from Sam's words, his evening answers, `CLAUDE.md` and memory, saying which. Otherwise: "Not covered: apply Sam's rule" (cheap to switch later: the most reversible option, `[for Sam]`, the PR waits; expensive: park). Never make an architecture call yourself. |
 | minion: asks for a real deck | Grant it on Sam's go for that unit, or say why not, or that it waits for the holder ("Real decks" above). |
 | minion: a unit released | Log it and the state it was left in; grant the unit to whoever waits for it. |
 | minion: "parked" | Status parked, a line for the morning. Dispatch the next pitch if resources allow. |
 | bitch: changes | SendMessage the minion: "Review round N on usr-ein/TriMixxx#M: address it (your skill's Review rounds)." Subscribe. |
-| minion: "round N addressed" | After `MAX_REVIEW_ROUNDS` rounds without approval (a plan's rounds and the result's count apart; `crew pr BRANCH` shows both): `crew label BRANCH needs-sam`, status needs-sam, stop there. Otherwise SendMessage `BRANCH-bitch`: "Round N+1 on #M: the minion answered round N; review again." Subscribe. |
+| minion: "round N addressed" | After `MAX_REVIEW_ROUNDS` rounds without approval (a plan's rounds and the result's count apart; `crew pr BRANCH` shows both): `crew label BRANCH needs-sam`, status needs-sam, stop there. Otherwise SendMessage `BRANCH-bitch`: "Round N+1 on #M: the minion answered round N; review again." Subscribe. A bitch still in day mode: adopt it with that round's brief instead (below the table). |
 | bitch: approved | Merge (below). |
 | bitch: needs-sam | Status needs-sam, a line for the morning. Nothing more on that PR tonight. |
 | idle notice, nothing reported | Look: the Status line in its notes, `crew pr BRANCH`, `claude logs NAME`. Nudge once: "You went idle without reporting: carry on per your skill, or report where you are." Idle and silent again: status stuck, `crew clean BRANCH --abandon` (stops its session and decks, keeps its work). |
-| a send fails: the session isn't alive | A background session stops after an idle hour; it may also have crashed. `crew send NAME "<the same message>"` resumes it with it. Exit 10: it is running after all, so SendMessage again. |
+| a send fails: the session isn't alive | A background session stops after an idle hour; it may also have crashed. `crew send NAME "<the same message>"` resumes it with it. Exit 10: it is running after all, so SendMessage again. Exit 2, in day mode: adopt it (below the table). |
 
 What you send through crew (`crew send`, `crew resume`, a `--prompt`) starts
 "From the nightman, not Sam:" by itself. It arrives as a plain turn, which a
 minion or a bitch would otherwise take for Sam's.
+
+**A session still in day mode** (plan.md says "bitch: day", or crew refuses
+it so): never wake it with a message, `crew send` or `crew bitch`. It would
+answer in day mode and ask Sam, then wait for him until morning. Adopt it
+instead, with the brief for what you wake it for, a bitch's round included:
+`crew adopt BRANCH-bitch --brief .crew/night/reviews/BRANCH-N.md`. That puts
+it in night mode, and gives it the brief. `crew send`, `crew resume`, and
+`crew minion|bitch --night` on a running one, refuse it (exit 2).
 
 ## Merging
 
