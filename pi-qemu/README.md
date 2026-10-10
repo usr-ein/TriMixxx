@@ -337,7 +337,7 @@ pi-qemu cdj rm a
 - **Give `link devices` 10 s with a CDJ on the link.** A CDJ re-claims its
   number every few seconds with a TriMixxx deck present, as a real one did
   in `mixxx/lib/prolink/captures/S10-serve-to-cdj`, so its keep-alives come
-  about 6 s apart.
+  up to ~5 s apart.
 - **Media:** `--sd IMG` / `--usb IMG` mount a FAT32 image, and its writes are
   thrown away. `--test-track` makes a card with a 10 s WAV on it. To make
   an image from a rekordbox stick, copy the stick to a folder first (never
@@ -355,9 +355,13 @@ pi-qemu cdj rm a
   behind it (`pid`, `pi-qemu.log`), its socket on the link (`link.sock`),
   and the emulator's run directory (`run/`, the last one kept as
   `run.prev`).
-- **Limits.** It runs at about 0.74x real time and takes about two cores.
-  Two CDJs and a deck take about five of a twelve-core Mac. There is no
-  audio and no jog, and a CDJ stops after a day.
+- **Real time.** A CDJ runs at a real one's speed by the wall clock: its
+  start-up, keep-alives (every 2.0 s) and status packets keep a real NXS's
+  timing (`docs/cdj-emulator.md`, "Real time"). With every core of the Mac
+  busy, its keep-alives slip to 2.1-3.2 s while that lasts.
+- **Limits.** A CDJ takes about two cores (one with `--dsp-model`). Two
+  CDJs and a deck take about five of a twelve-core Mac. There is no audio
+  and no jog, and a CDJ stops after a day.
 
 **How it joins a link** (`app/src/board/streamport.*`). `cdj up` starts
 `pi-qemu cdj run` detached; it is the emulator's parent.

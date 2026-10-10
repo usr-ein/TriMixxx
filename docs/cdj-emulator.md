@@ -52,11 +52,53 @@ On the series, it runs the whole start-up as the real deck does
 - three DHCP discovers
 - ARP probes for its link-local address
 - 3x hello, then claims of its MAC, IP and number, 3x each
-- then keep-alives every ~2.7 s; a real deck sends them every 2.0 s
+- then keep-alives every 2.0 s
 
-It runs at about 0.74x real time. Presence, numbers, status and media
-queries work at that speed: a device times out after 10 s, five missed
-keep-alives. Beat-phase sync against a real-time deck does not.
+### Real time
+
+A CDJ runs at the speed of a real one, by the wall clock: what the other
+devices on a link see is a real NXS's timing. Measured on an M2 Pro,
+against the real deck's cold boot in `S01-cold-boot-a`:
+
+| | real NXS | emulated |
+| --- | ---: | ---: |
+| DHCP discovers, apart | 1.001, 2.003 s | 0.999, 2.000 s |
+| first ARP probe after the last discover | 3.004 s | 3.001 s |
+| ARP probes, apart | 1.001, 1.001 s | 1.000, 1.000 s |
+| hello, claims, apart | 0.297-0.301 s | 0.297-0.301 s |
+| first DHCP discover to first keep-alive | 12.6 s | 12.6 s |
+| keep-alives, apart (10 min) | 2.003 s | 2.000 s |
+
+With a second CDJ and a TriMixxx deck on the link, the CDJs keep the same
+timing, and their status packets go out every 0.200 s, as a real NXS's do.
+One of them keeps re-claiming its number while the deck is there, as the
+real CDJ did in `S10-serve-to-cdj`, and its keep-alives then come 1.1-5.2 s
+apart (2.6 s median, the real one's too).
+
+It used to run at 0.64-0.74x (keep-alives every 2.7-3.1 s). Two things
+slowed it, each a commit on the fork's `cdj-realtime` branch:
+- **The RTOS lost a quarter of its ticks on macOS.** Its tick is a 1 ms
+  timer, and QEMU's main loop on macOS waits in whole milliseconds: two
+  expiries often ran in one pass, which the guest took for one. A
+  high-resolution wait (a kqueue timer, as the Windows build already had a
+  waitable timer) and a timer that keeps the underflows the guest has not
+  seen yet fix it (`patches/qemu-main-loop-macos-hires.patch`,
+  `qemu-sh-tmu-catch-up.patch`).
+- **MAIN's clock stopped while it waited for the DSP.** On every HPI access
+  MAIN waits for the DSP thread (~12K times a second, ~15 us each). Since
+  geepot's series held the guest clock during those waits, MAIN's time ran
+  slower than the wall clock. The waits are now MAIN's own time, and its
+  clock is the wall clock (`CDJ_NXS_DSP_HOST_TIME`, on by default).
+
+**Playing a track.** Pioneer's DSP code, interpreted, cannot decode in real
+time on a Mac: with `--functional-dsp-audio` a track plays at 0.04-0.1x, and
+real time needs ~90 M DSP packets a second where the interpreter does
+~10 M. `pi-qemu cdj up --dsp-model` runs the emulator's behavioural DSP
+instead: it runs none of the DSP's code and no audio, and keeps a loaded
+track's position on the guest clock. A 180 BPM track from a rekordbox
+stick played with beat packets every 0.33333 s on average (60/180), each
+within 1% but one in sixty, and its status packets said it played.
+Without `--dsp-model` a loaded track does not play.
 
 ### The firmware
 
@@ -202,9 +244,11 @@ pi-qemu link capture booth booth.pcap
 
 ### Limits
 
-- About 0.74x real time, and about two cores per CDJ (the TCG thread and the
-  DSP thread). Two CDJs and a deck take about five of the Mac's twelve.
-- No audio, no jog. Playback runs at DSP speed.
+- About two cores per CDJ (the TCG thread and the DSP thread; one with
+  `--dsp-model`). Two CDJs and a deck take about five of the Mac's twelve.
+- Real time needs the cores: with every core of the Mac busy, a CDJ's
+  keep-alives slip to 2.1-3.2 s while it lasts.
+- No audio, no jog. A track plays only with `--dsp-model`.
 - The emulated CDJ is evidence about Pioneer's firmware only as far as the
   emulator is faithful. A wire change in `lib/prolink` still needs the
   captures (`prolink changes: real CDJs first`).

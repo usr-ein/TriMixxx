@@ -176,13 +176,15 @@ has the rest.
 pi-qemu cdj build                              # once per checkout (~1.5 min); in a worktree, after prepare
 pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD    # once per Mac: extracted outside every checkout, never in git
 pi-qemu cdj up NAME-cdj --link NAME-net        # ~25 s: "NAME-cdj: player 1 at 169.254.x.y, ... on link NAME-net"
-pi-qemu link devices NAME-net 10               # 10 s: with a deck there, a CDJ keep-alives only every ~6 s
+pi-qemu link devices NAME-net 10               # 10 s: with a deck there, a CDJ re-claims and keep-alives up to ~5 s apart
 pi-qemu cdj shot NAME-cdj cdj.png              # its 480x234 screen; `cdj press NAME-cdj link` a key
 pi-qemu cdj rm NAME-cdj                        # when done: `crew clean` and `deck rm` don't know CDJs
 ```
 
-- **Expensive:** a CDJ takes about two cores, and runs at about 0.74x real
-  time. Fine for presence, numbers, status and browsing, not for beat sync.
+- **Expensive:** a CDJ takes about two cores. It runs at a real NXS's speed
+  (keep-alives every 2.0 s), but a loaded track plays only with
+  `cdj up --dsp-model` (the emulator's behavioural DSP: beats at the
+  track's tempo, no audio).
 - **Never put its firmware or its screenshots in git:** both are Pioneer's.
 
 ## Deploy your own code onto it
