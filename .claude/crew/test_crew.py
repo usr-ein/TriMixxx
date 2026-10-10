@@ -157,7 +157,7 @@ class GuardTest(Sandbox):
         for cmd in ("ssh trimixxx-pi-2 ls", "ssh -o BatchMode=yes pi@trimixxx2 true", "scp f pi@192.168.1.118:/tmp",
                     "rsync -av dir/ trimixxx-pi:/home/pi/x", "sftp trimixxx3", "ssh sam1902@169.254.232.146 true",
                     "ssh sam1902@fe80::dea6:32ff:fe88:2118%en12 true", "scp f 'pi@[fe80::1%en12]:/tmp'",
-                    "ssh -o HostName=169.254.48.149 deck true"):
+                    "ssh -o HostName=169.254.48.149 deck true", "ssh -o HostName=fe80::1%%en12 deck true"):
             self.assertTrue(self.denied(self.minion, cmd), cmd)
             self.assertTrue(self.denied(self.day_minion, cmd), cmd)
             self.assertTrue(self.denied(self.bitch, cmd), cmd)
@@ -266,8 +266,9 @@ class LockTest(Sandbox):
                       self.reason("feat-night", "ssh sam1902@169.254.232.146 true"))
         self.assertEqual(self.lock("feat-night", "trimixxx1", "169.254.232.146", "fe80::dea6:32ff:fe88:2118%en12"), 0)
         for cmd in ("ssh sam1902@169.254.232.146 true", "scp f 'sam1902@[fe80::dea6:32ff:fe88:2118%en12]:/tmp'",
-                    "ssh -o HostName=fe80::dea6:32ff:fe88:2118%en12 -o HostKeyAlias=192.168.1.80 trimixxx-pi true"):
+                    "ssh -o HostName=fe80::dea6:32ff:fe88:2118%%en12 -o HostKeyAlias=192.168.1.80 trimixxx-pi true"):
             self.assertIsNone(self.reason("feat-night", cmd), cmd)
+        self.assertIn("feat's", self.reason("other-day", "ssh -o HostName=fe80::dea6:32ff:fe88:2118%%en12 deck true"))
         self.assertIsNotNone(self.reason("feat-night", "ssh -o HostName=169.254.48.149 trimixxx-pi true"))
         self.assertIn("`crew lock trimixxx2 trimixxx-pi-2`", self.reason("feat-night", "ssh trimixxx-pi-2 true"))
         for cmd in ("ssh $DECK true", 'scp f "$H":/tmp', "pi-qemu deck ship --host $D"):

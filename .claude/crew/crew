@@ -946,8 +946,9 @@ def resolve_host(name: str) -> str:
 
 
 def host_names(host: str) -> set[str]:
-    """A host as the locks compare it: its name, and the address ssh resolves it to."""
-    host = host.rsplit("@", 1)[-1].strip("[]").lower()
+    """A host as the locks compare it: its name, and the address ssh resolves it to. %% is a %: ssh expands an
+    `-o HostName=`, so an IPv6 link-local's interface is written fe80::...%%en12 there."""
+    host = host.rsplit("@", 1)[-1].strip("[]").replace("%%", "%").lower()
     return {host, resolve_host(host)}
 
 
