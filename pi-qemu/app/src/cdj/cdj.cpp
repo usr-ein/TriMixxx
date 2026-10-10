@@ -100,6 +100,16 @@ int runTool(const QStringList& args) {
     return proc::run(python(), QStringList{"-m"} + args, o);
 }
 
+QStringList launchOptions(const QJsonObject& c) {
+    QStringList args;
+    if (!c.value("sd").toString().isEmpty()) args << "--sd" << c.value("sd").toString();
+    if (!c.value("usb").toString().isEmpty()) args << "--usb" << c.value("usb").toString();
+    if (c.value("test_track").toBool()) args << "--test-track";
+    if (c.value("window").toBool()) args << "--ui";
+    if (c.value("dsp_model").toBool()) args << "--dsp-model";
+    return args;
+}
+
 Cdj::Cdj(const QString& name) : m_name(name), m_dir(root() + "/" + name) {
     if (!links::validName(name)) fail("a CDJ's name is letters, digits, - and _: not " + name, 2);
 }
@@ -131,7 +141,7 @@ void Cdj::requireRunning() const {
 
 void Cdj::up(const Up& o) {
     if (running()) {
-        if (!o.link.isEmpty() || !o.sd.isEmpty() || !o.usb.isEmpty() || o.testTrack || o.window)
+        if (!o.link.isEmpty() || !o.sd.isEmpty() || !o.usb.isEmpty() || o.testTrack || o.window || o.dspModel)
             fail(m_name + " is already running: its options cannot change now. " + tool("cdj rm " + m_name) +
                  ", then up again");
         print() << m_name << " is already up: pid " << pid()
@@ -157,6 +167,7 @@ void Cdj::up(const Up& o) {
                   {"usb", o.usb},
                   {"test_track", o.testTrack},
                   {"window", o.window},
+                  {"dsp_model", o.dspModel},
                   {"checkout", paths::checkout()},
                   {"started", QDateTime::currentDateTime().toString(Qt::ISODate)}};
     files::write(m_dir + "/cdj.json", QJsonDocument(c).toJson());
@@ -267,10 +278,7 @@ int Cdj::serve() {
         if (!port->open(&err)) fail(err);
         args << "--link-hub" << "unix:" + socket() << "--link-mac" << c.value("mac").toString();
     }
-    if (!c.value("sd").toString().isEmpty()) args << "--sd" << c.value("sd").toString();
-    if (!c.value("usb").toString().isEmpty()) args << "--usb" << c.value("usb").toString();
-    if (c.value("test_track").toBool()) args << "--test-track";
-    if (c.value("window").toBool()) args << "--ui";
+    args << launchOptions(c);
 
     QProcess emu;
     emu.setProgram(python());

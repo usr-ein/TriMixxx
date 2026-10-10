@@ -107,6 +107,7 @@ int up(cli::Args& a) {
     if (a.has("usb")) o.usb = QFileInfo(a.value("usb")).absoluteFilePath();
     o.testTrack = a.has("test-track");
     o.window = a.has("window");
+    o.dspModel = a.has("dsp-model");
     c.up(o);
     return 0;
 }
@@ -204,11 +205,17 @@ void addCdj(cli::Registry& r) {
         .group = "cdj", .name = "up", .synopsis = "NAME",
         .summary = "boot a CDJ, headless, and wait for it on its link",
         .help = "Its state is in ~/.pi-qemu/cdj/NAME/. On a link, it is a member of its own\n"
-                "with a MAC from its name, and `up` waits for its first keep-alive.",
+                "with a MAC from its name, and `up` waits for its first keep-alive.\n"
+                "\n"
+                "It runs Pioneer's DSP code by default, interpreted: a loaded track does not\n"
+                "play in real time. --dsp-model runs the emulator's behavioural DSP instead,\n"
+                "which plays a track in real time (its beats at its tempo) and executes none\n"
+                "of the DSP's code: no audio either way.",
         .options = {{"link", "NET", "its Ethernet on link NET, with the decks there (deck up --link)"},
                     {"sd", "IMG", "a FAT32 card image; its writes are thrown away"},
                     {"usb", "IMG", "a FAT32 stick image; its writes are thrown away"},
                     {"test-track", "", "a card with a 10 s test WAV on it"},
+                    {"dsp-model", "", "the behavioural DSP: tracks play in real time"},
                     {"window", "", "show its screen and panel on the Mac"}},
         .run = up,
     });

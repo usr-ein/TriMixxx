@@ -50,6 +50,10 @@ void requireCheckedOut();
 void requireBuilt();
 void requireFirmware();
 
+// nxs_vm's options for what a CDJ's cdj.json asks of it: its media, its
+// window, its DSP (--dsp-model: the behavioural one). Its link's are serve()'s.
+QStringList launchOptions(const QJsonObject& config);
+
 // One of the emulator's Python tools (`python -m MODULE ARGS`), run from its
 // checkout with its venv: its output kept, or passed through.
 proc::Result captureTool(const QStringList& moduleAndArgs, bool quiet = false);
@@ -77,6 +81,7 @@ public:
         QString link;          // empty: no cable
         QString sd, usb;       // FAT32 images
         bool    testTrack = false, window = false;
+        bool    dspModel = false; // the emulator's behavioural DSP, not the C674x
     };
     void up(const Up& o);       // a CDJ that does not come up is stopped, its logs kept
     void stop();                // its processes, gracefully if they let it; its state stays

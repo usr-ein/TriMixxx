@@ -339,7 +339,17 @@ pi-qemu cdj rm a
   in `mixxx/lib/prolink/captures/S10-serve-to-cdj`, so its keep-alives come
   about 6 s apart.
 - **Media:** `--sd IMG` / `--usb IMG` mount a FAT32 image, and its writes are
-  thrown away. `--test-track` makes a card with a 10 s WAV on it.
+  thrown away. `--test-track` makes a card with a 10 s WAV on it. To make
+  an image from a rekordbox stick, copy the stick to a folder first (never
+  hand the emulator the stick itself: a CDJ writes its history to it), then
+  `python -m tools.cdj_main.make_sd_image FOLDER IMG --size 4G` in
+  `cdj2000-emulator/` with its venv (`.venv/bin/python`): a few seconds.
+- **Playing a track: `--dsp-model`.** By default the CDJ runs Pioneer's DSP
+  code, interpreted, which cannot decode in real time: a loaded track does
+  not play. `--dsp-model` runs the emulator's behavioural DSP instead. It
+  executes none of the DSP's code and makes no sound, and keeps the track's
+  position on the CDJ's clock, so a track plays in real time and its beat
+  packets come at its tempo.
 - **`--window`** shows its screen and panel on the Mac.
 - **Its state** is in `~/.pi-qemu/cdj/NAME/`: `cdj.json`, the `cdj run`
   behind it (`pid`, `pi-qemu.log`), its socket on the link (`link.sock`),

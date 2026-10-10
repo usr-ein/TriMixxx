@@ -7,6 +7,7 @@
 #include "cdj/cdj.h"
 
 #include <QFile>
+#include <QJsonObject>
 #include <QSet>
 #include <QTemporaryDir>
 #include <QTest>
@@ -100,6 +101,15 @@ private slots:
             seen.insert(m);
         }
         QCOMPARE(seen.size(), 2000);
+    }
+
+    void aCdjsOptionsReachTheEmulator() {
+        QCOMPARE(cdj::launchOptions(QJsonObject{}), QStringList{});
+        const QJsonObject c{{"usb", "/x/stick.img"}, {"dsp_model", true}, {"window", false}};
+        QCOMPARE(cdj::launchOptions(c), (QStringList{"--usb", "/x/stick.img", "--dsp-model"}));
+        QVERIFY(!cdj::launchOptions(QJsonObject{{"dsp_model", false}}).contains("--dsp-model"));
+        QCOMPARE(cdj::launchOptions(QJsonObject{{"sd", "/c.img"}, {"test_track", false}, {"window", true}}),
+                 (QStringList{"--sd", "/c.img", "--ui"}));
     }
 
     void theFramerCutsAStreamIntoFrames() {
