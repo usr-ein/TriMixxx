@@ -7,6 +7,7 @@
 #include "decks/deck.h"
 #include "decks/emulateddeck.h"
 #include "decks/instances.h"
+#include "decks/linkalias.h"
 #include "decks/readiness.h"
 #include "decks/recorder.h"
 #include "decks/touchscreen.h"
@@ -91,6 +92,14 @@ int ready(cli::Args& a) {
     readiness::waitMixxx(d->ssh(), seconds, d->spelled(), [&d] { d->requireUp(); });
     const proc::Result pid = d->ssh().capture("pgrep -xo mixxx");
     print() << d->name() << ": Mixxx is ready (sound open, the S3 connected; pid " << pid.text() << ")\n";
+    return 0;
+}
+
+int alias(cli::Args& a) {
+    if (!a.has("host")) cli::usage("deck alias is for a real deck: --host ALIAS");
+    auto d = decks::target(a);
+    a.done();
+    linkalias::writeEthernet(*d);
     return 0;
 }
 
@@ -280,6 +289,20 @@ void addDeck(cli::Registry& r) {
         .group = "deck", .name = "ready", .synopsis = "TARGET [SECONDS]",
         .summary = "wait until Mixxx runs, its sound open and the S3 connected (default 120 s)",
         .options = {kHost}, .run = ready,
+    });
+    r.add({
+        .group = "deck", .name = "alias", .synopsis = "--host ALIAS",
+        .summary = "a real deck's Ethernet as an ssh alias of its own, ALIAS-eth, in ~/.ssh/config",
+        .help = "Its usual alias goes over Wi-Fi. On the Mac's switch (or cable), the deck's eth0\n"
+                "also answers on its IPv6 link-local address, through the Mac's wired interface on\n"
+                "that link: much faster for deploys and ships. This reads eth0's address over ALIAS,\n"
+                "finds the Mac's wired interface (never Wi-Fi) where the same machine answers, and\n"
+                "writes Host ALIAS-eth into ~/.ssh/config: HostName ADDRESS%%INTERFACE, HostKeyAlias\n"
+                "ALIAS's HostName (the host key ssh already knows), and ALIAS's User, Port and\n"
+                "IdentityFile. It writes only a marked block of its own at the end of the file, keeps\n"
+                "the previous file as config.pi-qemu.bak, and checks the alias before it is done.\n"
+                "Then every verb takes --host ALIAS-eth. Again when the Mac's interface changes.",
+        .options = {kHost}, .run = alias,
     });
     r.add({
         .group = "deck", .name = "env", .synopsis = "NAME",
