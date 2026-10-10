@@ -70,9 +70,12 @@ GITLINKS = {
     "mixxx": (".", "mixxx"),
     "mixxx_config/ttymidi": (".", "mixxx_config/ttymidi"),
 }
-STATES = {"ready": "ready for review", "changes": "changes requested", "approved": "approved", "needs-sam": "needs Sam"}
-LABEL_COLORS = {"ready": "1d76db", "changes": "fbca04", "approved": "0e8a16", "needs-sam": "b60205"}
+STATES = {"ready": "ready for review", "changes": "changes requested", "approved": "approved", "needs-sam": "needs Sam",
+          "plan-approved": "plan approved: a green light to build it, never a merge"}
+LABEL_COLORS = {"ready": "1d76db", "changes": "fbca04", "approved": "0e8a16", "needs-sam": "b60205",
+                "plan-approved": "c2e0c6"}
 REVIEW_MARK = "**AI review"
+PLAN_ROUND = " · plan round "  # in the header of a plan review, the phase some pitches start with
 ROLES = ("minion", "bitch", "nightman")
 CREW_ENV = ("CREW_ROLE", "CREW_MODE", "CREW_BRANCH", "CREW_WORKTREE")  # a launched session's role, for its first hook
 
@@ -298,18 +301,20 @@ def primary_pr(branch: str, prs=None) -> dict:
     return pr
 
 
-def ai_reviews(pr: dict) -> list[dict]:
-    """The bitch's reviews of a PR, oldest first."""
+def ai_reviews(pr: dict, plan=False) -> list[dict]:
+    """The bitch's reviews of a PR, oldest first: of its result, or (plan) of the plan it started with."""
     pages = gh_json(["api", f"repos/{pr['repo']}/pulls/{pr['number']}/reviews", "--paginate", "--slurp"]) or []
-    return [rv for page in pages for rv in page if (rv.get("body") or "").startswith(REVIEW_MARK)]
+    return [rv for page in pages for rv in page if (rv.get("body") or "").startswith(REVIEW_MARK) and
+            (PLAN_ROUND in rv["body"].split("\n", 1)[0]) == plan]
 
 
-def review_rounds(pr: dict) -> int:
-    return len(ai_reviews(pr))
+def review_rounds(pr: dict, plan=False) -> int:
+    return len(ai_reviews(pr, plan))
 
 
 def approved_commit(pr: dict) -> str | None:
-    """The commit the last AI review approved, when the last AI review is an approval."""
+    """The commit the last review of the result approved, when it is an approval. A plan's approval approves no
+    commit: it is a green light to build, never a merge."""
     reviews = ai_reviews(pr)
     last = reviews[-1] if reviews else {}
     return last.get("commit_id") if "verdict: approved" in (last.get("body") or "").split("\n", 1)[0] else None
@@ -479,7 +484,8 @@ def cmd_bitch(a) -> int:
     if a.brief:
         shutil.copyfile(a.brief, wt / ".crew" / "review-brief.md")
     sid = latest_sid("bitch", b) if a.resume else None
-    return launch(f"{b}-bitch", wt, a.bg or a.night, from_whom(a.prompt) if a.prompt else f"/bitch {b} {mode}",
+    skill = f"/bitch {b} {mode}" + (" plan" if a.plan else "")
+    return launch(f"{b}-bitch", wt, a.bg or a.night, from_whom(a.prompt) if a.prompt else skill,
                   crew_env("bitch", mode, b, wt), sid, a.model)
 
 
@@ -930,21 +936,24 @@ def cmd_pr(a) -> int:
     if a.json:
         if "." in prs:
             prs["."]["rounds"] = review_rounds(prs["."])
+            prs["."]["plan_rounds"] = review_rounds(prs["."], plan=True)
         print(json.dumps(prs, indent=2))
         return 0
     if not prs:
         print(f"{a.branch}: no PRs")
     for path, p in prs.items():
-        extra = f", {review_rounds(p)} AI review(s)" if path == "." else ""
+        planned = review_rounds(p, plan=True) if path == "." else 0
+        extra = (f", {planned} plan review(s)" if planned else "") + (f", {review_rounds(p)} AI review(s)"
+                                                                       if path == "." else "")
         print(f"{p['repo']}#{p['number']} {p['state'].lower()}{' draft' if p['isDraft'] else ''}"
               f" [{', '.join(p['labels']) or 'no labels'}{extra}] {p['url']}")
     return 0
 
 
 def cmd_label(a) -> int:
-    if a.state == "approved":
-        die("review:approved comes only with an approving review, which records the commit approved: "
-            "`crew review BRANCH approved --commit SHA ...` (Sam's yes too, quoting him)", 2)
+    if a.state in ("approved", "plan-approved"):
+        die(f"review:{a.state} comes only with an approving review, which records the commit approved: "
+            "`crew review BRANCH approved [--plan] --commit SHA ...` (Sam's yes too, quoting him)", 2)
     pr = set_state(a.branch, a.state)
     print(f"{pr['repo']}#{pr['number']}: review:{a.state}")
     return 0
@@ -961,11 +970,16 @@ def cmd_review(a) -> int:
             "review what was pushed since, then post", 2)
     body = Path(a.body_file).read_text().strip()
     primary = a.repo == "trimixxx"
+    # A plan's approval is a green light to build it: its header never says "approved", and crew merge reads only
+    # the result's reviews, so it can't land anything.
+    state = "plan-approved" if a.plan and a.verdict == "approved" else a.verdict
     if primary:
-        n = review_rounds(pr) + 1
-        body = f"{REVIEW_MARK} · round {n} · verdict: {STATES[a.verdict]}**\n\n{body}"
+        n = review_rounds(pr, a.plan) + 1
+        verdict = "green light, not a merge" if state == "plan-approved" else STATES[a.verdict]
+        body = f"{REVIEW_MARK}{PLAN_ROUND if a.plan else ' · round '}{n} · verdict: {verdict}**\n\n{body}"
     else:
-        body = f"{REVIEW_MARK} of the {a.repo} side, for {primary_pr(b, prs)['url']}**\n\n{body}"
+        side = f"the {a.repo} side" + (" (plan)" if a.plan else "")
+        body = f"{REVIEW_MARK} of {side}, for {primary_pr(b, prs)['url']}**\n\n{body}"
     payload = {"event": "COMMENT", "body": body, "commit_id": a.commit}
     if a.comments:
         payload["comments"] = [{"path": c["path"], "line": int(c["line"]), "side": "RIGHT", "body": c["body"]}
@@ -974,8 +988,8 @@ def cmd_review(a) -> int:
            input=json.dumps(payload))
     url = json.loads(r.stdout).get("html_url")
     if primary:
-        set_state(b, a.verdict, prs)
-    print(f"posted: {url}" + (f" (review:{a.verdict})" if primary else ""))
+        set_state(b, state, prs)
+    print(f"posted: {url}" + (f" (review:{state})" if primary else ""))
     return 0
 
 
@@ -1569,6 +1583,7 @@ def main(argv=None) -> int:
     s.add_argument("--bg", action="store_true")
     s.add_argument("--resume", action="store_true")
     s.add_argument("--brief", help="the nightman's review brief, copied to .crew/review-brief.md")
+    s.add_argument("--plan", action="store_true", help="review the plan in the draft PR, before it is built")
     s.add_argument("--prompt")
     s.add_argument("--model", help=argparse.SUPPRESS)
     s.set_defaults(fn=cmd_bitch)
@@ -1622,6 +1637,8 @@ def main(argv=None) -> int:
     s.add_argument("--body-file", required=True)
     s.add_argument("--comments", help="JSON list of {path, line, body} for inline comments")
     s.add_argument("--repo", choices=list(REPO_KEYS), default="trimixxx", help="a companion PR instead")
+    s.add_argument("--plan", action="store_true", help="a review of the plan (its rounds counted apart): its "
+                                                        "approval is a green light to build, never a merge")
     s.set_defaults(fn=cmd_review)
 
     s = sub.add_parser("merge", help="fast-forward a branch into main, deepest repo first, and push")

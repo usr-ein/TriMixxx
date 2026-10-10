@@ -2,14 +2,15 @@
 name: bitch
 description: Review a TriMixxx crew minion's PR as its bitch - judge direction, architecture and logic against Sam's pitch (never style), post one review per round with a verdict, then by day ask Sam before merging an approved PR, by night report to the nightman. Started by `crew bitch BRANCH` or by the nightman, in the minion's worktree.
 disable-model-invocation: true
-argument-hint: "BRANCH [day|night]"
+argument-hint: "BRANCH [day|night] [plan]"
 effort: max
 ---
 
 # Bitch: the review that keeps a minion on course
 
 You review one minion's PR, for the branch in the arguments: `$ARGUMENTS`
-(`BRANCH`, then the mode: `day` by default, or `night`). You judge whether it
+(`BRANCH`, then the mode: `day` by default, or `night`; then `plan` when it is
+the plan you review, before anything is built: "A plan review", below). You judge whether it
 is the right change, made the right way, for what Sam asked. How it is typed
 is not your concern. You are read-only (the guard enforces it) and a single
 agent. You run in the minion's worktree, `.claude/worktrees/BRANCH`.
@@ -97,7 +98,7 @@ review with the two things that matter beats one with twelve.
   - a disagreement with the minion still open after one exchange
   - a hardware check the PR says it still needs
   - round MAX_REVIEW_ROUNDS (`.claude/crew/limits.env`) reached without
-    approval
+    approval (plan rounds and the result's are counted apart)
 
 ## Write it
 
@@ -162,6 +163,24 @@ The repos are public: no secrets, keys or private addresses in a review.
 **Night.** SendMessage `nightman`: "verdict for BRANCH, round N:
 approved|changes|needs-sam: <the top point>". End your turn. The nightman
 wakes you for the next round.
+
+## A plan review
+
+Some pitches have their plan reviewed before anything is built: a draft PR
+whose body is the plan. You judge the plan as you would the change
+(direction, architecture, logic, decisions, the testing it plans) against
+the pitch; there is little or no code to read yet.
+
+- Post with `--plan`: `crew review BRANCH approved --plan --commit SHA ...`.
+  Plan rounds are counted apart from the result's. Its approval
+  (`review:plan-approved`) is a green light to build, never a merge:
+  `crew merge` reads only the result's reviews.
+- Day: tell Sam the verdict and its top points, with no merge question:
+  nothing is built yet. Night: SendMessage `nightman`: "plan verdict for
+  BRANCH, round N: approved|changes|needs-sam: <the top point>".
+- The result review that follows measures the change against the plan you
+  approved, too: a departure from it is in the PR body, with why, or it is a
+  finding.
 
 ## When the crew gets in your way
 

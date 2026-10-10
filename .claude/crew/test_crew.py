@@ -45,7 +45,8 @@ class Sandbox(unittest.TestCase):
         self.env = {k: os.environ.get(k) for k in ("GIT_CONFIG_GLOBAL", "GIT_CONFIG_NOSYSTEM")}
         os.environ.update(GIT_CONFIG_GLOBAL=str(cfg), GIT_CONFIG_NOSYSTEM="1")
         self.saved = {k: getattr(crew, k) for k in ("MAIN", "CREW", "find_prs", "gh_json", "limits", "approved_commit",
-                                                    "run", "live_session", "claude_sessions", "resolve_host", "locks")}
+                                                    "run", "live_session", "claude_sessions", "resolve_host", "locks",
+                                                    "gh")}
         crew.CREW = self.tmp / "crewstate"
         crew.resolve_host = lambda name: name.lower()  # not this Mac's ~/.ssh/config
 
@@ -518,17 +519,62 @@ class ReviewTest(Sandbox):
         crew.gh_json = lambda args, repo=None: self.fail("nothing may reach GitHub")
 
     def test_label_cannot_approve(self):
-        with self.assertRaises(crew.Fail) as cm:
-            crew.cmd_label(argparse.Namespace(branch="feat", state="approved"))
-        self.assertIn("approving review", str(cm.exception))
+        for state in ("approved", "plan-approved"):
+            with self.assertRaises(crew.Fail) as cm:
+                crew.cmd_label(argparse.Namespace(branch="feat", state=state))
+            self.assertIn("approving review", str(cm.exception))
 
     def test_review_of_a_head_that_moved(self):
         body = self.tmp / "review.md"
         body.write_text("Looks right.")
         with self.assertRaises(crew.Fail) as cm:
             crew.cmd_review(argparse.Namespace(branch="feat", verdict="approved", commit="a" * 40,
-                                               body_file=str(body), comments=None, repo="trimixxx"))
+                                               body_file=str(body), comments=None, repo="trimixxx", plan=False))
         self.assertIn("review what was pushed since", str(cm.exception))
+
+
+class PlanReviewTest(Sandbox):
+    """A pitch can start with a review of its plan, in a draft PR: its rounds counted apart, its approval a green
+    light to build, never a merge."""
+
+    def setUp(self):
+        super().setUp()
+        self.reviews, self.labels = [], []
+        pr = {"number": 1, "repo": "usr-ein/TriMixxx", "state": "OPEN", "isDraft": True, "labels": [], "body": "",
+              "headRefOid": "c" * 40, "url": "u"}
+        crew.find_prs = lambda b: {".": dict(pr)}
+
+        def gh_json(args, repo=None):
+            if args[:1] == ["api"]:
+                return [[{"body": body, "commit_id": c} for body, c in self.reviews]]
+            return [{"name": f"review:{s}"} for s in crew.STATES]  # label list
+
+        def gh(args, repo=None, check=True, input=None):
+            if input:
+                posted = json.loads(input)
+                self.reviews.append((posted["body"], posted["commit_id"]))
+            if "--add-label" in args:
+                self.labels.append(args[args.index("--add-label") + 1])
+            return subprocess.CompletedProcess(args, 0, '{"html_url": "h"}', "")
+        crew.gh_json, crew.gh = gh_json, gh
+        self.body = self.tmp / "review.md"
+        self.body.write_text("The plan holds.")
+
+    def review(self, verdict, plan):
+        crew.cmd_review(argparse.Namespace(branch="feat", verdict=verdict, commit="c" * 40, body_file=str(self.body),
+                                           comments=None, repo="trimixxx", plan=plan))
+        return self.reviews[-1][0].split("\n", 1)[0]
+
+    def test_a_plan_is_a_green_light_never_a_merge(self):
+        pr = crew.find_prs("feat")["."]
+        self.assertIn("plan round 1 · verdict: changes requested", self.review("changes", plan=True))
+        self.assertIn("plan round 2 · verdict: green light, not a merge", self.review("approved", plan=True))
+        self.assertEqual(self.labels[-1], "review:plan-approved")
+        self.assertIsNone(crew.approved_commit(pr))
+        self.assertEqual((crew.review_rounds(pr, plan=True), crew.review_rounds(pr)), (2, 0))
+        self.assertIn("· round 1 · verdict: approved", self.review("approved", plan=False))  # the result's own count
+        self.assertEqual(self.labels[-1], "review:approved")
+        self.assertEqual(crew.approved_commit(pr), "c" * 40)
 
 
 class MergeTest(Sandbox):

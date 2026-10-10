@@ -119,13 +119,15 @@ everyone's commands to a unit but its holder's.
 
 | What comes in | What you do |
 |---|---|
-| minion: "PR ready" | Write `.crew/night/reviews/BRANCH-1.md`: the round, the pitch's done-when, what you answered it, what deserves the hardest look. Then `crew bitch BRANCH --night --brief .crew/night/reviews/BRANCH-1.md`, and subscribe to `BRANCH-bitch`. |
+| minion: "plan ready" (a pitch with a plan review) | Write `.crew/night/reviews/BRANCH-plan-1.md` as below, for the plan. Then `crew bitch BRANCH --night --plan --brief .crew/night/reviews/BRANCH-plan-1.md`, and subscribe to `BRANCH-bitch`. |
+| bitch: plan approved | SendMessage the minion: "Plan approved, a green light, not a merge: build it (your skill's A plan review first)." Never merge on it: `crew merge` refuses a draft, and reads only the result's reviews. |
+| minion: "PR ready" | Write `.crew/night/reviews/BRANCH-1.md`: the round, the pitch's done-when, what you answered it, what deserves the hardest look. Then `crew bitch BRANCH --night --brief .crew/night/reviews/BRANCH-1.md`, and subscribe to `BRANCH-bitch`. After a plan review, its bitch may still run: SendMessage it "Result review round 1 on #M: brief at <path>" instead. |
 | minion: a question | Answer only from Sam's words, his evening answers, `CLAUDE.md` and memory, saying which. Otherwise: "Not covered: apply Sam's rule" (cheap to switch later: the most reversible option, `[for Sam]`, the PR waits; expensive: park). Never make an architecture call yourself. |
 | minion: asks for a real deck | Grant it on Sam's go for that unit, or say why not, or that it waits for the holder ("Real decks" above). |
 | minion: a unit released | Log it and the state it was left in; grant the unit to whoever waits for it. |
 | minion: "parked" | Status parked, a line for the morning. Dispatch the next pitch if resources allow. |
 | bitch: changes | SendMessage the minion: "Review round N on usr-ein/TriMixxx#M: address it (your skill's Review rounds)." Subscribe. |
-| minion: "round N addressed" | After `MAX_REVIEW_ROUNDS` rounds without approval: `crew label BRANCH needs-sam`, status needs-sam, stop there. Otherwise SendMessage `BRANCH-bitch`: "Round N+1 on #M: the minion answered round N; review again." Subscribe. |
+| minion: "round N addressed" | After `MAX_REVIEW_ROUNDS` rounds without approval (a plan's rounds and the result's count apart; `crew pr BRANCH` shows both): `crew label BRANCH needs-sam`, status needs-sam, stop there. Otherwise SendMessage `BRANCH-bitch`: "Round N+1 on #M: the minion answered round N; review again." Subscribe. |
 | bitch: approved | Merge (below). |
 | bitch: needs-sam | Status needs-sam, a line for the morning. Nothing more on that PR tonight. |
 | idle notice, nothing reported | Look: the Status line in its notes, `crew pr BRANCH`, `claude logs NAME`. Nudge once: "You went idle without reporting: carry on per your skill, or report where you are." Idle and silent again: status stuck, `crew clean BRANCH --abandon` (stops its session and decks, keeps its work). |

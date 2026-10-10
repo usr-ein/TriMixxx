@@ -262,6 +262,25 @@ and report:
   <one line>; decisions for Sam: N". Then end your turn: you are woken for
   the review.
 
+## A plan review first (when the pitch asks for one)
+
+Some pitches want the plan reviewed before anything is built: Sam's words or
+the nightman's brief say so. Then:
+
+1. Write the plan as for any pitch (the survey, the decisions, the steps, the
+   risks, how you will test), commit what the plan needs (a doc, a skeleton),
+   push, and open the TriMixxx PR as a draft (`--draft`) with the plan in its
+   body. `crew label BRANCH ready`.
+2. Report "plan ready: BRANCH, usr-ein/TriMixxx#N": to Sam by day, with
+   `crew bitch BRANCH --plan` as the next step; to the nightman at night.
+3. Answer plan rounds like review rounds (below). The plan's approval
+   (`review:plan-approved`) is a green light to build it, and nothing more:
+   nobody merges on it.
+4. Build it as planned. A change to the approved plan goes in the PR body
+   with why. Then take the PR out of draft
+   (`crew gh -R usr-ein/TriMixxx pr ready N`), `crew label BRANCH ready`, and
+   report "PR ready" as usual. The result has review rounds of its own.
+
 ## Review rounds
 
 When woken for a review:

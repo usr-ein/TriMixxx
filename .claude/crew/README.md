@@ -41,7 +41,9 @@ is never taken for him.
 
 ```
 Sam's pitch ─▶ minion: worktree + deck, plan, Sam's calls, build, test, drift checks
-                 │
+                 │  (a pitch can ask for a plan review first: a draft PR with the plan,
+                 │   `crew bitch BRANCH --plan`, rounds of its own; review:plan-approved
+                 │   is a green light to build, never a merge)
                  ▼  PR (TriMixxx, + companion PRs on the fork, prolink, ttymidi)   review:ready
                bitch: reads the pitch, the minion's decisions, the diff ─▶ one review
                  │  verdict in the review's header and the label
