@@ -62,6 +62,7 @@ crew status                      # every branch: minion, bitch, PR, review state
 crew bitch usb-hotplug           # once its PR is up
 claude attach usb-hotplug        # talk to a background minion
 crew minion usb-hotplug --resume # re-open a minion whose session has ended
+crew send usb-hotplug-bitch "..."  # a message for a session that has ended: resumes it with it
 ```
 
 In `claude agents`, Space peeks at a session and a number answers its

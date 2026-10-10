@@ -188,9 +188,14 @@ def claude_sessions() -> list[dict]:
         return []
 
 
+# What `claude agents` says of a session that isn't running: one stopped after its idle hour stays listed, status None.
+ENDED = (None, "", "exited", "stopped", "completed", "failed", "dead")
+
+
 def live_session(name: str, sessions=None) -> dict | None:
+    """The running session of that name: busy, idle, waiting, or any status not known to mean it has ended."""
     for s in sessions if sessions is not None else claude_sessions():
-        if s.get("name") == name:
+        if s.get("name") == name and s.get("status") not in ENDED:
             return s
     return None
 
@@ -201,7 +206,7 @@ def launch(name: str, wt: Path, bg: bool, prompt: str, crew_env: dict, resume_si
     it: Claude's daemon spawns every background session with its own environment, the one of whichever launch
     started the daemon, so crew_env stays out of it (or every session after this one would carry its role)."""
     live = live_session(name)
-    if live and not resume_sid:
+    if live:  # resumed, a running session comes back as a copy: two sessions on one conversation
         print(f"{name} is already running ({live.get('kind')}, {live.get('status')}): send it a message, "
               f"or open it with `claude attach {live.get('id') or live.get('sessionId')}`")
         return 0
@@ -501,6 +506,16 @@ def cmd_resume(a) -> int:
               (a.prompt or "Then carry on per your skill."))
     return launch(a.name, wt, True, prompt, crew_env(reg["role"], reg["mode"], reg.get("branch"), wt), reg["sid"],
                   a.model)
+
+
+def cmd_send(a) -> int:
+    """A message for a crew session that has ended (after its idle hour, say): it is resumed with it. A running one
+    takes messages only through SendMessage, from inside a session, which crew can't send for you: exit 10."""
+    live = live_session(a.name)
+    if live:
+        print(f"{a.name} is running ({live.get('status')}): send it with SendMessage (to: {a.name})")
+        return 10
+    return cmd_resume(argparse.Namespace(name=a.name, prompt=" ".join(a.text), model=None))
 
 
 def crew_env(role: str, mode: str, branch, wt: Path) -> dict:
@@ -1361,7 +1376,7 @@ def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
                 return f"a {role} is a single agent: only the nightman (or Sam) starts and stops sessions"
         if prog == "crew":
             sub = args[:1]
-            if sub in (["minion"], ["bitch"], ["resume"]) and role != "nightman":
+            if sub in (["minion"], ["bitch"], ["resume"], ["send"]) and role != "nightman":
                 return f"a {role} does not start sessions"
             if sub in (["merge"], ["clean"]) and not (role == "nightman" or (role == "bitch" and mode == "day")):
                 return "merges are the nightman's at night, and the bitch's after Sam's yes in the day"
@@ -1551,6 +1566,12 @@ def main(argv=None) -> int:
     s.add_argument("--prompt")
     s.add_argument("--model", help=argparse.SUPPRESS)
     s.set_defaults(fn=cmd_resume)
+
+    s = sub.add_parser("send", help="a message for a crew session: resumes it with it if it has ended; a running one "
+                                    "only through SendMessage (exit 10)")
+    s.add_argument("name")
+    s.add_argument("text", nargs="+")
+    s.set_defaults(fn=cmd_send)
 
     s = sub.add_parser("register", help="(from a session) record this session's crew role, for the hooks")
     s.add_argument("role", choices=ROLES)

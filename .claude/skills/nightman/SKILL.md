@@ -129,7 +129,7 @@ everyone's commands to a unit but its holder's.
 | bitch: approved | Merge (below). |
 | bitch: needs-sam | Status needs-sam, a line for the morning. Nothing more on that PR tonight. |
 | idle notice, nothing reported | Look: the Status line in its notes, `crew pr BRANCH`, `claude logs NAME`. Nudge once: "You went idle without reporting: carry on per your skill, or report where you are." Idle and silent again: status stuck, `crew clean BRANCH --abandon` (stops its session and decks, keeps its work). |
-| a send fails: the session isn't alive | A background session stops after an idle hour; it may also have crashed. `crew resume NAME --prompt "<the same message>"`. |
+| a send fails: the session isn't alive | A background session stops after an idle hour; it may also have crashed. `crew send NAME "<the same message>"` resumes it with it. Exit 10: it is running after all, so SendMessage again. |
 
 ## Merging
 

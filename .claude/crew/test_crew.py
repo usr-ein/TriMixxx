@@ -134,6 +134,8 @@ class GuardTest(Sandbox):
         self.assertTrue(self.denied(self.minion, "claude --bg -n x hi"))
         self.assertTrue(self.denied(self.minion, "crew minion other"))
         self.assertFalse(self.denied(self.nightman, "crew minion other --night --pitch /tmp/p.md"))
+        self.assertTrue(self.denied(self.minion, "crew send nightman hi"))
+        self.assertFalse(self.denied(self.nightman, "crew send feat-bitch 'Round 2 on #7'"))
         self.assertTrue(self.denied(self.minion, "crew merge feat"))
         self.assertTrue(self.denied(self.night_bitch, "crew merge feat"))
         self.assertFalse(self.denied(self.bitch, "crew merge feat"))
@@ -412,6 +414,47 @@ class HookTest(Sandbox):
         self.assertEqual(title({"role": "nightman", "mode": "night"}), "nightman")
         resumed = crew.hook_session({"source": "compact"}, self.reg)["hookSpecificOutput"]
         self.assertIn(".claude/skills/minion/SKILL.md", resumed["additionalContext"])
+
+
+class SessionTest(Sandbox):
+    """Sessions that have ended: `claude agents` still lists one stopped after its idle hour, status None."""
+
+    def setUp(self):
+        super().setUp()
+        crew.MAIN = self.tmp / "main"
+        self.wt = self.repo(crew.MAIN / ".claude" / "worktrees" / "feat")
+        self.listed, self.launched = [], []
+        crew.claude_sessions = lambda: self.listed
+
+        def run(cmd, cwd=None, env=None, **kw):  # `claude --bg ...`: it shows up in `claude agents` at once
+            self.launched.append(cmd)
+            self.listed.append({"id": "n1", "sessionId": "s-new", "name": cmd[cmd.index("-n") + 1], "status": "busy"})
+            return subprocess.CompletedProcess(cmd, 0, "backgrounded · n1\n", "")
+        crew.run = run
+        crew.register_session("s-old", "bitch", "night", "feat", self.wt)
+
+    def test_a_stopped_session_is_not_alive(self):
+        self.listed = [{"name": "feat-bitch", "status": None}, {"name": "nightman", "status": "waiting"}]
+        self.assertIsNone(crew.live_session("feat-bitch"))
+        self.assertEqual(crew.live_session("nightman")["status"], "waiting")
+
+    def test_send_resumes_what_has_ended(self):
+        self.listed = [{"name": "feat-bitch", "status": None, "id": "old"}]
+        self.assertEqual(crew.cmd_send(argparse.Namespace(name="feat-bitch", text=["Round", "2", "on", "#7"])), 0)
+        cmd = self.launched[-1]
+        self.assertEqual(cmd[cmd.index("--resume") + 1], "s-old")
+        self.assertIn("Round 2 on #7", cmd[-1])
+
+    def test_send_leaves_a_running_session_to_sendmessage(self):
+        self.listed = [{"name": "feat-bitch", "status": "idle", "id": "old"}]
+        self.assertEqual(crew.cmd_send(argparse.Namespace(name="feat-bitch", text=["hi"])), 10)
+        self.assertEqual(self.launched, [])
+
+    def test_never_resumes_a_running_session(self):
+        """Claude would start a copy of it: two sessions on one conversation."""
+        self.listed = [{"name": "feat-bitch", "status": "busy", "id": "x"}]
+        crew.launch("feat-bitch", self.wt, True, "hi", crew.crew_env("bitch", "night", "feat", self.wt), "s-old")
+        self.assertEqual(self.launched, [])
 
 
 class DelegationTest(Sandbox):
