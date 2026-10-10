@@ -46,3 +46,21 @@
 	path = mixxx
 	url = https://github.com/usr-ein/mixxx.git
 	branch = main
+# The CDJ-2000NXS emulator (cdj2k-revival/cdj2000-emulator): Pioneer's own
+# firmware on emulated MAIN and GUI boards, on the decks' links through
+# `pi-qemu cdj` (docs/cdj-emulator.md). Our fork, as with mixxx: its `main`
+# is upstream main, our changes (each a commit on upstream main, ready to go
+# back upstream), and geepot's open NXS series (#33-#38), which the NXS needs
+# to keep Pro DJ Link time. No firmware is ever in it; it ignores *.UPD and
+# what is extracted from one.
+#
+# Push URL and upstream, per clone, as for mixxx:
+#
+#     git -C cdj2000-emulator remote set-url --push origin \
+#         git@github.com-usr-ein:usr-ein/cdj2000-emulator.git
+#     git -C cdj2000-emulator remote add upstream \
+#         https://github.com/cdj2k-revival/cdj2000-emulator.git
+[submodule "cdj2000-emulator"]
+	path = cdj2000-emulator
+	url = https://github.com/usr-ein/cdj2000-emulator.git
+	branch = main
