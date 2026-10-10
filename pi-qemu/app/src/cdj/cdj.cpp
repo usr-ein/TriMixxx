@@ -176,7 +176,15 @@ void Cdj::up(const Up& o) {
     qint64 started = 0;
     if (!p.startDetached(&started)) fail("cannot start " + paths::binary() + ": " + p.errorString());
     files::write(m_dir + "/pid", QByteArray::number(started) + "\n");
-    waitUp(o.link);
+    try {
+        waitUp(o.link);
+    } catch (const Failure& f) {
+        // Not left running, unseen: it would hold two cores for a day.
+        stop();
+        throw Failure{f.message + "\n" + m_name + " is stopped; its logs stay in " + m_dir + " (" +
+                          tool("cdj rm " + m_name) + " deletes them)",
+                      f.status};
+    }
     print() << m_name << " is up (booted in " << t.elapsed() / 1000 << " s): pid " << started
             << (o.link.isEmpty() ? QString(", no cable in") : ", on link " + o.link) << "\n"
             << "  " << tool("cdj shot " + m_name + " FILE.png") << "\n"
@@ -225,16 +233,20 @@ void Cdj::waitUp(const QString& net) {
             << ")\n";
 }
 
+void Cdj::stop() {
+    const qint64 p = pid();
+    if (!p) return;
+    // nxs_vm's own stop first: it closes QEMU and the GUI core, and then
+    // `cdj run` leaves the link. A signal if that does not do.
+    captureTool({"tools.cdj_main.dev", runDir(), "stop"}, true);
+    for (int i = 0; i < 100 && running(); i++) proc::sleep(200);
+    if (running()) ::kill(pid_t(p), SIGTERM);
+    for (int i = 0; i < 50 && running(); i++) proc::sleep(200);
+    if (running()) ::kill(-pid_t(p), SIGKILL); // its session: the emulator's processes too
+}
+
 void Cdj::rm() {
-    if (const qint64 p = pid()) {
-        // nxs_vm's own stop first: it closes QEMU and the GUI core, and then
-        // `cdj run` leaves the link. A signal if that does not do.
-        captureTool({"tools.cdj_main.dev", runDir(), "stop"}, true);
-        for (int i = 0; i < 100 && running(); i++) proc::sleep(200);
-        if (running()) ::kill(pid_t(p), SIGTERM);
-        for (int i = 0; i < 50 && running(); i++) proc::sleep(200);
-        if (running()) ::kill(-pid_t(p), SIGKILL); // its session: the emulator's processes too
-    }
+    stop();
     QDir(m_dir).removeRecursively();
     print() << m_name << " removed\n";
 }

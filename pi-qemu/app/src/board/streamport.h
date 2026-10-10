@@ -9,7 +9,9 @@
 // to a Unix stream socket here (nxs_vm --link-hub unix:PATH). One emulator
 // at a time: a second connection waits until the first has gone. Frames
 // from the link while none is connected are dropped, as a cable to a
-// switched-off player drops them.
+// switched-off player drops them. A stream it has to drop (a broken length,
+// half a frame after a stall) is said on stderr: the emulator's NIC does not
+// connect again.
 
 #include <QString>
 
@@ -50,7 +52,7 @@ public:
 
 private:
     void run();
-    void drop(int* fd);
+    void drop(int* fd, const char* why); // why: said in the log; null at shutdown
 
     QString m_path;
     int m_dgram = -1, m_listen = -1;

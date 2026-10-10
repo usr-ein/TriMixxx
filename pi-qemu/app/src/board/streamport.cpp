@@ -1,5 +1,7 @@
 #include "board/streamport.h"
 
+#include "util/print.h"
+
 #include <QFile>
 
 #include <cerrno>
@@ -71,10 +73,13 @@ void StreamPort::close() {
     }
 }
 
-void StreamPort::drop(int* fd) {
+void StreamPort::drop(int* fd, const char* why) {
     if (*fd >= 0) ::close(*fd);
     *fd = -1;
     m_connected = false;
+    // In the log of whoever holds the port (a CDJ's pi-qemu.log): the
+    // emulator's NIC does not connect again, so it is off the link from here.
+    if (why) eprint() << m_path << ": dropped the emulator's stream (" << why << ")\n";
 }
 
 void StreamPort::run() {
@@ -92,7 +97,10 @@ void StreamPort::run() {
                 const int on = 1; // a gone emulator is an error to read, not a signal
                 ::setsockopt(client, SOL_SOCKET, SO_NOSIGPIPE, &on, sizeof(on));
 #endif
-                // A stalled emulator costs the link a second, not the thread.
+                // Room for a stall, as Link's queues have: a frame that does not
+                // fit within a second is lost whole, and the stream stays whole.
+                const int queue = 2 << 20;
+                ::setsockopt(client, SOL_SOCKET, SO_SNDBUF, &queue, sizeof(queue));
                 const timeval second{1, 0};
                 ::setsockopt(client, SOL_SOCKET, SO_SNDTIMEO, &second, sizeof(second));
                 framer.reset();
@@ -103,7 +111,8 @@ void StreamPort::run() {
             const bool ok = n > 0 && framer.feed(buf.data(), size_t(n), [&](const char* f, size_t len) {
                 if (::send(m_dgram, f, len, 0) >= 0) m_in++;
             });
-            if (!ok) drop(&client); // gone, or a broken stream: the next connection starts afresh
+            // Gone, or a broken stream: the next connection starts afresh.
+            if (!ok) drop(&client, n == 0 ? "it closed" : n < 0 ? "a read failed" : "a broken frame length");
         }
         // The link's frames: to the emulator if one is connected, else nowhere.
         for (int i = 0; i < 64 && (p[1].revents & POLLIN); i++) {
@@ -118,9 +127,9 @@ void StreamPort::run() {
                 sent += size_t(w);
             }
             if (sent == out.size()) m_out++;
-            else if (sent > 0) { drop(&client); break; } // half a frame: the stream is broken
+            else if (sent > 0) { drop(&client, "half a frame sent: it stalled"); break; } // the stream is broken
             // else lost whole, as a busy switch loses it; the stream is intact
         }
     }
-    drop(&client);
+    drop(&client, nullptr);
 }

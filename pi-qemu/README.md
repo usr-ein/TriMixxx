@@ -328,7 +328,9 @@ pi-qemu cdj rm a
 ```
 
 - **A CDJ is booted, never restored.** Its player screen is up in about
-  8 s, and `up` waits for it, then on a link for its first keep-alive.
+  8 s, and `up` waits for it, then on a link for its first keep-alive. One
+  with no player screen in 120 s is stopped, its logs left in
+  `~/.pi-qemu/cdj/NAME/` until `cdj rm`.
 - **On a link it is a member of its own,** as a deck is. Its MAC comes from
   its name, `02:43:44:..`, and the NXS takes its link-local address from
   the MAC's last two bytes.

@@ -78,7 +78,8 @@ public:
         QString sd, usb;       // FAT32 images
         bool    testTrack = false, window = false;
     };
-    void up(const Up& o);
+    void up(const Up& o);       // a CDJ that does not come up is stopped, its logs kept
+    void stop();                // its processes, gracefully if they let it; its state stays
     void rm();                  // stops it, then deletes its state
     int  serve();               // `cdj run`: the emulator, and its port on the link
     int  dev(const QStringList& args) const; // tools.cdj_main.dev on its run
