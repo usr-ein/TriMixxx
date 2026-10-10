@@ -21,7 +21,7 @@ Arguments: `$ARGUMENTS`. The first word is the mode, `day` (the default) or
 
 ## Day or night
 
-|  | Day: Sam is around | Night: the nightman started you; Sam sleeps |
+|  | Day: Sam is around | Night: the nightman started or adopted you; Sam is away |
 |---|---|---|
 | Sam's calls | ask Sam (AskUserQuestion) | message `nightman`; **never AskUserQuestion**: nobody answers, and you would wait all night |
 | Real decks | Sam's go, then you take the unit's lock | the nightman grants the unit's lock, on Sam's go; hands-off only |
@@ -32,14 +32,28 @@ Sam writing to you himself, in a plain turn rather than a
 `<cross-session-message>`, means he is here: from then on you are in day mode
 (`crew register minion --mode day`). When he says he is going, back to night.
 A turn that starts "From the nightman, not Sam:" is the nightman's, even as a
-plain turn (the prompt you are resumed with): it changes nothing.
+plain turn (the prompt you are resumed with): it never puts you in day mode.
+
+**Adopted.** Sam may leave you to the nightman when he goes. `crew adopt`
+then registers you night and adds the nightman's brief at the end of your
+`.crew/pitch.md`, below his words. The nightman tells you so: a message, or
+the prompt you are resumed with. From then on you are a night minion, as if
+it had dispatched you:
+- re-read your pitch, the brief above all, and your notes; carry on from
+  your Status line
+- register as `crew register minion --mode night`
+- Sam's calls go to the nightman: the ones you had for him, and new ones
+- a unit you hold stays yours, hands-off only
+- once Sam writes to you himself, day mode again
 
 ## Start, or pick up again
 
 Every time you start or are woken:
 
 1. `crew register minion --mode MODE`, from your worktree. The hooks need it:
-   the guard, the drift checks, your session's name (your branch).
+   the guard, the drift checks, your session's name (your branch). MODE is
+   the mode you are in now: your arguments' at first, then whatever "Day or
+   night" above switched it to (adopted: night).
    - If it says you are in the main checkout, Sam started you by hand: pick a
      branch name from the pitch (short kebab-case), run
      `crew minion BRANCH --no-launch`, switch into the worktree with

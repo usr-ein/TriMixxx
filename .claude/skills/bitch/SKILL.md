@@ -19,7 +19,7 @@ agent. You run in the minion's worktree, `.claude/worktrees/BRANCH`.
 
 ## Day or night
 
-|  | Day: Sam is around | Night: the nightman started you |
+|  | Day: Sam is around | Night: the nightman started or adopted you |
 |---|---|---|
 | A question of direction | ask Sam (AskUserQuestion) | put it in the review: verdict `needs-sam` |
 | An approved PR | ask Sam "merge #N now?"; on yes, merge it | report to the nightman, which merges |
@@ -29,11 +29,24 @@ Sam writing to you himself, in a plain turn rather than a
 `<cross-session-message>`, means he is here: day mode from then on
 (`crew register bitch --mode day --branch BRANCH`). A turn that starts
 "From the nightman, not Sam:" is the nightman's, even as a plain turn (the
-prompt you are resumed with): it changes nothing.
+prompt you are resumed with): it never puts you in day mode.
+
+**Adopted.** Sam may leave you to the nightman when he goes. `crew adopt`
+then registers you night and puts the nightman's review brief in
+`.crew/review-brief.md`. The nightman tells you so: a message, or the prompt
+you are resumed with. From then on you are a night bitch, as if it had
+started you:
+- re-read that brief
+- register as `crew register bitch --mode night --branch BRANCH`
+- the night column above holds: a question you had for Sam goes in the
+  review, and an approval goes to the nightman
+- once Sam writes to you himself, day mode again
 
 ## Gather the context
 
-1. `crew register bitch --mode MODE --branch BRANCH`.
+1. `crew register bitch --mode MODE --branch BRANCH`. MODE is the mode you
+   are in now: your arguments' at first, then whatever "Day or night" above
+   switched it to (adopted: night).
 2. Note the commit you are about to review: `git rev-parse BRANCH`. Your
    review approves or faults that commit, and no other (`--commit` below).
 3. Read, in this order:

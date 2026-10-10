@@ -5,8 +5,10 @@ on throwaway repositories (a parent with a submodule, as TriMixxx and the Mixxx 
 """
 
 import argparse
+import contextlib
 import importlib.machinery
 import importlib.util
+import io
 import json
 import os
 import shutil
@@ -137,6 +139,9 @@ class GuardTest(Sandbox):
         self.assertFalse(self.denied(self.nightman, "crew minion other --night --pitch /tmp/p.md"))
         self.assertTrue(self.denied(self.minion, "crew send nightman hi"))
         self.assertFalse(self.denied(self.nightman, "crew send feat-bitch 'Round 2 on #7'"))
+        self.assertTrue(self.denied(self.day_minion, "crew adopt other --brief /tmp/b.md"))
+        self.assertTrue(self.denied(self.bitch, "crew adopt feat --brief /tmp/b.md"))
+        self.assertFalse(self.denied(self.nightman, "crew adopt feat --brief .crew/night/pitches/feat.md"))
         self.assertTrue(self.denied(self.minion, "crew merge feat"))
         self.assertTrue(self.denied(self.night_bitch, "crew merge feat"))
         self.assertFalse(self.denied(self.bitch, "crew merge feat"))
@@ -471,6 +476,153 @@ class SessionTest(Sandbox):
         self.listed = [{"name": "feat-bitch", "status": "busy", "id": "x"}]
         crew.launch("feat-bitch", self.wt, True, "hi", crew.crew_env("bitch", "night", "feat", self.wt), "s-old")
         self.assertEqual(self.launched, [])
+
+
+class AdoptTest(Sandbox):
+    """`crew adopt`: a minion or bitch Sam started by day, left to the nightman when he goes. On 2026-10-10 the
+    nightman adopted cdj-2k-emu by hand: no verb could switch another session's mode, and the guard kept it out of
+    the minion's pitch."""
+
+    def setUp(self):
+        super().setUp()
+        crew.MAIN = self.tmp / "main"
+        self.wt = self.repo(crew.MAIN / ".claude" / "worktrees" / "feat")
+        (self.wt / ".crew").mkdir()
+        self.pitch = self.wt / ".crew" / "pitch.md"
+        self.pitch.write_text("# feat: hot-plug sticks\n\nMode: day. Started 2026-10-10T14:00:22+02:00 by Sam, from "
+                              "main abc1234.\n\n## Pitch (Sam's words)\n\nA stick plugged in mid-set shows up\n")
+        self.brief = self.tmp / "brief.md"
+        self.brief.write_text("**Goal.** Tonight: the hot-plug path, emulated decks only.\n")
+        self.listed, self.launched = [], []
+        crew.claude_sessions = lambda: self.listed
+
+        def run(cmd, cwd=None, env=None, **kw):  # `claude --bg ...`: it shows up in `claude agents` at once
+            self.launched.append(cmd)
+            self.listed.append({"id": "n1", "sessionId": "s-new", "name": cmd[cmd.index("-n") + 1], "status": "busy"})
+            return subprocess.CompletedProcess(cmd, 0, "backgrounded · n1\n", "")
+        crew.run = run
+        crew.register_session("s-min", "minion", "day", "feat", self.wt)
+        crew.register_session("s-bitch", "bitch", "day", "feat", self.wt)
+        crew.register_session("s-night", "nightman", "night", None, crew.MAIN)
+        sid = os.environ.get("CLAUDE_CODE_SESSION_ID")
+        self.addCleanup(lambda: os.environ.update(CLAUDE_CODE_SESSION_ID=sid) if sid else
+                        os.environ.pop("CLAUDE_CODE_SESSION_ID", None))
+        os.environ["CLAUDE_CODE_SESSION_ID"] = "s-night"  # the nightman adopts
+
+    def adopt(self, name, brief=None) -> tuple[int, str, str]:
+        """`crew adopt NAME --brief FILE`, through the command line: its exit code, stdout and stderr."""
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = crew.main(["adopt", name, "--brief", str(brief or self.brief)])
+        return code, out.getvalue(), err.getvalue()
+
+    def running(self, name, sid):
+        return {"name": name, "status": "busy", "sessionId": sid, "cwd": str(self.wt), "kind": "interactive"}
+
+    def test_a_running_day_minion(self):
+        self.listed = [self.running("feat", "s-min")]
+        code, out, err = self.adopt("feat")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(crew.registration("s-min")["mode"], "night")
+        pitch = self.pitch.read_text()
+        self.assertLess(pitch.index("A stick plugged in mid-set"), pitch.index("Tonight: the hot-plug path"))
+        self.assertIn("Mode: night, adopted by the nightman", pitch)  # a minion re-reading it won't register day
+        self.assertNotIn("Mode: day", pitch)
+        message = out.split("\n\n", 1)[1]
+        self.assertTrue(message.startswith("From the nightman, not Sam: Sam has gone, and you are adopted"), out)
+        self.assertIn("`crew register minion --mode night`", message)
+        self.assertIn("SendMessage it this (to: feat)", out)
+        self.assertIn("crew adopt feat-bitch", out)  # its bitch is adopted apart
+        self.assertEqual(crew.registration("s-bitch")["mode"], "day")
+        self.assertEqual(self.launched, [])
+        # Once adopted, the guard treats it as a night minion: no real deck locked by itself.
+        with self.assertRaises(crew.Fail) as cm:
+            os.environ["CLAUDE_CODE_SESSION_ID"] = "s-min"
+            crew.cmd_lock(argparse.Namespace(unit="trimixxx1", names=[], holder=None, why=None))
+        self.assertIn("the nightman grants", str(cm.exception))
+
+    def test_an_ended_day_minion_is_resumed_with_the_message(self):
+        self.listed = [{"name": "feat", "status": None, "sessionId": "s-min", "id": "old"}]
+        code, out, err = self.adopt("feat")
+        self.assertEqual(code, 0, err)
+        cmd = self.launched[-1]
+        self.assertIn("--bg", cmd)
+        self.assertEqual(cmd[cmd.index("--resume") + 1], "s-min")
+        self.assertTrue(cmd[-1].startswith("From the nightman, not Sam: You were resumed as the crew's minion for feat "
+                                           "(night mode)."), cmd[-1])
+        self.assertIn("you are adopted into night mode", cmd[-1])
+        self.assertEqual(cmd[-1].count("re-read"), 1)  # the resume's own start says what to re-read
+        self.assertEqual(crew.registration("s-min")["mode"], "night")
+        self.assertEqual(crew.registration("s-new")["mode"], "night")  # the copy Claude resumes it as
+        self.assertIn("Tonight: the hot-plug path", self.pitch.read_text())
+
+    def test_a_running_day_bitch(self):
+        self.listed = [self.running("feat-bitch", "s-bitch")]
+        code, out, err = self.adopt("feat-bitch")
+        self.assertEqual(code, 0, err)
+        self.assertEqual(crew.registration("s-bitch")["mode"], "night")
+        self.assertEqual((self.wt / ".crew" / "review-brief.md").read_text(), self.brief.read_text())
+        self.assertNotIn("Tonight", self.pitch.read_text())  # the pitch is the minion's
+        self.assertIn("`crew register bitch --mode night --branch feat`", out)
+        self.assertIn("crew adopt feat ", out)  # its minion is still day
+        self.assertIsNotNone(crew.bash_reason("crew merge feat", crew.registration("s-bitch"), str(self.wt)))
+
+    def test_refused(self):
+        def refused(name, words, code=2):
+            before = (self.pitch.read_text(), [crew.registration(s) for s in ("s-min", "s-bitch")])
+            c, out, err = self.adopt(name)
+            self.assertEqual(c, code, err)
+            self.assertIn(words, err)
+            self.assertEqual(before, (self.pitch.read_text(), [crew.registration(s) for s in ("s-min", "s-bitch")]))
+            self.assertEqual(self.launched, [])
+        self.listed = [self.running("feat", "s-min")]
+        refused("other", "no minion or bitch named other")
+        refused("nightman", "is the nightman")
+        self.brief.write_text("\n")
+        refused("feat", "is empty")
+        self.brief.write_text("Tonight.\n")
+        os.environ["CLAUDE_CODE_SESSION_ID"] = "s-bitch"
+        refused("feat", "a bitch does not adopt")
+        os.environ["CLAUDE_CODE_SESSION_ID"] = "s-night"
+        self.listed = [self.running("feat", "s-elsewhere") | {"cwd": str(crew.MAIN)}]
+        refused("feat", "not adopting it")  # named like the minion, but no registration names it, nor its worktree
+
+    def test_already_night_changes_nothing(self):
+        """Run twice, it says so and changes nothing: one brief in the pitch, no session woken."""
+        self.listed = [self.running("feat", "s-min")]
+        self.assertEqual(self.adopt("feat")[0], 0)
+        pitch = self.pitch.read_text()
+        code, out, err = self.adopt("feat")
+        self.assertEqual(code, 2)
+        self.assertIn("already in night mode", err)
+        self.assertEqual(self.pitch.read_text(), pitch)
+        self.listed = [{"name": "feat", "status": None, "sessionId": "s-min"}]
+        self.assertEqual(self.adopt("feat")[0], 2)
+        self.assertEqual(self.launched, [])
+
+    def test_a_session_resumed_by_hand(self):
+        """Sam reopened it with `claude --resume` (a copy, with a new id) and it has not registered again yet."""
+        self.listed = [self.running("feat", "s-copy")]
+        code, out, err = self.adopt("feat")
+        self.assertEqual(code, 0, err)
+        self.assertEqual((crew.registration("s-copy")["role"], crew.registration("s-copy")["mode"]),
+                         ("minion", "night"))
+
+    def test_a_minion_with_no_pitch_yet(self):
+        self.pitch.unlink()
+        self.listed = [self.running("feat", "s-min")]
+        code, out, err = self.adopt("feat")
+        self.assertEqual(code, 0, err)
+        self.assertTrue(self.pitch.read_text().startswith("## Night mode: the nightman's brief"))
+        self.assertIn("send it Sam's words", out)
+
+    def test_a_held_unit_is_kept(self):
+        with contextlib.redirect_stdout(io.StringIO()):
+            crew.cmd_lock(argparse.Namespace(unit="trimixxx1", names=[], holder="feat", why="Sam 13:50: go"))
+        self.listed = [self.running("feat", "s-min")]
+        code, out, err = self.adopt("feat")
+        self.assertIn("it holds trimixxx1", out)
+        self.assertEqual(crew.locks()["trimixxx1"]["holder"], "feat")
 
 
 class DelegationTest(Sandbox):

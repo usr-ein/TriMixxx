@@ -34,6 +34,10 @@ Sam is here now, and soon won't be. Whatever he can decide, he decides now.
      real deck: which unit, for what. At night that is hands-off only
      (nobody is at the bench); a hands-on part waits for Sam: say which.
    - order: pitches touching the same files go one after the other
+
+   A minion or bitch he started by day and leaves to you is adopted, not
+   dispatched ("Adopting a session Sam started by day", below). Its brief
+   is the same, less the branch, the title and his words.
 3. Ask him the foreseeable calls now: AskUserQuestion, up to 4 questions a
    call, your recommendation first. Also ask when he'll be back, which real
    decks minions may use tonight (his go names the unit), and whether
@@ -59,7 +63,7 @@ Sam is here now, and soon won't be. Whatever he can decide, he decides now.
    off-minutes (`7,27,47 * * * *`), prompt: "Nightman heartbeat: re-read
    .claude/skills/nightman/SKILL.md if it is not in your context, then do its
    Heartbeat section." Note its id in plan.md.
-8. Dispatch (below), then end your turn. From now on nobody answers
+8. Dispatch and adopt (below), then end your turn. From now on nobody answers
    questions: **no AskUserQuestion until Sam is back.**
 
 ```markdown
@@ -85,6 +89,38 @@ submodules, copies the pitch to `.crew/pitch.md`, and starts the session
 named BRANCH in the background. Then SendMessage BRANCH with
 `notify_when_idle: true` and no message: one notice when it next goes idle or
 exits. Subscribe again after each notice.
+
+## Adopting a session Sam started by day
+
+Sam may leave you a minion or a bitch he started by day ("adopt
+cdj-2k-emu"), in the evening or as he goes. It becomes a night session, as
+if you had dispatched it:
+
+1. Where it stands: `crew status`, `crew pr BRANCH`, and its
+   `.crew/pitch.md` and `.crew/notes.md` (in `.claude/worktrees/BRANCH/`).
+2. Its brief, as for a pitch: done when, scope, latitude, resources, the
+   calls Sam settled, when he is back. Not his words: its pitch has them.
+   - a minion's: `.crew/night/pitches/BRANCH.md`
+   - a bitch's, a review brief: `.crew/night/reviews/BRANCH-N.md`
+
+   Ask him the calls you can foresee before he goes: in plain text if the
+   crew runs.
+3. `crew adopt BRANCH --brief .crew/night/pitches/BRANCH.md`, or for its
+   bitch `crew adopt BRANCH-bitch --brief .crew/night/reviews/BRANCH-N.md`.
+   It registers the session night and adds the brief: at the end of the
+   minion's `.crew/pitch.md`, below Sam's words; as the bitch's
+   `.crew/review-brief.md`. It refuses one already in night mode.
+4. Running: SendMessage it the message `crew adopt` prints. Ended: crew has
+   resumed it with that message.
+5. Subscribe to its idle notice, as for a dispatch.
+6. In plan.md, a row: its status where it stands (running, review, ...),
+   noted "adopted HH:MM". And a line in the log.
+
+When the minion and its bitch both run, adopt both: `crew adopt` notes the
+other one still in day mode. A bitch whose session has ended: adopt it when
+its next round comes, with that round's brief, since adopting resumes it.
+A unit the minion holds stays its own: from now on, hands-off only. Log it
+with the real decks.
 
 ## Real decks: one minion per unit
 
@@ -122,6 +158,7 @@ everyone's commands to a unit but its holder's.
 
 | What comes in | What you do |
 |---|---|
+| Sam: "adopt X", a minion or bitch he started by day | "Adopting a session Sam started by day" above. |
 | minion: "plan ready" (a pitch with a plan review) | Write `.crew/night/reviews/BRANCH-plan-1.md` as below, for the plan. Then `crew bitch BRANCH --night --plan --brief .crew/night/reviews/BRANCH-plan-1.md`, and subscribe to `BRANCH-bitch`. |
 | bitch: plan approved | SendMessage the minion: "Plan approved, a green light, not a merge: build it (your skill's A plan review first)." Never merge on it: `crew merge` refuses a draft, and reads only the result's reviews. |
 | minion: "PR ready" | Write `.crew/night/reviews/BRANCH-1.md`: the round, the pitch's done-when, what you answered it, what deserves the hardest look. Then `crew bitch BRANCH --night --brief .crew/night/reviews/BRANCH-1.md`, and subscribe to `BRANCH-bitch`. After a plan review, its bitch may still run: SendMessage it "Result review round 1 on #M: brief at <path>" instead. |

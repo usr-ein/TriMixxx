@@ -37,6 +37,18 @@ A minion or bitch that Sam writes to himself switches to day mode. A prompt
 the nightman sends through crew starts "From the nightman, not Sam:", so it
 is never taken for him.
 
+One that Sam started by day goes to night when he leaves it to the
+nightman ("adopt cdj-2k-emu"). The nightman writes it a brief, then
+`crew adopt NAME --brief FILE` (NAME: `BRANCH`, or `BRANCH-bitch`):
+
+- registers it night, for the guard and the hooks
+- adds the brief: at the end of a minion's `.crew/pitch.md`, below Sam's
+  words; as a bitch's `.crew/review-brief.md`
+- prints the message the nightman sends it by SendMessage; an ended session
+  is resumed with that message instead
+
+It refuses one already in night mode, and the nightman's own session.
+
 ## The loop
 
 ```
@@ -85,6 +97,10 @@ permission mode, load) and keeps it awake. Then it runs until the queue is
 done. Once minions run, it asks you things in plain text, never in a
 question box that would stop it until you answer. In the morning: its last
 message, and `.crew/night/report-DATE.md`.
+
+Minions and bitches you started by day and leave running: tell it "adopt
+BRANCH", in the evening or as you go. It takes them over as night sessions
+(`crew adopt`).
 
 **Before the first real night, rehearse it once, awake.** Give the nightman
 two trivial pitches that touch the same file. That exercises:
@@ -150,8 +166,8 @@ itself from its environment. In the background, crew registers it once
 environment of the launch that started the daemon, so crew passes it no role.
 A resumed session is registered the same way, though Claude Code brings it
 back as a copy with a new id. One Sam starts by hand registers with
-`crew register`, its skill's first step. Other sessions pay ~30 ms a tool call
-and are otherwise untouched.
+`crew register`, its skill's first step. `crew adopt` switches a day one to
+night. Other sessions pay ~30 ms a tool call and are otherwise untouched.
 
 - **guard** (before Bash and file writes) refuses a crew session:
   - pushing anything but its own branch, merging, or writing outside its
@@ -159,7 +175,7 @@ and are otherwise untouched.
   - plain `gh` (use `crew gh`)
   - `sudo`, disk commands, Docker prunes, `pkill`/`killall`, `deck golden`,
     `image build`
-  - another agent's decks, starting sessions (minion and bitch)
+  - another agent's decks, starting or adopting sessions (minion and bitch)
   - a real deck no lock of its own names (the bitch and the nightman: any
     real deck)
 - **drift** (after each tool call) interrupts a minion every 25 minutes or
@@ -238,5 +254,5 @@ python3 -m unittest discover -s .claude/crew -v
 ```
 
 The guard's rules, the real-deck locks, the drift check, session names and
-registration, and `crew merge` on throwaway repositories (a parent and a
-submodule).
+registration, adoption, and `crew merge` on throwaway repositories (a parent
+and a submodule).

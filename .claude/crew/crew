@@ -536,6 +536,101 @@ def cmd_send(a) -> int:
     return cmd_resume(argparse.Namespace(name=a.name, prompt=" ".join(a.text), model=None))
 
 
+def adoption(reg: dict) -> tuple[str, str]:
+    """What an adopted session is told: for SendMessage, and as the prompt it is resumed with (whose own start says
+    what to re-read)."""
+    role, b = reg["role"], reg["branch"]
+    news = (f"Sam has gone, and you are adopted into night mode: crew has registered you as a night {role}, and " +
+            ("the nightman's brief is at the end of your .crew/pitch.md, below Sam's words." if role == "minion" else
+             "the nightman's review brief is your .crew/review-brief.md."))
+    reread = (f" Re-read {MAIN / '.claude' / 'skills' / role / 'SKILL.md'} (\"Adopted\"), then " +
+              ("your .crew/pitch.md and .crew/notes.md." if role == "minion" else ".crew/review-brief.md."))
+    how = (" Carry on in night mode: no AskUserQuestion, nobody would answer it; " +
+           ("Sam's calls go to the nightman, or by Sam's rule; you report to the nightman. When you register: "
+            "`crew register minion --mode night`." if role == "minion" else
+            "a question of direction goes in the review (needs-sam); you never merge; your verdict goes to the "
+            f"nightman. When you register: `crew register bitch --mode night --branch {b}`."))
+    return news + reread + how, news + how
+
+
+def cmd_adopt(a) -> int:
+    """A minion or bitch Sam started by day, left to the nightman when he goes: registered night, briefed, told. A
+    running session takes the message through SendMessage, which crew can't send (it prints it); an ended one is
+    resumed with it, as `crew send` does."""
+    me = registration(os.environ.get("CLAUDE_CODE_SESSION_ID"))
+    if me and me["role"] != "nightman":
+        die(f"a {me['role']} does not adopt sessions: the nightman does, or Sam", 2)
+    named = [r for r in registrations() if session_name(r) == a.name]
+    regs = [r for r in named if r["role"] in ("minion", "bitch")]
+    if named and not regs:
+        die(f"{a.name} is the nightman's own session: only a minion or a bitch Sam started by day is adopted", 2)
+    if not regs:
+        die(f"no minion or bitch named {a.name} is registered (a minion is BRANCH, its bitch BRANCH-bitch)", 2)
+    try:
+        brief = Path(a.brief).read_text().strip()
+    except OSError as e:
+        die(f"{a.brief}: {e.strerror}", 2)
+    if not brief:
+        die(f"{a.brief} is empty: the brief says what tonight is for it", 2)
+    latest = max(regs, key=lambda r: r.get("since", ""))
+    sessions = claude_sessions()
+    live = live_session(a.name, sessions)
+    reg = latest
+    if live:  # the guard and the hooks go by the running session's registration
+        reg = next((r for r in regs if r["sid"] == live.get("sessionId")), None)
+        if not reg:  # resumed by hand, and not registered yet: the same conversation, if it runs in the worktree
+            if not live.get("sessionId") or not under(Path(live.get("cwd") or "/"), Path(latest["worktree"])):
+                die(f"{a.name} runs as session {live.get('sessionId')} in {live.get('cwd')}, which no registration "
+                    f"names and is not {latest['worktree']}: not adopting it", 2)
+            reg = dict(latest, sid=live["sessionId"], mode="day")
+    if reg["mode"] == "night":
+        die(f"{a.name} is already in night mode: nothing to adopt, nothing changed. To tell it something: "
+            + ("SendMessage it" if live else f"`crew send {a.name} ...`"), 2)
+    wt, b = Path(reg["worktree"]), reg["branch"]
+    if not (wt / ".crew").is_dir():
+        die(f"{a.name}'s worktree has no .crew/ ({wt}): not a crew worktree any more", 2)
+
+    if reg["role"] == "minion":
+        pitch, when = wt / ".crew" / "pitch.md", now_iso()[:16].replace("T", " ")
+        text = pitch.read_text() if pitch.exists() else ""
+        text = re.sub(r"^Mode: day\b\.?", f"Mode: night, adopted by the nightman {when} (its brief is at the end).",
+                      text, count=1, flags=re.M)
+        pitch.write_text((text.rstrip() + "\n\n" if text.strip() else "") +
+                         f"## Night mode: the nightman's brief (adopted {when})\n\n{brief}\n")
+        where = f"its brief is at the end of {pitch}" + \
+            ("" if text.strip() else " (it had no pitch: send it Sam's words)")
+    else:
+        shutil.copyfile(a.brief, wt / ".crew" / "review-brief.md")
+        where = f"its brief is {wt / '.crew' / 'review-brief.md'}"
+    register_session(reg["sid"], reg["role"], "night", b, wt)
+    print(f"{a.name}: adopted into night mode (session {reg['sid'][:8]}, registered night); {where}")
+
+    other = f"{b}-bitch" if reg["role"] == "minion" else b
+    theirs = [r for r in registrations() if session_name(r) == other and r["role"] in ("minion", "bitch")]
+    running = live_session(other, sessions)
+    o = next((r for r in theirs if running and r["sid"] == running.get("sessionId")), None) or \
+        max(theirs, key=lambda r: r.get("since", ""), default=None)
+    if o and o["mode"] == "day":
+        print(f"note: its {o['role']} {other} is in day mode too: `crew adopt {other} --brief FILE` before it is woken")
+    if reg["role"] == "minion":
+        for u, lk in locks().items():
+            if lk["holder"] == b:
+                print(f"note: it holds {u} (`crew lock`), and keeps it: at night, hands-off only")
+    message, prompt = adoption(reg)
+    if live:
+        print(f"It is running ({live.get('status')}): SendMessage it this (to: {a.name}), then subscribe to its idle "
+              f"notice:\n\n{from_whom(message)}")
+        return 0
+    print("Its session has ended: resuming it in the background, in night mode, with the message.")
+    try:
+        cmd_resume(argparse.Namespace(name=a.name, prompt=prompt, model=None))
+    except Fail as e:
+        die(f"{a.name} is adopted, but resuming it failed: {e}\n`crew send {a.name} {shlex.quote(prompt)}` "
+            "resumes it with the message", e.code)
+    print(f"Subscribe to its idle notice: SendMessage {a.name}, notify_when_idle, no message.")
+    return 0
+
+
 def crew_env(role: str, mode: str, branch, wt: Path) -> dict:
     return {"CREW_ROLE": role, "CREW_MODE": mode, "CREW_BRANCH": branch or "", "CREW_WORKTREE": str(wt)}
 
@@ -1402,8 +1497,8 @@ def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
                 return f"a {role} is a single agent: only the nightman (or Sam) starts and stops sessions"
         if prog == "crew":
             sub = args[:1]
-            if sub in (["minion"], ["bitch"], ["resume"], ["send"]) and role != "nightman":
-                return f"a {role} does not start sessions"
+            if sub in (["minion"], ["bitch"], ["resume"], ["send"], ["adopt"]) and role != "nightman":
+                return f"a {role} does not start or adopt sessions"
             if sub in (["merge"], ["clean"]) and not (role == "nightman" or (role == "bitch" and mode == "day")):
                 return "merges are the nightman's at night, and the bitch's after Sam's yes in the day"
         if prog == "git":
@@ -1599,6 +1694,14 @@ def main(argv=None) -> int:
     s.add_argument("name")
     s.add_argument("text", nargs="+")
     s.set_defaults(fn=cmd_send)
+
+    s = sub.add_parser("adopt", help="(the nightman) take over a minion or bitch Sam started by day: registered night, "
+                                     "briefed, and told (a running one: SendMessage the message it prints; an ended "
+                                     "one is resumed with it)")
+    s.add_argument("name", help="its session: BRANCH (the minion), or BRANCH-bitch")
+    s.add_argument("--brief", required=True, help="the nightman's brief: added to the minion's .crew/pitch.md, below "
+                                                  "Sam's words; the bitch's .crew/review-brief.md")
+    s.set_defaults(fn=cmd_adopt)
 
     s = sub.add_parser("register", help="(from a session) record this session's crew role, for the hooks")
     s.add_argument("role", choices=ROLES)
