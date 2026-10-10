@@ -26,7 +26,9 @@ agent. You run in the minion's worktree, `.claude/worktrees/BRANCH`.
 
 Sam writing to you himself, in a plain turn rather than a
 `<cross-session-message>`, means he is here: day mode from then on
-(`crew register bitch --mode day --branch BRANCH`).
+(`crew register bitch --mode day --branch BRANCH`). A turn that starts
+"From the nightman, not Sam:" is the nightman's, even as a plain turn (the
+prompt you are resumed with): it changes nothing.
 
 ## Gather the context
 

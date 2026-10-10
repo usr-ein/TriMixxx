@@ -467,7 +467,8 @@ def cmd_minion(a) -> int:
     sid = None
     if a.resume:
         sid = latest_sid("minion", b)
-    return launch(b, wt, a.bg or a.night, a.prompt or f"/minion {mode}", crew_env("minion", mode, b, wt), sid, a.model)
+    return launch(b, wt, a.bg or a.night, from_whom(a.prompt) if a.prompt else f"/minion {mode}",
+                  crew_env("minion", mode, b, wt), sid, a.model)
 
 
 def cmd_bitch(a) -> int:
@@ -478,8 +479,8 @@ def cmd_bitch(a) -> int:
     if a.brief:
         shutil.copyfile(a.brief, wt / ".crew" / "review-brief.md")
     sid = latest_sid("bitch", b) if a.resume else None
-    return launch(f"{b}-bitch", wt, a.bg or a.night, a.prompt or f"/bitch {b} {mode}", crew_env("bitch", mode, b, wt),
-                  sid, a.model)
+    return launch(f"{b}-bitch", wt, a.bg or a.night, from_whom(a.prompt) if a.prompt else f"/bitch {b} {mode}",
+                  crew_env("bitch", mode, b, wt), sid, a.model)
 
 
 def latest_sid(role: str, branch: str) -> str:
@@ -504,8 +505,19 @@ def cmd_resume(a) -> int:
     prompt = (f"You were resumed as the crew's {reg['role']}" + (f" for {reg['branch']}" if reg.get("branch") else "") +
               f" ({reg['mode']} mode). First re-read {skill}, then {notes}. " +
               (a.prompt or "Then carry on per your skill."))
-    return launch(a.name, wt, True, prompt, crew_env(reg["role"], reg["mode"], reg.get("branch"), wt), reg["sid"],
-                  a.model)
+    return launch(a.name, wt, True, from_whom(prompt), crew_env(reg["role"], reg["mode"], reg.get("branch"), wt),
+                  reg["sid"], a.model)
+
+
+NIGHTMANS = "From the nightman, not Sam:"
+
+
+def from_whom(prompt: str) -> str:
+    """A prompt the nightman launches a session with says so: it arrives as a plain turn, which a minion or a bitch
+    would otherwise take for Sam's, and switch to day mode."""
+    reg = registration(os.environ.get("CLAUDE_CODE_SESSION_ID"))
+    mine = reg and reg["role"] == "nightman" and not prompt.startswith(NIGHTMANS)
+    return f"{NIGHTMANS} {prompt}" if mine else prompt
 
 
 def cmd_send(a) -> int:

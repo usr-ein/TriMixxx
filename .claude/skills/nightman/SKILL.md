@@ -131,6 +131,10 @@ everyone's commands to a unit but its holder's.
 | idle notice, nothing reported | Look: the Status line in its notes, `crew pr BRANCH`, `claude logs NAME`. Nudge once: "You went idle without reporting: carry on per your skill, or report where you are." Idle and silent again: status stuck, `crew clean BRANCH --abandon` (stops its session and decks, keeps its work). |
 | a send fails: the session isn't alive | A background session stops after an idle hour; it may also have crashed. `crew send NAME "<the same message>"` resumes it with it. Exit 10: it is running after all, so SendMessage again. |
 
+What you send through crew (`crew send`, `crew resume`, a `--prompt`) starts
+"From the nightman, not Sam:" by itself. It arrives as a plain turn, which a
+minion or a bitch would otherwise take for Sam's.
+
 ## Merging
 
 ```sh

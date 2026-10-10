@@ -450,6 +450,21 @@ class SessionTest(Sandbox):
         self.assertEqual(crew.cmd_send(argparse.Namespace(name="feat-bitch", text=["hi"])), 10)
         self.assertEqual(self.launched, [])
 
+    def test_the_nightmans_prompts_say_so(self):
+        """A resumed session's prompt is a plain turn: without this, a bitch took the nightman for Sam (day mode)."""
+        crew.register_session("s-night", "nightman", "night", None, crew.MAIN)
+        sid = os.environ.get("CLAUDE_CODE_SESSION_ID")
+        self.addCleanup(lambda: os.environ.update(CLAUDE_CODE_SESSION_ID=sid) if sid else
+                        os.environ.pop("CLAUDE_CODE_SESSION_ID", None))
+        self.listed = [{"name": "feat-bitch", "status": None}]
+        os.environ["CLAUDE_CODE_SESSION_ID"] = "s-night"
+        crew.cmd_send(argparse.Namespace(name="feat-bitch", text=["Round 2 on #7"]))
+        self.assertTrue(self.launched[-1][-1].startswith("From the nightman, not Sam: You were resumed"))
+        self.listed = [{"name": "feat-bitch", "status": None}]
+        os.environ["CLAUDE_CODE_SESSION_ID"] = "sams-own-session"
+        crew.cmd_send(argparse.Namespace(name="feat-bitch", text=["Round 2 on #7"]))
+        self.assertTrue(self.launched[-1][-1].startswith("You were resumed"))
+
     def test_never_resumes_a_running_session(self):
         """Claude would start a copy of it: two sessions on one conversation."""
         self.listed = [{"name": "feat-bitch", "status": "busy", "id": "x"}]

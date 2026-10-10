@@ -33,7 +33,9 @@ and a bitch merges only after his yes.
 - **Merges:** the nightman merges what a bitch approved, unless it waits for
   Sam.
 
-A minion or bitch that Sam writes to himself switches to day mode.
+A minion or bitch that Sam writes to himself switches to day mode. A prompt
+the nightman sends through crew starts "From the nightman, not Sam:", so it
+is never taken for him.
 
 ## The loop
 

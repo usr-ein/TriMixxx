@@ -31,6 +31,8 @@ Arguments: `$ARGUMENTS`. The first word is the mode, `day` (the default) or
 Sam writing to you himself, in a plain turn rather than a
 `<cross-session-message>`, means he is here: from then on you are in day mode
 (`crew register minion --mode day`). When he says he is going, back to night.
+A turn that starts "From the nightman, not Sam:" is the nightman's, even as a
+plain turn (the prompt you are resumed with): it changes nothing.
 
 ## Start, or pick up again
 
