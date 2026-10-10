@@ -105,7 +105,7 @@ QStringList launchOptions(const QJsonObject& c) {
     if (!c.value("sd").toString().isEmpty()) args << "--sd" << c.value("sd").toString();
     if (!c.value("usb").toString().isEmpty()) args << "--usb" << c.value("usb").toString();
     if (c.value("test_track").toBool()) args << "--test-track";
-    if (c.value("window").toBool()) args << "--ui";
+    // Not "window": its window is pi-qemu's own (cdj window), not the emulator's.
     if (c.value("dsp_model").toBool()) args << "--dsp-model";
     return args;
 }
@@ -141,11 +141,12 @@ void Cdj::requireRunning() const {
 
 void Cdj::up(const Up& o) {
     if (running()) {
-        if (!o.link.isEmpty() || !o.sd.isEmpty() || !o.usb.isEmpty() || o.testTrack || o.window || o.dspModel)
+        if (!o.link.isEmpty() || !o.sd.isEmpty() || !o.usb.isEmpty() || o.testTrack || o.dspModel)
             fail(m_name + " is already running: its options cannot change now. " + tool("cdj rm " + m_name) +
                  ", then up again");
         print() << m_name << " is already up: pid " << pid()
                 << (link().isEmpty() ? QString() : ", on link " + link()) << "\n";
+        if (o.window) openWindow();
         return;
     }
     requireBuilt();
@@ -196,12 +197,46 @@ void Cdj::up(const Up& o) {
                           tool("cdj rm " + m_name) + " deletes them)",
                       f.status};
     }
+    if (o.window) openWindow();
     print() << m_name << " is up (booted in " << t.elapsed() / 1000 << " s): pid " << started
-            << (o.link.isEmpty() ? QString(", no cable in") : ", on link " + o.link) << "\n"
+            << (o.link.isEmpty() ? QString(", no cable in") : ", on link " + o.link)
+            << (o.window ? QString(", in a window") : QString()) << "\n"
             << "  " << tool("cdj shot " + m_name + " FILE.png") << "\n"
             << "  " << tool("cdj press " + m_name + " KEY") << "   (play, cue, link, usb, sd, enter, back, menu, ...)\n"
+            << "  " << tool("cdj window " + m_name) << "      its screen and panel, its lamps lit\n"
             << "  run directory: " << runDir() << "\n"
             << "  when done: " << tool("cdj rm " + m_name) << "\n";
+}
+
+quint16 Cdj::panelPort() const {
+    QFile f(runDir() + "/run.json");
+    if (!f.open(QIODevice::ReadOnly)) return 0;
+    const int port = QJsonDocument::fromJson(f.readAll()).object().value("endpoints").toObject().value("panel_port").toInt();
+    return port > 0 && port < 65536 ? quint16(port) : 0;
+}
+
+qint64 Cdj::windowPid() const {
+    const qint64 p = readPid(m_dir + "/window.pid");
+    return p > 0 && proc::name(p) == kTool ? p : 0;
+}
+
+void Cdj::openWindow() const {
+    requireRunning();
+    if (const qint64 p = windowPid()) {
+        print() << m_name << "'s window is open already: pid " << p << "\n";
+        return;
+    }
+    QProcess p;
+    p.setProgram(paths::binary());
+    p.setArguments({"cdj", "window", m_name});
+    p.setStandardInputFile(QProcess::nullDevice());
+    p.setStandardOutputFile(m_dir + "/window.log");
+    p.setStandardErrorFile(m_dir + "/window.log", QIODevice::Append);
+    // Its own session: a ^C or a closed terminal here does not close it.
+    p.setUnixProcessParameters(QProcess::UnixProcessFlag::CreateNewSession);
+    qint64 pid = 0;
+    if (!p.startDetached(&pid)) fail("cannot start " + paths::binary() + ": " + p.errorString());
+    files::write(m_dir + "/window.pid", QByteArray::number(pid) + "\n");
 }
 
 // Until its player screen is up (MAIN's first whole browser reply to the GUI:
@@ -245,6 +280,7 @@ void Cdj::waitUp(const QString& net) {
 }
 
 void Cdj::stop() {
+    if (const qint64 w = windowPid()) ::kill(pid_t(w), SIGTERM); // it lets go of what it holds
     const qint64 p = pid();
     if (!p) return;
     // nxs_vm's own stop first: it closes QEMU and the GUI core, and then

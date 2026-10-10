@@ -108,8 +108,9 @@ private slots:
         const QJsonObject c{{"usb", "/x/stick.img"}, {"dsp_model", true}, {"window", false}};
         QCOMPARE(cdj::launchOptions(c), (QStringList{"--usb", "/x/stick.img", "--dsp-model"}));
         QVERIFY(!cdj::launchOptions(QJsonObject{{"dsp_model", false}}).contains("--dsp-model"));
+        // Its window is pi-qemu's own (cdj window), not the emulator's viewer.
         QCOMPARE(cdj::launchOptions(QJsonObject{{"sd", "/c.img"}, {"test_track", false}, {"window", true}}),
-                 (QStringList{"--sd", "/c.img", "--ui"}));
+                 (QStringList{"--sd", "/c.img"}));
     }
 
     void theFramerCutsAStreamIntoFrames() {

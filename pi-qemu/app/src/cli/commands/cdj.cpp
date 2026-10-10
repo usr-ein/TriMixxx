@@ -5,6 +5,7 @@
 #include "cli/commands/commands.h"
 
 #include "cdj/cdj.h"
+#include "ui/cdjwindow.h"
 #include "util/fail.h"
 #include "util/files.h"
 #include "util/paths.h"
@@ -12,9 +13,16 @@
 #include "util/process.h"
 #include "util/tool.h"
 
+#include <QApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
+#include <QSocketNotifier>
+#include <QTimer>
+
+#include <csignal>
+#include <sys/socket.h>
+#include <unistd.h>
 
 namespace {
 
@@ -165,6 +173,64 @@ int rotary(cli::Args& a) {
     return c.dev({"rotary", steps});
 }
 
+int lamps(cli::Args& a) {
+    cdj::Cdj c(a.take("NAME"));
+    a.done();
+    c.requireRunning();
+    return c.dev({"lamps"});
+}
+
+// SIGTERM (`cdj stop`), SIGINT and SIGHUP close the window as its close
+// button does: what it holds down, it lets go of first.
+int g_windowSignal[2] = {-1, -1};
+void onWindowSignal(int sig) {
+    char c = char(sig);
+    (void)::write(g_windowSignal[1], &c, 1);
+}
+
+// Its screen and panel, in this process: `up --window` and `window` start it
+// detached. It closes once the CDJ stops.
+int window(cli::Args& a) {
+    cdj::Cdj c(a.take("NAME"));
+    a.done();
+    c.requireRunning();
+    if (const qint64 open = c.windowPid(); open && open != QCoreApplication::applicationPid()) {
+        print() << c.name() << "'s window is open already: pid " << open << "\n";
+        return 0;
+    }
+    quint16 port = 0;
+    for (int i = 0; i < 100 && !(port = c.panelPort()); i++) proc::sleep(100);
+    if (!port) fail(c.name() + ": its emulator has no control channel (" + c.runDir() + "/run.json)");
+    files::write(c.dir() + "/window.pid", QByteArray::number(QCoreApplication::applicationPid()) + "\n");
+    CdjWindow w(c.name(), c.runDir(), port);
+    w.resize(w.sizeHint());
+    w.show();
+    w.raise();
+    QTimer alive; // the CDJ gone, its window goes too
+    QObject::connect(&alive, &QTimer::timeout, &w, [&w, name = c.name()] {
+        if (!cdj::Cdj(name).running()) w.close();
+    });
+    alive.start(1000);
+    ::socketpair(AF_UNIX, SOCK_STREAM, 0, g_windowSignal);
+    QSocketNotifier signalled(g_windowSignal[0], QSocketNotifier::Read);
+    QObject::connect(&signalled, &QSocketNotifier::activated, &w, [&w] {
+        char c;
+        (void)::read(g_windowSignal[0], &c, 1);
+        w.close();
+    });
+    for (int sig : {SIGTERM, SIGINT, SIGHUP}) std::signal(sig, onWindowSignal);
+    // Test hook: PI_QEMU_SNAPSHOT=file.png renders the window to a file after
+    // a moment and quits (QT_QPA_PLATFORM=offscreen needs no screen).
+    if (const QString shot = qEnvironmentVariable("PI_QEMU_SNAPSHOT"); !shot.isEmpty())
+        QTimer::singleShot(3000, &w, [&w, shot] {
+            w.grab().save(shot);
+            w.close();
+        });
+    const int status = QApplication::exec();
+    if (cdj::Cdj(c.name()).windowPid() == QCoreApplication::applicationPid()) QFile::remove(c.dir() + "/window.pid");
+    return status;
+}
+
 int rm(cli::Args& a) {
     cdj::Cdj c(a.take("NAME"));
     a.done();
@@ -216,8 +282,21 @@ void addCdj(cli::Registry& r) {
                     {"usb", "IMG", "a FAT32 stick image; its writes are thrown away"},
                     {"test-track", "", "a card with a 10 s test WAV on it"},
                     {"dsp-model", "", "the behavioural DSP: tracks play in real time"},
-                    {"window", "", "show its screen and panel on the Mac"}},
+                    {"window", "", "and open its window: `cdj window`"}},
         .run = up,
+    });
+    r.add({
+        .group = "cdj", .name = "window", .synopsis = "NAME",
+        .summary = "its screen, live, and its panel, lit as its firmware lights it",
+        .help = "A schematic of the NXS's top panel in the deck panel's look, around its\n"
+                "screen. Every key `cdj press` knows is a pad: a click holds it as long as the\n"
+                "mouse is down (at least as long as a press), shift-click latches it; drag or\n"
+                "scroll the selector to turn it. The pads light from what the CDJ's MAIN\n"
+                "sends its panel (`cdj lamps`). The jog is not emulated, only its touch.\n"
+                "Space is PLAY, C CUE, up and down turn the selector, return pushes it.\n"
+                "Closing it leaves the CDJ running; the CDJ stopped, it closes.",
+        .window = [](const cli::Args&) { return true; },
+        .run = window,
     });
     r.add({.group = "cdj", .name = "list", .summary = "the CDJs, running or not", .run = list});
     r.add({.group = "cdj", .name = "status", .synopsis = "NAME", .summary = "what a CDJ is doing: the emulator's own status",
@@ -234,6 +313,15 @@ void addCdj(cli::Registry& r) {
     });
     r.add({.group = "cdj", .name = "rotary", .synopsis = "NAME STEPS", .summary = "turn the browse encoder by STEPS (signed)",
            .run = rotary});
+    r.add({
+        .group = "cdj", .name = "lamps", .synopsis = "NAME",
+        .summary = "the panel lamps its firmware lit, by name, as JSON",
+        .help = "What the CDJ's MAIN last sent its panel, decoded by the emulator\n"
+                "(emulator/qemu/cdj2000_lamps.c): \"on\", \"blink\", or a two-bit lamp's\n"
+                "level, 1 for a key that is available and 3 for one that is on. The dark\n"
+                "ones are left out.",
+        .run = lamps,
+    });
     r.add({.group = "cdj", .name = "rm", .synopsis = "NAME", .summary = "stop a CDJ and delete its state", .run = rm});
     r.add({.group = "cdj", .name = "run", .synopsis = "NAME",
            .summary = "the CDJ behind `cdj up` (it starts this): the emulator, and its port on the link", .run = run});

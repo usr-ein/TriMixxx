@@ -13,6 +13,7 @@
 //       pid, pi-qemu.log the `pi-qemu cdj run` behind it, and its output
 //       link.sock        the emulator's NIC on the link (board/streamport.h)
 //       run/             nxs_vm's run directory: its logs, screens and sockets
+//       window.pid, .log its window, while one is open (`cdj window`)
 //
 // A CDJ is booted, never restored: the emulator has no snapshot of one.
 // `cdj run` is the emulator launcher's parent: it holds the CDJ's member on
@@ -50,8 +51,9 @@ void requireCheckedOut();
 void requireBuilt();
 void requireFirmware();
 
-// nxs_vm's options for what a CDJ's cdj.json asks of it: its media, its
-// window, its DSP (--dsp-model: the behavioural one). Its link's are serve()'s.
+// nxs_vm's options for what a CDJ's cdj.json asks of it: its media and its
+// DSP (--dsp-model: the behavioural one). Its link's are serve()'s; its
+// window is pi-qemu's own (cdj window).
 QStringList launchOptions(const QJsonObject& config);
 
 // One of the emulator's Python tools (`python -m MODULE ARGS`), run from its
@@ -84,11 +86,19 @@ public:
         bool    dspModel = false; // the emulator's behavioural DSP, not the C674x
     };
     void up(const Up& o);       // a CDJ that does not come up is stopped, its logs kept
-    void stop();                // its processes, gracefully if they let it; its state stays
+    void stop();                // its processes and its window, gracefully if they let it; its state stays
     void rm();                  // stops it, then deletes its state
     int  serve();               // `cdj run`: the emulator, and its port on the link
     int  dev(const QStringList& args) const; // tools.cdj_main.dev on its run
     void requireRunning() const;
+
+    // The emulator's control channel, on 127.0.0.1 (its run.json); 0 before
+    // the run has one.
+    quint16 panelPort() const;
+    // `cdj window NAME`, detached: its screen and panel on the Mac, for as
+    // long as it runs or until closed. One at a time.
+    void    openWindow() const;
+    qint64  windowPid() const; // while its window is open; 0 otherwise
 
 private:
     void waitUp(const QString& net);
