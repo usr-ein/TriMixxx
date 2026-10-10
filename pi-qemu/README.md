@@ -323,6 +323,8 @@ pi-qemu link devices booth 10          # 1 a, 2 b, 4 d
 pi-qemu cdj shot a a.png               # its 480x234 screen
 pi-qemu cdj press a link               # a panel key: play, cue, link, usb, sd, enter, back, menu, ...
 pi-qemu cdj rotary a 2                 # the browse encoder
+pi-qemu cdj window a                   # its screen and panel, lit as its firmware lights it
+pi-qemu cdj lamps a                    # those lamps, by name: {"PLAY_PAUSE": "blink", "MASTER": "3", ...}
 pi-qemu cdj status a                   # the emulator's own: the browser's last reply, the frame, ...
 pi-qemu cdj rm a
 ```
@@ -350,11 +352,29 @@ pi-qemu cdj rm a
   executes none of the DSP's code and makes no sound, and keeps the track's
   position on the CDJ's clock, so a track plays in real time and its beat
   packets come at its tempo.
-- **`--window`** shows its screen and panel on the Mac.
+- **Its window** (`cdj window NAME`, or `cdj up NAME --window`): its
+  screen, live, in a schematic of the NXS's top panel, in the deck panel's
+  look.
+  - **Every key `cdj press` knows is a pad** in its place. A click holds it
+    for as long as the mouse is down, and at least as long as a `press`.
+    Shift-click latches it.
+  - **The selector:** drag or scroll it to turn it, click it to push.
+    Keyboard: space is PLAY, C CUE, up and down turn the selector, return
+    pushes it, backspace is BACK.
+  - **The DIRECTION lever and the SD lid** are switches: a click flips them.
+  - **The pads light as the CDJ's firmware lights its lamps:** what MAIN
+    sends the panel, which the emulator decodes (`cdj lamps`). The sources,
+    the browse keys, SYNC, MASTER and LOOP MODE glow dimly while available.
+  - **Not here:** the jog, which is not emulated (only its touch is), and
+    the tempo fader.
+  - **Closing it leaves the CDJ running.** The CDJ stopped, it closes, and
+    it lets go of any key it held down.
+  - **A window and the command line share the CDJ:** the emulator's control
+    channel takes several connections at once.
 - **Its state** is in `~/.pi-qemu/cdj/NAME/`: `cdj.json`, the `cdj run`
   behind it (`pid`, `pi-qemu.log`), its socket on the link (`link.sock`),
-  and the emulator's run directory (`run/`, the last one kept as
-  `run.prev`).
+  the emulator's run directory (`run/`, the last one kept as `run.prev`),
+  and its window's `window.pid` and `window.log` while one is open.
 - **Real time.** A CDJ runs at a real one's speed by the wall clock: its
   start-up, keep-alives (every 2.0 s) and status packets keep a real NXS's
   timing (`docs/cdj-emulator.md`, "Real time"). With every core of the Mac

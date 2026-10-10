@@ -174,7 +174,9 @@ It builds this checkout's emulator, in the submodule's own (ignored)
 ### A CDJ
 
 ```sh
-pi-qemu cdj up a --link booth          # headless; --window shows its screen and panel
+pi-qemu cdj up a --link booth          # headless; --window opens its window too
+pi-qemu cdj window a                   # its screen and panel, lit as its firmware lights it
+pi-qemu cdj lamps a                    # those lamps, by name, as JSON
 pi-qemu cdj list
 pi-qemu cdj status a
 pi-qemu cdj shot a a.png               # its 480x234 screen
@@ -202,6 +204,56 @@ pi-qemu cdj rm a
 - **Keys:** `press` uses upstream's NXS key names, and `rotary` turns the
   browse encoder. Both go through upstream's `tools.cdj_main.dev`, which
   logs every action in the run directory.
+
+### Its lamps, and its window
+
+**The lamps are the firmware's.** On every panel exchange, MAIN sends the
+panel board a 24-byte frame that carries the lamps, bit by bit. It is the
+same frame for the CDJ-2000 and the NXS, laid out differently.
+- **The emulator names them:** `emulator/qemu/cdj2000_lamps.c`, from the
+  fork's commits below.
+- **The NXS's table was named on 2026-10-10.** Each lamp followed its key
+  with `CDJ_PANEL_TX_TRACE`, on NXSs booted by `pi-qemu cdj`, and the
+  firmware's frame builder was read to check it.
+- **What a lamp shows:**
+  - a backlit key's lamp has two bits: 1 when the key is available (a dim
+    glow), 3 when it is on
+  - a lamp that toggles twice within 1.2 s is "blink"
+- **Where to read them:**
+  - the emulator's control channel reports them in `state`
+  - `cdj lamps` prints them: `{"PLAY_PAUSE": "blink", "MASTER": "3", ...}`
+- **Two NXSs on a link show it plainly:** MASTER pressed on one lights its
+  MASTER and puts out the other's.
+
+**The window** (`cdj window NAME`, `app/src/ui/cdjwindow.*`) is pi-qemu's
+own, in Qt, in the deck panel's look.
+- **Its process:** `up --window` starts it detached. It closes when the CDJ
+  stops, and closing it leaves the CDJ running.
+- **The screen:** `run/screen.ppm`. The GUI core publishes each new frame
+  by a rename, so a frame is read whole or not at all.
+- **The pads:** every key `cdj press` knows, by the firmware's names
+  (`app/src/cdj/panel.*`, checked against `nxs_panel.py` by ctest).
+- **The channel, held open** (`app/src/cdj/panelclient.*`):
+  - `state` every 100 ms, for the lamps
+  - `down` and `up` for a click, held at least 100 ms, as `press` holds a key
+  - `rotary 7 N` for the selector
+  - `level 15 02 0|1` for the DIRECTION lever, `sd-lid` for the SD lid
+- **The channel takes several clients at once** (the fork's own change,
+  below). Before it, each newcomer closed the connection before it, so a
+  window that polls would have knocked `cdj press` off between its command
+  and its answer.
+- **Keys left down:** the channel's held contacts are the panel's, shared
+  by every client. So a window that goes lets go of what it held: in its
+  destructor, and on SIGTERM, SIGINT and SIGHUP.
+- **Not in it:**
+  - the jog: not emulated; only its touch-sensitive top is a pad
+  - the tempo fader: the emulator does not know which of the panel's
+    analogue fields is the NXS's slider (field 3 drove the tempo to -10%
+    whatever its value)
+
+**Without `--dsp-model`, the emulated DSP limits the transport.** A CUE while
+playing, or a PLAY after a CUE, does nothing, through the window and `cdj
+press` alike. `cdj up --dsp-model` lifts that.
 
 ### On a link
 
@@ -275,6 +327,16 @@ pi-qemu link capture booth booth.pcap
   - `7709d93`, *nxs_vm: --link-hub and --link-mac put the NXS on a Pro DJ
     Link segment*. It needs a small rebase once geepot's series lands: the
     series moves the launcher's Ethernet option into a group of its own.
+- **For `cdj window`, a series of four,** one after the other on upstream
+  main and merged as `dbc4e31`. The first can go upstream alone; the other
+  three go together.
+  - `d4afe3c`, *Input channel: several clients at once, each answered on
+    its own connection*
+  - `d5e8e56`, *Panel lamps: in a file of their own, tested without a
+    machine*
+  - `b2dae15`, *Panel lamps: the NXS's, by name, so `state` reports what
+    its firmware lit*
+  - `9c3500c`, *dev: lamps, the panel lamps MAIN last lit, by name*
 - **When upstream merges geepot's series,** the fork's `main` moves to
   upstream main plus whatever of ours is still unmerged. The series then
   stops being a merge of its own, and the submodule is bumped like any

@@ -178,8 +178,13 @@ pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD    # once per Mac: extracted outside
 pi-qemu cdj up NAME-cdj --link NAME-net        # ~25 s: "NAME-cdj: player 1 at 169.254.x.y, ... on link NAME-net"
 pi-qemu link devices NAME-net 10               # 10 s: with a deck there, a CDJ re-claims and keep-alives up to ~5 s apart
 pi-qemu cdj shot NAME-cdj cdj.png              # its 480x234 screen; `cdj press NAME-cdj link` a key
+pi-qemu cdj lamps NAME-cdj                     # the lamps its firmware lit, by name: PLAY_PAUSE, MASTER, ...
 pi-qemu cdj rm NAME-cdj                        # when done: `deck rm` doesn't know CDJs
 ```
+
+`cdj window NAME-cdj` (or `up --window`) opens its screen and panel, lit as
+its firmware lights it: for Sam, not for an agent, which reads `cdj shot` and
+`cdj lamps`.
 
 - **Expensive:** a CDJ takes about two cores from boot on, idle or not (one
   with `--dsp-model`), and its logs grow ~0.5 GB an hour until `cdj rm`. It
