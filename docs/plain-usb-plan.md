@@ -210,6 +210,9 @@ Kept from the research of 2026-10-02 so it does not have to be redone.
   - `DbClient::folder()` already sends it.
   - **File rows, and what a CDJ does to load an unanalysed file, are in no
     capture.** That is Sam's capture.
+  - Emulated, they now are: `mixxx/lib/prolink/emu-captures/` `E10`-`E17`
+    (2026-10-10), Pioneer's firmware on two emulated NXSs, written up in
+    `PLAIN-STICKS.md` there. A capture of real CDJs would confirm them.
 - **F4 —** An empty beat grid is a documented protocol state, but no capture
   shows a CDJ loading a track that has one.
 - **F9 —** `MediaInfo::isOccupied()` (`trackCount > 0 || !name.isEmpty()`)
