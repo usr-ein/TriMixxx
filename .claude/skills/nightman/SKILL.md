@@ -30,9 +30,10 @@ Sam is here now, and soon won't be. Whatever he can decide, he decides now.
      what is in and out of scope
    - the calls you can foresee (architecture, design), each with options
    - latitude: what the minion may decide alone tonight
-   - resources: emulated decks (0, 1 or 2), Mixxx builds or not, and any
-     real deck: which unit, for what. At night that is hands-off only
-     (nobody is at the bench); a hands-on part waits for Sam: say which.
+   - resources: emulated decks (0, 1 or 2), emulated CDJs (0, 1 or 2),
+     Mixxx builds or not, and any real deck: which unit, for what. At night
+     that is hands-off only (nobody is at the bench); a hands-on part waits
+     for Sam: say which.
    - order: pitches touching the same files go one after the other
 
    A minion or bitch he started by day and leaves to you is adopted, not
@@ -48,8 +49,9 @@ Sam is here now, and soon won't be. Whatever he can decide, he decides now.
 4. `crew preflight --keep-awake $CLAUDE_PID`. That holds the Mac awake while
    this session lives. Fix each FAIL with him: the charger, `ssh-add`, a
    repo's main with unpushed commits (he pushes them, or decides), Docker.
-   Show him the load, the running decks and the busy sessions: whatever of
-   his can stop tonight makes room for minions. The lid stays open.
+   Show him the load, the running decks and CDJs, and the busy sessions:
+   whatever of his can stop tonight makes room for minions. The lid stays
+   open.
 5. Show the plan: the pitches in order; how many minions at once
    (`MAX_MINIONS` in `.claude/crew/limits.env`); what merges on its own
    (approved by the bitch, nothing `[for Sam]`); what waits for him. If he
@@ -176,7 +178,7 @@ everyone's commands to a unit but its holder's.
 | minion: "round N addressed" | After `MAX_REVIEW_ROUNDS` rounds without approval (a plan's rounds and the result's count apart; `crew pr BRANCH` shows both): `crew label BRANCH needs-sam`, status needs-sam, stop there. Otherwise SendMessage `BRANCH-bitch`: "Round N+1 on #M: the minion answered round N; review again." Subscribe. A bitch still in day mode: adopt it with that round's brief instead (below the table). |
 | bitch: approved | Merge (below). |
 | bitch: needs-sam | Status needs-sam, a line for the morning. Nothing more on that PR tonight. |
-| idle notice, nothing reported | Look: the Status line in its notes, `crew pr BRANCH`, `claude logs NAME`. Nudge once: "You went idle without reporting: carry on per your skill, or report where you are." Idle and silent again: status stuck, `crew clean BRANCH --abandon` (stops its session and decks, keeps its work). |
+| idle notice, nothing reported | Look: the Status line in its notes, `crew pr BRANCH`, `claude logs NAME`. Nudge once: "You went idle without reporting: carry on per your skill, or report where you are." Idle and silent again: status stuck, `crew clean BRANCH --abandon` (stops its session, decks and CDJs, keeps its work). |
 | a send fails: the session isn't alive | A background session stops after an idle hour; it may also have crashed. `crew send NAME "<the same message>"` resumes it with it. Exit 10: it is running after all, so SendMessage again. Exit 2, in day mode: adopt it (below the table). |
 
 What you send through crew (`crew send`, `crew resume`, a `--prompt`) starts
@@ -223,9 +225,9 @@ merged. It stops on any of these; up to exit 4 it has changed nothing:
   output in the report.
 
 Then `crew clean BRANCH`: it stops the minion and its bitch and removes their
-decks, keeps the notes in `.crew/archive/`, releases and removes the worktree,
-deletes the branches, and frees any real deck the branch still held. Dispatch
-the next pitch.
+decks and CDJs, keeps the notes in `.crew/archive/`, releases and removes the
+worktree, deletes the branches, and frees any real deck the branch still
+held. Dispatch the next pitch.
 
 ## Heartbeat
 
@@ -238,13 +240,14 @@ Every 20 minutes, or whenever you wonder:
    prune is his call.
 4. `shed`, the Mac is overloaded (CPU, memory, disk, Docker's VM disk):
    - SendMessage every running minion: "The Mac is overloaded: stop your deck
-     unless you are testing this minute (`pi-qemu deck stop BRANCH`), and
-     start no build until I say."
+     and remove your CDJs unless you are testing this minute
+     (`pi-qemu deck stop BRANCH`, `pi-qemu cdj rm BRANCH-a`), and start no
+     build until I say."
    - Still `shed` at the next heartbeat: stop the minion started last that is
      not mid-review (`claude stop ID`: its conversation is kept), mark it
      queued, and `crew resume BRANCH` when it is `ok` again.
-   - Never prune Docker, never kill processes, never stop Sam's own sessions
-     or decks.
+   - Never prune Docker, never kill processes, never stop Sam's own sessions,
+     decks or CDJs.
    - Tell the minions when they may build again.
 5. A minion busy for over two hours with the same Status line: ask it for a
    one-line status.
@@ -269,7 +272,7 @@ Every 20 minutes, or whenever you wonder:
 - real decks: which unit was used, by whom, on which go of Sam's, and the
   state each was left in; any lock still held, and why
 - the crew's own complaints: the lines `.crew/feedback.md` gained tonight
-- what still runs or was kept: sessions (`claude attach NAME`), decks,
+- what still runs or was kept: sessions (`claude attach NAME`), decks, CDJs,
   worktrees, and the commands to stop them
 
 ## When Sam is back
@@ -312,6 +315,6 @@ A label alone approves nothing.
 - merge what the bitch hasn't approved, or anything waiting for Sam
 - use a real deck yourself (you grant them), or grant one without Sam's go
   for that unit
-- Docker prunes, killing processes, Sam's own sessions or decks
+- Docker prunes, killing processes, Sam's own sessions, decks or CDJs
 - AskUserQuestion after Sam has gone, or while minions or bitches run (ask
   in plain text)

@@ -133,6 +133,12 @@ Every time you start or are woken:
   check again in ~10 minutes. Still `hold` after ~30 minutes: tell the
   nightman (night) or Sam (day). `pi-qemu deck stop BRANCH` whenever you
   won't use it for a while: it frees 2 GB of RAM and comes back in ~3 s.
+- **Your CDJs**, if the pitch uses emulated CDJs (`pi-qemu cdj`, `trimixxx0`):
+  `BRANCH-a` and `BRANCH-b`, two at most; the guard refuses other names.
+  Before each `cdj up`, `crew resources --for cdj`; on `hold`, as for a deck.
+  A CDJ takes two cores from boot on, idle or not, and can't be suspended:
+  `pi-qemu cdj rm BRANCH-a` whenever you won't use it for a while; `cdj up`
+  boots it again in under half a minute.
 - **Share the Mac.** Other minions and Sam's own sessions run on it. Mixxx
   builds queue across agents (normal); never start two builds of your own;
   keep load tests as short as the question needs.
@@ -267,8 +273,8 @@ pi-qemu deck up NAME; pi-qemu deck deploy NAME config ...
 The repos are public: no secrets, keys, licence serials or private addresses
 in PRs, commits or comments.
 
-Then `pi-qemu deck stop BRANCH` (keep it for the review), update your Status,
-and report:
+Then `pi-qemu deck stop BRANCH` (keep it for the review), `pi-qemu cdj rm`
+your CDJs, update your Status, and report:
 
 - **Day:** your final message to Sam: the PR link, what it does in three
   lines, any `[for Sam]` decision, and `crew bitch BRANCH` as the next step.
@@ -348,8 +354,8 @@ When a call is expensive to switch later and nobody can make it tonight:
    `crew label BRANCH needs-sam`.
 3. In the PR and your notes: the question, the options, your recommendation,
    what is done, what is left.
-4. `pi-qemu deck stop BRANCH`. SendMessage `nightman`: "parked: BRANCH:
-   <the question>". End your turn.
+4. `pi-qemu deck stop BRANCH`, and `pi-qemu cdj rm` your CDJs. SendMessage
+   `nightman`: "parked: BRANCH: <the question>". End your turn.
 
 ## When the crew gets in your way
 
@@ -367,9 +373,10 @@ The guard enforces most of these:
 
 - push anything but your branch, merge, or touch main
 - use `gh` directly: `crew gh` acts as usr-ein, on usr-ein/* repos only
-- touch another agent's worktree, branch, deck or session; kill by name; start
-  Claude sessions
-- `sudo`, disk commands, Docker prunes, `deck golden`, `image build`
+- touch another agent's worktree, branch, deck, CDJ or session; kill by name;
+  start Claude sessions
+- `sudo`, disk commands, Docker prunes, `deck golden`, `image build`,
+  `cdj firmware`
 - a real deck without Sam's go and the unit's lock; a hands-on step at night;
   AskUserQuestion at night
 - grow the pitch

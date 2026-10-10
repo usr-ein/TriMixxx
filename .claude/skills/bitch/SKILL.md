@@ -169,9 +169,9 @@ The repos are public: no secrets, keys or private addresses in a review.
     deepest first, and pushes. Exit 3: main moved, so the minion must rebase.
     Exit 4: a repo's main holds commits origin lacks, which is Sam's call.
     Either way, tell him.
-  - then `crew clean BRANCH`: stops the minion's session and decks, keeps its
-    notes in `.crew/archive/`, removes its worktree and branches. It refuses
-    while the minion is open in a terminal: ask Sam to close it.
+  - then `crew clean BRANCH`: stops the minion's session, decks and CDJs,
+    keeps its notes in `.crew/archive/`, removes its worktree and branches. It
+    refuses while the minion is open in a terminal: ask Sam to close it.
 
 **Night.** SendMessage `nightman`: "verdict for BRANCH, round N:
 approved|changes|needs-sam: <the top point>". End your turn. The nightman

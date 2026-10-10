@@ -178,13 +178,19 @@ pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD    # once per Mac: extracted outside
 pi-qemu cdj up NAME-cdj --link NAME-net        # ~25 s: "NAME-cdj: player 1 at 169.254.x.y, ... on link NAME-net"
 pi-qemu link devices NAME-net 10               # 10 s: with a deck there, a CDJ re-claims and keep-alives up to ~5 s apart
 pi-qemu cdj shot NAME-cdj cdj.png              # its 480x234 screen; `cdj press NAME-cdj link` a key
-pi-qemu cdj rm NAME-cdj                        # when done: `crew clean` and `deck rm` don't know CDJs
+pi-qemu cdj rm NAME-cdj                        # when done: `deck rm` doesn't know CDJs
 ```
 
-- **Expensive:** a CDJ takes about two cores. It runs at a real NXS's speed
-  (keep-alives every 2.0 s), but a loaded track plays only with
-  `cdj up --dsp-model` (the emulator's behavioural DSP: beats at the
-  track's tempo, no audio).
+- **Expensive:** a CDJ takes about two cores from boot on, idle or not (one
+  with `--dsp-model`), and its logs grow ~0.5 GB an hour until `cdj rm`. It
+  runs at a real NXS's speed (keep-alives every 2.0 s), but a loaded track
+  plays only with `cdj up --dsp-model` (the emulator's behavioural DSP:
+  beats at the track's tempo, no audio).
+- **In the crew,** a minion's CDJs are `BRANCH-a` and `BRANCH-b`, as its
+  decks are `BRANCH` and `BRANCH-b`: the guard refuses other names,
+  `crew resources --for cdj` counts them, and `crew clean` removes them. On
+  one link a deck and a CDJ can't share a name, so `BRANCH-b` is one or the
+  other there.
 - **Never put its firmware or its screenshots in git:** both are Pioneer's.
 
 ## Deploy your own code onto it

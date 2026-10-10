@@ -68,7 +68,7 @@ Sam's pitch ─▶ minion: worktree + deck, plan, Sam's calls, build, test, drif
                  ▼  review:approved
                crew merge: fast-forward main, prolink → mixxx → ttymidi → TriMixxx, push each
                  (only the approved commit, or the same change rebased; never a [for Sam] decision)
-               crew clean: sessions, decks, worktree, branches gone; notes kept in .crew/archive/
+               crew clean: sessions, decks, CDJs, worktree, branches gone; notes kept in .crew/archive/
 ```
 
 ## By day: Sam as puppet master
@@ -78,7 +78,7 @@ crew install                     # once: puts crew on PATH (~/.local/bin/crew ->
 crew minion usb-hotplug "A stick plugged in mid-set shows up in the library within a second"
                                  # in a new tab: makes the worktree, preps its submodules, starts the minion
 crew minion usb-hotplug --bg "..."   # or in the background; `claude agents` shows who needs input
-crew status                      # every branch: minion, bitch, PR, review state, decks, Status line; the load
+crew status                      # every branch: minion, bitch, PR, review state, decks, CDJs, Status line; the load
 crew bitch usb-hotplug           # once its PR is up
 claude attach usb-hotplug        # talk to a background minion
 crew minion usb-hotplug --resume # re-open a minion whose session has ended
@@ -144,10 +144,13 @@ crew unlock trimixxx1                            # its holder once the deck is b
 ## Limits
 
 `limits.env`, read by `crew resources`, which the nightman checks before every
-dispatch and every 20 minutes, and minions check before starting a deck:
+dispatch and every 20 minutes, and minions check before starting a deck
+(`--for deck`), a CDJ (`--for cdj`) or a build (`--for build`):
 
 - minions alive at once
 - decks on the Mac, and per minion
+- emulated CDJs (`pi-qemu cdj`) on the Mac, and per minion: each takes about
+  two cores from boot on, idle or not
 - CPU: dispatch while the 5-minute load is under 0.75 × cores; shed above
   1.5 × (15-minute)
 - memory pressure
@@ -157,9 +160,15 @@ dispatch and every 20 minutes, and minions check before starting a deck:
 - review rounds
 - drift-check cadence
 
-On **hold**, nothing new starts. On **shed**, minions stop idle decks and
-builds, then the newest minion is stopped (its conversation kept) until the
-Mac recovers.
+On **hold**, nothing new starts. On **shed**, minions stop idle decks, CDJs
+and builds, then the newest minion is stopped (its conversation kept) until
+the Mac recovers.
+
+A minion's decks are `BRANCH` and `BRANCH-b`, its CDJs `BRANCH-a` and
+`BRANCH-b`: `crew status` shows each branch's, and `crew clean` removes them.
+A CDJ can't be suspended: `cdj rm` stops it, and `cdj up` boots it again in
+under half a minute. On one link a deck and a CDJ can't share a name, so
+`BRANCH-b` is either a deck or a CDJ there.
 
 ## Safety
 
@@ -178,8 +187,10 @@ night. Other sessions pay ~30 ms a tool call and are otherwise untouched.
     worktree (a bitch writes nothing; the nightman only its own state)
   - plain `gh` (use `crew gh`)
   - `sudo`, disk commands, Docker prunes, `pkill`/`killall`, `deck golden`,
-    `image build`
-  - another agent's decks, starting or adopting sessions (minion and bitch)
+    `image build`, `cdj firmware`
+  - decks and CDJs not its own (the bitch only looks at any; the nightman
+    only stops or removes one, to shed load)
+  - starting or adopting sessions (minion and bitch)
   - a real deck no lock of its own names (the bitch and the nightman: any
     real deck)
 - **drift** (after each tool call) interrupts a minion every 25 minutes or
@@ -257,6 +268,7 @@ want>`**, or just ask to tune the crew.
 python3 -m unittest discover -s .claude/crew -v
 ```
 
-The guard's rules, the real-deck locks, the drift check, session names and
-registration, adoption, and `crew merge` on throwaway repositories (a parent
-and a submodule).
+The guard's rules, the real-deck locks, the resources verdict (decks, CDJs,
+Docker's VM), `crew status` and `crew clean` on a stub pi-qemu, the drift
+check, session names and registration, adoption, and `crew merge` on
+throwaway repositories (a parent and a submodule).

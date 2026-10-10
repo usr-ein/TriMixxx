@@ -368,6 +368,17 @@ def decks() -> list[tuple[str, str]]:
     return found
 
 
+def cdjs() -> list[tuple[str, str]]:
+    """The emulated CDJs (`pi-qemu cdj`), running or stopped. A running one takes about two cores."""
+    r = run(["pi-qemu", "cdj", "list"], check=False, timeout=30)
+    found = []
+    for line in r.stdout.splitlines():
+        m = re.match(r"^(\S+)\s+(running|stopped)\b", line)
+        if m:
+            found.append((m.group(1), m.group(2)))
+    return found
+
+
 def docker_free_gb() -> float | None:
     """Free disk in Docker's VM, where Mixxx builds and their cache live: a container's / is on it. None when Docker
     isn't up (or has no alpine image: it is never pulled for this)."""
@@ -394,7 +405,7 @@ def snapshot() -> dict:
     regs = [r for r in registrations() if r["sid"] in live]
     return {
         "ncpu": ncpu, "load": load, "pressure": pressure, "mem_free_pct": mem_free, "swap_gb": swap_gb,
-        "disk_gb": disk_gb, "docker_gb": docker_free_gb(), "decks": decks(),
+        "disk_gb": disk_gb, "docker_gb": docker_free_gb(), "decks": decks(), "cdjs": cdjs(),
         "minions": [session_name(r) for r in regs if r["role"] == "minion"],
         "bitches": [session_name(r) for r in regs if r["role"] == "bitch"],
         "sessions": [{k: s.get(k) for k in ("name", "kind", "status", "cwd")} for s in sessions],
@@ -405,18 +416,19 @@ def verdict(snap: dict, lim: dict, purpose: str) -> tuple[str, list[str]]:
     hold, shed = [], []
     n, (l1, l5, l15) = snap["ncpu"], snap["load"]
     running = [d for d, s in snap["decks"] if s == "running"]
+    running_cdjs = [c for c, s in snap["cdjs"] if s == "running"]
     if snap["pressure"] >= 4:
         shed.append("memory pressure is critical")
     elif snap["pressure"] >= 2:
         hold.append("memory pressure is at warning")
     if snap["disk_gb"] < lim["DISK_SHED_GB"]:
         shed.append(f"{snap['disk_gb']:.0f} GB free disk < {lim['DISK_SHED_GB']:.0f}")
-    elif snap["disk_gb"] < lim["DISK_MIN_GB"] and purpose != "build":
+    elif snap["disk_gb"] < lim["DISK_MIN_GB"] and purpose not in ("build", "cdj"):
         hold.append(f"{snap['disk_gb']:.0f} GB free disk < {lim['DISK_MIN_GB']:.0f}")
     docker = snap.get("docker_gb")
     if docker is not None and docker < lim.get("DOCKER_SHED_GB", 4):
         shed.append(f"{docker:.1f} GB free in Docker's VM < {lim.get('DOCKER_SHED_GB', 4):.0f}: Sam decides a prune")
-    elif docker is not None and docker < lim.get("DOCKER_MIN_GB", 8) and purpose != "deck":
+    elif docker is not None and docker < lim.get("DOCKER_MIN_GB", 8) and purpose not in ("deck", "cdj"):
         hold.append(f"{docker:.1f} GB free in Docker's VM < {lim.get('DOCKER_MIN_GB', 8):.0f}: no new builds")
     if l15 > lim["LOAD_SHED"] * n:
         shed.append(f"15-min load {l15:.1f} > {lim['LOAD_SHED'] * n:.0f}")
@@ -427,19 +439,26 @@ def verdict(snap: dict, lim: dict, purpose: str) -> tuple[str, list[str]]:
             hold.append(f"{len(snap['minions'])} minions alive (max {lim['MAX_MINIONS']:.0f})")
         if len(running) + lim["DECKS_PER_MINION"] > lim["MAX_DECKS"]:
             hold.append(f"{len(running)} decks running: no room for a minion's (max {lim['MAX_DECKS']:.0f})")
+        if len(running_cdjs) + lim["CDJS_PER_MINION"] > lim["MAX_CDJS"]:
+            hold.append(f"{len(running_cdjs)} CDJs running: no room for a minion's {lim['CDJS_PER_MINION']:.0f} "
+                        f"(max {lim['MAX_CDJS']:.0f})")
     elif purpose == "deck" and len(running) + 1 > lim["MAX_DECKS"]:
         hold.append(f"{len(running)} decks running (max {lim['MAX_DECKS']:.0f}): {', '.join(running)}")
+    elif purpose == "cdj" and len(running_cdjs) + 1 > lim["MAX_CDJS"]:
+        hold.append(f"{len(running_cdjs)} CDJs running (max {lim['MAX_CDJS']:.0f}): {', '.join(running_cdjs)}")
     return ("shed", shed + hold) if shed else ("hold", hold) if hold else ("ok", [])
 
 
 def describe(snap: dict, lim: dict) -> str:
     running = [d for d, s in snap["decks"] if s == "running"]
+    running_cdjs = [c for c, s in snap["cdjs"] if s == "running"]
     pressure = {1: "normal", 2: "warning", 4: "critical"}.get(snap["pressure"], str(snap["pressure"]))
     docker = snap.get("docker_gb")
     return (f"load {'/'.join(f'{x:.1f}' for x in snap['load'])} on {snap['ncpu']} cores; memory {pressure}"
             f" ({snap['mem_free_pct']}% free, {snap['swap_gb'] or 0:.1f} GB swap); {snap['disk_gb']:.0f} GB disk free;"
             + (f" Docker's VM {docker:.1f} GB free;" if docker is not None else " Docker's VM: unknown (not up?);") +
             f" decks running {len(running)}/{lim['MAX_DECKS']:.0f} ({', '.join(running) or 'none'});"
+            f" CDJs running {len(running_cdjs)}/{lim['MAX_CDJS']:.0f} ({', '.join(running_cdjs) or 'none'});"
             f" minions {len(snap['minions'])}/{lim['MAX_MINIONS']:.0f}")
 
 
@@ -730,10 +749,11 @@ def cmd_status(a) -> int:
         pr = open_prs.get(b)
         state = next((lb["name"].split(":", 1)[1] for lb in pr["labels"] if lb["name"].startswith("review:")), "open") if pr else "-"
         dks = [f"{d}({s[:3]})" for d, s in snap["decks"] if d in deck_names(b)]
+        cds = [f"{c}({s[:3]})" for c, s in snap["cdjs"] if c in cdj_names(b)]
         rows.append([b, sess(b), sess(f"{b}-bitch"), f"#{pr['number']}" if pr else "-", state,
-                     " ".join(dks) or "-", notes_status(wt)[:60]])
+                     " ".join(dks) or "-", " ".join(cds) or "-", notes_status(wt)[:60]])
     if rows:
-        head = ["branch", "minion", "bitch", "PR", "review", "decks", "status"]
+        head = ["branch", "minion", "bitch", "PR", "review", "decks", "CDJs", "status"]
         widths = [max(len(str(r[i])) for r in rows + [head]) for i in range(len(head))]
         for r in [head] + rows:
             print("  ".join(str(c).ljust(w) for c, w in zip(r, widths)).rstrip())
@@ -1004,11 +1024,17 @@ def cmd_clean(a) -> int:
         if name in deck_names(b):
             run(["pi-qemu", "deck", "rm", name], check=False, timeout=180)
             print(f"removed deck {name}")
+    for name, state in cdjs():
+        if name in cdj_names(b):
+            # From its worktree, whose emulator started it: `cdj rm` asks that emulator to stop first.
+            r = run(["pi-qemu", "cdj", "rm", name], cwd=wt if wt.is_dir() else None, check=False, timeout=180)
+            print(f"removed CDJ {name}" if r.returncode == 0 else
+                  f"CDJ {name} not removed ({(r.stderr or r.stdout).strip()[-300:]}): `pi-qemu cdj rm {name}`")
     if a.abandon:
         for u, lk in locks().items():
             if lk["holder"] == b:
                 print(f"{b} still holds {u}, which may be mid-check: `crew unlock {u}` once its state is known")
-        print(f"{b}: sessions and decks stopped; worktree, branches and locks kept")
+        print(f"{b}: sessions, decks and CDJs stopped; worktree, branches and locks kept")
         return 0
     if blocking:
         die(f"{', '.join(blocking)} still open in a terminal: exit it, then `crew clean {b}` again", 2)
@@ -1433,6 +1459,51 @@ def deck_names(branch: str) -> tuple[str, str]:
     return branch, f"{branch}-b"
 
 
+def cdj_names(branch: str) -> tuple[str, str]:
+    """A minion's emulated CDJs (`pi-qemu cdj`); its decks are BRANCH and BRANCH-b."""
+    return f"{branch}-a", f"{branch}-b"
+
+
+CDJ_LOOKS = ("list", "status", "shot")  # what anyone may do to any CDJ
+CDJ_VALUED = {"link", "sd", "usb", "hold-ms"}  # `pi-qemu cdj` options that take a value
+
+
+def cdj_words(words: list[str]) -> tuple[str | None, bool]:
+    """`pi-qemu cdj VERB WORDS...` as pi-qemu reads WORDS (cli/args.cpp, options anywhere: `cdj up --link NET NAME`):
+    the CDJ it acts on, its first positional; and whether -h or --help makes it only print its help."""
+    target, value, only_help = None, False, False
+    for w in words:
+        if value:  # --link NET: NET is the option's, even -h
+            value = False
+        elif w == "--":
+            break
+        elif w in ("-h", "--help"):
+            only_help = True
+        elif w.startswith("--") and len(w) > 2:
+            value = w[2:] in CDJ_VALUED  # --link=NET is one word
+        elif not (w.startswith("-") and len(w) > 1 and not w[1].isdigit()):  # -3 is a positional: rotary NAME -3
+            target = target or w
+    return target, only_help
+
+
+def cdj_reason(args: list[str], role: str, branch: str | None) -> str | None:
+    """`pi-qemu cdj VERB ...`: anyone looks at any CDJ (list, status, shot); a minion does the rest to its own only,
+    BRANCH-a and BRANCH-b; the nightman only removes one, to shed load; the bitch only looks."""
+    verb = args[0] if args else None
+    target, only_help = cdj_words(args[1:])
+    if verb in (None, "help", "-h", "--help", *CDJ_LOOKS) or only_help:
+        return None
+    if verb == "firmware":
+        return "that replaces the firmware every CDJ boots: Sam's call"
+    if role == "bitch":
+        return "the bitch only looks at CDJs (list, status, shot)"
+    if role == "nightman":
+        return None if verb == "rm" else "minions run CDJs; the nightman only removes them (`cdj rm`) to shed load"
+    if verb != "build" and target not in cdj_names(branch):
+        return f"your CDJs are {branch}-a and {branch}-b; never touch another's"
+    return None
+
+
 def push_reason(rest: list[str], d: Path, branch: str) -> str | None:
     flags = [x for x in rest if x.startswith("-")]
     if any(f in ("--all", "--mirror", "--tags", "--follow-tags", "--prune") or f.startswith(("--delete", "-d"))
@@ -1528,6 +1599,10 @@ def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
                     return "the bitch only looks at decks (list, status, shot, leds)"
                 if role == "nightman" and verb in ("up", "deploy"):
                     return "minions run decks; the nightman only stops or removes them to shed load"
+            if args[:1] == ["cdj"]:
+                why = cdj_reason(args[1:], role, branch)
+                if why:
+                    return why
         if prog == "claude":
             launches = {"--bg", "-p", "--print", "-r", "--resume", "-c", "--continue", "attach", "rm", "stop",
                         "kill", "respawn", "-w", "--worktree", "--from-pr"}
@@ -1751,7 +1826,7 @@ def main(argv=None) -> int:
     s.set_defaults(fn=cmd_status)
 
     s = sub.add_parser("resources", help="the Mac's load against limits.env: ok (0), hold (10) or shed (11)")
-    s.add_argument("--for", dest="purpose", choices=("minion", "deck", "build"), default="minion")
+    s.add_argument("--for", dest="purpose", choices=("minion", "deck", "cdj", "build"), default="minion")
     s.add_argument("--json", action="store_true")
     s.set_defaults(fn=cmd_resources)
 
@@ -1787,10 +1862,10 @@ def main(argv=None) -> int:
     s.add_argument("--dry-run", action="store_true")
     s.set_defaults(fn=cmd_merge)
 
-    s = sub.add_parser("clean", help="after a merge: stop its sessions and decks, drop its worktree and branches, "
-                                     "free its real decks")
+    s = sub.add_parser("clean", help="after a merge: stop its sessions, decks and CDJs, drop its worktree and "
+                                     "branches, free its real decks")
     s.add_argument("branch")
-    s.add_argument("--abandon", action="store_true", help="unmerged: stop sessions and decks, keep the rest")
+    s.add_argument("--abandon", action="store_true", help="unmerged: stop sessions, decks and CDJs, keep the rest")
     s.set_defaults(fn=cmd_clean)
 
     s = sub.add_parser("lock", help="hold a real deck, one holder per unit: UNIT, then the ssh aliases and addresses "

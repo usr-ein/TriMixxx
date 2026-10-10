@@ -11,6 +11,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -48,7 +49,7 @@ class Sandbox(unittest.TestCase):
         os.environ.update(GIT_CONFIG_GLOBAL=str(cfg), GIT_CONFIG_NOSYSTEM="1")
         self.saved = {k: getattr(crew, k) for k in ("MAIN", "CREW", "find_prs", "gh_json", "limits", "approved_commit",
                                                     "run", "live_session", "claude_sessions", "resolve_host", "locks",
-                                                    "gh")}
+                                                    "gh", "snapshot")}
         crew.CREW = self.tmp / "crewstate"
         crew.resolve_host = lambda name: name.lower()  # not this Mac's ~/.ssh/config
 
@@ -186,6 +187,40 @@ class GuardTest(Sandbox):
         self.assertTrue(self.denied(self.minion, "pi-qemu deck rm feat-hotplug"))
         self.assertFalse(self.denied(self.minion, "pi-qemu deck rm feat-b"))
 
+    def test_cdjs(self):
+        """A minion's emulated CDJs are BRANCH-a and BRANCH-b: the rest it only looks at. On 2026-10-10 three minions
+        ran CDJs so named, and nothing kept one off another's."""
+        for cmd in ("pi-qemu cdj up feat-a --link feat-net", "pi-qemu cdj up --link feat-net --dsp-model feat-b",
+                    "pi-qemu cdj up feat-a --sd=/tmp/sd.img", "pi-qemu cdj press feat-a play --hold-ms 900",
+                    "pi-qemu cdj rotary feat-b -3", "pi-qemu cdj rm feat-a", "pi-qemu/app/build/pi-qemu cdj rm feat-b",
+                    "pi-qemu cdj list", "pi-qemu cdj status other-a", "pi-qemu cdj shot other-b /tmp/x.png",
+                    "pi-qemu cdj build", "pi-qemu cdj up other-a --help", "pi-qemu cdj", "pi-qemu cdj help"):
+            for reg in (self.minion, self.day_minion):
+                self.assertIsNone(crew.bash_reason(cmd, reg, str(self.wt)), cmd)
+        for cmd in ("pi-qemu cdj up other-a", "pi-qemu cdj up --link feat-net other-a", "pi-qemu cdj rm feat",
+                    "pi-qemu cdj up --sd feat-a other-a", "pi-qemu cdj press other-b play", "pi-qemu cdj run other-a",
+                    "pi-qemu cdj rotary -3 feat-a", "pi-qemu cdj rm feat-c", "pi-qemu cdj up",
+                    "cd /tmp && pi-qemu cdj rm other-a", "pi-qemu cdj up other-a --link -h"):  # -h: --link's value
+            for reg in (self.minion, self.day_minion):
+                self.assertIn("your CDJs are feat-a and feat-b", crew.bash_reason(cmd, reg, str(self.wt)), cmd)
+
+    def test_cdjs_the_bitch_and_the_nightman(self):
+        for cmd in ("pi-qemu cdj list", "pi-qemu cdj status feat-a", "pi-qemu cdj shot feat-b /tmp/x.png"):
+            for reg in (self.bitch, self.night_bitch, self.nightman):
+                self.assertFalse(self.denied(reg, cmd), f"{reg['role']}: {cmd}")
+        for cmd in ("pi-qemu cdj up feat-a", "pi-qemu cdj press feat-a play", "pi-qemu cdj rm feat-a",
+                    "pi-qemu cdj build"):
+            self.assertIn("only looks", crew.bash_reason(cmd, self.bitch, str(self.wt)), cmd)
+        self.assertFalse(self.denied(self.nightman, "pi-qemu cdj rm feat-a && pi-qemu cdj rm other-b"))  # shedding
+        for cmd in ("pi-qemu cdj up feat-a", "pi-qemu cdj press feat-a play", "pi-qemu cdj build"):
+            self.assertIn("only removes", crew.bash_reason(cmd, self.nightman, str(self.wt)), cmd)
+
+    def test_the_cdj_firmware_is_sams(self):
+        """What every CDJ boots, as the golden card is what every deck starts from."""
+        for reg in (self.minion, self.day_minion, self.bitch, self.nightman):
+            self.assertIn("Sam's call", crew.bash_reason("pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD", reg,
+                                                         str(self.wt)))
+
     def test_read_only_git_is_not_a_write(self):
         for cmd in ("git branch -a", "git -C mixxx branch --list feat", "git worktree list", "git submodule status",
                     "git stash list", "git tag", "git config --get user.email", "git remote -v", "git fetch origin"):
@@ -212,22 +247,91 @@ class GuardTest(Sandbox):
         self.assertTrue(self.denied(self.nightman, "git push origin main"))
 
 
+def snapshot(**kw) -> dict:
+    """A quiet Mac, as crew.snapshot() sees it, with kw on top."""
+    return dict({"ncpu": 12, "load": [1, 1, 1], "pressure": 1, "mem_free_pct": 70, "swap_gb": 0.5, "disk_gb": 100,
+                 "docker_gb": 20, "decks": [], "cdjs": [], "minions": [], "bitches": [], "sessions": []}, **kw)
+
+
+def cdj_list(*cdjs) -> str:
+    """`pi-qemu cdj list`, as pi-qemu prints it (pi-qemu/app/src/cli/commands/cdj.cpp): (NAME, PID or 0, LINK)."""
+    if not cdjs:
+        return "no CDJs\n"
+    return "".join(f"{name.ljust(20)} {(f'running (pid {pid})' if pid else 'stopped').ljust(20)} 02:43:44:12:34:56"
+                   f"{', on link ' + link if link else ', no cable'}\n" for name, pid, link in cdjs)
+
+
 class VerdictTest(unittest.TestCase):
-    """The resources verdict, Docker's VM disk among it."""
+    """The resources verdict, Docker's VM disk and the emulated CDJs among it."""
 
     LIM = {"DISK_MIN_GB": 40, "DISK_SHED_GB": 20, "DOCKER_MIN_GB": 8, "DOCKER_SHED_GB": 4, "LOAD_MAX": 0.75,
-           "LOAD_SHED": 1.5, "MAX_MINIONS": 2, "MAX_DECKS": 3, "DECKS_PER_MINION": 1}
+           "LOAD_SHED": 1.5, "MAX_MINIONS": 2, "MAX_DECKS": 3, "DECKS_PER_MINION": 1, "MAX_CDJS": 4,
+           "CDJS_PER_MINION": 2}
+    PURPOSES = ("minion", "build", "deck", "cdj")
 
-    def verdict(self, docker_gb, purpose):
-        snap = {"ncpu": 12, "load": [1, 1, 1], "pressure": 1, "disk_gb": 100, "docker_gb": docker_gb, "decks": [],
-                "minions": []}
-        return crew.verdict(snap, self.LIM, purpose)[0]
+    def verdict(self, purpose, **kw):
+        return crew.verdict(snapshot(**kw), self.LIM, purpose)[0]
 
     def test_docker_disk(self):
-        self.assertEqual([self.verdict(20, p) for p in ("minion", "build", "deck")], ["ok", "ok", "ok"])
-        self.assertEqual([self.verdict(6, p) for p in ("minion", "build", "deck")], ["hold", "hold", "ok"])
-        self.assertEqual([self.verdict(3, p) for p in ("minion", "build", "deck")], ["shed", "shed", "shed"])
-        self.assertEqual(self.verdict(None, "build"), "ok")  # Docker not up: preflight says so, not the verdict
+        self.assertEqual([self.verdict(p, docker_gb=20) for p in self.PURPOSES], ["ok", "ok", "ok", "ok"])
+        self.assertEqual([self.verdict(p, docker_gb=6) for p in self.PURPOSES], ["hold", "hold", "ok", "ok"])
+        self.assertEqual([self.verdict(p, docker_gb=3) for p in self.PURPOSES], ["shed", "shed", "shed", "shed"])
+        self.assertEqual(self.verdict("build", docker_gb=None), "ok")  # Docker not up: preflight says so, not this
+
+    def test_cdjs_have_limits_of_their_own(self):
+        """A CDJ takes about two cores and ~0.15 GB: MAX_CDJS on the Mac, and a minion is dispatched only while its
+        pair fits (CDJS_PER_MINION). A stopped one costs nothing, and decks and builds are held by the load, not by
+        the count of CDJs: a minion with its pair up still starts the deck it tests them with."""
+        pair = [("a-a", "running"), ("a-b", "running"), ("b-a", "stopped")]
+        self.assertEqual([self.verdict(p, cdjs=pair) for p in self.PURPOSES], ["ok", "ok", "ok", "ok"])
+        three = pair + [("sam1", "running")]  # Sam's count too
+        self.assertEqual([self.verdict(p, cdjs=three) for p in self.PURPOSES], ["hold", "ok", "ok", "ok"])
+        self.assertEqual(crew.verdict(snapshot(cdjs=three), self.LIM, "minion")[1],
+                         ["3 CDJs running: no room for a minion's 2 (max 4)"])
+        four = three + [("b-b", "running")]  # two minions' pairs
+        self.assertEqual([self.verdict(p, cdjs=four) for p in self.PURPOSES], ["hold", "ok", "ok", "hold"])
+        self.assertEqual(crew.verdict(snapshot(cdjs=four), self.LIM, "cdj")[1],
+                         ["4 CDJs running (max 4): a-a, a-b, sam1, b-b"])
+        self.assertEqual(self.verdict("deck", cdjs=pair, decks=[("a", "running"), ("b", "running"), ("c", "running")]),
+                         "hold")  # decks have theirs
+
+    def test_cdjs_still_count_in_the_load(self):
+        self.assertEqual([self.verdict(p, load=[10, 10, 4]) for p in self.PURPOSES], ["hold"] * 4)
+        self.assertEqual(self.verdict("cdj", load=[19, 19, 19]), "shed")
+        self.assertEqual(self.verdict("cdj", pressure=2), "hold")
+
+    def test_a_cdj_needs_no_disk(self):
+        """Its logs grow ~0.5 GB an hour; it never builds: held by neither disk's minimum, shed by both."""
+        self.assertEqual([self.verdict(p, disk_gb=30) for p in self.PURPOSES], ["hold", "ok", "hold", "ok"])
+        self.assertEqual(self.verdict("cdj", disk_gb=10), "shed")
+
+    def test_describe_counts_them(self):
+        text = crew.describe(snapshot(cdjs=[("a-a", "running"), ("b-a", "stopped")]), self.LIM)
+        self.assertIn("decks running 0/3 (none); CDJs running 1/4 (a-a); minions 0/2", text)
+
+
+class CdjListTest(Sandbox):
+    """crew reads the CDJs from `pi-qemu cdj list`, as it reads the decks from `pi-qemu deck list`."""
+
+    def listing(self, stdout, code=0, stderr=""):
+        calls = []
+
+        def run(cmd, **kw):
+            calls.append(cmd)
+            return subprocess.CompletedProcess(cmd, code, stdout, stderr)
+        crew.run = run
+        found = crew.cdjs()
+        self.assertEqual(calls, [["pi-qemu", "cdj", "list"]])
+        return found
+
+    def test_running_and_stopped(self):
+        self.assertEqual(self.listing(cdj_list(("crew-cdj-resources-a", 54696, ""), ("cdj-gui-b", 0, "booth"),
+                                               ("x", 7, "net-1"))),
+                         [("crew-cdj-resources-a", "running"), ("cdj-gui-b", "stopped"), ("x", "running")])
+
+    def test_none(self):
+        self.assertEqual(self.listing(cdj_list()), [])
+        self.assertEqual(self.listing("", code=2, stderr="pi-qemu: no command cdj\n"), [])  # a pi-qemu before CDJs
 
 
 class LockTest(Sandbox):
@@ -665,6 +769,88 @@ class AdoptTest(Sandbox):
         code, out, err = self.adopt("feat")
         self.assertIn("it holds trimixxx1", out)
         self.assertEqual(crew.locks()["trimixxx1"]["holder"], "feat")
+
+
+class CleanTest(Sandbox):
+    """`crew clean` takes a branch's emulated CDJs with its decks. On 2026-10-10 a minion's CDJs, ~2 cores each,
+    outlived it: `cdj up` keeps one for a day."""
+
+    DECKS = ("feat                 ssh port 2222  running (pid 200)\n"
+             "feat-b               ssh port -     suspended\n"
+             "other                ssh port 2223  running (pid 201)\n")
+
+    def setUp(self):
+        super().setUp()
+        crew.MAIN = self.repo(self.tmp / "main", branch="main")
+        self.wt = crew.MAIN / ".claude" / "worktrees" / "feat"
+        git(crew.MAIN, "worktree", "add", "-q", "-b", "feat", str(self.wt), "main")
+        (self.wt / ".crew").mkdir()
+        (self.wt / ".crew" / "notes.md").write_text("Status: merged\n")
+        cdjs = cdj_list(("feat-a", 101, "feat-net"), ("feat-b", 0, ""), ("other-a", 102, ""), ("sam1", 103, ""))
+        self.calls, self.failing = [], set()
+        real = self.saved["run"]
+
+        def run(cmd, cwd=None, check=True, **kw):  # pi-qemu's verbs recorded, git's run
+            if cmd[0] != "pi-qemu":
+                return real(cmd, cwd=cwd, check=check, **kw)
+            verb = " ".join(cmd[1:])
+            self.calls.append((verb, cwd))
+            failed = verb in self.failing
+            listing = {"deck list": self.DECKS, "cdj list": cdjs}.get(verb, "")
+            err = "pi-qemu: it would not stop" if failed else ""
+            return subprocess.CompletedProcess(cmd, int(failed), listing, err)
+        crew.run = run
+        crew.claude_sessions = lambda: []
+
+    def clean(self, abandon=False) -> str:
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(crew.cmd_clean(argparse.Namespace(branch="feat", abandon=abandon)), 0)
+        return out.getvalue()
+
+    def removed(self, kind) -> list[str]:
+        return [verb.split()[2] for verb, _ in self.calls if verb.startswith(f"{kind} rm ")]
+
+    def test_its_cdjs_go_with_its_decks(self):
+        out = self.clean()
+        self.assertEqual(self.removed("deck"), ["feat", "feat-b"])
+        self.assertEqual(self.removed("cdj"), ["feat-a", "feat-b"])  # running or stopped; never other-a, nor Sam's sam1
+        self.assertEqual({cwd for verb, cwd in self.calls if verb.startswith("cdj rm")}, {self.wt})  # its emulator's
+        self.assertIn("removed CDJ feat-a", out)
+        self.assertFalse(self.wt.exists())
+
+    def test_abandoned_too(self):
+        """--abandon keeps the work and the real-deck locks, and stops what costs the Mac: sessions, decks, CDJs."""
+        out = self.clean(abandon=True)
+        self.assertEqual(self.removed("cdj"), ["feat-a", "feat-b"])
+        self.assertIn("sessions, decks and CDJs stopped", out)
+        self.assertTrue((self.wt / ".crew" / "notes.md").exists())
+
+    def test_one_that_would_not_go(self):
+        self.failing = {"cdj rm feat-b"}
+        out = self.clean(abandon=True)
+        self.assertIn("removed CDJ feat-a", out)
+        self.assertIn("CDJ feat-b not removed (pi-qemu: it would not stop): `pi-qemu cdj rm feat-b`", out)
+
+
+class StatusTest(Sandbox):
+    """`crew status`: each branch's decks and CDJs, and in its resources line every CDJ on the Mac."""
+
+    def test_cdjs_by_branch_and_in_all(self):
+        crew.MAIN = self.tmp / "main"
+        for b in ("feat", "other"):
+            (crew.MAIN / ".claude" / "worktrees" / b / ".crew").mkdir(parents=True)
+        crew.snapshot = lambda: snapshot(decks=[("feat", "running")], cdjs=[
+            ("feat-a", "running"), ("feat-b", "stopped"), ("other-c", "running"), ("sam1", "running")])
+        crew.claude_sessions, crew.gh_json, crew.locks = lambda: [], lambda args, repo=None: [], lambda: {}
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(crew.cmd_status(argparse.Namespace()), 0)
+        rows = {line.split()[0]: re.split(r"\s{2,}", line) for line in out.getvalue().splitlines()[:3]}
+        self.assertEqual(rows["branch"][5:7], ["decks", "CDJs"])
+        self.assertEqual(rows["feat"][5:7], ["feat(run)", "feat-a(run) feat-b(sto)"])
+        self.assertEqual(rows["other"][5:7], ["-", "-"])  # other-c is no CDJ of its: BRANCH-a and BRANCH-b only
+        self.assertIn("CDJs running 3/", out.getvalue())
 
 
 class DelegationTest(Sandbox):
