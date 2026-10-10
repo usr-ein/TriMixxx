@@ -36,6 +36,13 @@ CdjPlace key(const QString& key, QRectF r, const QString& label, QVector<Lamp> l
     return {Shape::Key, key, r, label, std::move(lamps)};
 }
 
+// The fader's position under plate height y: its track's top is 0 (the
+// slider's minus end), its bottom 65535.
+int faderPosition(const CdjPlace& fader, double y) {
+    const double top = fader.rect.top() + 22, bottom = fader.rect.bottom() - 16;
+    return qBound(0, int((y - top) / (bottom - top) * 65535.0 + 0.5), 65535);
+}
+
 QColor mix(const QColor& a, const QColor& b, double t) {
     return QColor::fromRgbF(float(a.redF() + (b.redF() - a.redF()) * t), float(a.greenF() + (b.greenF() - a.greenF()) * t),
                             float(a.blueF() + (b.blueF() - a.blueF()) * t));
@@ -101,6 +108,7 @@ const QVector<CdjPlace>& cdjPlaces() {
         key("TEMPO RANGE", {470, 452, 94, 30}, "TEMPO RANGE"),
         key("MASTER TEMPO", {572, 452, 94, 30}, "MASTER TEMPO", {{"MASTER_TEMPO", kRed}}),
         key("TEMPO RESET", {470, 490, 94, 30}, "TEMPO RESET", {{"TEMPO_RESET", kGreen}}),
+        {Shape::Fader, "TEMPO", {706, 296, 60, 236}, "TEMPO", {}},
     };
     return places;
 }
@@ -116,6 +124,7 @@ CdjWindow::CdjWindow(const QString& name, const QString& runDir, quint16 port, Q
         m_lamps = lamps;
         update();
     });
+    connect(m_panel, &cdj::PanelClient::stateRead, this, &CdjWindow::onState);
     connect(m_panel, &cdj::PanelClient::connectedChanged, this, [this](bool c) {
         m_connected = c;
         if (!c) m_lamps.clear();
@@ -255,6 +264,10 @@ void CdjWindow::mousePressEvent(QMouseEvent* e) {
         m_dragY = e->position().y();
         m_turned = false;
         return;
+    case Shape::Fader:
+        m_fading = true;
+        setTempo(faderPosition(*place, toWidget().inverted().map(e->position()).y()));
+        return;
     default:
         break;
     }
@@ -273,6 +286,12 @@ void CdjWindow::mousePressEvent(QMouseEvent* e) {
 }
 
 void CdjWindow::mouseMoveEvent(QMouseEvent* e) {
+    if (m_fading) {
+        for (const CdjPlace& place : cdjPlaces())
+            if (place.shape == Shape::Fader)
+                setTempo(faderPosition(place, toWidget().inverted().map(e->position()).y()));
+        return;
+    }
     if (m_mouseKey != "ENCODER PUSH") return;
     // Down the screen is down the list, as the knob turned clockwise.
     const double scale = toWidget().m11();
@@ -286,6 +305,7 @@ void CdjWindow::mouseMoveEvent(QMouseEvent* e) {
 void CdjWindow::mouseReleaseEvent(QMouseEvent*) {
     const QString name = m_mouseKey;
     m_mouseKey.clear();
+    m_fading = false;
     if (name.isEmpty() || m_latched.contains(name)) return;
     if (name == "ENCODER PUSH") {
         if (!m_turned) {
@@ -297,8 +317,53 @@ void CdjWindow::mouseReleaseEvent(QMouseEvent*) {
     const CdjPlace* place = nullptr;
     for (const CdjPlace& p : cdjPlaces())
         if (p.key == name) place = &p;
-    if (place && (place->shape == Shape::Lever || place->shape == Shape::Lid)) return;
+    if (place && place->shape != Shape::Key && place->shape != Shape::Round && place->shape != Shape::Jog) return;
     release(name);
+}
+
+void CdjWindow::mouseDoubleClickEvent(QMouseEvent* e) {
+    // The fader's centre detent: 0 %, as TEMPO RESET's lamp would have it.
+    const CdjPlace* place = placeAt(e->position());
+    if (place && place->shape == Shape::Fader) {
+        setTempo(cdj::kTempoCentre);
+        return;
+    }
+    mousePressEvent(e); // a second click, as fast as you like, is a click
+}
+
+void CdjWindow::setTempo(int position) {
+    position = qBound(0, position, 65535);
+    if (!m_centred) {
+        // The centre first: the tempo is worked out against it when the
+        // position changes, and a position already where it is is no change.
+        m_panel->send(cdj::tempoCentreLine());
+        m_centred = true;
+        if (position == (m_tempoSet ? m_tempo : 0)) m_panel->send(cdj::tempoLine(position ? position - 1 : 1));
+    } else if (m_tempoSet && position == m_tempo) {
+        return;
+    }
+    m_tempo = position;
+    m_tempoSet = true;
+    m_panel->send(cdj::tempoLine(position));
+    update();
+}
+
+void CdjWindow::onState(const QHash<QString, QString>& state) {
+    // The switches and the fader as the CDJ has them: another window, or the
+    // command line, may have moved them.
+    const bool rev = cdj::leverAtRev(state), lid = state.value("sd_lid") == "open";
+    bool changed = rev != m_rev || lid != m_lidOpen;
+    m_rev = rev;
+    m_lidOpen = lid;
+    m_centred = cdj::analogTarget(state, 3) == cdj::kTempoCentre;
+    if (!m_fading) {
+        const int position = cdj::analogTarget(state, 2);
+        const int shown = position >= 0 ? position : cdj::kTempoCentre;
+        changed |= shown != m_tempo || (position >= 0) != m_tempoSet;
+        m_tempo = shown;
+        m_tempoSet = position >= 0;
+    }
+    if (changed) update();
 }
 
 void CdjWindow::wheelEvent(QWheelEvent* e) {
@@ -425,6 +490,25 @@ void CdjWindow::paintEvent(QPaintEvent*) {
             p.drawEllipse(r.adjusted(8, 8, -8, -8));
             p.setPen(kText);
             p.drawText(r, Qt::AlignCenter, "SELECT\npush / drag");
+            break;
+        }
+        case Shape::Fader: {
+            const double cx = r.center().x(), top = r.top() + 22, bottom = r.bottom() - 16;
+            p.setPen(kText);
+            p.drawText(QRectF(r.left() - 10, r.top(), r.width() + 20, 16), Qt::AlignCenter, place.label);
+            f.setPixelSize(10);
+            p.setFont(f);
+            p.drawText(QRectF(r.left(), top - 4, 12, 12), Qt::AlignCenter, "-");
+            p.drawText(QRectF(r.left(), bottom - 8, 12, 12), Qt::AlignCenter, "+");
+            p.setPen(QPen(QColor(10, 10, 12), 6, Qt::SolidLine, Qt::RoundCap));
+            p.drawLine(QPointF(cx, top), QPointF(cx, bottom));
+            const double mid = (top + bottom) / 2;
+            p.setPen(QPen(QColor(110, 110, 115), 1.5));
+            p.drawLine(QPointF(cx - 18, mid), QPointF(cx + 18, mid)); // the centre detent
+            const double y = top + (bottom - top) * m_tempo / 65535.0;
+            p.setPen(QPen(m_fading ? Qt::white : QColor(150, 150, 155), m_fading ? 2.0 : 1.0));
+            p.setBrush(m_tempoSet ? QColor(200, 200, 205) : QColor(110, 110, 115));
+            p.drawRoundedRect(QRectF(cx - 16, y - 7, 32, 14), 3, 3);
             break;
         }
         case Shape::Jog: {

@@ -6,6 +6,8 @@
 #include <QSignalBlocker>
 #include <QTcpSocket>
 
+#include <utility>
+
 namespace cdj {
 
 PanelClient::PanelClient(quint16 port, int pollMs, QObject* parent)
@@ -39,7 +41,13 @@ void PanelClient::connectNow() {
 }
 
 void PanelClient::send(const QString& line) {
-    if (!m_greeted) return;
+    if (!m_greeted) {
+        // A key let go of while the channel is away is let go of once it is
+        // back: the CDJ's held contacts outlive a connection. Anything else
+        // is dropped, as a click on a dead panel would be.
+        if (line.startsWith("up ") && !m_releases.contains(line)) m_releases << line;
+        return;
+    }
     m_waiting << line;
     m_socket->write(line.toUtf8() + "\n");
 }
@@ -57,13 +65,19 @@ void PanelClient::onReadyRead() {
         m_in.remove(0, end + 1);
         if (!m_greeted) { // "ok cdj2000-input": the channel is ours
             m_greeted = answer.startsWith("ok");
-            if (m_greeted) emit connectedChanged(true);
+            if (m_greeted) {
+                for (const QString& release : std::exchange(m_releases, {})) send(release);
+                emit connectedChanged(true);
+            }
             continue;
         }
         const QString line = m_waiting.isEmpty() ? QString() : m_waiting.takeFirst();
         if (line == kStateLine) {
+            const QHash<QString, QString> state = stateOf(answer);
+            if (state.isEmpty()) continue;
+            emit stateRead(state);
             const QHash<QString, QString> lamps = lampsOf(answer);
-            if (answer.startsWith("ok state") && lamps != m_lamps) {
+            if (lamps != m_lamps) {
                 m_lamps = lamps;
                 emit lampsChanged(m_lamps);
             }

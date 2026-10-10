@@ -12,6 +12,7 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QImage>
+#include <QMap>
 #include <QRegularExpression>
 #include <QSet>
 #include <QSignalSpy>
@@ -36,6 +37,7 @@ public:
     QTcpServer  server;
     QStringList lines; // everything received, in order
     QHash<QString, qint64> when; // the last time each line came, in ms
+    QMap<QString, QString> analog; // the analogue fields set, by number
     QString     stateReply = "ok state frames=1 lamps=-";
     QList<QTcpSocket*> clients;
     QElapsedTimer clock;
@@ -52,7 +54,15 @@ public:
                         const QString line = QString::fromUtf8(s->readLine()).trimmed();
                         lines << line;
                         when[line] = clock.elapsed();
-                        s->write((line == "state" ? stateReply : QString("ok")).toUtf8() + "\n");
+                        const QStringList w = line.split(' ');
+                        if (w.size() == 3 && w[0] == "analog") analog[w[1]] = w[2]; // as the channel keeps them
+                        QString reply = "ok";
+                        if (line == "state") {
+                            reply = stateReply;
+                            for (auto it = analog.cbegin(); it != analog.cend(); ++it)
+                                reply += QString(" a%1=%2/%2").arg(it.key(), it.value());
+                        }
+                        s->write(reply.toUtf8() + "\n");
                     }
                 });
             }
@@ -160,7 +170,7 @@ private slots:
     void everyKeyHasItsPlace() {
         QSet<QString> placed;
         for (const CdjPlace& place : cdjPlaces()) {
-            QVERIFY2(cdj::key(place.key), qPrintable(place.key));
+            QVERIFY2(cdj::key(place.key) || place.shape == CdjPlace::Shape::Fader, qPrintable(place.key));
             QVERIFY2(!placed.contains(place.key), qPrintable(place.key));
             placed << place.key;
             QVERIFY2(kCdjPlate.contains(place.rect), qPrintable(place.key));
@@ -169,6 +179,27 @@ private slots:
                 if (&other != &place) QVERIFY2(!place.rect.intersects(other.rect), qPrintable(place.key + " " + other.key));
         }
         for (const cdj::Key& k : cdj::keys()) QVERIFY2(placed.contains(k.name), qPrintable(k.name));
+        QVERIFY(placed.contains("TEMPO")); // and the fader
+    }
+    void stateFields() {
+        const QString reply = "ok state frames=7 commands=2 queue=0 phase=idle held=00 "
+                              "level_mask=00000000000000000000000000000002000000000000 "
+                              "level_value=00000000000000000000000000000000000000000000 "
+                              "a0=-0/0 a1=-0/0 a2=16384/16384 a3=32768/32768 a7=8/8 sd_lid=open lamps=CUE:on";
+        const auto state = cdj::stateOf(reply);
+        QCOMPARE(state.value("sd_lid"), QString("open"));
+        QCOMPARE(cdj::analogTarget(state, 2), 16384);
+        QCOMPARE(cdj::analogTarget(state, 3), 32768);
+        QCOMPARE(cdj::analogTarget(state, 0), -1); // nobody drives it
+        QVERIFY(cdj::leverAtRev(state));        // 15.1 forced low: REV
+        auto fwd = state;
+        fwd["level_value"] = "00000000000000000000000000000002000000000000";
+        QVERIFY(!cdj::leverAtRev(fwd));
+        fwd["level_mask"] = QString(44, '0');
+        QVERIFY(!cdj::leverAtRev(fwd));         // no override: the base frame's FWD
+        QVERIFY(cdj::stateOf("ok pong").isEmpty());
+        QCOMPARE(cdj::tempoCentreLine(), QString("analog 3 32768"));
+        QCOMPARE(cdj::tempoLine(70000), QString("analog 2 65535"));
     }
     void clientPollsAndSends() {
         FakeChannel channel;
@@ -196,6 +227,20 @@ private slots:
         QTRY_VERIFY(!client.connected());
         QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 3000);
         QCOMPARE(connected.size(), 3); // up, down, up
+    }
+    void aKeyLetGoOfWhileTheChannelIsAwayIsLetGoOfOnceBack() {
+        // A key let go of in a window while the channel reconnects would stay
+        // down on the CDJ, whose held contacts outlive a connection.
+        FakeChannel channel;
+        cdj::PanelClient client(channel.port(), 1000);
+        QTRY_VERIFY(client.connected());
+        channel.clients.first()->disconnectFromHost();
+        QTRY_VERIFY(!client.connected());
+        client.send("up 16 01");
+        client.send("down 16 02"); // a click on a dead panel: dropped
+        client.send("up 16 01");
+        QTRY_VERIFY_WITH_TIMEOUT(client.connected(), 3000);
+        QTRY_COMPARE(channel.contacts(), QStringList{"up 16 01"});
     }
     void aClickHoldsTheKeyAtLeastAsLongAsAPress() {
         FakeChannel channel;
@@ -239,6 +284,48 @@ private slots:
             return QSet<QString>(lines.begin(), lines.end());
         };
         QTRY_COMPARE(sent(), (QSet<QString>{"down 16 02", "down 16 01", "up 16 02", "up 16 01"}));
+    }
+    void theFaderSetsTheCentreThenThePosition() {
+        // As the NXS takes its slider: the centre (field 3) first, then the
+        // position (field 2), which the tempo follows when it changes.
+        FakeChannel channel;
+        QTemporaryDir run;
+        CdjWindow w("test", run.path(), channel.port());
+        w.resize(800, 600);
+        w.show();
+        QTRY_COMPARE(channel.lines.count("state") > 0, true);
+        const QRectF fader = placeOf("TEMPO")->rect;
+        const QPoint top(int(fader.center().x()), int(fader.top() + 22)), bottom(top.x(), int(fader.bottom() - 16));
+        // Its top is the minus end, 0, where the field already is: a nudge
+        // first, so the CDJ sees it change.
+        QTest::mousePress(&w, Qt::LeftButton, {}, top);
+        QTest::mouseMove(&w, bottom);
+        QTest::mouseRelease(&w, Qt::LeftButton, {}, bottom);
+        QTRY_COMPARE(channel.contacts(),
+                     (QStringList{"analog 3 32768", "analog 2 1", "analog 2 0", "analog 2 65535"}));
+        QTest::mouseDClick(&w, Qt::LeftButton, {}, bottom); // the centre detent
+        QTRY_COMPARE(channel.contacts().last(), QString("analog 2 32768"));
+        QCOMPARE(channel.contacts().count("analog 3 32768"), 1);
+    }
+    void theSwitchesAndTheFaderStartAsTheCdjHasThem() {
+        FakeChannel channel;
+        channel.stateReply = "ok state frames=7 "
+                             "level_mask=00000000000000000000000000000002000000000000 "
+                             "level_value=00000000000000000000000000000000000000000000 "
+                             "a2=65535/65535 a3=32768/32768 sd_lid=open lamps=-";
+        QTemporaryDir run;
+        CdjWindow w("test", run.path(), channel.port());
+        w.resize(800, 600);
+        w.show();
+        QTRY_COMPARE(channel.lines.count("state") > 1, true);
+        // The fader's knob at its plus end, as another client left it.
+        const QRectF fader = placeOf("TEMPO")->rect;
+        QTRY_COMPARE(w.grab().toImage().pixelColor(int(fader.center().x()), int(fader.bottom() - 16)),
+                     QColor(200, 200, 205));
+        // The lever at REV and the lid open: a click puts them back.
+        QTest::mouseClick(&w, Qt::LeftButton, {}, placeOf("REV")->rect.center().toPoint());
+        QTest::mouseClick(&w, Qt::LeftButton, {}, placeOf("SD OPEN")->rect.center().toPoint());
+        QTRY_COMPARE(channel.contacts(), (QStringList{"level 15 02 1", "sd-lid closed"}));
     }
     void theSelectorTurnsAndPushes() {
         FakeChannel channel;
@@ -300,7 +387,8 @@ private slots:
         //   PI_QEMU_CDJ_LIVE=NAME [PI_QEMU_CDJ_SHOTS=DIR] tst_cdjpanel aLiveCdj
         // or with a track of your own loaded and playing (cdj up --dsp-model),
         // and PI_QEMU_CDJ_LIVE_LOADED=1; or for one click, and the lamp it
-        // should light, PI_QEMU_CDJ_LIVE_CLICK=KEY:LAMP:VALUE.
+        // should light, PI_QEMU_CDJ_LIVE_CLICK=KEY:LAMP:VALUE; or the fader,
+        // PI_QEMU_CDJ_LIVE_FADER=POSITION.
         // Clicks in the window drive the CDJ, and what its firmware lights
         // comes back: watched on a second connection, as `cdj press` would be.
         const QString name = qEnvironmentVariable("PI_QEMU_CDJ_LIVE");
@@ -327,6 +415,22 @@ private slots:
             qInfo("%s: %s is %s", qPrintable(key), qPrintable(lamp), qPrintable(lamps.value(lamp)));
             return want.contains(lamps.value(lamp));
         };
+        if (const QString fader = qEnvironmentVariable("PI_QEMU_CDJ_LIVE_FADER"); !fader.isEmpty()) {
+            // The fader clicked where it is POSITION (0..65535): the CDJ's
+            // fields as the second connection reads them, and its screen.
+            QHash<QString, QString> state;
+            connect(&watch, &cdj::PanelClient::stateRead, this, [&state](const auto& s) { state = s; });
+            const QRectF r = placeOf("TEMPO")->rect;
+            const double top = r.top() + 22, bottom = r.bottom() - 16;
+            const QPoint at(int(r.center().x()), int(top + (bottom - top) * fader.toInt() / 65535.0 + 0.5));
+            QTest::mouseClick(&w, Qt::LeftButton, {}, at);
+            QTRY_VERIFY_WITH_TIMEOUT(cdj::analogTarget(state, 3) == cdj::kTempoCentre &&
+                                         qAbs(cdj::analogTarget(state, 2) - fader.toInt()) < 400, 5000);
+            QTest::qWait(2500);
+            qInfo("fader at %s: a2=%s a3=%s", qPrintable(fader), qPrintable(state.value("a2")), qPrintable(state.value("a3")));
+            if (!shots.isEmpty()) w.grab().save(QString("%1/fader-%2.png").arg(shots, fader));
+            return;
+        }
         if (const QStringList one = qEnvironmentVariable("PI_QEMU_CDJ_LIVE_CLICK").split(':'); one.size() == 3) {
             // One click, and the lamp it should light: "MASTER:MASTER:3".
             QVERIFY(click(one[0], one[1], {one[2]}));

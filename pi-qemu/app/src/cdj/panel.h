@@ -33,10 +33,31 @@ QString upLine(const Key& k);
 QString rotaryLine(int detents);
 inline constexpr char kStateLine[] = "state";
 
+// The TEMPO slider, as the NXS takes it through analogue fields 2 (its
+// position) and 3 (its centre), 0..65535: the tempo is worked out again when
+// the position changes, against the centre, which goes first. With the
+// centre at 32768, 0 is the slider's minus end and 65535 its plus end
+// (-/+10 % on the 10 % range). Both fields start at 0 on the NXS.
+inline constexpr int kTempoCentre = 32768;
+QString tempoCentreLine();
+QString tempoLine(int position);
+
+// A `state` reply ("ok state frames=.. held=.. a2=-0/0 .. lamps=.. ..") as
+// its fields; empty if it is not one.
+QHash<QString, QString> stateOf(const QString& stateReply);
+
 // The lamps lit in a `state` reply ("ok state ... lamps=CUE:on,SOURCE_SD:3
 // ..."), by name: "on", "blink", or a two-bit lamp's level. The dark ones
 // are not there.
 QHash<QString, QString> lampsOf(const QString& stateReply);
+
+// An analogue field as `state` reports it ("a2=32768/32768", "-" in front
+// when nobody drives it): its target, or -1 when it is not driven.
+int analogTarget(const QHash<QString, QString>& state, int field);
+
+// The DIRECTION lever (contact 15.1, active low) as `state`'s literal levels
+// have it: true at REV.
+bool leverAtRev(const QHash<QString, QString>& state);
 
 // What a lamp shows: two-bit lamps are 1 when their key is available (a dim
 // backlight) and 3 when it is on; one blinking goes between the two.

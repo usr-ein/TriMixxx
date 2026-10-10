@@ -41,19 +41,43 @@ static QString contact(const Key& k) { return QString("%1 %2").arg(k.byte).arg(k
 QString downLine(const Key& k) { return "down " + contact(k); }
 QString upLine(const Key& k) { return "up " + contact(k); }
 QString rotaryLine(int detents) { return QString("rotary 7 %1").arg(detents); }
+QString tempoCentreLine() { return QString("analog 3 %1").arg(kTempoCentre); }
+QString tempoLine(int position) { return QString("analog 2 %1").arg(qBound(0, position, 65535)); }
+
+QHash<QString, QString> stateOf(const QString& stateReply) {
+    QHash<QString, QString> fields;
+    const QStringList words = stateReply.split(' ', Qt::SkipEmptyParts);
+    if (words.size() < 2 || words[0] != "ok" || words[1] != "state") return fields;
+    for (const QString& word : words.mid(2)) {
+        const qsizetype eq = word.indexOf('=');
+        if (eq > 0) fields.insert(word.left(eq), word.mid(eq + 1));
+    }
+    return fields;
+}
 
 QHash<QString, QString> lampsOf(const QString& stateReply) {
     QHash<QString, QString> lit;
-    const QStringList words = stateReply.split(' ', Qt::SkipEmptyParts);
-    if (words.size() < 2 || words[0] != "ok" || words[1] != "state") return lit;
-    for (const QString& word : words) {
-        if (!word.startsWith("lamps=")) continue;
-        for (const QString& item : word.mid(6).split(',', Qt::SkipEmptyParts)) {
-            const qsizetype colon = item.indexOf(':');
-            if (colon > 0) lit.insert(item.left(colon), item.mid(colon + 1));
-        }
+    const QString lamps = stateOf(stateReply).value("lamps");
+    for (const QString& item : lamps.split(',', Qt::SkipEmptyParts)) {
+        const qsizetype colon = item.indexOf(':');
+        if (colon > 0) lit.insert(item.left(colon), item.mid(colon + 1));
     }
     return lit;
+}
+
+int analogTarget(const QHash<QString, QString>& state, int field) {
+    const QString f = state.value(QString("a%1").arg(field)); // "-0/0" or "32768/32768"
+    if (f.isEmpty() || f.startsWith('-')) return -1;
+    bool ok = false;
+    const int target = f.section('/', 1, 1).toInt(&ok);
+    return ok ? target : -1;
+}
+
+bool leverAtRev(const QHash<QString, QString>& state) {
+    // 22 bytes as hex: byte 15 is the 31st and 32nd digits.
+    const int mask = state.value("level_mask").mid(30, 2).toInt(nullptr, 16);
+    const int value = state.value("level_value").mid(30, 2).toInt(nullptr, 16);
+    return (mask & 0x02) && !(value & 0x02);
 }
 
 Lit lit(const QHash<QString, QString>& lamps, const QString& lamp) {

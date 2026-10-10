@@ -21,11 +21,14 @@ public:
     ~PanelClient() override; // what was sent goes out first
 
     bool connected() const { return m_greeted; }
-    void send(const QString& line); // dropped while not connected
+    // Dropped while not connected, but for a key let go of ("up ..."): that
+    // goes out once the channel is back.
+    void send(const QString& line);
 
 signals:
     void connectedChanged(bool connected);
     void lampsChanged(const QHash<QString, QString>& lamps);
+    void stateRead(const QHash<QString, QString>& state); // every answer to `state`, as its fields
     void refused(const QString& line, const QString& answer); // an "err ..." to a line we sent
 
 private:
@@ -38,7 +41,8 @@ private:
     QTcpSocket* m_socket;
     QTimer      m_poll, m_retry;
     QByteArray  m_in;
-    QStringList m_waiting; // lines sent, oldest first, each awaiting its answer
+    QStringList m_waiting;  // lines sent, oldest first, each awaiting its answer
+    QStringList m_releases; // keys let go of while the channel was away
     bool        m_greeted = false;
     QHash<QString, QString> m_lamps;
 };

@@ -3,9 +3,10 @@
 // screen, live, in a schematic of its top panel in the deck panel's look.
 // Every key `cdj press` knows is a pad in its place; a click holds it on the
 // emulator's control channel as long as the mouse is down (at least as long
-// as a `press`). The pads light as the CDJ's own firmware lights its lamps:
-// what MAIN last sent the panel, as the channel's `state` names it. The jog
-// is not emulated: only its touch-sensitive top is here.
+// as a `press`). The TEMPO fader sets the slider's centre, then its
+// position. The pads light as the CDJ's own firmware lights its lamps: what
+// MAIN last sent the panel, as the channel's `state` names it. The jog is not
+// emulated: only its touch-sensitive top is here.
 
 #include <QColor>
 #include <QElapsedTimer>
@@ -23,7 +24,7 @@ class PanelClient;
 // Where a control of the NXS sits on the plate. One unit is one pixel of the
 // CDJ's 480x234 screen, so the screen is never resampled at a whole scale.
 struct CdjPlace {
-    enum class Shape { Key, Round, Encoder, Jog, Lever, Lid };
+    enum class Shape { Key, Round, Encoder, Jog, Lever, Lid, Fader };
     struct Lamp {
         QString name;    // as the emulator names it: "PLAY_PAUSE"
         QColor  colour;
@@ -31,7 +32,7 @@ struct CdjPlace {
         Lamp(QString n, QColor c, QString cap = {}) : name(std::move(n)), colour(c), caption(std::move(cap)) {}
     };
     Shape   shape = Shape::Key;
-    QString key; // cdj::Key's name
+    QString key; // cdj::Key's name; the fader's is "TEMPO", no key's
     QRectF  rect;
     QString label;
     QVector<Lamp> lamps; // the key's own light: the first one lit shows
@@ -56,6 +57,7 @@ protected:
     void mouseMoveEvent(QMouseEvent*) override;
     void mouseReleaseEvent(QMouseEvent*) override;
     void wheelEvent(QWheelEvent*) override;
+    void mouseDoubleClickEvent(QMouseEvent*) override;
     void keyPressEvent(QKeyEvent*) override;
     void keyReleaseEvent(QKeyEvent*) override;
     void closeEvent(QCloseEvent*) override;
@@ -67,6 +69,8 @@ private:
     void release(const QString& key);
     void releaseAll();
     void refreshScreen();
+    void setTempo(int position); // the fader, sent as the slider's position
+    void onState(const QHash<QString, QString>& state);
 
     QString m_runDir;
     cdj::PanelClient* m_panel;
@@ -83,7 +87,12 @@ private:
     double  m_dragY = 0;
     int     m_wheel = 0;     // a wheel's turn not yet a whole detent
     bool    m_turned = false;
-    bool    m_rev = false;   // the DIRECTION lever (the window's; it starts at FWD)
+    // The switches and the fader, as the CDJ's `state` last had them.
+    bool    m_rev = false;    // the DIRECTION lever at REV
     bool    m_lidOpen = false;
+    int     m_tempo = 32768;  // the fader's position, 0..65535, + at the bottom
+    bool    m_tempoSet = false; // its position driven, by us or another client
+    bool    m_centred = false;  // the slider's centre at 32768
+    bool    m_fading = false;   // the fader under the mouse
     QElapsedTimer m_clock;
 };
