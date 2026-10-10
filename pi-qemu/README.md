@@ -43,7 +43,7 @@ then takes that link.
 | Path | What it is |
 |---|---|
 | `build.sh` | builds the pinned, patched QEMU and `pi-qemu`, and puts `pi-qemu` on PATH |
-| `app/` | `pi-qemu` itself (C++/Qt), one directory per part under `app/src/`: `board/` (the emulated Pi: the firmware step, QEMU, USB sticks, its link, its control socket), `s3/` (the deck's controller: MIDI both ways, the wiring), `ui/` (the windows), `decks/` (a deck to act on, emulated or real), `pipeline/` (deploying, image builds, releases), `worktree/`, `cli/` (the command line), `util/`; and `tests/` (ctest) |
+| `app/` | `pi-qemu` itself (C++/Qt), one directory per part under `app/src/`: `board/` (the emulated Pi: the firmware step, QEMU, USB sticks, its link, its control socket), `s3/` (the deck's controller: MIDI both ways, the wiring), `ui/` (the windows), `decks/` (a deck to act on, emulated or real), `pipeline/` (deploying, image builds, releases), `cdj/` (emulated CDJs), `worktree/`, `cli/` (the command line), `util/`; and `tests/` (ctest) |
 | `app/icons/` | its icon: `trimixxx.svg`, and the `.ico` compiled in, made from it by `make-ico.py` |
 | `qemu/trimixxx-patches.py` | our patches to QEMU, applied by `build.sh` |
 | `deploy/` | the deploy steps, `NNN_name.sh` and `NNN_name.pi.sh`, and their contract, `lib.sh` |
@@ -290,6 +290,73 @@ and nothing leaves the Mac: the sockets are files, not ports. QEMU's own
 multicast hub (`-netdev dgram` to a group) cannot send on macOS: it binds the
 group's address, which BSD refuses to send from.
 
+## Emulated CDJs
+
+A CDJ-2000NXS on Pioneer's own firmware (1.44), emulated by the
+`cdj2000-emulator` submodule and joining the decks' links. ProLink can then
+be debugged without the booth: a TriMixxx deck with "real" CDJs, and the
+CDJs with each other. `docs/cdj-emulator.md` says why it is built this way.
+
+Once per Mac, and once per checkout:
+
+```sh
+pi-qemu cdj build                              # this checkout's emulator: ~1.5 min the first time
+pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD    # Pioneer's updater, extracted outside every checkout
+```
+
+- **The firmware** is Pioneer's, given to the NXS's owners: never in a
+  repository. `firmware` checks every CRC and checksum, and writes what the
+  emulator boots into `~/.pi-qemu/cdj/firmware/nxs/`.
+- **`build`** fetches QEMU once, at the revision the emulator's patches
+  take, into `~/.pi-qemu/cdj/`, and builds it into the submodule's ignored
+  `build/`. It also builds the GUI core and a venv for the emulator's tools.
+  In a worktree, the submodule is the main checkout's, which
+  `pi-qemu worktree prepare` borrows.
+
+A CDJ, and a booth:
+
+```sh
+pi-qemu deck up d --link booth
+pi-qemu cdj up a --link booth          # ~25 s: "a: player 1 at 169.254.x.y, 02:43:44:.. on link booth"
+pi-qemu cdj up b --link booth          # player 2: the NXS numbers itself AUTO
+pi-qemu link devices booth 10          # 1 a, 2 b, 4 d
+pi-qemu cdj shot a a.png               # its 480x234 screen
+pi-qemu cdj press a link               # a panel key: play, cue, link, usb, sd, enter, back, menu, ...
+pi-qemu cdj rotary a 2                 # the browse encoder
+pi-qemu cdj status a                   # the emulator's own: the browser's last reply, the frame, ...
+pi-qemu cdj rm a
+```
+
+- **A CDJ is booted, never restored.** Its player screen is up in about
+  8 s, and `up` waits for it, then on a link for its first keep-alive.
+- **On a link it is a member of its own,** as a deck is. Its MAC comes from
+  its name, `02:43:44:..`, and the NXS takes its link-local address from
+  the MAC's last two bytes.
+- **Give `link devices` 10 s with a CDJ on the link.** A CDJ re-claims its
+  number every few seconds with a TriMixxx deck present, as a real one did
+  in `mixxx/lib/prolink/captures/S10-serve-to-cdj`, so its keep-alives come
+  about 6 s apart.
+- **Media:** `--sd IMG` / `--usb IMG` mount a FAT32 image, and its writes are
+  thrown away. `--test-track` makes a card with a 10 s WAV on it.
+- **`--window`** shows its screen and panel on the Mac.
+- **Its state** is in `~/.pi-qemu/cdj/NAME/`: `cdj.json`, the `cdj run`
+  behind it (`pid`, `pi-qemu.log`), its socket on the link (`link.sock`),
+  and the emulator's run directory (`run/`, the last one kept as
+  `run.prev`).
+- **Limits.** It runs at about 0.74x real time and takes about two cores.
+  Two CDJs and a deck take about five of a twelve-core Mac. There is no
+  audio and no jog, and a CDJ stops after a day.
+
+**How it joins a link** (`app/src/board/streamport.*`). `cdj up` starts
+`pi-qemu cdj run` detached; it is the emulator's parent.
+- It holds the CDJ's member on the link, through the same `Link` as a
+  deck's.
+- It listens on `link.sock` for the emulator's NIC: a QEMU stream netdev,
+  `nxs_vm --link-hub unix:...`, whose frames are each a 32-bit length and
+  then the frame.
+- It moves them between that stream and `Link`'s datagram end.
+- When the emulator exits, `cdj run` leaves the link.
+
 ## Deploying
 
 `pi-qemu deck deploy TARGET [STEP...]` puts this checkout's code onto a deck,
@@ -357,7 +424,9 @@ repo, each deploying its own code to its own emulated deck. The root
   start as empty directories. `mixxx/` (and its `lib/prolink`) and
   `mixxx_config/ttymidi` become linked worktrees of your main checkout's
   submodule repositories, detached at the commits the worktree's branch
-  records. It takes seconds and downloads nothing. A branch made in a
+  records. So does `cdj2000-emulator/`, the emulated CDJs', when the branch
+  records it and the main checkout has it
+  (`git submodule update --init cdj2000-emulator` there gives it one). It takes seconds and downloads nothing. A branch made in a
   worktree's `mixxx/` is a branch of your main `mixxx/` at once, so merging it
   there is enough. `git submodule update` would instead clone a private copy
   that is deleted with the worktree.
@@ -376,6 +445,10 @@ repo, each deploying its own code to its own emulated deck. The root
   refuses to remove a worktree with checked-out submodules, short of
   `--force`, which leaves the build trees behind. `release` refuses itself if
   they hold uncommitted changes, or commits no branch has.
+  - A submodule that is a clone of its own, as `git submodule update` makes,
+    is taken back too, once its origin has all of its commits.
+  - Its git directory is in the worktree's `modules/`, which `release`
+    removes, since git will not remove a worktree with it.
   `pi-qemu worktree status` shows what a worktree has checked out.
 
 pi-qemu acts on the checkout it runs in: `deck deploy` from a worktree

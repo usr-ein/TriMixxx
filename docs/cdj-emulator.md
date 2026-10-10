@@ -15,9 +15,9 @@ two processors:
 The two talk over the serial link they use on the real board. The NXS's
 audio DSP, a TI C674x, is interpreted. Audio is not modelled.
 
-This file has two halves. "How it works" describes the feature as the
-`cdj-2k-emu` branch will leave it, and stays. "The plan" is what that branch
-does to get there, and goes once it is done.
+How to run one is in `pi-qemu/README.md`, "Emulated CDJs". This file says
+why it is built this way: which emulator commits, where the firmware lives,
+how a CDJ joins a link, and how changes go back upstream.
 
 ---
 
@@ -138,9 +138,9 @@ pi-qemu cdj rm a
 ```
 
 - **A CDJ is not a deck.** It has no snapshot, so `up` boots it every time.
-  Its player screen comes up in about 10 s, and it is on the link in about
-  20 s. `up` waits for its first keep-alive and says what it claimed:
-  `a: player 1 at 169.254.12.34, 02:43:44:.. on link booth`.
+  Its player screen comes up in about 8 s, and it is on the link in about
+  25 s. `up` waits for its first keep-alive and says what it claimed:
+  `a: player 1 at 169.254.155.21, 02:43:44:24:9b:15 on link booth`.
 - **Its state** lives in `~/.pi-qemu/cdj/NAME/`: the run directory with its
   logs and screens, its socket on the link, and `cdj.json`.
 - **Its processes:**
@@ -167,7 +167,7 @@ network:
 pi-qemu deck up d --link booth
 pi-qemu cdj up a --link booth
 pi-qemu cdj up b --link booth
-pi-qemu link devices booth     # 1 a, 2 b (AUTO numbering), 4 d
+pi-qemu link devices booth 10  # 1 a, 2 b (AUTO numbering), 4 d
 pi-qemu link capture booth booth.pcap
 ```
 
@@ -207,179 +207,30 @@ pi-qemu link capture booth booth.pcap
 
 ---
 
-## The plan
+## The fork, and upstream
 
-### Decisions
-
-- **[Sam] The submodule's base:** a public usr-ein fork holding upstream
-  main, geepot's series and ours (14:40: "1a"). He gave his go to create it
-  tonight.
-- **[Sam] Where it lives:** `cdj2000-emulator/` at the top level ("2a").
-- **[Sam] Stage 2 tonight too:** ProLink, "using the upstream changes
-  already made" where speed stands in the way ("3c").
-- **[Sam] A plan review first** ("4a").
-- **[mine] geepot's whole series, not a pick of it.** #38's tip is what
-  geepot tested end to end and what was measured here.
-- **[mine] The CDJ's Ethernet joins through upstream's own netdev contract.**
-  pi-qemu gets no QEMU knowledge of the CDJ, and the emulator none of
-  pi-qemu.
-- **[mine] The short-frame fix belongs in the emulator's NIC, not in
-  pi-qemu.** Any stream, dgram or socket netdev delivers frames unpadded.
-  QEMU pads only for slirp and tap, and upstream's own hub had to pad its
-  replays for the same reason.
-- **[mine] Firmware, and everything firmware-derived, lives outside every
-  repository,** in `~/.pi-qemu/cdj/`. Tests that need firmware find it
-  through `CDJ_FIRMWARE_DIR`. E1's qtest needs none.
-- **[mine] The fork's lasting branch is its `main`,** as in `usr-ein/mixxx`,
-  rather than a `trimixxx` branch (plan review round 1). Then `crew merge`
-  could later treat this fork like the others.
-
-### Where the commits live
-
-- **The submodule's commits go on the fork's `cdj-2k-emu` branch,** the only
-  name the crew's guard lets this minion push. The TriMixxx PR pins its tip.
-  - The worktree's own clone of the submodule dies with the worktree. These
-    commits don't: they are pushed.
-  - Once a pushed TriMixxx commit pins it, `cdj-2k-emu` only moves forward:
-    every pinned commit stays on it.
-- **`crew merge` checks submodule pointers only for the repos it knows**
-  (prolink, mixxx, ttymidi). Nothing would stop TriMixxx main from pinning a
-  commit the fork lacks. So the PR shows that the pin is reachable
-  ("How it is shown to work", 6).
-- **After the merge, Sam's steps,** in the main checkout:
-  1. `git submodule update --init cdj2000-emulator`: the main checkout's
-     own clone, for worktrees to borrow.
-  2. `git -C cdj2000-emulator push origin HEAD:main`: the fork's `main`,
-     which `.gitmodules` names, moves to the pin. It is a fast-forward: the
-     pin descends from upstream main, where the fork's `main` started.
-  3. `pi-qemu/build.sh app`, before `crew clean`: the `pi-qemu` on PATH is
-     main's build, and its `worktree release` must know the new submodule.
-
-  Until step 2, the pin stays reachable on `cdj-2k-emu`, which nothing
-  deletes. `crew clean` doesn't know the fork, and a recursive clone ignores
-  `branch =`.
-- **Upstream PR branches.** E1 and E2 are each a commit made directly on
-  upstream main, siblings, joined in the fork.
-  - So each upstream PR is a branch at that commit, pushed under its own
-    name: `git push origin <sha>:refs/heads/<name>`. Sam opens them, and
-    the TriMixxx PR carries their texts.
-  - The guard refuses other branch names, so they wait as commits until
-    then. Both gaps are logged with `crew feedback`.
-
-### Steps
-
-1. **The fork.** `crew gh repo fork cdj2k-revival/cdj2000-emulator
-   --clone=false`, then `cdj-2k-emu` built as below and pushed.
-2. **E1, on upstream main `a30a097`:** the EtherC model (`cdj_nxs_eth.c`)
-   pads a received frame shorter than 60 bytes, instead of flagging it a
-   runt.
-   - Test: a case in the qtest `tests/test_nxs_ethernet_qemu.py`. A 42-byte
-     frame from the peer lands as 60 bytes, with no error bits. Before:
-     descriptor `0x78000004`.
-   - The qtest needs no firmware any more: the CPU never runs, so a blank
-     flash stands in for the BIOS. Upstream's CI can run it wherever QEMU is
-     built.
-3. **E2, also on upstream main** (a sibling of E1, not stacked): `nxs_vm
-   --link-hub PORT|HOST:PORT|unix:PATH` and `--link-mac`, as `boot_vm` has
-   them for the CDJ-2000.
-   - `boot_vm.link_hub_args` takes the NIC model, and `--link-mac` reuses
-     `boot_vm.flash_with_mac`. The flash record at `0x3f8000` is the same on
-     NXS 1.44.
-   - No `sync:`: the NXS board has no synchronising Ethernet. A bad MAC and
-     a second peer are refused before the run directory exists.
-   - Tests: command construction, refused combinations.
-   - Docs: a RUNNING.md section, "Two NXS decks on one Pro DJ Link". It says
-     its measurements need the series #33-#38: on main alone the NXS sent no
-     Pro DJ Link packet in 240 s.
-   - Once the series lands upstream, E2 needs a small rebase over the
-     argument group the series moved. Its PR text tells Sam.
-4. **`cdj-2k-emu`:** E1, with E2 merged, then geepot's series
-   (`pr2/launcher-defaults`, `30a4196`) merged on top.
-   - The merge resolves `nxs_vm.py` and the launch tests.
-   - Then the EtherC qtest and upstream's host tests (`pytest -q`) run on
-     the result, as they did on E1 and E2 each alone.
-5. **T1, the submodule** `cdj2000-emulator/`, with a `.gitmodules` comment
-   as `mixxx`'s has: what it is, which branch, why a fork. Also `*.UPD` and
-   `*.upd` in TriMixxx's `.gitignore`.
-6. **T2, the `cdj` group in pi-qemu:**
-   - `firmware`, `build`, `up`, `list`, `status`, `shot`, `press`, `rotary`,
-     `rm`, and the hidden `cdj run`
-   - a stream-to-datagram port for `Link`
-   - the MAC from NAME
-   - the Python steps run with `uv run --no-project`, from the submodule
-7. **T3: `worktree prepare`, `status` and `release` know
-   `cdj2000-emulator`,** including the private clone (see "Worktrees").
-   Required: without it, `crew clean` stops at `git worktree remove`.
-8. **T4, docs:**
-   - `pi-qemu/README.md` gets "Emulated CDJs", the verbs and a booth on a
-     link. This file keeps the why: the emulator's base, the firmware
-     policy, how the link works.
-   - a `CLAUDE.md` row, and the after-merge steps
-   - the `trimixxx0` skill: a CDJ on your deck's link
-9. **T5, tests:** ctest for the MAC, the stream framing and the verbs'
-   arguments; the submodule's pytest.
-10. **The checks below,** a re-read of each diff, a rebase onto main, then
-    the PR out of draft.
-
-### How it is shown to work
-
-On emulated decks only. No real deck or real CDJ is used.
-- Evidence goes in `.crew/evidence/`, described in the PR in words. No CDJ
-  screenshot goes into a public PR: its artwork is Pioneer's.
-- The CDJs are named after the branch, `cdj-2k-emu-a` and `cdj-2k-emu-b`.
-  `crew clean` doesn't know CDJs, so each is `cdj rm`ed once its check is
-  done.
-
-1. **The borrow path, before the merge.** In a scratch clone of TriMixxx at
-   this branch, with the submodule initialised, standing in for the main
-   checkout:
-   - a fresh worktree; `worktree prepare` borrows `cdj2000-emulator`
-   - `cdj build`, `cdj firmware`, then `cdj up`: the player screen, headless
-   - `worktree release`, then `git worktree remove` succeeds
-   - in this worktree, whose copy is a private clone: `release` refuses an
-     unpushed emulator commit, and once nothing is unpushed it releases
-2. **No firmware in git.**
-   - `git status` and `git check-ignore` in TriMixxx and the submodule show
-     no firmware, and none is tracked. A `C2KNXS.UPD` dropped anywhere in
-     either is ignored.
-   - Everything extracted is under `~/.pi-qemu/cdj/`.
-3. **A CDJ and a deck.** `deck up cdj-2k-emu --link booth`, then
-   `cdj up cdj-2k-emu-a --link booth`.
-   - `link devices booth` lists both.
-   - A `link capture` shows each sending the other its status (UDP 50002),
-     and the CDJ answering the deck's media queries.
-4. **Two CDJs.** With `cdj up cdj-2k-emu-b --link booth`, `link devices`
-   lists 1, 2 and 4, and each CDJ sends the other its status.
-5. **E1 and E2 sit directly on upstream main.** Each one's own tests pass
-   on its own commit, and each has a PR text.
-6. **The pin is reachable.**
-   - `git -C cdj2000-emulator branch -r --contains <pin>` names
-     `origin/cdj-2k-emu`.
-   - A fresh `git clone --recurse-submodules -b cdj-2k-emu` of TriMixxx
-     checks the pin out.
-7. **Upstream's host tests,** with the firmware outside the checkout
-   (`CDJ_FIRMWARE_DIR`). The scratch prototype gave 949 passed, 92 skipped:
-   - three skip because they read `ROOT/firmware/` directly
-   - the rest are opt-in, or want tools not built here
-
-### Risks
-
-- **geepot's series can change before it merges upstream.** The fork holds
-  the commits we pinned, so the pin stays valid. Moving to what upstream
-  finally merges is a later bump.
-- **Load.** `crew resources` counts decks, not CDJs, and `crew clean`
-  removes decks only. A CDJ costs about two cores, more than a deck. The
-  minion `cdj rm`s its own CDJs; `crew feedback` asks for the rest.
-- **QEMU's configure** must get a Python that can make venvs. `cdj build`
-  looks for one and says so if it finds none.
-- **macOS's 104-byte socket paths:** the CDJs' sockets live under
-  `~/.pi-qemu/cdj/`, short.
-
-### Out of scope
-
-- audio, the jog, sync and beat-phase fidelity, and the emulator's speed for
-  its own sake
-- a real CDJ or a real deck on the network (bridging the Mac's NIC; geepot's
-  `link_hub --bridge` exists)
-- bugs the CDJ shows in `lib/prolink`. Each one is noted, with its evidence,
-  for a pitch of its own.
+- **`usr-ein/cdj2000-emulator`** is a fork of cdj2k-revival's. Its `main` is
+  what TriMixxx pins: upstream main, our changes, and geepot's series merged
+  over them. The first pin was made on its `cdj-2k-emu` branch. Once that
+  branch merged in TriMixxx, the fork's `main` was fast-forwarded to it.
+- **`crew merge` and `crew clean` don't know this repository.** They check
+  and move the submodule pointers of prolink, mixxx and ttymidi only.
+  - So a change here is pushed before the TriMixxx commit that pins it.
+  - Its pin is shown to be reachable: `git -C cdj2000-emulator branch -r
+    --contains <pin>`, and a fresh `git clone --recurse-submodules`.
+- **Each change for upstream is a commit made directly on upstream main.**
+  The fork's `main` merges it in, so each one can go upstream alone:
+  `git push origin <sha>:refs/heads/<name>`, then a PR from the fork. The
+  first two:
+  - `4529093`, *EtherC: a frame shorter than 60 bytes is padded on receive,
+    as the wire pads it*
+  - `7709d93`, *nxs_vm: --link-hub and --link-mac put the NXS on a Pro DJ
+    Link segment*. It needs a small rebase once geepot's series lands: the
+    series moves the launcher's Ethernet option into a group of its own.
+- **When upstream merges geepot's series,** the fork's `main` moves to
+  upstream main plus whatever of ours is still unmerged. The series then
+  stops being a merge of its own, and the submodule is bumped like any
+  other.
+- **Upstream's rule is ours too:** no firmware, no disassembly and no
+  screenshots of it in a commit, a PR or an issue. Describe what the
+  firmware does in words and measurements.

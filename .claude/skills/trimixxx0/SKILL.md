@@ -166,6 +166,25 @@ pi-qemu link capture NAME-net out.pcap 30   # every frame on the link for 30 s, 
   use a rekordbox stick such as `SANDISK-E02C` (read-only, nothing copied).
 - `rm` your decks when done: each takes its socket off the link with it.
 
+### A CDJ on your deck's link
+
+An emulated CDJ-2000NXS, on Pioneer's own firmware, can join the link: a
+"real" CDJ to test Pro DJ Link against. `pi-qemu/README.md`, "Emulated CDJs",
+has the rest.
+
+```sh
+pi-qemu cdj build                              # once per checkout (~1.5 min); in a worktree, after prepare
+pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD    # once per Mac: extracted outside every checkout, never in git
+pi-qemu cdj up NAME-cdj --link NAME-net        # ~25 s: "NAME-cdj: player 1 at 169.254.x.y, ... on link NAME-net"
+pi-qemu link devices NAME-net 10               # 10 s: with a deck there, a CDJ keep-alives only every ~6 s
+pi-qemu cdj shot NAME-cdj cdj.png              # its 480x234 screen; `cdj press NAME-cdj link` a key
+pi-qemu cdj rm NAME-cdj                        # when done: `crew clean` and `deck rm` don't know CDJs
+```
+
+- **Expensive:** a CDJ takes about two cores, and runs at about 0.74x real
+  time. Fine for presence, numbers, status and browsing, not for beat sync.
+- **Never put its firmware or its screenshots in git:** both are Pioneer's.
+
 ## Deploy your own code onto it
 
 ```sh
@@ -277,8 +296,8 @@ A tone without Mixxx:
 
 Every time you end your work, whether it succeeded, failed or stopped part way:
 
-1. Run `pi-qemu deck list`.
-2. For each instance **you** started:
+1. Run `pi-qemu deck list`, and `pi-qemu cdj list` if you ran CDJs.
+2. For each instance **you** started (`cdj rm NAME` for a CDJ):
    - **Remove it** (`pi-qemu deck rm NAME`) when nobody needs to look at it.
    - **Or keep it, and say so in your final message:** its name, whether it
      is still running or suspended, and the exact command to remove it.
