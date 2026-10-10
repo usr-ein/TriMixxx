@@ -379,18 +379,21 @@ pi-qemu link capture booth booth.pcap
     series moves the launcher's Ethernet option into a group of its own.
 - **For real time, three, each measured alone on an NXS** and merged as
   the fork's `cdj-upstream`:
-  - `bb68e37`, *QEMU on macOS: a wait under 4 ms ends on time, so no 1 ms
-    tick is lost*, on upstream main
+  - `9fda1a6`, *QEMU on macOS: a wait under 4 ms ends on time, so no 1 ms
+    tick is lost*, on upstream main. It replaces `bb68e37`, the same patch,
+    its message and README naming where each number was measured.
   - `b604eaa`, *QEMU TMU: an underflow the guest has not seen yet is
     counted, not lost*, on upstream main. It replaces `380d147`: stopping a
     channel also drops a UNF set again only for a kept underflow, since the
     chip's own would be clear, so a handler that clears UNF and then stops
     its channel takes no interrupt after the stop.
-  - `29f94cb`, *DSP thread: MAIN's waits for the DSP run on the wall clock
+  - `f234d9f`, *DSP thread: MAIN's waits for the DSP run on the wall clock
     again*, on geepot's series tip (`30a4196`), where its code is. It
-    replaces `220d5af`, with its own measurement. It turns off by default
-    the held clock geepot chose (his #34), so it is offered to him for the
-    series, and as a PR on main only if he would rather have that.
+    replaces `220d5af`, with its own measurement and the margin to the
+    stall geepot's hold fixed (60-70% of MAIN's time waiting in playback,
+    where it stalled at 80-85%). It turns off by default the held clock
+    geepot chose (his #34), so it is offered to him for the series, and as
+    a PR on main only if he would rather have that.
   - The two on upstream main add to the same two lists, the patch stack in
     `build-qemu-sh4.sh` and the table in `patches/README.md`: whichever
     lands second needs a one-line rebase.
