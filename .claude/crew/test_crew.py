@@ -194,7 +194,7 @@ class GuardTest(Sandbox):
                     "pi-qemu cdj up feat-a --sd=/tmp/sd.img", "pi-qemu cdj press feat-a play --hold-ms 900",
                     "pi-qemu cdj rotary feat-b -3", "pi-qemu cdj rm feat-a", "pi-qemu/app/build/pi-qemu cdj rm feat-b",
                     "pi-qemu cdj list", "pi-qemu cdj status other-a", "pi-qemu cdj shot other-b /tmp/x.png",
-                    "pi-qemu cdj build", "pi-qemu cdj up other-a --help", "pi-qemu cdj", "pi-qemu cdj help"):
+                    "pi-qemu cdj lamps other-a", "pi-qemu cdj build", "pi-qemu cdj up other-a --help", "pi-qemu cdj", "pi-qemu cdj help"):
             for reg in (self.minion, self.day_minion):
                 self.assertIsNone(crew.bash_reason(cmd, reg, str(self.wt)), cmd)
         for cmd in ("pi-qemu cdj up other-a", "pi-qemu cdj up --link feat-net other-a", "pi-qemu cdj rm feat",
@@ -205,11 +205,12 @@ class GuardTest(Sandbox):
                 self.assertIn("your CDJs are feat-a and feat-b", crew.bash_reason(cmd, reg, str(self.wt)), cmd)
 
     def test_cdjs_the_bitch_and_the_nightman(self):
-        for cmd in ("pi-qemu cdj list", "pi-qemu cdj status feat-a", "pi-qemu cdj shot feat-b /tmp/x.png"):
+        for cmd in ("pi-qemu cdj list", "pi-qemu cdj status feat-a", "pi-qemu cdj shot feat-b /tmp/x.png",
+                    "pi-qemu cdj lamps feat-a"):
             for reg in (self.bitch, self.night_bitch, self.nightman):
                 self.assertFalse(self.denied(reg, cmd), f"{reg['role']}: {cmd}")
         for cmd in ("pi-qemu cdj up feat-a", "pi-qemu cdj press feat-a play", "pi-qemu cdj rm feat-a",
-                    "pi-qemu cdj build"):
+                    "pi-qemu cdj build", "pi-qemu cdj window feat-a"):  # a window presses keys
             self.assertIn("only looks", crew.bash_reason(cmd, self.bitch, str(self.wt)), cmd)
         self.assertFalse(self.denied(self.nightman, "pi-qemu cdj rm feat-a && pi-qemu cdj rm other-b"))  # shedding
         for cmd in ("pi-qemu cdj up feat-a", "pi-qemu cdj press feat-a play", "pi-qemu cdj build"):

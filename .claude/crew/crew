@@ -1464,7 +1464,7 @@ def cdj_names(branch: str) -> tuple[str, str]:
     return f"{branch}-a", f"{branch}-b"
 
 
-CDJ_LOOKS = ("list", "status", "shot")  # what anyone may do to any CDJ
+CDJ_LOOKS = ("list", "status", "shot", "lamps")  # what anyone may do to any CDJ
 CDJ_VALUED = {"link", "sd", "usb", "hold-ms"}  # `pi-qemu cdj` options that take a value
 
 
@@ -1487,7 +1487,7 @@ def cdj_words(words: list[str]) -> tuple[str | None, bool]:
 
 
 def cdj_reason(args: list[str], role: str, branch: str | None) -> str | None:
-    """`pi-qemu cdj VERB ...`: anyone looks at any CDJ (list, status, shot); a minion does the rest to its own only,
+    """`pi-qemu cdj VERB ...`: anyone looks at any CDJ (list, status, shot, lamps); a minion does the rest to its own only,
     BRANCH-a and BRANCH-b; the nightman only removes one, to shed load; the bitch only looks."""
     verb = args[0] if args else None
     target, only_help = cdj_words(args[1:])
@@ -1496,7 +1496,7 @@ def cdj_reason(args: list[str], role: str, branch: str | None) -> str | None:
     if verb == "firmware":
         return "that replaces the firmware every CDJ boots: Sam's call"
     if role == "bitch":
-        return "the bitch only looks at CDJs (list, status, shot)"
+        return "the bitch only looks at CDJs (list, status, shot, lamps)"
     if role == "nightman":
         return None if verb == "rm" else "minions run CDJs; the nightman only removes them (`cdj rm`) to shed load"
     if verb != "build" and target not in cdj_names(branch):
