@@ -191,7 +191,8 @@ its firmware lights it: for Sam, not for an agent, which reads `cdj shot` and
   runs at a real NXS's speed (keep-alives every 2.0 s), but a loaded track
   plays only with `cdj up --dsp-model` (the emulator's behavioural DSP:
   beats at the track's tempo, no audio). It then plays the moment it loads,
-  with no cue and no PLAY, and with no master on the link it takes master.
+  with no cue and no PLAY, and with no master on the link it takes master;
+  CUE does nothing in play until it has been stopped and cued once.
 - **Centre its TEMPO slider before testing tempo or sync:** an emulated NXS
   says pitch -100% until its slider first moves. From `cdj2000-emulator/`,
   `.venv/bin/python -m tools.cdj_main.panel_control --port P analog 3 32768`,

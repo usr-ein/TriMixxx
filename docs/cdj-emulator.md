@@ -286,7 +286,10 @@ reading its TEMPO % and the pitch words of its status packets:
 
 **Without `--dsp-model`, the emulated DSP limits the transport.** A CUE while
 playing, or a PLAY after a CUE, does nothing, through the window and `cdj
-press` alike. `cdj up --dsp-model` lifts that.
+press` alike. `cdj up --dsp-model` lifts that, but for the track it has just
+loaded: that one plays at once, and CUE in play does nothing until the deck
+has been stopped and cued once. From then on CUE in play goes back to the cue
+point and stops there (play state 0x06), and PLAY plays from it.
 
 ### On a link
 
@@ -335,14 +338,16 @@ pi-qemu link capture booth booth.pcap
   keep-alives slip to 2.1-3.2 s while it lasts.
 - No audio, no jog. A track plays only with `--dsp-model`.
 - With `--dsp-model`, a track plays the moment it loads: no cued state, no
-  PLAY needed. A real NXS cues it and waits.
+  PLAY needed, and no CUE until the deck has been stopped and cued once. A
+  real NXS cues it and waits.
 - The emulated CDJ is evidence about Pioneer's firmware only as far as the
   emulator is faithful. A wire change in `lib/prolink` still needs the
   captures (`prolink changes: real CDJs first`).
 - `mixxx/lib/prolink/emu-captures/` records two emulated CDJs' tempo master
   and beat sync, held against the real decks' `S28`. Its README names
   where they differ: the load above, a deck put in sync bending its tempo
-  into phase where a real one jumps, and a stopped deck's pitch copies.
+  into phase (up to 10 points off its pitch) where a real one jumps, and a
+  stopped deck's pitch copies.
 
 ---
 
