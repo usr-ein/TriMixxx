@@ -190,7 +190,15 @@ its firmware lights it: for Sam, not for an agent, which reads `cdj shot` and
   with `--dsp-model`), and its logs grow ~0.5 GB an hour until `cdj rm`. It
   runs at a real NXS's speed (keep-alives every 2.0 s), but a loaded track
   plays only with `cdj up --dsp-model` (the emulator's behavioural DSP:
-  beats at the track's tempo, no audio).
+  beats at the track's tempo, no audio). It then plays the moment it loads,
+  with no cue and no PLAY, and with no master on the link it takes master.
+- **Centre its TEMPO slider before testing tempo or sync:** an emulated NXS
+  says pitch -100% until its slider first moves. From `cdj2000-emulator/`,
+  `.venv/bin/python -m tools.cdj_main.panel_control --port P analog 3 32768`,
+  then the same with `analog 2 32768` (P: `endpoints.panel_port` in
+  `~/.pi-qemu/cdj/NAME/run/run.json`). `analog 2 V` moves the slider: 0 is
+  -10%, 65535 +10%. `mixxx/lib/prolink/emu-captures/README.md` names what
+  else an emulated CDJ does differently.
 - **In the crew,** a minion's CDJs are `BRANCH-a` and `BRANCH-b`, as its
   decks are `BRANCH` and `BRANCH-b`: the guard refuses other names,
   `crew resources --for cdj` counts them, and `crew clean` removes them. On
