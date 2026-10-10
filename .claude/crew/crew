@@ -340,6 +340,18 @@ def decks() -> list[tuple[str, str]]:
     return found
 
 
+def docker_free_gb() -> float | None:
+    """Free disk in Docker's VM, where Mixxx builds and their cache live: a container's / is on it. None when Docker
+    isn't up (or has no alpine image: it is never pulled for this)."""
+    try:
+        r = run(["docker", "run", "--rm", "--pull", "never", "--network", "none", "alpine", "df", "-kP", "/"],
+                check=False, timeout=60)
+    except Fail:
+        return None
+    m = re.match(r"\S+\s+\d+\s+\d+\s+(\d+)\s", (r.stdout.strip().splitlines() or [""])[-1])
+    return int(m.group(1)) / 2**20 if r.returncode == 0 and m else None
+
+
 def snapshot() -> dict:
     ncpu = int(out(["sysctl", "-n", "hw.ncpu"]))
     load = [float(x) for x in out(["sysctl", "-n", "vm.loadavg"]).strip("{} ").split()[:3]]
@@ -354,7 +366,7 @@ def snapshot() -> dict:
     regs = [r for r in registrations() if r["sid"] in live]
     return {
         "ncpu": ncpu, "load": load, "pressure": pressure, "mem_free_pct": mem_free, "swap_gb": swap_gb,
-        "disk_gb": disk_gb, "decks": decks(),
+        "disk_gb": disk_gb, "docker_gb": docker_free_gb(), "decks": decks(),
         "minions": [session_name(r) for r in regs if r["role"] == "minion"],
         "bitches": [session_name(r) for r in regs if r["role"] == "bitch"],
         "sessions": [{k: s.get(k) for k in ("name", "kind", "status", "cwd")} for s in sessions],
@@ -373,6 +385,11 @@ def verdict(snap: dict, lim: dict, purpose: str) -> tuple[str, list[str]]:
         shed.append(f"{snap['disk_gb']:.0f} GB free disk < {lim['DISK_SHED_GB']:.0f}")
     elif snap["disk_gb"] < lim["DISK_MIN_GB"] and purpose != "build":
         hold.append(f"{snap['disk_gb']:.0f} GB free disk < {lim['DISK_MIN_GB']:.0f}")
+    docker = snap.get("docker_gb")
+    if docker is not None and docker < lim.get("DOCKER_SHED_GB", 4):
+        shed.append(f"{docker:.1f} GB free in Docker's VM < {lim.get('DOCKER_SHED_GB', 4):.0f}: Sam decides a prune")
+    elif docker is not None and docker < lim.get("DOCKER_MIN_GB", 8) and purpose != "deck":
+        hold.append(f"{docker:.1f} GB free in Docker's VM < {lim.get('DOCKER_MIN_GB', 8):.0f}: no new builds")
     if l15 > lim["LOAD_SHED"] * n:
         shed.append(f"15-min load {l15:.1f} > {lim['LOAD_SHED'] * n:.0f}")
     if l5 > lim["LOAD_MAX"] * n:
@@ -390,8 +407,10 @@ def verdict(snap: dict, lim: dict, purpose: str) -> tuple[str, list[str]]:
 def describe(snap: dict, lim: dict) -> str:
     running = [d for d, s in snap["decks"] if s == "running"]
     pressure = {1: "normal", 2: "warning", 4: "critical"}.get(snap["pressure"], str(snap["pressure"]))
+    docker = snap.get("docker_gb")
     return (f"load {'/'.join(f'{x:.1f}' for x in snap['load'])} on {snap['ncpu']} cores; memory {pressure}"
             f" ({snap['mem_free_pct']}% free, {snap['swap_gb'] or 0:.1f} GB swap); {snap['disk_gb']:.0f} GB disk free;"
+            + (f" Docker's VM {docker:.1f} GB free;" if docker is not None else " Docker's VM: unknown (not up?);") +
             f" decks running {len(running)}/{lim['MAX_DECKS']:.0f} ({', '.join(running) or 'none'});"
             f" minions {len(snap['minions'])}/{lim['MAX_MINIONS']:.0f}")
 
@@ -624,6 +643,11 @@ def cmd_preflight(a) -> int:
     print("Load")
     lim, snap = limits(), snapshot()
     print(f"  {describe(snap, lim)}")
+    docker, least = snap.get("docker_gb"), lim.get("DOCKER_MIN_GB", 8)
+    if docker is not None:
+        check(docker >= least, f"Docker's VM has {docker:.1f} GB free for builds",
+              f"Docker's VM has {docker:.1f} GB free, under {least:.0f}: Mixxx builds would fail tonight. Freeing it "
+              "is Sam's call (which build cache to prune)")
     v, why = verdict(snap, lim, "minion")
     check(v == "ok", "room to dispatch a minion now", f"no room to dispatch yet ({'; '.join(why)})", soft=True)
     others = [s for s in snap["sessions"] if s.get("status") == "busy" and s.get("name") not in ("nightman",)]

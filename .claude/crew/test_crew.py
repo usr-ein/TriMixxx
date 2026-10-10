@@ -204,6 +204,24 @@ class GuardTest(Sandbox):
         self.assertTrue(self.denied(self.nightman, "git push origin main"))
 
 
+class VerdictTest(unittest.TestCase):
+    """The resources verdict, Docker's VM disk among it."""
+
+    LIM = {"DISK_MIN_GB": 40, "DISK_SHED_GB": 20, "DOCKER_MIN_GB": 8, "DOCKER_SHED_GB": 4, "LOAD_MAX": 0.75,
+           "LOAD_SHED": 1.5, "MAX_MINIONS": 2, "MAX_DECKS": 3, "DECKS_PER_MINION": 1}
+
+    def verdict(self, docker_gb, purpose):
+        snap = {"ncpu": 12, "load": [1, 1, 1], "pressure": 1, "disk_gb": 100, "docker_gb": docker_gb, "decks": [],
+                "minions": []}
+        return crew.verdict(snap, self.LIM, purpose)[0]
+
+    def test_docker_disk(self):
+        self.assertEqual([self.verdict(20, p) for p in ("minion", "build", "deck")], ["ok", "ok", "ok"])
+        self.assertEqual([self.verdict(6, p) for p in ("minion", "build", "deck")], ["hold", "hold", "ok"])
+        self.assertEqual([self.verdict(3, p) for p in ("minion", "build", "deck")], ["shed", "shed", "shed"])
+        self.assertEqual(self.verdict(None, "build"), "ok")  # Docker not up: preflight says so, not the verdict
+
+
 class LockTest(Sandbox):
     """Real decks: one holder per unit, and a minion reaches one only through a lock of its own, by day or night."""
 

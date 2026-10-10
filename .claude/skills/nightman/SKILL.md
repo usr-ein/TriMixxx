@@ -173,8 +173,10 @@ Every 20 minutes, or whenever you wonder:
 
 1. `crew status` and `crew resources`.
 2. `ok`, with pitches queued: dispatch.
-3. `hold`: dispatch nothing.
-4. `shed`, the Mac is overloaded (CPU, memory, disk):
+3. `hold`: dispatch nothing. Held for Docker's VM disk: tell the minions to
+   start no Mixxx build, and tell Sam (or the report): which build cache to
+   prune is his call.
+4. `shed`, the Mac is overloaded (CPU, memory, disk, Docker's VM disk):
    - SendMessage every running minion: "The Mac is overloaded: stop your deck
      unless you are testing this minute (`pi-qemu deck stop BRANCH`), and
      start no build until I say."

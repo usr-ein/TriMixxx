@@ -120,6 +120,10 @@ Every time you start or are woken:
 - **Share the Mac.** Other minions and Sam's own sessions run on it. Mixxx
   builds queue across agents (normal); never start two builds of your own;
   keep load tests as short as the question needs.
+- **Before a Mixxx build** (a `deploy ... mixxx`), `crew resources --for build`.
+  Its builds and their cache live in Docker's VM, whose disk the Mac's free
+  space says nothing about. On `hold` for Docker's VM, build nothing and tell
+  the nightman (night) or Sam (day): freeing it is his call.
 - **Evidence.** Keep what shows it works (screenshots, log lines, timings,
   WAV analyses) in `.crew/evidence/`, and summarise it under Testing in your
   notes. The PR cites it.

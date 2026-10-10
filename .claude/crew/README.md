@@ -125,6 +125,8 @@ dispatch and every 20 minutes, and minions check before starting a deck:
   1.5 × (15-minute)
 - memory pressure
 - free disk: 40 GB to dispatch; shed below 20
+- free disk in Docker's VM, where Mixxx builds and their cache live: 8 GB to
+  start a minion or a build; shed below 4. A prune is your call.
 - review rounds
 - drift-check cadence
 
