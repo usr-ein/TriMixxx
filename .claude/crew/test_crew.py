@@ -94,6 +94,15 @@ class GuardTest(Sandbox):
         git(self.wt, "switch", "-qc", "other")
         self.assertTrue(self.denied(self.minion, "git push"))
 
+    def test_redirections_are_not_arguments(self):
+        """Four minions' pushes were refused as pushing a branch named 2: the 2 of 2>&1."""
+        for cmd in ("git push -u origin feat 2>&1 | tail -3", "git push origin feat >/tmp/push.log 2>&1",
+                    "git push origin feat &>log", "git commit -F - <<'EOF'\nmsg\nEOF"):
+            self.assertFalse(self.denied(self.minion, cmd), cmd)
+        for cmd in ("git push origin 2>/dev/null main", "git push origin feat 2>&1|sudo ls", "diff <(sudo cat x) y",
+                    "cat <<< x; sudo ls", "echo $(sudo ls) >f", ">log git push origin main"):
+            self.assertTrue(self.denied(self.minion, cmd), cmd)
+
     def test_github_only_through_crew_gh(self):
         self.assertTrue(self.denied(self.minion, "gh pr create --title x"))
         self.assertTrue(self.denied(self.minion, "GH_TOKEN=x command gh pr list"))

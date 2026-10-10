@@ -1104,7 +1104,8 @@ HEREDOC = re.compile(r"<<-?\s*(['\"]?)([A-Za-z_]\w*)\1")
 QUOTED = re.compile(r"'[^']*'|\"(?:\\.|[^\"\\])*\"", re.S)
 SPLIT = re.compile(r"\|\||&&|[;|&\n(){}]|\$\(|`")
 SEPARATORS = "();<>|&`\n"
-WRAPPERS = {"command", "exec", "nohup", "time", "nice", "env", "timeout", "xargs", "caffeinate", "{", "}", "!", "if",
+REDIRECTS = {"<", ">", "<<", "<<<", ">>", "<&", ">&", "&>", "&>>", "<>", ">|"}  # not <( or >(: commands run in those
+WRAPPERS ={"command", "exec", "nohup", "time", "nice", "env", "timeout", "xargs", "caffeinate", "{", "}", "!", "if",
             "then", "else", "elif", "while", "until", "do"}
 GIT_WRITES = {"commit", "push", "merge", "rebase", "reset", "checkout", "switch", "stash", "tag", "cherry-pick",
               "revert", "am", "apply", "clean", "add", "rm", "mv", "worktree", "pull", "submodule", "restore",
@@ -1130,8 +1131,8 @@ def strip_heredocs(cmd: str) -> str:
 
 
 def segments(cmd: str) -> list[list[str]]:
-    """The command's simple commands, as words. Quotes are respected (quoted text is never a command) and
-    heredoc bodies dropped: a seatbelt's parser, not a shell's."""
+    """The command's simple commands, as words. Quotes are respected (quoted text is never a command), heredoc
+    bodies dropped, and redirections too (`2>&1`, `>log`): a seatbelt's parser, not a shell's."""
     text = strip_heredocs(cmd)
     try:
         lex = shlex.shlex(text, posix=True, punctuation_chars=SEPARATORS)
@@ -1139,11 +1140,17 @@ def segments(cmd: str) -> list[list[str]]:
         words = list(lex)
     except ValueError:  # an unbalanced quote: blank out what looks quoted, split roughly
         return [seg.split() for seg in SPLIT.split(QUOTED.sub("''", text))]
-    segs, cur = [], []
+    segs, cur, target = [], [], False
     for w in words:
-        if w and set(w) <= set(SEPARATORS):
+        if w in REDIRECTS:  # the command goes on; the fd before it (the 2 of 2>&1) and its target are no arguments
+            if cur and cur[-1].isdigit():
+                cur.pop()
+            target = True
+        elif w and set(w) <= set(SEPARATORS):
             segs.append(cur)
-            cur = []
+            cur, target = [], False
+        elif target:
+            target = False
         else:
             cur.append(w)
     segs.append(cur)
