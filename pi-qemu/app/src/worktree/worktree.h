@@ -12,11 +12,18 @@
 // fork in a worktree: `git -C mixxx switch -c BRANCH` first, commit there, and
 // the main checkout sees BRANCH.
 //
+// cdj2000-emulator, the emulated CDJ's (cdj/cdj.h), is borrowed the same way
+// when the branch records it and the main checkout has it; otherwise it is
+// left out, and only those who run CDJs need it.
+//
 // Each checkout builds Mixxx in its own Docker build tree (mixxx/checkout-id.sh),
 // ~4 GB of Docker's disk, which `release` gives back with the submodule
 // checkouts: git will not remove a worktree with checked-out submodules
 // (without --force). `release` refuses if they hold uncommitted changes or
-// commits no branch has.
+// commits no branch has. It also takes back a submodule that is a clone of
+// its own, as `git submodule update` makes, once all of its commits are on
+// its origin: its files, and the worktree's modules/ directory, which git
+// will not remove a worktree with, even empty.
 
 namespace worktree {
 

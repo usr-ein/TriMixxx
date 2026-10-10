@@ -10,12 +10,14 @@ namespace commands {
 void addWorktree(cli::Registry& r) {
     r.group("worktree", "a git worktree's submodules and Docker build trees, for working side by side");
     const QString help = "It acts on the checkout it runs in. A new worktree's submodules (mixxx, its\n"
-                         "lib/prolink, mixxx_config/ttymidi) are empty: `prepare` makes them linked\n"
-                         "worktrees of the main checkout's, at the commits this worktree records, so a\n"
-                         "branch made in them is the main checkout's at once. Work on the fork with\n"
+                         "lib/prolink, mixxx_config/ttymidi, and cdj2000-emulator where the branch and\n"
+                         "the main checkout have it) are empty: `prepare` makes them linked worktrees of\n"
+                         "the main checkout's, at the commits this worktree records, so a branch made in\n"
+                         "them is the main checkout's at once. Work on the fork with\n"
                          "`git -C mixxx switch -c BRANCH` first. `release`, before `git worktree remove`,\n"
-                         "gives back the Docker build tree (~4 GB) and the submodule checkouts; it refuses\n"
-                         "if they hold uncommitted changes or commits no branch has.";
+                         "gives back the Docker build tree (~4 GB) and the submodule checkouts, clones of\n"
+                         "their own included; it refuses if they hold uncommitted changes or commits no\n"
+                         "branch (for a clone of its own: its origin) has.";
     r.add({.group = "worktree", .name = "prepare", .summary = "check out the submodules the deck is built from", .help = help,
            .run = [](cli::Args& a) { a.done(); worktree::prepare(); return 0; }});
     r.add({.group = "worktree", .name = "status", .summary = "what this checkout has: submodules, branches, build tree", .help = help,
