@@ -201,7 +201,10 @@ Both halves of the state go on the wire together:
 | Not master | 0 | `0xff` |
 
 **Yielding.** We answer a `0x26` by naming the requester at `0x9f`, keep
-claiming, and let go once the requester's own status claims mastership. If it
+claiming, and let go once the requester's own status claims mastership. The
+status naming it goes out at once, as a CDJ's does, not on the next 200 ms
+tick (prolink 0.4): a CDJ asking claims on that packet, and a hand-over that
+took us 284-373 ms takes a CDJ 67-133 ms (S28). If it
 never picks it up, we let go anyway after about two seconds and log it —
 holding a mastership the network is not acting on is the worse of the two
 states, and is what "the CDJ cannot take master back" looked like from the
@@ -219,17 +222,27 @@ on, and this deck now does the same in both directions:
 
 * **Taking it when handed.** A master naming us at `0x9f` without our having
   asked — a CDJ master stopping while our synced deck plays — is taken up.
-* **Handing it on when we stop.** When our deck stops while we are master, we
-  name the lowest-numbered deck that is synced and playing as our successor,
-  once per stop. If it does not pick it up we keep master: an empty mastership
-  is worse.
+* **Handing it on when we stop.** While our deck is stopped and we are master,
+  we name the lowest-numbered deck that plays (its status flag `0x40`) as our
+  successor, and a synced one only if we are synced. That is what a
+  CDJ-2000NXS does: a paused master hands over to a deck that plays, unless it
+  is synced and that deck is not (S28 193.655 and 208.276; E01, E05, E06 A-E).
+  The rule holds while we stay stopped, so a deck that starts later, or our
+  SYNC going off, gets it too. But master is never offered twice to one deck in
+  one stop. If nobody picks it up we keep master: an empty mastership is worse.
+  The cases without sync rest on emulated CDJs only.
 
 ### Taking it unasked (D2, D3)
 
-When the network has had no master for a while, this deck claims it — if it is
-playing a track with a tempo, is **not** following another deck through SYNC,
-and has not stood down or handed over in the last 10 s (it must not take back
-what it just gave away).
+**The first deck to play takes master at once.** With nobody master, our deck
+starting to play claims it on the spot, as a CDJ does (S28 22.058, E01 23.269).
+It does so only when every player on the network has been heard, so that
+"nobody is master" is known rather than merely unheard.
+
+Otherwise, when the network has had no master for a while, this deck claims it —
+if it is playing a track with a tempo, is **not** following another deck
+through SYNC, and has not stood down or handed over in the last 10 s (it must
+not take back what it just gave away).
 
 The wait is 3 s — doubled after every collision, up to four of them — plus 1 s
 per player number above 1. The per-number step is the tie-break: two TriMixxx decks that lose

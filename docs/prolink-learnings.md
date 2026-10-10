@@ -6,10 +6,18 @@ from two real CDJ-2000NXS talking to each other, and what to change in
 stability and compatibility: number claims, keep-alives, the master
 hand-over, sync, and what it asks and answers.
 
-Status (2026-10-10): **the plan, revised after plan review round 1.**
-Nothing is built. §2 lists the learnings, §3 the changes, §4 the checks
-(what runs without a Mixxx build, and what waits for one), §5 what a real
-CDJ must show.
+Status (2026-10-11): **built, in prolink 0.4.0 and the fork; tested without
+a Mixxx build.** The plan was approved at review round 2. prolink's tests
+pass (778, the corpus included), and the fork's pure rules pass natively.
+Waiting on a build (Docker's VM is full until Sam frees it):
+- the fork compiled whole;
+- `automaster_test.cpp` under gtest;
+- A1/A2 on emulated CDJs.
+
+Waiting on Sam: the `[for Sam]` calls and the checks on a real CDJ (§5).
+
+§2 lists the learnings, §3 the changes, §4 the checks, §5 what a real CDJ
+must show.
 
 The evidence:
 - **Hardware:** `mixxx/lib/prolink/captures/`, the 37 sessions of two real
