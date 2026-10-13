@@ -30,26 +30,25 @@ link, and how changes go back upstream.
 `cdj2000-emulator/` is a submodule on the fork
 [usr-ein/cdj2000-emulator](https://github.com/usr-ein/cdj2000-emulator),
 branch `main`. As in `usr-ein/mixxx`, the fork's `main` carries TriMixxx's
-commits over upstream's. It is three things:
+commits over upstream's. It is two things:
 
-1. **Upstream main.**
-2. **Our own changes,** each a commit made directly on upstream main, so
-   each can go upstream alone ("Where the commits live").
-3. **geepot's open PR series, #33 to #38,** merged over them. Its tip, #38's
-   `pr2/launcher-defaults`, merges the whole series. Among them:
+1. **Upstream main.** Since 2026-10-12 it has geepot's NXS series (his #33
+   to #38 upstream) and our #42 and #43. Among the series:
    - #35: SH-4 TCG fast paths
    - #36: the DSP on its own thread, and the exact DSP idle skip
    - #37: the fast Blackfin core, `cdj-gui-run`
+2. **Our changes upstream does not have yet,** each a commit made on
+   upstream main and merged over it, so each can go upstream alone ("The
+   fork, and upstream").
 
 The series is what makes ProLink possible.
 
-On upstream main alone, the NXS boots to its player screen, but it is
-starved: the DSP interpreter runs inside MAIN's own memory accesses. Its
-Ethernet comes up and it sends DHCP discovers, but 38 s and 76 s apart. A
-real NXS sends them 1 s and 2 s apart. In 240 s it never reached a Pro DJ
-Link packet.
+Before it, upstream main's NXS booted to its player screen but was starved:
+the DSP interpreter ran inside MAIN's own memory accesses. Its Ethernet came
+up and it sent DHCP discovers, but 38 s and 76 s apart. A real NXS sends
+them 1 s and 2 s apart. In 240 s it never reached a Pro DJ Link packet.
 
-On the series, it runs the whole start-up as the real deck does
+With the series, it runs the whole start-up as the real deck does
 (`mixxx/lib/prolink/captures/S01-cold-boot-a`):
 - three DHCP discovers
 - ARP probes for its link-local address
@@ -361,42 +360,45 @@ pi-qemu link capture booth booth.pcap
 ## The fork, and upstream
 
 - **`usr-ein/cdj2000-emulator`** is a fork of cdj2k-revival's. Its `main` is
-  what TriMixxx pins: upstream main, our changes, and geepot's series merged
-  over them. The first pin was made on its `cdj-2k-emu` branch. Once that
-  branch merged in TriMixxx, the fork's `main` was fast-forwarded to it.
+  what TriMixxx pins: upstream main with our changes merged over it.
+  - Until upstream took geepot's series, the fork's `main` merged the series
+    itself, over an older upstream main. `fe15285` merges that history in as
+    its second parent, keeping the tree of its first (upstream main and
+    ours): every commit TriMixxx pinned until then (`0c4dc29`, `e6a4b82`,
+    `dbc4e31`, and TriMixxx#34's `0c9795c` and `b6c93a5`) stays reachable,
+    and the fork's `main` moves to it as a fast-forward.
+  - When upstream merges one of ours, the fork's `main` moves to upstream
+    main plus what is still ours, and the submodule is bumped like any
+    other.
 - **`crew merge` and `crew clean` don't know this repository.** They check
   and move the submodule pointers of prolink, mixxx and ttymidi only.
   - So a change here is pushed before the TriMixxx commit that pins it.
   - Its pin is shown to be reachable: `git -C cdj2000-emulator branch -r
     --contains <pin>`, and a fresh `git clone --recurse-submodules`.
-- **Each change for upstream is a commit made on the base its code lives
-  on:** upstream main, or geepot's series for a change to the series' own
-  code. The fork's `main` merges it in, so each one can go upstream alone:
-  `git push origin <sha>:refs/heads/<name>`, then a PR from the fork. The
-  first two, opened upstream as cdj2k-revival/cdj2000-emulator#42 and #43:
+- **Each change for upstream is a commit made on upstream main.** The
+  fork's `main` merges it in, so each one can go upstream alone:
+  `git push origin <sha>:refs/heads/<name>`, then a PR from the fork.
+- **Upstream has taken** (2026-10-12) cdj2k-revival/cdj2000-emulator#42 and
+  #43:
   - `4529093`, *EtherC: a frame shorter than 60 bytes is padded on receive,
     as the wire pads it*
   - `7709d93`, *nxs_vm: --link-hub and --link-mac put the NXS on a Pro DJ
-    Link segment*. It needs a small rebase once geepot's series lands: the
-    series moves the launcher's Ethernet option into a group of its own.
-- **For real time, three, each measured alone on an NXS** and merged as
-  the fork's `cdj-upstream`:
-  - `9fda1a6`, *QEMU on macOS: a wait under 4 ms ends on time, so no 1 ms
-    tick is lost*, on upstream main. It replaces `bb68e37`, the same patch,
-    its message and README naming where each number was measured.
-  - `b604eaa`, *QEMU TMU: an underflow the guest has not seen yet is
-    counted, not lost*, on upstream main. It replaces `380d147`: stopping a
-    channel also drops a UNF set again only for a kept underflow, since the
-    chip's own would be clear, so a handler that clears UNF and then stops
-    its channel takes no interrupt after the stop.
-  - `f234d9f`, *DSP thread: MAIN's waits for the DSP run on the wall clock
-    again*, on geepot's series tip (`30a4196`), where its code is. It
-    replaces `220d5af`, with its own measurement and the margin to the
-    stall geepot's hold fixed (60-70% of MAIN's time waiting in playback,
-    where it stalled at 80-85%). It turns off by default the held clock
-    geepot chose (his #34), so it is offered to him for the series, and as
-    a PR on main only if he would rather have that.
-  - The two on upstream main add to the same two lists, the patch stack in
+    Link segment*
+- **For real time, three, each measured alone on an NXS on upstream main**
+  and offered as PRs, in this order:
+  - `7460c1f`, *QEMU on macOS: a wait under 4 ms ends on time, so no 1 ms
+    tick is lost*
+  - `9e667de`, *QEMU TMU: an underflow the guest has not seen yet is counted,
+    not lost*. It replaces `380d147`: stopping a channel also drops a UNF
+    set again only for a kept underflow, since the chip's own would be
+    clear, so a handler that clears UNF and then stops its channel takes no
+    interrupt after the stop.
+  - `858a2b5`, *DSP thread: MAIN's waits for the DSP run on the wall clock
+    again*. It turns off by default the clock hold geepot chose in his #34
+    upstream, so its PR links his and gives the margin to the stall the hold
+    fixed: 60-70% of MAIN's time waiting in playback, where it stalled at
+    80-85%.
+  - The two QEMU ones add to the same two lists, the patch stack in
     `build-qemu-sh4.sh` and the table in `patches/README.md`: whichever
     lands second needs a one-line rebase.
   - A checkout whose emulator was built with the old
@@ -404,9 +406,9 @@ pi-qemu link capture booth booth.pcap
     `pi-qemu cdj build`: "patch does not apply cleanly". Reset its QEMU tree
     once, then build again:
     `git -C cdj2000-emulator/build/qemu checkout -- . && git -C cdj2000-emulator/build/qemu clean -fd -e build`.
-- **For `cdj window`, a series of four,** one after the other on upstream
-  main and merged as `dbc4e31`. The first can go upstream alone; the other
-  three go together.
+- **For `cdj window`, a series of four,** made one after the other on the
+  older upstream main and merged over the current one. The first can go
+  upstream alone; the other three go together.
   - `d4afe3c`, *Input channel: several clients at once, each answered on
     its own connection*
   - `d5e8e56`, *Panel lamps: in a file of their own, tested without a
@@ -414,10 +416,6 @@ pi-qemu link capture booth booth.pcap
   - `b2dae15`, *Panel lamps: the NXS's, by name, so `state` reports what
     its firmware lit*
   - `9c3500c`, *dev: lamps, the panel lamps MAIN last lit, by name*
-- **When upstream merges geepot's series,** the fork's `main` moves to
-  upstream main plus whatever of ours is still unmerged. The series then
-  stops being a merge of its own, and the submodule is bumped like any
-  other.
 - **Upstream's rule is ours too:** no firmware, no disassembly and no
   screenshots of it in a commit, a PR or an issue. Describe what the
   firmware does in words and measurements.
