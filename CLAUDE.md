@@ -12,7 +12,7 @@ Pi over a UART.
 | `trimixxx-launcher/` | boot modes and the deck's own keys on the Pi |
 | `firmwares/trimixxx-midi/` | the S3's firmware, and the MIDI contract (`lib/PiLink/MidiMap.hpp`); see its CLAUDE.md |
 | `pi-qemu/` | `pi-qemu`, the one tool for decks emulated and real: deploying (`deploy/NNN_*.sh`), images, releases, worktrees. `pi-qemu/build.sh`, then `pi-qemu help` |
-| `cdj2000-emulator/` | a submodule (our fork of cdj2k-revival/cdj2000-emulator): a CDJ-2000NXS on Pioneer's own firmware, on the decks' links through `pi-qemu cdj`. The firmware is never in git. Why and how: `docs/cdj-emulator.md` |
+| `cdj2000-emulator/` | a submodule (our fork of cdj2k-revival/cdj2000-emulator): a CDJ-2000NXS on Pioneer's own firmware, on the decks' links through `pi-qemu cdj`. The firmware is never in git. Starting one, for people: `docs/cdj-emulator-quickstart.md`. Why and how: `docs/cdj-emulator.md` |
 
 ## Testing on a deck
 

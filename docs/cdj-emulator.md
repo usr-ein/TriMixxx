@@ -15,9 +15,11 @@ two processors:
 The two talk over the serial link they use on the real board. The NXS's
 audio DSP, a TI C674x, is interpreted. Audio is not modelled.
 
-How to run one is in `pi-qemu/README.md`, "Emulated CDJs". This file says
-why it is built this way: which emulator commits, where the firmware lives,
-how a CDJ joins a link, and how changes go back upstream.
+How to start one, from nothing to two CDJs and a deck:
+[cdj-emulator-quickstart.md](cdj-emulator-quickstart.md). Every option:
+`pi-qemu/README.md`, "Emulated CDJs". This file says why it is built this
+way: which emulator commits, where the firmware lives, how a CDJ joins a
+link, and how changes go back upstream.
 
 ---
 

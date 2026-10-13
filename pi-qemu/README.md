@@ -297,6 +297,10 @@ A CDJ-2000NXS on Pioneer's own firmware (1.44), emulated by the
 be debugged without the booth: a TriMixxx deck with "real" CDJs, and the
 CDJs with each other. `docs/cdj-emulator.md` says why it is built this way.
 
+**New to it?** [docs/cdj-emulator-quickstart.md](../docs/cdj-emulator-quickstart.md)
+takes you from nothing to a CDJ in a window, then a CDJ next to a deck, then
+two CDJs. This section has every option.
+
 Once per Mac, and once per checkout:
 
 ```sh

@@ -164,6 +164,8 @@ The deck's software is split into four pieces, each with its own README:
 
 The protocol as observed is written up in [`prolinks-compat/docs/PROTOCOL.md`](prolinks-compat/docs/PROTOCOL.md), with the evidence behind every claim in `docs/FINDINGS.md` and current state in `STATUS.md`. The end goal is to port the validated approach into Mixxx (C++/Qt) and upstream it.
 
+ProLink can also be tried without the booth: emulated CDJ-2000NXSs, on Pioneer's own firmware, run on a Mac on one network with emulated TriMixxx decks. [`docs/cdj-emulator-quickstart.md`](docs/cdj-emulator-quickstart.md) starts one.
+
 ## Chassis
 
 Designed in Fusion 360 to fit the original CDJ form factor — a custom top panel with cutouts for the jog wheel, buttons, and connectors, plus a bottom tray. `ref_sizes/` holds the measured references (CDJ-1000MK3 / 2000NXS2 / 3000 dimensions, jog wheel, screen) the design is built from.
