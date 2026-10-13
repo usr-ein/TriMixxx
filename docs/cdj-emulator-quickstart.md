@@ -32,9 +32,9 @@ pi-qemu cdj build                              # the emulator, in cdj2000-emulat
 pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD    # once per Mac: extracted into ~/.pi-qemu/cdj/firmware/
 ```
 
-- **After a `git pull`:** if `git status` lists `cdj2000-emulator (new
-  commits)`, run the first three lines again. The builds redo only what
-  changed.
+- **Whenever main has moved,** by a pull or a merge, run the first three
+  lines again: neither moves the emulator or rebuilds pi-qemu by itself. The
+  builds redo only what changed.
 - **In a git worktree,** `pi-qemu worktree prepare` stands in for the first
   line: it lends the worktree the main checkout's emulator. There,
   `pi-qemu/build.sh app` builds the worktree's own pi-qemu,
@@ -99,10 +99,8 @@ player  name                  address           MAC                deck
 - **Give `link devices` 10 s.** With a TriMixxx deck on the link, a CDJ
   claims its number again every few seconds, as a real one did, so its
   keep-alives come up to ~5 s apart.
-- **On the deck's screen:** once the CDJ has a rekordbox stick (next
-  section), `pi-qemu deck press d push` opens the deck's library, which
-  lists the stick as `1 <its label>`. `deck up d --link booth --window`
-  shows the deck's screen in a window.
+- **The deck's screen:** `pi-qemu deck shot d d.png`. To watch it live,
+  start the deck with `--window`: a running deck takes no new options.
 - **A link is a name.** Decks and CDJs on the same one share a network; a
   CDJ on none has no cable in. On one link, a deck and a CDJ can't share a
   name.
@@ -112,14 +110,25 @@ player  name                  address           MAC                deck
 ## A stick, and a track that plays
 
 A CDJ takes a FAT32 image as its USB stick (`--usb`) or its SD card
-(`--sd`):
+(`--sd`). To make one, first copy a stick's files into a folder, in the
+Finder or with `cp -R`: never give the emulator the stick itself. Then make
+the image from the folder, and start a CDJ with it:
 
 ```sh
+(cd cdj2000-emulator && .venv/bin/python -m tools.cdj_main.make_sd_image ~/cdj-sticks/mine ~/cdj-sticks/mine.img --size 4G)
 pi-qemu cdj up a --usb ~/cdj-sticks/mine.img --dsp-model --window
 ```
 
-- **It opens the stick by itself:** its USB pad lights, and its browser
-  shows the stick's categories (a rekordbox stick) or its folders.
+- **The image takes seconds.** Its size is a power of two, bigger than the
+  files. It is sparse: on disk it takes only the files' room. Keep stick
+  folders out of `~/.pi-qemu/cdj/`: a CDJ named like a folder there takes it
+  for its own, and `cdj rm` deletes it.
+- **A rekordbox stick** gives the CDJ its library: BPMs, beat grids,
+  waveforms. A deck lists it, and two CDJs can sync on it. A stick of plain
+  audio files is browsed by folder, and its tracks have no BPM.
+- **The CDJ opens the stick by itself,** about 20 s after it starts: its USB
+  pad lights, and its browser shows the stick's categories (a rekordbox
+  stick) or its folders.
 - **To load a track,** turn the selector and push it, down through the
   categories or folders to the track; a push on the track loads it. With
   `--dsp-model` it plays at once: PLAY lights green and the time counts
@@ -127,33 +136,24 @@ pi-qemu cdj up a --usb ~/cdj-sticks/mine.img --dsp-model --window
 - **The CDJ's writes are thrown away.** Its history and settings go to an
   overlay deleted when it stops. The image never changes, so two CDJs can
   share one.
-- **An image from a stick:** first copy the stick's files into a folder,
-  in the Finder or with `cp -R`: never give the emulator the stick itself.
-  Then make the image from the folder, in seconds:
-
-  ```sh
-  (cd cdj2000-emulator && .venv/bin/python -m tools.cdj_main.make_sd_image ~/cdj-sticks/mine ~/cdj-sticks/mine.img --size 4G)
-  ```
-
-  The size is a power of two, bigger than the files. The image is sparse: on
-  disk it takes only the files' room. Keep stick folders out of
-  `~/.pi-qemu/cdj/`: a CDJ named like a folder there takes it for its own,
-  and `cdj rm` deletes it.
-- **A rekordbox stick** gives the CDJ its library: BPMs, beat grids,
-  waveforms. A deck lists it, and two CDJs can sync on it. A stick of plain
-  audio files is browsed by folder, and its tracks have no BPM.
 - **`--dsp-model` makes a loaded track play.** Without it, the CDJ runs
-  Pioneer's own DSP code, interpreted, far too slowly to play: a track loads
-  and stays put. With it, the emulator's model of the DSP keeps the track's
-  position in real time, and the CDJ sends its beats at the track's tempo.
+  Pioneer's own DSP code, interpreted, far too slowly to play: the track
+  stays cued on its screen, though about 4 s after the load the CDJ tells
+  the link it is playing, PLAY unpressed. With `--dsp-model`, the emulator's
+  model of the DSP keeps the track's position in real time, and the CDJ
+  sends its beats at the track's tempo.
 - **Neither makes a sound.** And with `--dsp-model` a track plays the moment
   it loads, with no cue and no PLAY; CUE then does nothing while it plays,
   until the deck has been stopped and cued once.
 - **`--test-track`** gives the CDJ an SD card with a 10 s test WAV instead.
+- **When done:** `pi-qemu cdj rm a`.
 
 ## Two CDJs: master and sync
 
+With a deck on the link too, to see what it sees:
+
 ```sh
+pi-qemu deck up d --link booth
 pi-qemu cdj up a --link booth --usb ~/cdj-sticks/mine.img --dsp-model --window
 pi-qemu cdj up b --link booth --usb ~/cdj-sticks/mine.img --dsp-model --window
 ```
@@ -172,6 +172,15 @@ With a rekordbox stick, in the two windows:
 The lamps as text, for a script: `pi-qemu cdj lamps b` says
 `"MASTER": "3"` and `"SYNC": "3"` (lit), and `"1"` for the dim glow of a key
 that is available.
+
+The deck lists both CDJs' sticks, as `1 <label>` and `2 <label>`:
+
+```sh
+pi-qemu deck press d push          # opens its library
+pi-qemu deck shot d d.png
+```
+
+When done: `pi-qemu cdj rm a`, `pi-qemu cdj rm b` and `pi-qemu deck rm d`.
 
 ## From the command line
 
@@ -202,7 +211,9 @@ pi-qemu cdj rm a                    # stop it, and delete its state
 
 - **No sound, and no jog,** but for its touch-sensitive top.
 - **A track plays only with `--dsp-model`,** and then from the moment it
-  loads, where a real NXS cues it and waits for PLAY.
+  loads, where a real NXS cues it and waits for PLAY. Without it, the screen
+  stays cued, but about 4 s after the load the CDJ tells the link it is
+  playing.
 - **Its TEMPO fader starts uncentred:** its pitch is -100 % on the link
   until the fader first moves.
 - **SYNC bends into phase** over 4 to 7 beats, up to 10 points off its
