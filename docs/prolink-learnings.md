@@ -6,16 +6,20 @@ from two real CDJ-2000NXS talking to each other, and what to change in
 stability and compatibility: number claims, keep-alives, the master
 hand-over, sync, and what it asks and answers.
 
-Status (2026-10-11): **built, in prolink 0.4.0 and the fork; tested without
-a Mixxx build; result review round 1 addressed.** The plan was approved at
-review round 2. prolink's tests pass (779, the corpus included), and the
-fork's pure rules pass natively.
-Waiting on a build (Docker's VM is full until Sam frees it):
-- the fork compiled whole;
-- `automaster_test.cpp` under gtest;
-- A1/A2 on emulated CDJs.
+Status (2026-10-13): **built, in prolink 0.4.0 and the fork; result reviews 1
+and 2 addressed.** The plan was approved at plan review round 2. prolink's
+tests pass (779, the corpus included), and the fork's pure rules pass
+natively.
 
-Waiting on Sam: the `[for Sam]` calls and the checks on a real CDJ (§5).
+**Sam waived the real-CDJ checks** (2026-10-13), in his words: "#33 I don't want to run against physical decks, they are hard to get set
+up and I don't have time. Emulated test is good enough for merging the
+changes."
+So §5 stays as a record for later. **The merge gate** is the emulated
+checks of §4:
+- the fork compiled whole, and its ProLink tests under gtest;
+- A1 and A2 on emulated CDJs.
+
+Sam's five calls (§1, D1-D5) were settled by those same emulated checks.
 
 §2 lists the learnings, §3 the changes, §4 the checks, §5 what a real CDJ
 must show.
@@ -43,11 +47,19 @@ Times are seconds into the session's capture.
 
 | # | Question | Decision |
 |---|---|---|
-| D1 | Sam kept his ProLink problems 01 and 02 in his folder for later. L1 turns out to be 01's cause, and L5 is 02 | [nightman] L1 is in: it is a learning from CDJ-to-CDJ hardware captures, and a re-claim storm is a stability problem. Its own commit, `[for Sam]`, so he can drop it. L5 the same way, `[for Sam]` |
-| D2 | L4 changes the delay of Sam's ruling D2 (`docs/tempo-sync.md`) for the first play | `[for Sam]`: built in its own commit, so it reverts alone |
-| D3 | L6 changes what MASTER does on the deck that holds master | `[for Sam]`: not built. Sam decides |
-| D4 | How C1 ends the conflict over `0x25` | **Step aside** (review round 1): we say 1 once another device says 2, and send nothing new. The role, and whatever number defence goes with it, stays with Pioneer's firmware. The alternative, answering claims with `0x05` as the role's holder, is named in §3 and taken only if A1 shows step-aside fails |
-| D5 | C3 changes Sam's D13 hand-over in cases only the emulator shows | `[for Sam]` (review round 1): S28 has the synced cases; the rows C3 changes (neither deck synced, the master's SYNC going off) rest on E01, E06 and E09 |
+Sam, 2026-10-13, on #33: "#33 I don't want to run against physical decks, they are hard to get set
+up and I don't have time. Emulated test is good enough for merging the
+changes." His calls below are decided as the last
+result review recommended them, with the emulated checks of §4 in place of
+§5's.
+
+| # | Question | Decision |
+|---|---|---|
+| D1 | Sam kept his ProLink problems 01 and 02 in his folder for later. L1 turns out to be 01's cause, and L5 is 02 | [nightman] L1 and L5 are in, as learnings from CDJ-to-CDJ captures, each in its own commit. **[Sam]** keep C1 (his 01) if A1 passes (every device ends on its own number, and the NXS stops re-claiming beside our 1); otherwise switch to its named alternative (§3). Keep C5 (his 02) if A2 passes |
+| D2 | L4 changes the delay of Sam's ruling D2 (`docs/tempo-sync.md`) for the first play | **[Sam]** keep C4: the every-player guard covers the window D2's delay covered |
+| D3 | L6 changes what MASTER does on the deck that holds master | **[Sam]** left for later: not built. It is DJ-visible, and no hardware shows it |
+| D4 | How C1 ends the conflict over `0x25` | **Step aside** (plan review round 1): we say 1 once another device says 2, and send nothing new. The role, and whatever number defence goes with it, stays with Pioneer's firmware. The alternative, answering claims with `0x05` as the role's holder, is named in §3 and taken if A1 shows step-aside fails |
+| D5 | C3 changes Sam's D13 hand-over in cases only the emulator shows | **[Sam]** keep C3 if A2 passes; otherwise keep the synced-only rule (revert baa31c2, then c6d3a9a). S28 has the synced cases; the rows C3 changes (neither deck synced, the master's SYNC going off) rest on E01, E06 and E09 |
 
 ## 2. The learnings, ranked
 
@@ -348,7 +360,12 @@ natively):
   Proposed: commit B1/B2 and A1/A2 as emu-captures E18-E21 ("a TriMixxx
   deck between two NXSs, before and after prolink 0.4"), with their NOTES.
 
-## 5. On a real CDJ, for Sam
+## 5. On a real CDJ: waived by Sam, kept as a record
+
+**Waived** (Sam, 2026-10-13): "#33 I don't want to run against physical decks, they are hard to get set
+up and I don't have time. Emulated test is good enough for merging the
+changes." The emulated checks of §4 are the
+merge gate instead. What follows is kept for a later session on real decks.
 
 None of this has met a real NXS; each wire change needs Sam's check before
 it merges. On real CDJ-2000NXSs and a deck on the new build, captured with
