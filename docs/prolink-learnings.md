@@ -7,9 +7,9 @@ stability and compatibility: number claims, keep-alives, the master
 hand-over, sync, and what it asks and answers.
 
 Status (2026-10-13): **built, in prolink 0.4.0 and the fork; result reviews 1
-and 2 addressed.** The plan was approved at plan review round 2. prolink's
-tests pass (779, the corpus included), and the fork's pure rules pass
-natively.
+and 2 addressed; the emulated merge gate passed** (§4, "Results"). The plan
+was approved at plan review round 2. prolink's tests pass (780, the corpus
+included). C1, C3, C4 and C5 all stay, by Sam's calls in §1.
 
 **Sam waived the real-CDJ checks** (2026-10-13), in his words: "#33 I don't want to run against physical decks, they are hard to get set
 up and I don't have time. Emulated test is good enough for merging the
@@ -36,8 +36,8 @@ The evidence:
   - **B2:** master and sync between the three: first play, MASTER pressed
     both ways, a master that stops, SYNC both ways.
 
-  They stay out of git for now (§4 proposes committing the before and after
-  as emu-captures).
+  They are emu-captures E18 and E19 now, and the runs after the changes are
+  E20-E22 (§4).
 
 Times are seconds into the session's capture.
 
@@ -265,10 +265,12 @@ on top:
 1. **prolink:** `CHANGELOG.md` 4ad558f; C1 e58c3bd; C2 d228efe; C5
    7679ce5; the bridge's `is_playing` 17eef69; work log 75998bf; 0.4.0
    f28b26b. Then round 1: one successor at a time, 861fbe8;
-   `PROTOCOL.md` on S18, 9779a46.
+   `PROTOCOL.md` on S18, 9779a46. Then the merge gate: the asker letting a
+   torn-down player go, 57b2d8d; emu-captures E18-E22, 034eba5; work log
+   033's results, 64e2f76.
 2. **The fork:** the `lib/prolink` bump 6742ab2; C3 c6d3a9a; C4 e7f4600.
    Then round 1: the bump 9981cd5, and C3's one successor at a time,
-   baa31c2.
+   baa31c2. Then the gate's bumps, 21f8b4d and ce0beb7.
 3. **TriMixxx:** `docs/tempo-sync.md` (C3, C4), this doc, the `mixxx` bumps.
 
 **Dropping a `[for Sam]` change.** A trial revert (`git merge-tree`, read
@@ -281,8 +283,8 @@ only) shows what each takes:
   then e58c3bd. The second conflicts in `CHANGELOG.md` and in the tests at
   the end of `virtual_cdj.rs`, where the later commits' lines sit next to
   C1's: keep theirs, drop C1's.
-- **C5:** reverting 7679ce5 conflicts in `CHANGELOG.md` only, in the same
-  way.
+- **C5:** revert 57b2d8d (the gate's fix to C5's asker), then 7679ce5. The
+  second conflicts in `CHANGELOG.md` only, in the same way.
 
 Each is a few minutes of hand merge. The commits can't be rearranged now
 without force-pushing branches that have open PRs.
@@ -301,13 +303,14 @@ and carries C3 and C4.
 
 ## 4. The checks
 
-Docker's VM has 7.9 GB free and a Mixxx build needs 8, so no Mixxx build
-runs until Sam frees it. The fork links prolink into Mixxx, so an emulated
-deck can only run the changes after a build.
+When the plan was written, Docker's VM had 7.9 GB free and a Mixxx build
+needs 8. The fork links prolink into Mixxx, so an emulated deck could run the
+changes only after a build. The VM had room again on 2026-10-13, and the
+build ran then.
 
 **Run, with no build** (`lib/prolink` on the Mac; the fork's pure rules
 natively):
-- `cargo test --workspace` with the 37-capture corpus: 779 passed. Clippy
+- `cargo test --workspace` with the 37-capture corpus: 780 passed. Clippy
   is clean in the files changed, and fmt is clean. The new tests:
   - C1: a keep-alive saying 2 from another device makes ours say 1, ours
     staying 1 after; S13's and S26's `0x05`, replayed at our claim, end our
@@ -323,6 +326,7 @@ natively):
   - The bridge: `is_playing` follows the `0x40` flag, not the play state.
   - One successor at a time (round 1): an offer in flight is not written
     over, a withdrawn one lets the next through.
+  - The asker lets a torn-down player go (the gate's fix, A1 below).
 - `tools/emudump` builds against the new `prolink-proto` and reads E01-E17
   as before: E10-E17's transcripts are byte-identical.
 - The fork's `automaster_test.cpp` and `syncsource_test.cpp`, compiled and
@@ -357,8 +361,51 @@ natively):
     - **a stick pulled from an NXS** leaves the deck's library within ~2 s of
       the eject, and no query goes to the empty slot.
 
-  Proposed: commit B1/B2 and A1/A2 as emu-captures E18-E21 ("a TriMixxx
-  deck between two NXSs, before and after prolink 0.4"), with their NOTES.
+  Committed (Sam, 2026-10-13) as emu-captures E18-E22 in `lib/prolink`: B1,
+  B2, A1, A2 and A2b (below), each with its NOTES.
+
+**Results** (2026-10-13). The fork, built whole with prolink 0.4.0 (the
+deck's build), ran on the emulated deck. Sam said to go ahead despite the
+Mac's memory warning.
+- **The fork's ProLink tests under gtest** (the Dockerfile's `unittest`
+  stage, `GTEST_FILTER='AutoMaster*:SyncSource*:MeterDeck*:SyncTempo*:AudibleBeatClock*:ProLink*'`):
+  48 of 48 passed. AutoMaster 12, SyncSource 10, MeterDeck 8, SyncTempoTable
+  10, ProLinkKeySyncTest 6, AudibleBeatClockTest 2.
+- **A1 (E20): passed.** The deck said 2 alone. NXS a joined, unanswered, and
+  said 2. Our `0x25` went to 1 at our next keep-alive, and a never claimed
+  again: its only claims are its start-up's three. Its keep-alives came
+  2.0 s apart. b joined and a answered it: a `0x03` to b's proposal of 1, a
+  `0x05` to its claim for 2. b says 1. Every device ended on its own number
+  (1, 2, 4), and only a says 2. Then the deck's cable came out for 20 s and
+  went back in. The deck went through its start-up and made one number claim,
+  answered by a's `0x05` in 3 ms, and said 1 from its first keep-alive.
+  **C1 stays**, and its alternative is not needed.
+  - **The first run of A1 found a leak, from C5.** The media asker held the
+    session's player, so after the cable came back the old player 4 ran on
+    beside a rebuilt session watching as device 7. Fixed in prolink
+    `57b2d8d` (fork `21f8b4d`); A1 ran again for the result above.
+- **A2 (E21) and A2b (E22): passed, judged on outcomes.** The Mac was heavily
+  loaded, and Sam said (2026-10-13): "it could be not worth it to do strict
+  timing-based analysis. Just skip on those if you can and target other
+  simpler and faster checks." So the hand-over timings are not a mark: they
+  took 68-78 ms, as captured.
+  - Every hand-over ran in the NXS's order, both ways, with either NXS, and
+    left one master.
+  - E06's cases A-E, with the deck as the stopped master, came out as an
+    NXS's do. It handed over in A, C and D, kept master in B and with nobody
+    playing, and handed over the moment its own sync went off (E).
+  - The deck stopping as master with both NXSs playing named a, the lower,
+    alone, and one master followed.
+  - The first play: master in the same status packet as the play.
+  - Queries: none in A2, where no slot turned loaded. In A1, one per slot
+    that turned loaded, 0.21-0.41 s after.
+  - A2's SD pull did nothing: SD OPEN is only a key, and an emulated NXS's
+    SD can't be taken out. So A2b took a's USB stick out instead. It left
+    the deck's library with nothing asked, and the deck sent no query to the
+    empty slot. Put back, it was asked about once, 0.31 s after it turned
+    loaded, and listed again.
+
+  **C3, C4 and C5 stay.**
 
 ## 5. On a real CDJ: waived by Sam, kept as a record
 
