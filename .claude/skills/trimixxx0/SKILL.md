@@ -240,7 +240,7 @@ running with its sound output and the deck's controller open, not that a
 track plays; a screenshot is meaningful straight away. `deck ready NAME`
 checks the same on its own.
 
-Typical times: `config` ~10 s, `system` ~20 s, `mixxx` ~45 s for a changed
+Typical times: `config` ~10 s, `system` ~20 s, `mixxx` ~25 s for a changed
 file or two (~75 s the first time in a worktree), plus any wait behind
 another agent's Mixxx build. `ttymidi`, `launcher` and `mixxx` leave the deck
 alone when their new binary is the same as the deck's.
@@ -277,7 +277,7 @@ whole workflow). For the deck:
    Docker build tree, then swaps it onto your deck.
    - The first build in a worktree starts from a copy of the main checkout's
      tree and recompiles only what differs (~75 s in all).
-   - After that, each build recompiles only what changed, by content (~45 s).
+   - After that, each build recompiles only what changed, by content (~25 s).
    - Mixxx builds queue: one compiles at a time across all agents, which
      keeps Docker's memory in bounds.
 4. **Changing the S3's MIDI table** (`firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp`)
@@ -336,7 +336,7 @@ Every time you end your work, whether it succeeded, failed or stopped part way:
      `pi-qemu deck stop NAME` suspends one you will come back to; that costs
      disk, not RAM, and `up` resumes it in ~3 s.
 3. Working in a git worktree that is going away: **`pi-qemu worktree release`**.
-   It gives back the worktree's Docker build tree (~4 GB) and its submodule
+   It gives back the worktree's Docker build tree (~2 GB) and its submodule
    checkouts. It refuses while they hold uncommitted work, or commits that no
    branch has. Leave the worktree in place if the person may still want it,
    and say so.

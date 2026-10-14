@@ -50,7 +50,7 @@ from a worktree:
      The first build copies the main checkout's tree and rebuilds only what
      differs, then each build after that only what changed, both by content.
    - A Mixxx deploy takes about 75 s the first time in a worktree, then about
-     45 s.
+     25 s.
    - Builds from several worktrees queue on the shared compiler cache, so a
      deploy may wait for another agent's build first. They never mix code
      from two checkouts.
@@ -58,7 +58,7 @@ from a worktree:
      run by its path, `pi-qemu/app/build/pi-qemu`. Only the main checkout's
      build is the `pi-qemu` on PATH.
 4. **When done:** commit, `pi-qemu deck rm NAME`, then
-   **`pi-qemu worktree release`**. That gives back the worktree's ~4 GB
+   **`pi-qemu worktree release`**. That gives back the worktree's ~2 GB
    Docker build tree and its submodule checkouts. It refuses if they hold
    uncommitted work or commits no branch has. git will not remove a worktree
    with checked-out submodules until this is done (short of `--force`, which

@@ -15,7 +15,7 @@ void addWorktree(cli::Registry& r) {
                          "the main checkout's, at the commits this worktree records, so a branch made in\n"
                          "them is the main checkout's at once. Work on the fork with\n"
                          "`git -C mixxx switch -c BRANCH` first. `release`, before `git worktree remove`,\n"
-                         "gives back the Docker build tree (~4 GB) and the submodule checkouts, clones of\n"
+                         "gives back the Docker build tree (~2 GB) and the submodule checkouts, clones of\n"
                          "their own included; it refuses if they hold uncommitted changes or commits no\n"
                          "branch (for a clone of its own: its origin) has.";
     r.add({.group = "worktree", .name = "prepare", .summary = "check out the submodules the deck is built from", .help = help,

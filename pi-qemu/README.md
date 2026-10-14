@@ -494,10 +494,10 @@ repo, each deploying its own code to its own emulated deck. The root
   recompiles exactly what changed since that tree's last build, whatever git
   did to the files' dates. A worktree's first build starts from a copy of the
   main checkout's tree.
-  - A worktree's first Mixxx deploy takes about 75 s, later ones about 45 s.
+  - A worktree's first Mixxx deploy takes about 75 s, later ones about 25 s.
   - Builds queue on the shared compiler cache, so only one Mixxx compiles at a
     time: two agents deploying at once measured 87 s and 138 s.
-  - Each tree takes about 4 GB of Docker's disk.
+  - Each tree takes about 2 GB of Docker's disk.
 - **`pi-qemu worktree release`**, before removing a worktree, empties its
   Docker build trees and removes its submodule worktrees. Until then git
   refuses to remove a worktree with checked-out submodules, short of
@@ -564,8 +564,8 @@ pi-qemu deck shot mix /tmp/after.png
 The build goes by content. Every checkout has its own build tree in Docker's
 cache, with its own copy of the sources, and recompiles exactly the files
 whose content changed since that tree's last build. `tree-sync: N change(s)`
-in the output says how many. A changed file or two deploys in about 45 s.
-The main checkout's first build in this layout compiles everything (~25 min
+in the output says how many. A changed file or two deploys in about 25 s.
+The main checkout's first build in this layout compiles everything (~10 min
 at the 4 jobs Docker's memory allows); after that, builds only redo what
 changed.
 
