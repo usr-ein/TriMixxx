@@ -61,14 +61,17 @@ REPOS = [
     ("mixxx/lib/prolink", "usr-ein/prolink"),
     ("mixxx", "usr-ein/mixxx"),
     ("mixxx_config/ttymidi", "usr-ein/ttymidi"),
+    ("cdj2000-emulator", "usr-ein/cdj2000-emulator"),
     (".", "usr-ein/TriMixxx"),
 ]
-REPO_KEYS = {"prolink": "mixxx/lib/prolink", "mixxx": "mixxx", "ttymidi": "mixxx_config/ttymidi", "trimixxx": "."}
+REPO_KEYS = {"prolink": "mixxx/lib/prolink", "mixxx": "mixxx", "ttymidi": "mixxx_config/ttymidi",
+             "cdj": "cdj2000-emulator", "trimixxx": "."}
 # Each submodule's pointer: child path -> (parent path, the pointer's path inside the parent).
 GITLINKS = {
     "mixxx/lib/prolink": ("mixxx", "lib/prolink"),
     "mixxx": (".", "mixxx"),
     "mixxx_config/ttymidi": (".", "mixxx_config/ttymidi"),
+    "cdj2000-emulator": (".", "cdj2000-emulator"),
 }
 STATES = {"ready": "ready for review", "changes": "changes requested", "approved": "approved", "needs-sam": "needs Sam",
           "plan-approved": "plan approved: a green light to build it, never a merge"}
@@ -401,7 +404,7 @@ def snapshot() -> dict:
     swap_gb = float(m.group(1)) / 1024 if m else None
     disk_gb = shutil.disk_usage(MAIN).free / 2**30
     sessions = claude_sessions()
-    live = {s.get("sessionId") for s in sessions}
+    live = {s.get("sessionId") for s in sessions if s.get("status") not in ENDED}  # ended ones are listed too
     regs = [r for r in registrations() if r["sid"] in live]
     return {
         "ncpu": ncpu, "load": load, "pressure": pressure, "mem_free_pct": mem_free, "swap_gb": swap_gb,
@@ -483,10 +486,21 @@ def night_launch_refusal(name: str):
         die(why, 2)
 
 
+def published_main() -> str:
+    """origin/main, freshly fetched in each repo: what a new branch starts from, as crew merge measures it against
+    that. The local main can lag it (a PR merged on GitHub), or hold Sam's unpushed commits, which a minion's
+    pushed branch would publish."""
+    for path, repo in REPOS:
+        if (MAIN / path / ".git").exists():
+            run(["git", "-C", MAIN / path, "fetch", "--quiet", "origin"], check=False, timeout=180)
+    return tip(MAIN, "refs/remotes/origin/main") or git(MAIN, "rev-parse", "main")
+
+
 def write_pitch(path: Path, branch: str, mode: str, text: str):
     title = text.strip().splitlines()[0][:72] if text.strip() else branch
-    base = git(MAIN, "rev-parse", "--short", "main")
-    path.write_text(f"# {branch}: {title}\n\nMode: {mode}. Started {now_iso()} by Sam, from main {base}.\n\n"
+    ref = base_ref(MAIN)
+    base = (tip(MAIN, ref) or "?")[:7]
+    path.write_text(f"# {branch}: {title}\n\nMode: {mode}. Started {now_iso()} by Sam, from {ref} {base}.\n\n"
                     f"## Pitch (Sam's words)\n\n{text.strip()}\n")
 
 
@@ -502,8 +516,13 @@ def cmd_minion(a) -> int:
             if v != "ok":
                 die(f"not starting {b}: resources {v}: {'; '.join(why)} (--force overrides)", 10)
         exists = git_ok(MAIN, "rev-parse", "--verify", "-q", f"refs/heads/{b}")
-        run(["git", "-C", MAIN, "worktree", "add", wt] + ([b] if exists else ["-b", b, "main"]))
-        print(f"{b}: worktree {wt}, branch {b}" + ("" if exists else f" from main {git(MAIN, 'rev-parse', '--short', 'main')}"))
+        base = None if exists else published_main()
+        run(["git", "-C", MAIN, "worktree", "add", wt] + ([b] if exists else ["-b", b, base]))
+        print(f"{b}: worktree {wt}, branch {b}" + ("" if exists else f" from origin/main {base[:7]}"))
+        ahead = 0 if exists else int(git(MAIN, "rev-list", "--count", "origin/main..main", check=False) or 0)
+        if ahead:
+            print(f"note: main has {ahead} commit(s) origin lacks: {b} starts without them, so its pushes never "
+                  "publish them. Push them first if the pitch needs them")
         r = run(["pi-qemu", "worktree", "prepare"], cwd=wt, check=False, timeout=900)
         if r.returncode:
             die(f"pi-qemu worktree prepare failed in {wt}: {(r.stderr or r.stdout).strip()[-800:]}")
@@ -717,7 +736,35 @@ def cmd_register(a) -> int:
         top = MAIN
     reg = register_session(sid, a.role, a.mode, branch, top)
     print(f"registered {session_name(reg)}: {a.role}, {a.mode} mode, in {top}")
+    found = twins(reg)
+    if found:
+        print(twin_warning(reg, found))
+        return 3
     return 0
+
+
+def twins(reg: dict) -> list[dict]:
+    """The other running sessions registered in this one's role, on its branch. Two in one worktree undo each other's
+    work: on 2026-10-13 the nightman resumed two ended minions as copies, then Sam opened the originals, and for ten
+    minutes each branch had two sessions re-cutting its commits and editing one PR body."""
+    try:
+        live = {s.get("sessionId"): s for s in claude_sessions() if s.get("status") not in ENDED}
+    except Fail:
+        return []
+    return [dict(r, status=live[r["sid"]].get("status"), kind=live[r["sid"]].get("kind"))
+            for r in registrations() if r["sid"] != reg.get("sid") and r["sid"] in live
+            and r["role"] == reg["role"] and r.get("branch") == reg.get("branch")]
+
+
+def twin_warning(reg: dict, found: list[dict]) -> str:
+    t = found[0]
+    what = "the crew's nightman" if reg["role"] == "nightman" else f"{reg['branch']}'s {reg['role']}"
+    then = ("Tell Sam: he stops one (`claude stop ID`, or exits its tab)." if reg["role"] == "nightman" else
+            "Day: tell Sam which is which; he stops one (`claude stop ID`, or exits its tab). Night: tell the "
+            "nightman, which stops its own copy.")
+    return (f"Crew: {session_name(reg)} runs twice. Session {t['sid']} ({t.get('kind') or 'a session'}, "
+            f"{t.get('status')}, {t['mode']} mode, registered {(t.get('since') or '')[11:16]}) is {what} too. Two "
+            f"sessions in one worktree undo each other's work: change nothing until one is stopped. {then}")
 
 
 # --- status -----------------------------------------------------------------
@@ -761,6 +808,10 @@ def cmd_status(a) -> int:
         print("no crew worktrees")
     held = locks()
     print("\nreal decks: " + ("".join(f"\n  {lock_line(u, lk)}" for u, lk in held.items()) or "none locked"))
+    e = errand()
+    if e:
+        print(f"\nerrand: the nightman's, until {dt.datetime.fromtimestamp(e['until']).strftime('%H:%M')} "
+              f"({e['why']}): the guard lets it off; `crew errand --done` ends it")
     night = by_name.get("nightman")
     print(f"\nnightman: {night.get('status') if night else 'not running'}")
     v, why = verdict(snap, lim, "minion")
@@ -851,6 +902,12 @@ def tip(d: Path, ref: str) -> str | None:
     return r.stdout.strip() or None
 
 
+def base_ref(d: Path) -> str:
+    """What a branch is measured against: origin/main, which crew merge lands it on (main where there is no origin).
+    The local main can lag it: a PR merged on GitHub moves origin/main only."""
+    return "origin/main" if tip(d, "refs/remotes/origin/main") else "main"
+
+
 def change_id(d: Path, t: str) -> str:
     """What a commit changes against main, as a patch id: the same after a clean rebase, different otherwise.
     Submodule pointers are left out: each submodule's own change is compared in its repo."""
@@ -862,7 +919,7 @@ def change_id(d: Path, t: str) -> str:
 def approved_tips(approved: str) -> dict:
     """Each repo's commit as the approved TriMixxx commit records it."""
     res = {".": approved}
-    for child in ("mixxx", "mixxx_config/ttymidi", "mixxx/lib/prolink"):  # parents before their children
+    for child in ("mixxx", "mixxx_config/ttymidi", "cdj2000-emulator", "mixxx/lib/prolink"):  # parents first
         parent, sub = GITLINKS[child]
         if res.get(parent) and (MAIN / child / ".git").exists():
             res[child] = git(MAIN / parent, "rev-parse", f"{res[parent]}:{sub}", check=False) or None
@@ -959,6 +1016,7 @@ def cmd_merge(a) -> int:
 
     old_links = {child: git(MAIN / parent, "rev-parse", f"HEAD:{sub}", check=False)
                  for child, (parent, sub) in GITLINKS.items() if (MAIN / child / ".git").exists()}
+    was_main = tip(MAIN, "refs/remotes/origin/main")
     for path, repo, d, t, what in plan:
         if what == "merged":
             continue
@@ -989,6 +1047,8 @@ def cmd_merge(a) -> int:
         else:
             print(f"note: {child} in the main checkout is at {now[:7]}, not at {want[:7]} as main records; left as it is")
 
+    rebuild_pi_qemu(was_main, tips.get("."))
+
     for path, repo, d, t, what in plan:
         p = prs.get(path)
         if not p:
@@ -1000,6 +1060,72 @@ def cmd_merge(a) -> int:
             time.sleep(3)
         print(f"{repo}#{p['number']}: {state.lower()}")
     return 0
+
+
+def rebuild_pi_qemu(was: str | None, now: str | None):
+    """The pi-qemu on PATH is the main checkout's build. After a merge that changes its code, every deck verb would
+    run the old code (crew clean's `worktree release` included) until someone rebuilt it: crew merge does."""
+    if not was or not now or was == now:
+        return
+
+    def changed(*paths):
+        return run(["git", "-C", MAIN, "diff", "--quiet", was, now, "--", *paths], check=False).returncode == 1
+    if changed("pi-qemu/qemu"):
+        print("note: QEMU's patches changed (pi-qemu/qemu): `pi-qemu/build.sh qemu` in the main checkout, once no "
+              "deck runs")
+    if not changed("pi-qemu/app", "pi-qemu/build.sh"):
+        return
+    if git(MAIN, "symbolic-ref", "-q", "HEAD", check=False) != "refs/heads/main":
+        print("note: pi-qemu changed, but the main checkout is not on main: `pi-qemu/build.sh app` there once it is")
+        return
+    print("pi-qemu changed: rebuilding the main checkout's (pi-qemu/build.sh app)", flush=True)
+    try:
+        r = run([MAIN / "pi-qemu" / "build.sh", "app"], cwd=MAIN, check=False, timeout=1800)
+    except Fail as e:
+        r = subprocess.CompletedProcess([], 1, "", str(e))
+    if r.returncode == 0:
+        print("pi-qemu rebuilt: the one on PATH runs main's code")
+    else:
+        print("note: pi-qemu's rebuild failed, so the one on PATH runs older code: `pi-qemu/build.sh app` in the main "
+              f"checkout\n{(r.stderr or r.stdout).strip()[-800:]}")
+
+
+def pin_links(b: str) -> set[str]:
+    """A PR shows its screenshots by the branch's files (…/blob/BRANCH/…?raw=true), and those links break once the
+    branch is deleted. They are pointed at the branch's last commit, which main has. Returns the repos whose links
+    could not be: their branch stays on origin."""
+    tips = {repo: t for path, repo in REPOS if (MAIN / path / ".git").exists()
+            for t in [tip(MAIN / path, f"refs/remotes/origin/{b}")] if t}
+    if not tips:
+        return set()
+    try:
+        prs = find_prs(b)
+    except Fail as e:
+        print(f"note: {b}'s PRs could not be read ({e}): its branches stay on origin, so their links work")
+        return set(tips)
+    failed = set()
+    for pr in prs.values():
+        body, hit = pr.get("body") or "", set()
+        new = body
+        for repo, t in tips.items():
+            link = re.compile(rf"((?:github\.com/{re.escape(repo)}/(?:blob|raw|tree)|raw\.githubusercontent\.com/"
+                              rf"{re.escape(repo)})/){re.escape(b)}/", re.I)
+            new, n = link.subn(lambda m, t=t: f"{m.group(1)}{t}/", new)
+            if n:
+                hit.add(repo)
+        if new == body:
+            continue
+        try:
+            r = gh(["pr", "edit", str(pr["number"]), "--repo", pr["repo"], "--body-file", "-"], check=False, input=new)
+        except Fail as e:
+            r = subprocess.CompletedProcess([], 1, "", str(e))
+        if r.returncode:
+            failed |= hit
+            print(f"note: {pr['repo']}#{pr['number']}: its links to {b}'s files could not be pinned "
+                  f"({(r.stderr or r.stdout).strip()[-200:]}): {b} stays on origin; `crew clean {b}` again")
+        else:
+            print(f"{pr['repo']}#{pr['number']}: its links to {b}'s files now name its merged commit")
+    return failed
 
 
 def cmd_clean(a) -> int:
@@ -1050,15 +1176,20 @@ def cmd_clean(a) -> int:
             die(f"pi-qemu worktree release refused: {(r.stderr or r.stdout).strip()[-600:]}", 2)
         run(["git", "-C", MAIN, "worktree", "remove", wt])
         print(f"removed worktree {wt}")
+    unpinned = pin_links(b)
     for path, repo in REPOS:
         d = MAIN / path
         if not (d / ".git").exists():
             continue
         if tip(d, f"refs/heads/{b}"):
             git(d, "branch", "-d", b, check=False)
-        if tip(d, f"refs/remotes/origin/{b}"):
+        if tip(d, f"refs/remotes/origin/{b}") and repo not in unpinned:
             run(["git", "-C", d, "push", "--quiet", "origin", "--delete", b], check=False, timeout=120)
             print(f"{path}: deleted {b} on origin")
+        ups = git(d, "for-each-ref", "--format=%(refname:short)", f"refs/remotes/origin/up/{b}/", check=False).split()
+        if ups:
+            print(f"{path}: kept on origin for upstream PRs: {', '.join(u.removeprefix('origin/') for u in ups)} "
+                  "(Sam deletes each once upstream has it)")
     for reg in registrations():
         if reg.get("branch") == b:
             (CREW / "sessions" / f"{reg['sid']}.json").unlink(missing_ok=True)
@@ -1074,6 +1205,8 @@ def cmd_gh(argv: list[str]) -> int:
     """Every argument goes to gh untouched (argparse would eat a leading -R)."""
     if argv[:2] == ["pr", "merge"]:
         die("merges go through `crew merge` (fast-forward, deepest repo first)", 2)
+    me = registration(os.environ.get("CLAUDE_CODE_SESSION_ID"))
+    away = bool(me and me["role"] == "nightman" and errand())  # Sam's errand: a PR upstream, say; still as usr-ein
     repo = None
     for i, x in enumerate(argv):
         if x in ("-R", "--repo") and i + 1 < len(argv):
@@ -1081,10 +1214,10 @@ def cmd_gh(argv: list[str]) -> int:
         elif x.startswith("--repo="):
             repo = x.split("=", 1)[1]
         m = re.match(r"/?repos/([^/]+)/", x)
-        if m and m.group(1).lower() != GH_USER.lower():
+        if m and m.group(1).lower() != GH_USER.lower() and not away:
             die(f"{x} is not a {GH_USER} repository", 2)
     repo = repo or repo_of(Path.cwd())
-    if not repo or repo.split("/")[0].lower() != GH_USER.lower():
+    if not repo or (repo.split("/")[0].lower() != GH_USER.lower() and not away):
         die(f"{repo or 'this directory'} is not a {GH_USER} repository (pass -R {GH_USER}/REPO); "
             "never upstream mixxxdj/mixxx", 2)
     os.execvpe("gh", ["gh", *argv], gh_env(repo))
@@ -1288,6 +1421,63 @@ def release_locks(holder: str) -> list[str]:
     for u in freed:
         (CREW / "locks" / f"{u}.json").unlink(missing_ok=True)
     return freed
+
+
+# --- Sam's errands -----------------------------------------------------------------
+
+ERRAND_MAX_MIN = 60
+
+
+def errand() -> dict | None:
+    """The errand Sam sent the nightman on, while it lasts: {why, by, since, until (epoch), minutes}."""
+    try:
+        e = json.loads((CREW / "errand.json").read_text())
+    except (OSError, ValueError):
+        return None
+    return e if isinstance(e, dict) and e.get("until", 0) > time.time() else None
+
+
+def log_errand(line: str):
+    """Every errand, and every command run on one, in .crew/errands.md: the morning report quotes it."""
+    with (CREW / "errands.md").open("a") as f:
+        f.write(line.rstrip("\n") + "\n")
+
+
+def cmd_errand(a) -> int:
+    """Sam, here, sends the nightman on an errand the crew's rules forbid (on 2026-10-10: push the emulator fork's
+    main, open PRs upstream; it moved its own registration aside to do it). For a few minutes the guard lets the
+    nightman off, but for disk commands, sudo, killing by name and a real deck a minion holds; crew gh takes repos
+    outside usr-ein/ (still as usr-ein); every command is logged."""
+    me = registration(os.environ.get("CLAUDE_CODE_SESSION_ID"))
+    if me and me["role"] != "nightman":
+        die(f"a {me['role']} runs no errands: Sam sends the nightman on one", 2)
+    who, cur = session_name(me) if me else "Sam", errand()
+    until = lambda e: dt.datetime.fromtimestamp(e["until"]).strftime("%H:%M")
+    if a.done:
+        if cur:
+            (CREW / "errand.json").unlink(missing_ok=True)
+            log_errand(f"- {now_iso()[11:19]} ended by {who}\n")
+        print("errand ended: the guard holds the nightman again" if cur else "no errand open")
+        return 0
+    if not a.why:
+        print(f"errand open until {until(cur)}, by {cur['by']}: {cur['why']}" if cur else "no errand open")
+        return 0
+    if not 1 <= a.minutes <= ERRAND_MAX_MIN:
+        die(f"--minutes is 1 to {ERRAND_MAX_MIN}: a longer errand is several", 2)
+    e = {"why": a.why.strip(), "by": who, "since": now_iso(), "until": time.time() + 60 * a.minutes,
+         "minutes": a.minutes}
+    CREW.mkdir(parents=True, exist_ok=True)
+    (CREW / "errand.json").write_text(json.dumps(e, indent=2) + "\n")
+    log_errand(f"\n## {e['since'][:16].replace('T', ' ')}, {a.minutes} min, by {who}: {e['why']}\n")
+    plan = CREW / "night" / "plan.md"
+    if plan.exists():
+        with plan.open("a") as f:
+            f.write(f"- {e['since'][11:16]} Errand for Sam, {a.minutes} min: {e['why']} (its commands: "
+                    f"{CREW / 'errands.md'})\n")
+    print(f"errand open until {until(e)}: the guard lets the nightman off but for disk commands, sudo, killing by "
+          f"name and a real deck a minion holds; crew gh takes repos outside {GH_USER}/. Every command goes in "
+          f"{CREW / 'errands.md'}. `crew errand --done` ends it sooner.")
+    return 0
 
 
 # --- hooks ---------------------------------------------------------------------
@@ -1504,20 +1694,30 @@ def cdj_reason(args: list[str], role: str, branch: str | None) -> str | None:
     return None
 
 
+def own_branch(name: str, branch: str) -> bool:
+    """A minion's branch, or one of its branches for upstream PRs, up/BRANCH/NAME (one per PR, in a fork). Not
+    BRANCH/NAME: git keeps no branch BRANCH/x beside a branch BRANCH."""
+    return name == branch or (name.startswith(f"up/{branch}/") and len(name) > len(f"up/{branch}/"))
+
+
 def push_reason(rest: list[str], d: Path, branch: str) -> str | None:
     flags = [x for x in rest if x.startswith("-")]
     if any(f in ("--all", "--mirror", "--tags", "--follow-tags", "--prune") or f.startswith(("--delete", "-d"))
            for f in flags):
         return f"push only your branch {branch}: no --all, --mirror, --tags or --delete"
     refspecs = [x for x in rest if not x.startswith("-")][1:]
-    current = git(d, "branch", "--show-current", check=False)
     for rs in refspecs or ["HEAD"]:
         src, _, dst = rs.lstrip("+").partition(":")
         dst = (dst or src).removeprefix("refs/heads/")
         if dst == "HEAD":
-            dst = current
-        if dst != branch:
-            return f"you may push only your branch {branch} (this pushes {dst or 'a detached HEAD'})"
+            if re.search(r"[$`]", str(d)) or not d.is_dir():
+                return (f"can't tell which branch this pushes: it runs in {d}, which the guard can't follow (a "
+                        f"variable, or not there yet). Name the branch (`git push origin {branch}`), or write the "
+                        "path out (`git -C /abs/path push`)")
+            dst = git(d, "branch", "--show-current", check=False)
+        if not own_branch(dst, branch):
+            return (f"you may push only your branch {branch}, and up/{branch}/NAME for upstream PRs "
+                    f"(this pushes {dst or 'a detached HEAD'})")
     return None
 
 
@@ -1557,6 +1757,34 @@ def real_deck_reason(host: str, reg: dict, flagged=False) -> str | None:
             f"`crew lock {named[0] if named else 'UNIT'} {host}`; at night the nightman grants units, on Sam's go")
 
 
+def machine_reason(prog: str, args: list[str]) -> str | None:
+    """What no crew session does, an errand of Sam's included."""
+    if prog in ("diskutil", "fdisk", "asr") or prog.startswith(("newfs", "mkfs")) or \
+            (prog == "dd" and any(x.startswith("of=") for x in args)):
+        return "Sam flashes and formats disks himself; never touch a disk"
+    if prog in ("pkill", "killall"):
+        return "never kill by name: other agents' qemu, docker and pi-qemu share this Mac; kill only PIDs you started"
+    return None
+
+
+def errand_reason(cmd: str) -> str | None:
+    """On an errand of Sam's the guard keeps only what protects the others and Sam's own rules."""
+    for prog, args in commands(cmd):
+        if prog == "sudo":
+            return "nothing the crew does needs sudo, errand or not: Sam runs that himself"
+        why = machine_reason(prog, args)
+        if why:
+            return f"{why} (errand or not)"
+        hosts = remote_hosts(prog, args) if prog in ("ssh", "sftp", "mosh", "scp", "rsync") else []
+        if prog == "pi-qemu" and host_flag(args):
+            hosts.append(host_flag(args))
+        for h in hosts:
+            found = lock_on(host_names(h), locks())
+            if found and found[1]["holder"] != "Sam":
+                return f"{h} is {lock_line(*found)}: one holder at a time, errand or not"
+    return None
+
+
 def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
     role, mode, branch = reg["role"], reg["mode"], reg.get("branch")
     here = Path(cwd or ".")
@@ -1569,11 +1797,9 @@ def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
             continue
         if prog == "sudo":
             return "nothing the crew does on the Mac needs sudo"
-        if prog in ("diskutil", "fdisk", "asr") or prog.startswith(("newfs", "mkfs")) or \
-                (prog == "dd" and any(x.startswith("of=") for x in args)):
-            return "Sam flashes and formats disks himself; never touch a disk"
-        if prog in ("pkill", "killall"):
-            return "never kill by name: other agents' qemu, docker and pi-qemu share this Mac; kill only PIDs you started"
+        why = machine_reason(prog, args)
+        if why:
+            return why
         if prog == "docker" and (args[:1] == ["rmi"] or args[:2] == ["volume", "rm"] or "prune" in args[:2]):
             return "freeing Docker space is Sam's call: report it"
         if prog == "gh":
@@ -1614,6 +1840,8 @@ def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
                 return f"a {role} does not start or adopt sessions"
             if sub in (["merge"], ["clean"]) and not (role == "nightman" or (role == "bitch" and mode == "day")):
                 return "merges are the nightman's at night, and the bitch's after Sam's yes in the day"
+            if sub == ["errand"] and role != "nightman":
+                return "errands are Sam's to give the nightman"
         if prog == "git":
             verb, rest, cdir = git_verb(args)
             if verb is None:
@@ -1638,11 +1866,17 @@ def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
 
 def hook_guard(data: dict, reg: dict):
     tool, ti = data.get("tool_name"), data.get("tool_input") or {}
-    reason = None
+    away = reg["role"] == "nightman" and errand()
+    reason, what = None, None
     if tool == "Bash":
-        reason = bash_reason(ti.get("command", ""), reg, data.get("cwd") or os.getcwd())
+        what = ti.get("command", "")
+        reason = (errand_reason(what) if away else
+                  bash_reason(what, reg, data.get("cwd") or os.getcwd()))
     elif tool in ("Edit", "Write", "MultiEdit", "NotebookEdit"):
-        reason = write_reason(ti.get("file_path") or ti.get("notebook_path") or "", reg)
+        what = ti.get("file_path") or ti.get("notebook_path") or ""
+        reason = None if away else write_reason(what, reg)
+    if away and what is not None and not reason:
+        log_errand(f"- {now_iso()[11:19]} {tool}: {' ⏎ '.join(what.splitlines())[:600]}")
     if reason:
         return {"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
                                        "permissionDecisionReason": f"crew guard ({reg['role']}, {reg['mode']}): {reason}."}}
@@ -1673,7 +1907,7 @@ def hook_drift(data: dict, reg: dict):
     for path_, _ in REPOS:
         d = wt / path_
         if (d / ".git").exists() and tip(d, f"refs/heads/{b}"):
-            stat = git(d, "diff", "--shortstat", f"main...{b}", check=False)
+            stat = git(d, "diff", "--shortstat", f"{base_ref(d)}...{b}", check=False)
             if stat:
                 areas.append(f"{path_}: {stat}")
     dirty = len(git(wt, "status", "--porcelain", "--ignore-submodules=dirty", check=False).splitlines())
@@ -1693,14 +1927,20 @@ def hook_drift(data: dict, reg: dict):
 
 def hook_session(data: dict, reg: dict):
     hso = {"hookEventName": "SessionStart", "sessionTitle": session_name(reg)}
+    notes = []
     if data.get("source") in ("resume", "compact"):
         where = f"{CREW}/night/plan.md" if reg["role"] == "nightman" else \
             f"{reg['worktree']}/.crew/pitch.md and notes.md"
         skill = MAIN / ".claude" / "skills" / reg["role"] / "SKILL.md"
-        hso["additionalContext"] = (
+        notes.append(
             f"Crew: this session is the {reg['role']}" + (f" for {reg['branch']}" if reg.get("branch") else "") +
             f", in {reg['mode']} mode. Before going on, re-read {skill} (the main checkout's copy is the "
             f"current one) and {where}.")
+    found = twins(reg)
+    if found:
+        notes.append(twin_warning(reg, found))
+    if notes:
+        hso["additionalContext"] = "\n\n".join(notes)
     return {"hookSpecificOutput": hso}
 
 
@@ -1741,10 +1981,14 @@ def cmd_feedback(a) -> int:
     who = f"{session_name(reg)} ({reg['role']}, {reg['mode']})" if reg else \
         ("a session" if os.environ.get("CLAUDE_CODE_SESSION_ID") else "Sam")
     CREW.mkdir(parents=True, exist_ok=True)
-    if not log.exists():
-        log.write_text("# Crew feedback\n\nWhere the crew's rules or tools got in the way. `/crew-tune` works from it.\n\n")
-    with log.open("a") as f:
-        f.write(f"- {now_iso()} {who}: {' '.join(a.text)}\n")
+    text = log.read_text() if log.exists() else \
+        "# Crew feedback\n\nWhere the crew's rules or tools got in the way. `/crew-tune` works from it.\n"
+    # Open lines come first: /crew-tune keeps what it handled under `## Handled`, at the end.
+    m = re.search(r"^## Handled\b", text, re.M)
+    head, tail = (text[:m.start()], text[m.start():]) if m else (text, "")
+    lines = head.rstrip("\n").splitlines()
+    head = "\n".join(lines) + ("\n" if lines and lines[-1].startswith("- ") else "\n\n" if lines else "")
+    log.write_text(f"{head}- {now_iso()} {who}: {' '.join(a.text)}\n" + (f"\n{tail}" if tail else ""))
     print(f"noted in {log}")
     return 0
 
@@ -1879,6 +2123,13 @@ def main(argv=None) -> int:
     s = sub.add_parser("unlock", help="free a real deck: its holder, the nightman or Sam")
     s.add_argument("unit")
     s.set_defaults(fn=cmd_unlock)
+
+    s = sub.add_parser("errand", help="(the nightman, on Sam's own words while he is here) let the guard off the "
+                                      "nightman for a few minutes, every command logged; no --why: the open one")
+    s.add_argument("--why", help="Sam's words, with the time: what he sends it to do")
+    s.add_argument("--minutes", type=int, default=15, help=f"how long: 1 to {ERRAND_MAX_MIN} (15)")
+    s.add_argument("--done", action="store_true", help="end it now")
+    s.set_defaults(fn=cmd_errand)
 
     s = sub.add_parser("hook", help="(Claude Code hooks) guard, drift, session, prompt")
     s.add_argument("kind", choices=list(HOOKS))

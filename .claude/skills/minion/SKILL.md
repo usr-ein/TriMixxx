@@ -60,6 +60,10 @@ Every time you start or are woken:
      EnterWorktree (`path`: `.claude/worktrees/BRANCH`), register again, and
      write the pitch to `.crew/pitch.md`: Sam's words, verbatim, under
      `## Pitch (Sam's words)`.
+   - If it says your branch's minion runs twice (exit 3), change nothing: two
+     sessions in one worktree undo each other's work. Day: tell Sam which
+     session is which, and he stops one. Night: tell the nightman, which
+     stops its copy.
 2. Read `.crew/pitch.md` (the pitch; at night also the nightman's brief:
    scope, done-when, latitude, resources, and Sam's answers),
    `.crew/notes.md` if you have one (your own log), and `crew pr BRANCH`.
@@ -120,8 +124,14 @@ Every time you start or are woken:
 - **Your worktree only.** Edit and commit only there; the guard refuses the
   main checkout. Stage explicit paths, never `git add -A`.
 - **Submodules** (CLAUDE.md): `git -C mixxx switch -c BRANCH` (and
-  `mixxx/lib/prolink`, `mixxx_config/ttymidi` likewise) before your first
-  commit there; commit there, then the bump in TriMixxx (`git add mixxx`).
+  `mixxx/lib/prolink`, `mixxx_config/ttymidi`, `cdj2000-emulator` likewise)
+  before your first commit there; commit there, then the bump in TriMixxx
+  (`git add mixxx`).
+- **Upstream PRs** (to cdj2k-revival's emulator, say): each goes on a branch
+  of its own in usr-ein's fork, `up/BRANCH/NAME`, pushed like yours.
+  Opening the upstream PR is Sam's, since `crew gh` takes only usr-ein/
+  repos: your PR lists each branch and what it is for. `crew clean` leaves
+  them on origin.
 - **Commit as Sam:** `git -c user.name="Samuel Prevost" -c user.email=usr_ein@pm.me commit ...`;
   signing is automatic. Messages like the repo's (`git log`): a subject
   saying what now happens, in plain words (`pi-qemu: ...`, `Bump mixxx: ...`),
@@ -217,18 +227,37 @@ All of these hold:
 
 1. Every "Done when" check passes, shown on your emulated deck, or by tests
    where tests are the right proof.
-2. You have re-read the whole diff (`git diff main...BRANCH` in each repo you
-   changed) as a reviewer would: the logic; the failure modes (a stick pulled
-   mid-load, a power cut mid-write, no network at a gig, two decks, a slow
-   stick); leftovers, debug code, unrelated changes. Fixed what you found.
+2. You have re-read the whole diff (`git diff origin/main...BRANCH` in each
+   repo you changed) as a reviewer would: the logic; the failure modes (a
+   stick pulled mid-load, a power cut mid-write, no network at a gig, two
+   decks, a slow stick); leftovers, debug code, unrelated changes. Fixed
+   what you found.
 3. The docs and skills that describe what you changed say what is now true
    (READMEs, CLAUDE.md, `pi_config/fresh-install.md`, `trimixxx0`, ...).
 4. The history reads well: no "wip" or "fix typo" commits. Before the PR is
    open, rewriting your own branch is fine.
-5. It is on top of main: in each repo you changed, deepest first, rebase onto
-   the local `main`, re-point the submodules, retest what that could break.
+5. It is on top of main: in each repo you changed, deepest first,
+   `git fetch origin` and rebase onto `origin/main` (what `crew merge`
+   measures it against; the local `main` can lag it), re-point the
+   submodules, retest what that could break.
+6. The screenshots for the PR are committed (below), or the change shows
+   nothing on the deck's screen.
 
 ## The PR
+
+**Screenshots.** Sam wants 1 to 3 in every PR whose change shows on the
+deck's screen: the ones that show it best, from your deck
+(`pi-qemu deck shot BRANCH FILE.png`).
+- Commit them under `docs/screenshots/BRANCH/` (PNGs as `deck shot` makes
+  them, about 25 KB each).
+- Show them at the top of the PR body, by the branch's URL:
+  `![what it shows](https://github.com/usr-ein/TriMixxx/blob/BRANCH/docs/screenshots/BRANCH/NAME.png?raw=true)`.
+  `crew clean` points them at the merged commit before it deletes the
+  branch.
+- Never a CDJ's screen (Pioneer's artwork), nor anything private (a
+  licence, an address): the repos are public.
+- A change that shows nothing on the deck's screen (a build flag, pi-qemu, a
+  wire format) has none, and its Testing says so.
 
 Push deepest first, then open the PRs, companions first, always through
 `crew gh` (it acts as usr-ein, and never opens a PR on upstream mixxxdj/mixxx):
@@ -242,12 +271,14 @@ crew gh -R usr-ein/TriMixxx pr create --base main --head BRANCH --title "..." --
 crew label BRANCH ready
 ```
 
-A companion PR (the fork, prolink, ttymidi) says what changes there and
-links the TriMixxx PR. The TriMixxx PR is the one reviewed and merged. Its
-title reads like a commit subject; its body:
+A companion PR (the fork, prolink, ttymidi, the CDJ emulator) says what
+changes there and links the TriMixxx PR. The TriMixxx PR is the one
+reviewed and merged. Its title reads like a commit subject; its body:
 
 ```markdown
 <What changes for the DJ or the deck, in two or three sentences.>
+
+<1-3 screenshots of the deck's screen; none if the change shows nothing there>
 
 ## Pitch
 > Sam's words, verbatim.
@@ -259,7 +290,8 @@ title reads like a commit subject; its body:
 - [mine] the decision, why, the cost to switch later
 - [for Sam] (night) the option taken, the alternative, the cost to switch
 ## Testing
-- Emulated deck: what you did, what you saw (numbers; screenshots described)
+- Emulated deck: what you did, what you saw (numbers; the screenshots above,
+  or why there are none)
 - Real deck: which unit, what, when, on whose go; or none
 - Not tested, and why
 ## Risks and follow-ups
@@ -328,9 +360,9 @@ When woken for a review:
 
 When main has moved and `crew merge` refused:
 
-1. In each repo you changed, deepest first: rebase onto the local `main`,
-   resolve conflicts, re-point the submodules in the parent, rebuild, and
-   retest what the new main could break.
+1. In each repo you changed, deepest first: `git fetch origin`, rebase onto
+   `origin/main`, resolve conflicts, re-point the submodules in the parent,
+   rebuild, and retest what the new main could break.
 2. Push your branches (only yours) with an explicit lease: what origin had
    before your rebase. TriMixxx's `origin` pushes to gitea, then GitHub, and
    a bare `--force-with-lease` is refused on the second (git moves the
@@ -371,7 +403,8 @@ When a call is expensive to switch later and nobody can make it tonight:
 
 The guard enforces most of these:
 
-- push anything but your branch, merge, or touch main
+- push anything but your branch (and its `up/BRANCH/NAME`), merge, or touch
+  main
 - use `gh` directly: `crew gh` acts as usr-ein, on usr-ein/* repos only
 - touch another agent's worktree, branch, deck, CDJ or session; kill by name;
   start Claude sessions

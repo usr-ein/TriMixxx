@@ -60,15 +60,18 @@ Sam's pitch ─▶ minion: worktree + deck, plan, Sam's calls, build, test, drif
                  │  (a pitch can ask for a plan review first: a draft PR with the plan,
                  │   `crew bitch BRANCH --plan`, rounds of its own; review:plan-approved
                  │   is a green light to build, never a merge)
-                 ▼  PR (TriMixxx, + companion PRs on the fork, prolink, ttymidi)   review:ready
+                 ▼  PR (TriMixxx, + companions: the fork, prolink, ttymidi, the CDJ emulator)   review:ready
+                    1-3 screenshots of the deck's screen at its top, when the change shows there
                bitch: reads the pitch, the minion's decisions, the diff ─▶ one review
                  │  verdict in the review's header and the label
                  ├─ review:changes ─▶ minion answers (new commits, replies) ─▶ bitch again (≤ 3 rounds)
                  ├─ review:needs-sam ─▶ waits for Sam
                  ▼  review:approved
-               crew merge: fast-forward main, prolink → mixxx → ttymidi → TriMixxx, push each
-                 (only the approved commit, or the same change rebased; never a [for Sam] decision)
-               crew clean: sessions, decks, CDJs, worktree, branches gone; notes kept in .crew/archive/
+               crew merge: fast-forward main, prolink → mixxx → ttymidi → CDJ emulator → TriMixxx, push each
+                 (only the approved commit, or the same change rebased; never a [for Sam] decision);
+                 a merge that changes pi-qemu rebuilds the main checkout's, the one on PATH
+               crew clean: sessions, decks, CDJs, worktree, branches gone (the PR's screenshot links first
+                 pointed at the merged commit); notes kept in .crew/archive/
 ```
 
 ## By day: Sam as puppet master
@@ -76,7 +79,8 @@ Sam's pitch ─▶ minion: worktree + deck, plan, Sam's calls, build, test, drif
 ```sh
 crew install                     # once: puts crew on PATH (~/.local/bin/crew -> the main checkout's)
 crew minion usb-hotplug "A stick plugged in mid-set shows up in the library within a second"
-                                 # in a new tab: makes the worktree, preps its submodules, starts the minion
+                                 # in a new tab: makes the worktree from origin/main, preps its submodules,
+                                 # starts the minion
 crew minion usb-hotplug --bg "..."   # or in the background; `claude agents` shows who needs input
 crew status                      # every branch: minion, bitch, PR, review state, decks, CDJs, Status line; the load
 crew bitch usb-hotplug           # once its PR is up
@@ -183,8 +187,10 @@ back as a copy with a new id. One Sam starts by hand registers with
 night. Other sessions pay ~30 ms a tool call and are otherwise untouched.
 
 - **guard** (before Bash and file writes) refuses a crew session:
-  - pushing anything but its own branch, merging, or writing outside its
-    worktree (a bitch writes nothing; the nightman only its own state)
+  - pushing anything but its own branch (and `up/BRANCH/NAME`, a fork's
+    branches for upstream PRs, which `crew clean` leaves to Sam), merging,
+    or writing outside its worktree (a bitch writes nothing; the nightman
+    only its own state)
   - plain `gh` (use `crew gh`)
   - `sudo`, disk commands, Docker prunes, `pkill`/`killall`, `deck golden`,
     `image build`, `cdj firmware`
@@ -199,6 +205,22 @@ night. Other sessions pay ~30 ms a tool call and are otherwise untouched.
 - **session / prompt** keep the session's name its role's (`BRANCH`,
   `BRANCH-bitch`, `nightman`). After a compaction or a resume, they tell it to
   re-read its skill, pitch and notes.
+- **twins:** when another running session holds a session's role on its
+  branch, the session hook and `crew register` (exit 3) say so. It changes
+  nothing until one is stopped. On 2026-10-13 two minions ran twice for ten
+  minutes: the nightman had resumed them as copies, then Sam opened the
+  originals.
+
+**Sam's errands.** While Sam is here, he can send the nightman to do what
+the rules forbid it (push a fork's main, open a PR upstream):
+`crew errand --why "Sam 17:28: ..." --minutes 15`.
+- Until `--done` or the time is up (60 minutes at most), the guard lets the
+  nightman off. It still refuses disk commands, sudo, killing by name, and
+  a real deck a minion holds.
+- `crew gh` takes repos outside usr-ein/, still as usr-ein.
+- Every command goes in `.crew/errands.md`, which the morning report
+  quotes.
+- Never at night: an errand is Sam's word.
 
 **GitHub, always through `crew gh`.** The shell's identity wrapper for gh
 does not run inside Claude Code (its helper functions are not in the shell
@@ -220,7 +242,14 @@ recorded as one, quoting him). It refuses:
 - any repo whose local main holds commits origin lacks
 
 It moves a detached submodule in the main checkout only from where main
-pointed before.
+pointed before. A merge that changes pi-qemu rebuilds the main checkout's,
+the `pi-qemu` on PATH (`pi-qemu/build.sh app`). It only reports a change to
+QEMU's patches: `build.sh qemu` waits until no deck runs.
+
+A minion's branch starts from origin/main, and is measured against it: by
+its drift checks, by its bitch, and by `crew merge`. The local main can lag
+it (a PR merged on GitHub), or hold Sam's unpushed commits, which a minion's
+pushed branch would publish.
 
 The repositories are public: so are PRs and reviews.
 
@@ -237,6 +266,8 @@ want>`**, or just ask to tune the crew.
 - **The feedback log:** crew sessions note where the rules or tools got in
   their way with `crew feedback "..."`. `crew feedback` alone shows the log
   (`.crew/feedback.md`); `/crew-tune` with no argument works through it.
+  Open lines come first. `/crew-tune` moves the lines it handled under
+  `## Handled`, at the end.
 - **The layers:**
   - `limits.env`: numbers
   - `.claude/skills/{minion,bitch,nightman}`: behaviour
@@ -258,6 +289,8 @@ want>`**, or just ask to tune the crew.
   - `locks/`: who holds which real deck, and the names it is reached by
   - `night/`: plan, pitches, review briefs, morning reports
   - `feedback.md`: the crew's complaints, for `/crew-tune`
+  - `errand.json`, while Sam's errand for the nightman lasts; `errands.md`,
+    every errand and its commands
   - `archive/`
 - On GitHub, the TriMixxx PR is the record: the pitch, the decisions, the
   testing, every review.
@@ -268,7 +301,9 @@ want>`**, or just ask to tune the crew.
 python3 -m unittest discover -s .claude/crew -v
 ```
 
-The guard's rules, the real-deck locks, the resources verdict (decks, CDJs,
-Docker's VM), `crew status` and `crew clean` on a stub pi-qemu, the drift
-check, session names and registration, adoption, and `crew merge` on
-throwaway repositories (a parent and a submodule).
+The guard's rules, the real-deck locks, Sam's errands, the resources verdict
+(decks, CDJs, Docker's VM, live minions), `crew status` and `crew clean` on a
+stub pi-qemu (screenshot links pinned, upstream branches kept), the drift
+check, session names and registration, twins, adoption, the base a new
+branch starts from, the feedback log, and `crew merge` on throwaway
+repositories (a parent and its submodules; pi-qemu rebuilt).

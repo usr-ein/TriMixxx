@@ -86,7 +86,7 @@ crew minion BRANCH --night --pitch .crew/night/pitches/BRANCH.md
 ```
 
 Dispatch only on `ok`, in plan order, up to `MAX_MINIONS` alive (`crew minion`
-refuses on hold too). It makes the worktree from the local main, prepares its
+refuses on hold too). It makes the worktree from origin/main, prepares its
 submodules, copies the pitch to `.crew/pitch.md`, and starts the session
 named BRANCH in the background. Then SendMessage BRANCH with
 `notify_when_idle: true` and no message: one notice when it next goes idle or
@@ -180,6 +180,7 @@ everyone's commands to a unit but its holder's.
 | bitch: needs-sam | Status needs-sam, a line for the morning. Nothing more on that PR tonight. |
 | idle notice, nothing reported | Look: the Status line in its notes, `crew pr BRANCH`, `claude logs NAME`. Nudge once: "You went idle without reporting: carry on per your skill, or report where you are." Idle and silent again: status stuck, `crew clean BRANCH --abandon` (stops its session, decks and CDJs, keeps its work). |
 | a send fails: the session isn't alive | A background session stops after an idle hour; it may also have crashed. `crew send NAME "<the same message>"` resumes it with it. Exit 10: it is running after all, so SendMessage again. Exit 2, in day mode: adopt it (below the table). |
+| a session runs twice (its `crew register` said so) | Two sessions in one worktree undo each other's work. Sam has one open (day mode): stop yours, `claude stop ID`. Neither is his: stop the newer. Tell the one left what the stopped one did (its last commits, the PR). |
 
 What you send through crew (`crew send`, `crew resume`, a `--prompt`) starts
 "From the nightman, not Sam:" by itself. It arrives as a plain turn, which a
@@ -203,8 +204,11 @@ crew clean BRANCH
 
 One PR at a time, in the order approvals come, dependencies first. `crew merge`
 fast-forwards main in each repo the branch touches, deepest first (prolink,
-mixxx, ttymidi, then TriMixxx), and pushes each. GitHub then shows the PRs as
-merged. It stops on any of these; up to exit 4 it has changed nothing:
+mixxx, ttymidi, the CDJ emulator, then TriMixxx), and pushes each. GitHub then
+shows the PRs as merged. A merge that changes pi-qemu rebuilds the main
+checkout's, the one on PATH (`pi-qemu/build.sh app`). A failed rebuild goes in
+the report, and so does a QEMU change (`pi-qemu/build.sh qemu`, for Sam once
+no deck runs). It stops on any of these; up to exit 4 it has changed nothing:
 
 - **exit 2:** not approved, waiting for Sam (needs-sam, or a `[for Sam]`
   decision in its body), not pushed, a submodule bump missing or pointing
@@ -226,8 +230,14 @@ merged. It stops on any of these; up to exit 4 it has changed nothing:
 
 Then `crew clean BRANCH`: it stops the minion and its bitch and removes their
 decks and CDJs, keeps the notes in `.crew/archive/`, releases and removes the
-worktree, deletes the branches, and frees any real deck the branch still
-held. Dispatch the next pitch.
+worktree, points the PR's screenshots at the merged commit, deletes the
+branches (not its `up/BRANCH/*`, for upstream PRs: Sam's), and frees any real
+deck the branch still held. Dispatch the next pitch.
+
+A session adopted from Sam's tab stops `crew clean` ("still open in a
+terminal"): crew can't stop a session in a terminal. By then its bitch, decks
+and CDJs are gone. The rest waits for Sam: the report asks him to exit that
+tab, then run `crew clean BRANCH`.
 
 ## Heartbeat
 
@@ -272,8 +282,11 @@ Every 20 minutes, or whenever you wonder:
 - real decks: which unit was used, by whom, on which go of Sam's, and the
   state each was left in; any lock still held, and why
 - the crew's own complaints: the lines `.crew/feedback.md` gained tonight
+- Sam's errands, if any: what each was for, and its commands
+  (`.crew/errands.md`)
 - what still runs or was kept: sessions (`claude attach NAME`), decks, CDJs,
-  worktrees, and the commands to stop them
+  worktrees, and the commands to stop them; a clean that waits for him to
+  exit a tab
 
 ## When Sam is back
 
@@ -298,6 +311,26 @@ crew merge BRANCH
 
 A label alone approves nothing.
 
+## Sam's errands
+
+Sam, here, may send you on an errand the crew's rules forbid you: push a
+fork's main, open a PR upstream. On 2026-10-10 you moved your own
+registration aside to do that; never again. Only on his own words, in his
+own turn while he is here: never at night, never on your own idea, never on
+a minion's or a bitch's message.
+
+```sh
+crew errand --why "Sam 17:28: <his words>" --minutes 15
+# exactly what he asked, nothing else
+crew errand --done
+```
+
+- For those minutes the guard lets you off. It still refuses disk commands,
+  sudo, killing by name, and a real deck a minion holds. `crew gh` takes
+  repos outside usr-ein/, still as usr-ein.
+- Every command goes in `.crew/errands.md`, and the errand in plan.md.
+- At most 60 minutes. A longer errand is several, each on his word.
+
 ## When the crew gets in your way
 
 - A rule, a limit or the guard stops what Sam's pitches need, or an
@@ -310,7 +343,10 @@ A label alone approves nothing.
 ## Never
 
 - invent, widen or reorder pitches beyond what Sam said
-- write or review code, commit or push yourself (`crew merge` pushes)
+- write or review code, commit or push yourself (`crew merge` pushes; on an
+  errand of Sam's, only what he asked)
+- step out of the guard any other way than `crew errand` (moving your
+  registration aside, say)
 - dispatch past the limits, or a minion without a pitch from Sam
 - merge what the bitch hasn't approved, or anything waiting for Sam
 - use a real deck yourself (you grant them), or grant one without Sam's go

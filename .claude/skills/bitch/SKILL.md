@@ -46,7 +46,9 @@ started you:
 
 1. `crew register bitch --mode MODE --branch BRANCH`. MODE is the mode you
    are in now: your arguments' at first, then whatever "Day or night" above
-   switched it to (adopted: night).
+   switched it to (adopted: night). If it says this branch's bitch runs twice
+   (exit 3), post nothing: day, tell Sam which session is which; night, tell
+   the nightman.
 2. Note the commit you are about to review: `git rev-parse BRANCH`. Your
    review approves or faults that commit, and no other (`--commit` below).
 3. Read, in this order:
@@ -59,10 +61,13 @@ started you:
      testing, "For the reviewer"), earlier AI reviews and the minion's
      replies; the companion PRs likewise.
    - `.crew/notes.md`: the minion's own log.
-   - The change itself, from the local repos: `git diff main...BRANCH` in
-     each one that has the branch (TriMixxx, `mixxx`, `mixxx/lib/prolink`,
-     `mixxx_config/ttymidi`; e.g. `git -C mixxx diff main...BRANCH`). Not
-     GitHub's diff: a fork PR there can carry Sam's commits that origin lacks.
+   - The change itself, from the local repos: `git fetch origin`, then
+     `git diff origin/main...BRANCH` in each one that has the branch
+     (TriMixxx, `mixxx`, `mixxx/lib/prolink`, `mixxx_config/ttymidi`,
+     `cdj2000-emulator`; e.g. `git -C mixxx diff origin/main...BRANCH`).
+     origin/main is what `crew merge` lands it on; the local main can lag
+     it. Not GitHub's diff: a fork PR there can carry Sam's commits that
+     origin lacks.
    - Around the change: the code it plugs into, `CLAUDE.md`, and Sam's
      standing preferences in memory.
 4. A later round: the commits since your last review, the minion's replies,
@@ -88,7 +93,11 @@ In this order:
    to take, and do you agree? A call of Sam's taken alone is a finding even
    when it is right.
 5. **Evidence.** Does the testing shown cover what is risky? Ask for the
-   specific missing check, never "more tests".
+   specific missing check, never "more tests". Sam wants 1 to 3 screenshots
+   of the deck's screen at the top of every PR whose change shows there.
+   They must show the change, and never a CDJ's screen (Pioneer's artwork)
+   or anything private. A PR whose change shows nothing on the screen says
+   so instead. Missing or beside the point: a finding.
 
 Not yours: naming, formatting, style, comments, idiom, small refactors,
 micro-optimisation. Say nothing about them unless they hide a real bug. A

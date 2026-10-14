@@ -49,7 +49,7 @@ class Sandbox(unittest.TestCase):
         os.environ.update(GIT_CONFIG_GLOBAL=str(cfg), GIT_CONFIG_NOSYSTEM="1")
         self.saved = {k: getattr(crew, k) for k in ("MAIN", "CREW", "find_prs", "gh_json", "limits", "approved_commit",
                                                     "run", "live_session", "claude_sessions", "resolve_host", "locks",
-                                                    "gh", "snapshot")}
+                                                    "gh", "snapshot", "gh_env", "decks", "cdjs", "docker_free_gb")}
         crew.CREW = self.tmp / "crewstate"
         crew.resolve_host = lambda name: name.lower()  # not this Mac's ~/.ssh/config
 
@@ -62,6 +62,17 @@ class Sandbox(unittest.TestCase):
             else:
                 os.environ[k] = v
         shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def as_session(self, sid):
+        """Run as that session (None: Sam, from a shell of his own), until the test ends."""
+        if not hasattr(self, "_sid"):
+            self._sid = os.environ.get("CLAUDE_CODE_SESSION_ID")
+            self.addCleanup(lambda: os.environ.update(CLAUDE_CODE_SESSION_ID=self._sid) if self._sid else
+                            os.environ.pop("CLAUDE_CODE_SESSION_ID", None))
+        if sid:
+            os.environ["CLAUDE_CODE_SESSION_ID"] = sid
+        else:
+            os.environ.pop("CLAUDE_CODE_SESSION_ID", None)
 
     def repo(self, path: Path, branch="feat") -> Path:
         path.mkdir(parents=True)
@@ -97,6 +108,25 @@ class GuardTest(Sandbox):
             self.assertTrue(self.denied(self.minion, cmd), cmd)
         git(self.wt, "switch", "-qc", "other")
         self.assertTrue(self.denied(self.minion, "git push"))
+
+    def test_branches_for_upstream_prs(self):
+        """A fork's branches for upstream PRs, one per PR, are up/BRANCH/NAME (cdj-2k-emu, 2026-10-10: they waited
+        for Sam as commits on its branch). BRANCH/NAME can't be: git keeps no feat/x beside a branch feat."""
+        for cmd in ("git push -u origin up/feat/tick-loss", "git push origin HEAD:up/feat/tick-loss",
+                    "git push origin feat up/feat/a abc123:refs/heads/up/feat/b"):
+            self.assertFalse(self.denied(self.minion, cmd), cmd)
+        for cmd in ("git push origin up/other/x", "git push origin up/feat/", "git push origin up/feat",
+                    "git push origin HEAD:up/featx/y", "git push origin feat-x", "git push origin up/feat/x main"):
+            self.assertTrue(self.denied(self.minion, cmd), cmd)
+        git(self.wt, "switch", "-qc", "up/feat/tick-loss")
+        self.assertFalse(self.denied(self.minion, "git push"))
+
+    def test_a_push_from_a_path_it_cannot_follow(self):
+        """prolink-learnings, 2026-10-11: a push after `cd $M` was refused as pushing "a detached HEAD"."""
+        self.assertIn("can't tell which branch", crew.bash_reason("cd $M && git push", self.minion, str(self.wt)))
+        self.assertIn("can't tell which branch", crew.bash_reason("git -C /no/such/repo push -u origin HEAD",
+                                                                  self.minion, str(self.wt)))
+        self.assertIsNone(crew.bash_reason("cd $M && git push origin feat", self.minion, str(self.wt)))
 
     def test_redirections_are_not_arguments(self):
         """Four minions' pushes were refused as pushing a branch named 2: the 2 of 2>&1."""
@@ -311,6 +341,21 @@ class VerdictTest(unittest.TestCase):
         self.assertIn("decks running 0/3 (none); CDJs running 1/4 (a-a); minions 0/2", text)
 
 
+class ResourcesTest(Sandbox):
+    def test_an_ended_session_is_no_minion(self):
+        """On 2026-10-13 `crew resources` said "4 minions alive (max 2)": `claude agents` still lists two minions
+        that had ended (status None) after crew send resumed them as copies."""
+        crew.MAIN = self.tmp / "main"
+        crew.MAIN.mkdir()
+        for sid, b in (("s-busy", "feat"), ("s-idle", "other"), ("s-ended", "feat"), ("s-gone", "old")):
+            crew.register_session(sid, "minion", "night", b, crew.MAIN)
+        crew.claude_sessions = lambda: [{"sessionId": "s-busy", "status": "busy"}, {"sessionId": "s-idle",
+                                         "status": "idle"}, {"sessionId": "s-ended", "status": None}]
+        crew.decks = crew.cdjs = lambda: []
+        crew.docker_free_gb = lambda: 20.0
+        self.assertEqual(sorted(crew.snapshot()["minions"]), ["feat", "other"])
+
+
 class CdjListTest(Sandbox):
     """crew reads the CDJs from `pi-qemu cdj list`, as it reads the decks from `pi-qemu deck list`."""
 
@@ -458,6 +503,7 @@ class HookTest(Sandbox):
         git(self.wt, "add", "dj-usb.sh")
         git(self.wt, "commit", "-qm", "work")
         crew.limits = lambda: {"DRIFT_EVERY_CALLS": 3, "DRIFT_EVERY_MIN": 25}
+        crew.claude_sessions = lambda: []
         (crew.CREW / "sessions").mkdir(parents=True)
         self.reg = {"role": "minion", "mode": "night", "branch": "feat", "worktree": str(self.wt), "sid": "s1"}
 
@@ -581,6 +627,216 @@ class SessionTest(Sandbox):
         self.listed = [{"name": "feat-bitch", "status": "busy", "id": "x"}]
         crew.launch("feat-bitch", self.wt, True, "hi", crew.crew_env("bitch", "night", "feat", self.wt), "s-old")
         self.assertEqual(self.launched, [])
+
+
+class TwinTest(Sandbox):
+    """Two sessions in one role on one branch. On 2026-10-13 the nightman resumed two ended minions as copies, then Sam
+    opened the originals: for ten minutes each branch had two sessions re-cutting its commits."""
+
+    def setUp(self):
+        super().setUp()
+        crew.MAIN = self.tmp / "main"
+        self.wt = self.repo(crew.MAIN / ".claude" / "worktrees" / "feat")
+        for sid, role, b in (("s-copy", "minion", "feat"), ("s-bitch", "bitch", "feat"), ("s-other", "minion", "other")):
+            crew.register_session(sid, role, "night", b, self.wt)
+        self.listed = [{"sessionId": s, "status": "busy", "kind": "background"} for s in ("s-copy", "s-bitch", "s-other")]
+        crew.claude_sessions = lambda: self.listed
+        self.addCleanup(os.chdir, os.getcwd())
+
+    def register(self, sid):
+        self.as_session(sid)
+        os.chdir(self.wt)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = crew.cmd_register(argparse.Namespace(role="minion", mode="day", branch=None))
+        return code, out.getvalue()
+
+    def test_sam_opens_the_original(self):
+        code, out = self.register("s-original")
+        self.assertEqual(code, 3)
+        self.assertIn("feat runs twice. Session s-copy (background, busy, night mode", out)
+        self.assertIn("change nothing until one is stopped", out)
+        self.assertEqual(crew.registration("s-original")["mode"], "day")  # registered all the same: the guard holds
+
+    def test_an_ended_copy_is_no_twin(self):
+        self.listed[0]["status"] = None
+        self.assertEqual(self.register("s-original")[0], 0)
+
+    def test_the_session_hook_says_so(self):
+        crew.register_session("s-original", "minion", "day", "feat", self.wt)
+        ctx = crew.hook_session({"source": "resume"}, crew.registration("s-original"))["hookSpecificOutput"]
+        self.assertIn("re-read", ctx["additionalContext"])
+        self.assertIn("runs twice", ctx["additionalContext"])
+        alone = crew.hook_session({"source": "startup"}, crew.registration("s-other"))["hookSpecificOutput"]
+        self.assertNotIn("additionalContext", alone)
+
+
+class MinionStartTest(Sandbox):
+    """A new branch starts from origin/main, what crew merge measures it against. On 2026-10-10 the main checkout's
+    main was 2 behind origin (a PR merged on GitHub): a minion rebased onto it as its skill said, and crew merge
+    refused it again."""
+
+    def setUp(self):
+        super().setUp()
+        origin = self.tmp / "origin.git"
+        git(self.tmp, "clone", "-q", "--bare", str(self.repo(self.tmp / "seed", branch="main")), str(origin))
+        crew.MAIN = self.tmp / "main"
+        git(self.tmp, "clone", "-q", str(origin), str(crew.MAIN))
+        elsewhere = self.tmp / "github"  # a PR merged on GitHub: origin's main moves, the main checkout's does not
+        git(self.tmp, "clone", "-q", str(origin), str(elsewhere))
+        (elsewhere / "merged").write_text("x\n")
+        git(elsewhere, "add", "merged")
+        git(elsewhere, "commit", "-qm", "merged on GitHub")
+        git(elsewhere, "push", "-q", "origin", "main")
+        self.published = git(elsewhere, "rev-parse", "HEAD")
+        self.wt = crew.MAIN / ".claude" / "worktrees" / "feat"
+        real = self.saved["run"]
+        crew.run = lambda cmd, **kw: (subprocess.CompletedProcess(cmd, 0, "", "") if cmd[0] == "pi-qemu"
+                                      else real(cmd, **kw))  # worktree prepare
+
+    def start(self) -> str:
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            crew.cmd_minion(argparse.Namespace(branch="feat", text=["Hot-plug", "sticks"], pitch=None, night=False,
+                                               bg=False, resume=False, no_launch=True, force=False, prompt=None,
+                                               model=None))
+        return out.getvalue()
+
+    def test_from_origin_main(self):
+        out = self.start()
+        self.assertEqual(git(self.wt, "rev-parse", "HEAD"), self.published)
+        self.assertIn(f"from origin/main {self.published[:7]}", out)
+        self.assertIn(f"from origin/main {self.published[:7]}.", (self.wt / ".crew" / "pitch.md").read_text())
+        self.assertFalse(crew.git_ok(self.wt, "rev-parse", "--verify", "-q", "feat@{upstream}"))  # tracks nothing
+
+    def test_never_with_sams_unpushed_commits(self):
+        """Its pushed branch would publish them."""
+        (crew.MAIN / "mine").write_text("y\n")
+        git(crew.MAIN, "add", "mine")
+        git(crew.MAIN, "commit", "-qm", "Sam's, not pushed")
+        out = self.start()
+        self.assertFalse((self.wt / "mine").exists())
+        self.assertIn("main has 1 commit(s) origin lacks", out)
+
+    def test_the_drift_check_measures_from_origin_main(self):
+        """A minion rebased onto origin/main while the main checkout's main lags it."""
+        git(crew.MAIN, "fetch", "-q", "origin")
+        git(crew.MAIN, "worktree", "add", "-q", "-b", "feat", str(self.wt), "origin/main")
+        (self.wt / "work").write_text("w\n")
+        git(self.wt, "add", "work")
+        git(self.wt, "commit", "-qm", "work")
+        crew.limits = lambda: {"DRIFT_EVERY_CALLS": 1, "DRIFT_EVERY_MIN": 25}
+        reg = crew.register_session("s1", "minion", "day", "feat", self.wt)
+        text = crew.hook_drift({}, reg)["hookSpecificOutput"]["additionalContext"]
+        self.assertIn(".: 1 file changed", text)  # its own commit, not the one merged on GitHub too
+
+
+class FeedbackTest(Sandbox):
+    def note(self, text):
+        self.as_session(None)
+        with contextlib.redirect_stdout(io.StringIO()):
+            crew.cmd_feedback(argparse.Namespace(text=[text]))
+        return (crew.CREW / "feedback.md").read_text()
+
+    def test_open_lines_above_handled(self):
+        """/crew-tune keeps `## Handled` at the end of the log. Appended after it, 13 open lines read as handled
+        (2026-10-14)."""
+        self.assertRegex(self.note("first"), r"works from it\.\n\n- \S+ Sam: first\n$")
+        log = crew.CREW / "feedback.md"
+        log.write_text(log.read_text() + "\n## Handled\n\n- old **Handled:** abc1234\n")
+        self.assertRegex(self.note("second"), r"Sam: first\n- \S+ Sam: second\n\n## Handled\n\n- old \*\*Handled")
+        log.write_text("# Crew feedback\n\nIntro.\n\n## Handled\n\n- old\n")
+        self.assertRegex(self.note("third"), r"^# Crew feedback\n\nIntro\.\n\n- \S+ Sam: third\n\n## Handled\n\n- old\n$")
+
+
+class ErrandTest(Sandbox):
+    """Sam, here, sends the nightman on an errand the crew's rules forbid. On 2026-10-10 it moved its own registration
+    aside to push the emulator fork's main and open PRs upstream."""
+
+    def setUp(self):
+        super().setUp()
+        crew.MAIN = self.tmp / "main"
+        self.wt = self.repo(crew.MAIN / ".claude" / "worktrees" / "feat")
+        crew.locks = lambda: {}
+        self.nightman = crew.register_session("s-night", "nightman", "night", None, crew.MAIN)
+        self.minion = crew.register_session("s-feat", "minion", "night", "feat", self.wt)
+        (crew.CREW / "night").mkdir(parents=True)
+        (crew.CREW / "night" / "plan.md").write_text("# The night\n")
+
+    def errand(self, sid="s-night", why="Sam 17:28: push the fork's main, open the PRs upstream", minutes=15,
+               done=False) -> int:
+        self.as_session(sid)
+        with contextlib.redirect_stdout(io.StringIO()):
+            return crew.cmd_errand(argparse.Namespace(why=why, minutes=minutes, done=done))
+
+    def guard(self, reg, cmd):
+        out = crew.hook_guard({"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": str(crew.MAIN)}, reg)
+        return out["hookSpecificOutput"]["permissionDecisionReason"] if out else None
+
+    def test_the_guard_lets_the_nightman_off(self):
+        push = "git -C cdj2000-emulator push origin main"
+        self.assertIn("does not write to git", self.guard(self.nightman, push))
+        self.assertEqual(self.errand(), 0)
+        self.assertIsNone(self.guard(self.nightman, push))
+        self.assertIsNone(self.guard(self.nightman, "gh pr create -R cdj2k-revival/cdj2000-emulator --fill"))
+        self.assertIsNone(crew.hook_guard({"tool_name": "Write", "tool_input": {"file_path": str(self.wt / "x")}},
+                                          self.nightman))
+        self.assertIn("only your branch", self.guard(self.minion, "git push origin main"))  # the nightman's errand
+        log = (crew.CREW / "errands.md").read_text()
+        self.assertIn("min, by nightman: Sam 17:28: push the fork's main", log)
+        self.assertIn(f"Bash: {push}\n", log)
+        self.assertIn(f"Write: {self.wt / 'x'}\n", log)
+        self.assertIn("Errand for Sam, 15 min: Sam 17:28", (crew.CREW / "night" / "plan.md").read_text())
+
+    def test_what_it_keeps(self):
+        self.errand()
+        for cmd in ("diskutil list", "sudo ls", "pkill -f qemu", "dd if=x of=/dev/rdisk4", "ls && killall Docker"):
+            self.assertIn("errand or not", self.guard(self.nightman, cmd), cmd)
+        lock = {"names": ["trimixxx1", "trimixxx-pi"], "since": "", "by": "nightman"}
+        crew.locks = lambda: {"trimixxx1": dict(lock, holder="feat")}
+        self.assertIn("feat's", self.guard(self.nightman, "ssh trimixxx-pi true"))
+        self.assertIn("feat's", self.guard(self.nightman, "pi-qemu deck ship --host trimixxx-pi"))
+        crew.locks = lambda: {"trimixxx1": dict(lock, holder="Sam")}
+        self.assertIsNone(self.guard(self.nightman, "ssh trimixxx-pi true"))  # Sam's own errand, Sam's own unit
+
+    def test_it_ends(self):
+        self.errand(minutes=1)
+        e = json.loads((crew.CREW / "errand.json").read_text())
+        (crew.CREW / "errand.json").write_text(json.dumps(dict(e, until=e["until"] - 120)))  # its minute is over
+        self.assertIsNotNone(self.guard(self.nightman, "git push origin main"))
+        self.errand()
+        self.assertEqual(self.errand(why=None, done=True), 0)
+        self.assertIsNotNone(self.guard(self.nightman, "git push origin main"))
+        self.assertIn("ended by nightman", (crew.CREW / "errands.md").read_text())
+
+    def test_only_sam_sends_only_the_nightman(self):
+        with self.assertRaises(crew.Fail):
+            self.errand(sid="s-feat")
+        self.assertIn("Sam's to give", crew.bash_reason("crew errand --why x", self.minion, str(self.wt)))
+        self.assertIsNone(crew.bash_reason("crew errand --why 'Sam 17:28: ...'", self.nightman, str(crew.MAIN)))
+        for minutes in (0, 61):
+            with self.assertRaises(crew.Fail):
+                self.errand(minutes=minutes)
+        self.assertFalse((crew.CREW / "errand.json").exists())
+        self.assertEqual(self.errand(sid=None), 0)  # Sam, from a shell of his own: for the nightman too
+        self.assertIsNone(self.guard(self.nightman, "git push origin main"))
+
+    def test_crew_gh_upstream(self):
+        """Still as usr-ein: an upstream PR comes from usr-ein's fork."""
+        execs, real = [], os.execvpe
+        os.execvpe = lambda prog, args, env: execs.append(args)
+        self.addCleanup(setattr, os, "execvpe", real)
+        crew.gh_env = lambda repo=None: {"GH_TOKEN": "usr-ein's"}
+        up = ["pr", "create", "-R", "cdj2k-revival/cdj2000-emulator", "--head", "usr-ein:up/feat/tick-loss"]
+        self.as_session("s-night")
+        self.assertRaises(crew.Fail, crew.cmd_gh, up)
+        self.errand()
+        crew.cmd_gh(up)
+        self.assertEqual(execs, [["gh", *up]])
+        self.as_session("s-feat")
+        self.assertRaises(crew.Fail, crew.cmd_gh, up)  # the errand is the nightman's
+        self.as_session("s-night")
+        self.assertRaises(crew.Fail, crew.cmd_gh, ["pr", "merge", "3", "-R", "usr-ein/TriMixxx"])
 
 
 class AdoptTest(Sandbox):
@@ -827,6 +1083,52 @@ class CleanTest(Sandbox):
         self.assertIn("sessions, decks and CDJs stopped", out)
         self.assertTrue((self.wt / ".crew" / "notes.md").exists())
 
+    def publish(self) -> Path:
+        """feat pushed with a screenshot, plus a branch for an upstream PR, then merged into main and pushed."""
+        origin = self.tmp / "origin.git"
+        git(self.tmp, "init", "-q", "--bare", str(origin))
+        git(crew.MAIN, "remote", "add", "origin", str(origin))
+        (self.wt / "shot.png").write_text("png\n")
+        git(self.wt, "add", "shot.png")
+        git(self.wt, "commit", "-qm", "a screenshot")
+        git(self.wt, "push", "-q", "origin", "feat", "feat:up/feat/tick-loss")
+        git(crew.MAIN, "merge", "-q", "--ff-only", "feat")
+        git(crew.MAIN, "push", "-q", "origin", "main")
+        git(crew.MAIN, "fetch", "-q", "origin")
+        self.edits = []
+        self.body = ("![Recording](https://github.com/usr-ein/TriMixxx/blob/feat/shot.png?raw=true)\n"
+                     "<img src=\"https://raw.githubusercontent.com/usr-ein/trimixxx/feat/shot.png\"> "
+                     "and another branch's: https://github.com/usr-ein/TriMixxx/blob/feature/x.png")
+        crew.find_prs = lambda b: {".": {"number": 7, "repo": "usr-ein/TriMixxx", "body": self.body}}
+        return origin
+
+    def gh(self, code):
+        def gh(args, repo=None, check=True, input=None):
+            self.edits.append((args, input))
+            return subprocess.CompletedProcess(args, code, "", "HTTP 502" if code else "")
+        crew.gh = gh
+
+    def test_screenshot_links_pinned_and_upstream_branches_kept(self):
+        """A PR shows its screenshots by the branch's files: deleting the branch would break them (#38's would)."""
+        origin = self.publish()
+        sha = git(self.wt, "rev-parse", "feat")
+        self.gh(0)
+        out = self.clean()
+        (args, body), = self.edits
+        self.assertEqual(args[:5], ["pr", "edit", "7", "--repo", "usr-ein/TriMixxx"])
+        self.assertIn(f"TriMixxx/blob/{sha}/shot.png?raw=true", body)
+        self.assertIn(f"usr-ein/trimixxx/{sha}/shot.png", body)
+        self.assertIn("/blob/feature/x.png", body)  # another branch's, left alone
+        self.assertEqual(git(origin, "for-each-ref", "--format=%(refname:short)", "refs/heads").split(),
+                         ["main", "up/feat/tick-loss"])
+        self.assertIn(".: kept on origin for upstream PRs: up/feat/tick-loss", out)
+
+    def test_a_link_it_could_not_pin_keeps_the_branch(self):
+        origin = self.publish()
+        self.gh(1)
+        self.assertIn("could not be pinned (HTTP 502): feat stays on origin", self.clean())
+        self.assertIn("feat", git(origin, "for-each-ref", "--format=%(refname:short)", "refs/heads").split())
+
     def test_one_that_would_not_go(self):
         self.failing = {"cdj rm feat-b"}
         out = self.clean(abandon=True)
@@ -979,7 +1281,7 @@ class MergeTest(Sandbox):
         crew.approved_commit = lambda pr: self.approved
         crew.gh_json = lambda args, repo=None: {"state": "MERGED"}
 
-    def feature(self, mixxx=True, bump=True) -> dict:
+    def feature(self, mixxx=True, bump=True, change="skin.xml") -> dict:
         """A minion's branch feat: a commit in mixxx, and in the parent a change plus the bump."""
         tips = {}
         if mixxx:
@@ -992,8 +1294,9 @@ class MergeTest(Sandbox):
             tips["mixxx"] = git(mwt, "rev-parse", "HEAD")
         pwt = self.tmp / "pwt"
         git(crew.MAIN, "worktree", "add", "-q", "-b", "feat", str(pwt), "main")
-        (pwt / "skin.xml").write_text("change\n")
-        git(pwt, "add", "skin.xml")
+        (pwt / change).parent.mkdir(parents=True, exist_ok=True)
+        (pwt / change).write_text("change\n")
+        git(pwt, "add", change)
         if mixxx and bump:
             git(pwt, "update-index", "--cacheinfo", f"160000,{tips['mixxx']},mixxx")
         git(pwt, "commit", "-qm", "feature, and bump mixxx")
@@ -1115,6 +1418,71 @@ class MergeTest(Sandbox):
         git(crew.MAIN / "mixxx", "add", "local")
         git(crew.MAIN / "mixxx", "commit", "-qm", "unpushed")
         self.assert_refused(4, "unpushed")
+
+    def builds(self) -> list:
+        built, real = [], self.saved["run"]
+
+        def run(cmd, cwd=None, check=True, **kw):
+            if str(cmd[0]).endswith("pi-qemu/build.sh"):
+                built.append([str(x) for x in cmd[1:]])
+                return subprocess.CompletedProcess(cmd, 0, "", "")
+            return real(cmd, cwd=cwd, check=check, **kw)
+        crew.run = run
+        return built
+
+    def test_rebuilds_pi_qemu_when_its_code_changed(self):
+        """The pi-qemu on PATH is the main checkout's build: on 2026-10-14 it was a day older than main's code."""
+        built = self.builds()
+        self.feature(mixxx=False, change="pi-qemu/app/src/deck.cpp")
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(self.merge(), 0)
+        self.assertEqual(built, [["app"]])
+        self.assertIn("pi-qemu rebuilt", out.getvalue())
+
+    def test_no_rebuild_for_the_rest(self):
+        built = self.builds()
+        self.feature(mixxx=False, change="pi-qemu/qemu/trimixxx-patches.py")
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(self.merge(), 0)
+        self.assertEqual(built, [])
+        self.assertIn("`pi-qemu/build.sh qemu`", out.getvalue())  # QEMU itself: once no deck runs, by hand
+
+    def emulator(self) -> Path:
+        """A second submodule, cdj2000-emulator, as TriMixxx has since 2026-10-10."""
+        origin = self.tmp / "origin"
+        git(origin.parent, "clone", "-q", "--bare", str(self.repo(self.tmp / "seed-cdj", branch="main")),
+            str(origin / "cdj.git"))
+        git(crew.MAIN, "submodule", "add", "-q", str(origin / "cdj.git"), "cdj2000-emulator")
+        git(crew.MAIN, "commit", "-qm", "add the emulator")
+        git(crew.MAIN, "push", "-q", "origin", "main")
+        return crew.MAIN / "cdj2000-emulator"
+
+    def emulator_branch(self, name) -> str:
+        ewt = self.tmp / f"ewt-{name}"
+        git(self.emu, "worktree", "add", "-q", "-b", name, str(ewt), "origin/main")
+        (ewt / "timer.c").write_text("a kept tick\n")
+        git(ewt, "add", "timer.c")
+        git(ewt, "commit", "-qm", "a stopped timer drops a kept tick")
+        git(ewt, "push", "-q", "origin", name)
+        pwt = self.tmp / "pwt"
+        git(crew.MAIN, "worktree", "add", "-q", "-b", "feat", str(pwt), "main")
+        git(pwt, "update-index", "--cacheinfo", f"160000,{git(ewt, 'rev-parse', 'HEAD')},cdj2000-emulator")
+        git(pwt, "commit", "-qm", "Bump cdj2000-emulator")
+        git(pwt, "push", "-q", "origin", "feat")
+        self.approved = git(pwt, "rev-parse", "HEAD")
+        return git(ewt, "rev-parse", "HEAD")
+
+    def test_the_emulator_lands_as_mixxx_does(self):
+        self.emu = self.emulator()
+        t = self.emulator_branch("feat")
+        self.assertEqual(self.merge(), 0)
+        self.assertEqual(git(self.tmp / "origin" / "cdj.git", "rev-parse", "main"), t)
+
+    def test_refuses_an_emulator_pointer_off_its_main(self):
+        """cdj-2k-emu, 2026-10-10: a pin could land on main with a commit its fork's main lacked."""
+        self.emu = self.emulator()
+        self.emulator_branch("elsewhere")
+        self.assert_refused(2, "not on cdj2000-emulator's main")
 
     def test_refuses_unpushed_branch(self):
         self.feature()
