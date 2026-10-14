@@ -59,6 +59,11 @@ style (short sentences, concrete commands).
 
 ## 3. Test it
 
+- Change a copy of the tool, never `.claude/crew/crew` itself: every crew
+  session's hooks run that file on each tool call, so a half-edited one
+  breaks the guard while it lasts. Copy `crew`, `test_crew.py` and
+  `limits.env` to your scratchpad, and change and test them there
+  (`python3 -m unittest discover -s DIR`).
 - `python3 -m unittest discover -s .claude/crew -v`. A change to the guard,
   merge, clean or launching gets a test of its own.
 - To try the tool from a worktree before it lands, prefix `CREW_LOCAL=1`:
@@ -67,7 +72,9 @@ style (short sentences, concrete commands).
 
 ## 4. Land it, on Sam's OK
 
-Commit in the main checkout, on main, with explicit paths:
+Swap the tool in with one rename (`cp` it beside the live one, then `mv`),
+and rerun the tests in place. Commit in the main checkout, on main, with
+explicit paths:
 `git -c user.name="Samuel Prevost" -c user.email=usr_ein@pm.me commit ...`.
 Tuning the crew is tooling, not deck code: it lands on main directly so it
 takes effect at once. Push only when Sam says, and never while a repo's main
