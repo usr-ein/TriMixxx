@@ -100,7 +100,7 @@ Beside them, upstream's `rekordboxconstants.h`, which the analysis reads.
 | `deckautoplay.{h,cpp}` | `DeckAutoplay`: the rule driven on the deck, track after track, through `DeckLoader`. |
 | `playhistory.{h,cpp}` | The History's rule: plays (a track on a player, from when to when) swept into segments of what played together, and those listed as rows (`Track 1 \| Track 2 (20s)`); `Recorder`, samples into plays starting and stopping. Pure. |
 | `historystore.{h,cpp}` | `HistoryStore`: the History on the card, a SQLite database of its own (WAL, synchronous=FULL) and cover thumbnails, in `/var/lib/rauc/trimixxx-history` (p8 on a release card). A session per power-up (boot id), the newest three kept; a database that will not open is put aside. |
-| `deckhistory.{h,cpp}` | `DeckHistory`: what plays on the link, sampled four times a second (this deck's `play` and `DeckLoader`'s track, every player's status), recorded through `Recorder` into `HistoryStore` on a thread of its own, with a heartbeat every 5 s; tracks named from `deck_library`, covers copied while the stick is in. |
+| `deckhistory.{h,cpp}` | `DeckHistory`: what plays on the link, sampled four times a second (this deck's `play` and `DeckLoader`'s track, every player's status), recorded through `Recorder` into `HistoryStore` on a thread of its own, with a heartbeat every 5 s; tracks named from `deck_library`, covers copied while the stick is in. A store whose directory comes after Mixxx (p8 mounted late) is opened then, and takes what was recorded in RAM. |
 | `camelot.h` | Camelot order and compatibility. |
 
 ### `src/widget/deck/`: the deck's widgets
