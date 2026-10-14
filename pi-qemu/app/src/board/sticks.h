@@ -53,6 +53,11 @@ public:
     // alongside the Mac's own USB storage.
     Sticks(Machine* m, QString imagesDir, QObject* parent = nullptr);
 
+    // A bare name's stick in `dir`: NAME, NAME.img or NAME.stick, as written
+    // first, then whatever its case (the Mac's disk ignores it): SAM1 is
+    // SAM1.stick even beside a folder sam1/. Empty if none.
+    static QString find(const QString& dir, const QString& name);
+
     QVector<HostStick> list();   // every USB storage device on the host, plus inserted images
     using Done = std::function<void(bool ok, const QString& message)>;
     void insert(const QString& id, Done done);

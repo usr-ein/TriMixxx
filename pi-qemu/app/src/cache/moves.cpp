@@ -17,6 +17,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QRegularExpression>
 
 #include <algorithm>
 #include <cerrno>
@@ -29,6 +30,17 @@ namespace cache {
 namespace {
 
 using places::Move;
+
+// Where a path is, the links among its folders resolved, not its own: a
+// moved link is where it is, whatever it leads to.
+QString located(const QString& path) {
+    const QFileInfo f(path);
+    const QString parent = f.absolutePath();
+    if (parent == f.absoluteFilePath()) return parent;
+    const QFileInfo p(parent);
+    return (p.exists() ? p.canonicalFilePath() : located(parent)) + "/" + f.fileName();
+}
+bool within(const QString& path, const QString& root) { return (located(path) + "/").startsWith(located(root) + "/"); }
 
 dev_t device(QString path) {
     struct stat st;
@@ -91,7 +103,18 @@ void move(const Move& x, const QString& journal, Outcome& out) {
     out.left << places::shown(x.from) + " (" + places::shown(x.to) + " is there already)";
 }
 
-void undo(const QString& root) {
+// A scratch root's moves (not the main checkout's): only what is under it, both ends.
+bool inScope(const Move& x, const QString& root, bool mainRoot) {
+    return mainRoot || (within(x.from, root) && within(x.to, root));
+}
+
+QVector<Move> confined(QVector<Move> moves, const QString& root, bool mainRoot) {
+    moves.erase(std::remove_if(moves.begin(), moves.end(), [&](const Move& x) { return !inScope(x, root, mainRoot); }),
+                moves.end());
+    return moves;
+}
+
+void undo(const QString& root, bool mainRoot) {
     const QString journal = root + "/.cache/moves.json";
     const QVector<Move> done = recorded(journal);
     if (done.isEmpty()) {
@@ -101,7 +124,10 @@ void undo(const QString& root) {
     QStringList back, left;
     QVector<Move> kept; // what can't go back now stays recorded, for another --undo
     for (auto x = done.rbegin(); x != done.rend(); ++x) {
-        if (places::there(x->to) && !places::there(x->from)) {
+        if (!inScope(*x, root, mainRoot)) {
+            left << places::shown(x->to) + " (outside " + places::shown(root) + ")";
+            kept.prepend(*x);
+        } else if (places::there(x->to) && !places::there(x->from)) {
             rename(x->to, x->from);
             back << places::shown(x->to) + " -> " + places::shown(x->from);
         } else {
@@ -114,7 +140,16 @@ void undo(const QString& root) {
     QFile::remove(root + "/.cache/docker.json");
     for (const QString& l : places::stateLinks(root + "/.cache"))
         if (QFileInfo(l).isSymLink()) QFile::remove(l);
-    for (const char* d : {"/.cache/stock", "/.cache/cdj-qemu", "/.cache", "/archives/sticks", "/archives"}) QDir().rmdir(root + d);
+    for (const char* d : {"/.cache/stock", "/.cache/cdj-qemu", "/archives/sticks/cdj", "/archives/sticks"}) QDir().rmdir(root + d);
+    // The two folders, once nothing but their own .gitignore is left in them.
+    for (const char* d : {"/.cache", "/archives"}) {
+        const QStringList left =
+            QDir(root + d).entryList(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot);
+        if (left.filter(QRegularExpression("^(?!(\\.gitignore|\\.DS_Store)$)")).isEmpty()) {
+            for (const QString& f : left) QFile::remove(root + d + "/" + f);
+            QDir().rmdir(root + d);
+        }
+    }
     print() << "moved back:\n  " << back.join("\n  ") << "\n";
     if (!left.isEmpty()) print() << "left as they are:\n  " << left.join("\n  ") << "\n";
     for (const char* d : {"/.cache", "/archives"})
@@ -134,12 +169,21 @@ void migrate(const QString& root, bool back, const QVector<User>& using_) {
     if (!busy.isEmpty())
         fail("not while these run (what moves is theirs, or under them):\n  " + busy.join("\n  ") +
              "\nStop them first (" + tool("deck stop NAME") + ", " + tool("cdj rm NAME") + "), then again.");
-    if (back) return undo(root);
-
+    // A root other than the main checkout, a scratch copy, moves only what is
+    // under it: never the CDJs' folder in ~ (the NXS firmware, Sam's sticks),
+    // whatever names it, so deleting the copy deletes nothing of his.
+    const bool mainRoot = located(root) == located(paths::mainCheckout());
+    if (back) return undo(root, mainRoot);
+    QString cdjs = paths::cdjs();
+    if (!mainRoot && (!within(cdjs, root) || located(cdjs) == located(QDir::home().filePath(".pi-qemu/cdj")))) {
+        print() << "not the main checkout: only what is under " << places::shown(root) << " moves; the CDJs' folder, "
+                << places::shown(cdjs) << ", stays as it is\n";
+        cdjs.clear();
+    }
     // A worktree's own QEMU build moves with the main checkout's, run from it;
     // a scratch root is a checkout of its own.
-    const QString checkout = QDir(root) == QDir(paths::mainCheckout()) ? paths::checkout() : root;
-    const QVector<Move> moves = places::planned(root, paths::cdjs(), checkout);
+    const QString checkout = mainRoot ? paths::checkout() : root;
+    const QVector<Move> moves = confined(places::planned(root, cdjs, checkout), root, mainRoot);
     if (moves.isEmpty()) {
         print() << "nothing to move: " << places::shown(root + "/.cache") << " and " << places::shown(root + "/archives")
                 << " have it all\n";
@@ -154,8 +198,10 @@ void migrate(const QString& root, bool back, const QVector<User>& using_) {
             fail(places::shown(x.from) + " is on another volume than " + places::shown(root) +
                  ": moving it would copy it. Move it to " + places::shown(x.to) + " yourself, then again.");
     const qint64 freeBefore = diskuse::freeBytes(root);
-    QDir().mkpath(root + "/.cache");
-    QDir().mkpath(root + "/archives");
+    for (const char* d : {"/.cache", "/archives"}) {
+        QDir().mkpath(root + d);
+        files::ignoreItself(root + d);
+    }
     Outcome out;
     for (const Move& x : moves) move(x, root + "/.cache/moves.json", out);
     places::linkState(root + "/.cache");

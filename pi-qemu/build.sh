@@ -88,7 +88,8 @@ build_qemu() {
             cd "$src/build"
             # A tree configured somewhere else (moved by pi-qemu cache migrate)
             # has that place written all through it, its venv's scripts too:
-            # configured again here, a whole build.
+            # configured again here, a whole build, without a QEMU until it
+            # ends (as after a patch change): once no deck runs.
             if [ -f meson-info/meson-info.json ] && ! python3 -c 'import json, os, sys
 sys.exit(json.load(open("meson-info/meson-info.json"))["directories"]["build"] != os.getcwd())'; then
                 echo "==> QEMU: configured in another place before (moved): configured again, a whole build"

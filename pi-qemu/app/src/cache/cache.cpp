@@ -46,7 +46,7 @@ QVector<Kind> kinds() {
          "release build, release card"},
         {"cdj-firmware", Shelf::Archive, cdj::firmware(), "the NXS firmware the emulated CDJs boot",
          "cdj firmware C2KNXS.UPD"},
-        {"sticks", Shelf::Archive, paths::sticks(), "USB sticks: images, folders, .stick files",
+        {"sticks", Shelf::Archive, paths::sticks(), "the decks' USB sticks, and the CDJs' in cdj/",
          "by hand (pi-qemu/README.md)"},
         {"decks", Shelf::Archive, paths::identities(), "each deck's identity: ssh host keys, Wi-Fi",
          "release card, deck prepare"},

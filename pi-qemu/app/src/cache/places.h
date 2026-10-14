@@ -21,9 +21,9 @@ struct Move {
     QString from, to;
 };
 // Where things were, and where each goes: under `root` (the main checkout),
-// from the CDJs' folder `cdjs`, and `checkout`'s own QEMU build when it is a
-// worktree. Only what is there. `ours`: only what pi-qemu put there, not what
-// people left in the CDJs' folder.
+// from the CDJs' folder `cdjs` (none: empty), and `checkout`'s own QEMU build
+// when it is a worktree. Only what is there, and no empty folder. `ours`: only
+// what pi-qemu put there, not what people left in the CDJs' folder.
 QVector<Move> planned(const QString& root, const QString& cdjs, const QString& checkout, bool ours = false);
 // What pi-qemu left in its old places and isn't in its new one yet: what
 // stops every command but `pi-qemu cache` until it moves.

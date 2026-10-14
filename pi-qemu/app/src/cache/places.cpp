@@ -1,6 +1,7 @@
 #include "cache/places.h"
 
 #include "board/link.h"
+#include "util/files.h"
 #include "util/paths.h"
 
 #include <QDir>
@@ -33,6 +34,7 @@ void linkState(const QString& cacheDir) {
     const QStringList links = stateLinks(cacheDir);
     const QStringList targets{paths::instances(), paths::cdjs(), links::root()};
     QDir().mkpath(cacheDir);
+    files::ignoreItself(cacheDir);
     for (int i = 0; i < links.size(); i++)
         if (!there(links[i])) QFile::link(targets[i], links[i]);
 }
@@ -46,18 +48,32 @@ QVector<Move> planned(const QString& root, const QString& cdjs, const QString& c
     for (const char* d : {"decks", "captures", "sticks"}) m << Move{was + "/" + d, a + "/" + d};
     m << Move{root + "/pi-qemu/qemu/.build", c + "/qemu"};
     m << Move{root + "/pi-qemu/release/out", a + "/releases"};
-    // The CDJs' folder: their own state stays, for its sockets.
-    m << Move{cdjs + "/firmware", a + "/cdj-firmware"};
+    // The CDJs' folder, if it is to be moved from: their own state stays, for its sockets.
     static const QRegularExpression pinned("^qemu-([0-9a-f]{8})$");
-    for (const QFileInfo& f : QDir(cdjs).entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name)) {
-        const QString n = f.fileName(), path = f.absoluteFilePath();
-        if (QFileInfo::exists(path + "/cdj.json") || QFileInfo::exists(path + "/pi-qemu.log")) continue; // a CDJ
-        if (const auto q = pinned.match(n); q.hasMatch()) m << Move{path, c + "/cdj-qemu/" + q.captured(1)};
-        else if (n.startsWith("firmware") || n.startsWith("qemu-")) continue; // the firmware, or cut short
-        else if (!ours) m << Move{path, a + "/sticks/" + n}; // someone's own: Sam's rekordbox stick
+    if (!cdjs.isEmpty()) {
+        m << Move{cdjs + "/firmware", a + "/cdj-firmware"};
+        for (const QFileInfo& f : QDir(cdjs).entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot, QDir::Name)) {
+            const QString n = f.fileName(), path = f.absoluteFilePath();
+            if (QFileInfo::exists(path + "/cdj.json") || QFileInfo::exists(path + "/pi-qemu.log")) continue; // a CDJ
+            if (const auto q = pinned.match(n); q.hasMatch()) m << Move{path, c + "/cdj-qemu/" + q.captured(1)};
+            else if (n.startsWith("firmware") || n.startsWith("qemu-")) continue; // the firmware, or cut short
+            // Someone's own (Sam's rekordbox copy, sam1/): with the sticks, in a
+            // folder of their own, where no deck stick's name finds it (sam1/
+            // beside SAM1.stick, his own stick, on a disk that ignores case).
+            else if (!ours) m << Move{path, a + "/sticks/cdj/" + n};
+        }
     }
     if (QDir(checkout) != QDir(root)) m << Move{checkout + "/pi-qemu/qemu/.build", checkout + "/.cache/qemu"};
-    m.erase(std::remove_if(m.begin(), m.end(), [](const Move& x) { return !there(x.from); }), m.end());
+    // Only what is there; not an empty folder (Docker makes release/out
+    // again as a mount point, each release container).
+    m.erase(std::remove_if(m.begin(), m.end(), [](const Move& x) {
+                const QFileInfo f(x.from);
+                return !there(x.from) ||
+                       (f.isDir() && !f.isSymLink() &&
+                        QDir(x.from).entryList(QDir::AllEntries | QDir::Hidden | QDir::System | QDir::NoDotAndDotDot)
+                            .filter(QRegularExpression("^(?!\\.DS_Store$)")).isEmpty());
+            }),
+            m.end());
     return m;
 }
 

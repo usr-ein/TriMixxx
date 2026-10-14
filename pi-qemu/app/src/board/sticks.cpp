@@ -227,14 +227,22 @@ void Sticks::dropFdset(int fdset) {
     while (::read(m_fdMon, &ch, 1) == 1 && ch != '\n') {}
 }
 
+QString Sticks::find(const QString& dir, const QString& name) {
+    const QStringList cands{name, name + ".img", name + ".stick"};
+    const QStringList there = QDir(dir).entryList(QDir::AllEntries | QDir::Hidden | QDir::NoDotAndDotDot);
+    for (const QString& cand : cands)
+        if (there.contains(cand, Qt::CaseSensitive)) return QDir(dir).filePath(cand);
+    for (const QString& cand : cands)
+        if (QFileInfo::exists(QDir(dir).filePath(cand))) return QDir(dir).filePath(cand);
+    return {};
+}
+
 // A bare name finds the stick in the sticks folder: "SAM3" -> SAM3.img,
 // "SANDISK" -> SANDISK.stick.
 QString Sticks::resolve(const QString& name) const {
     QString id = name;
-    if (!id.startsWith("disk") && !id.startsWith("fd:") && !QFileInfo::exists(id)) {
-        for (const QString& cand : {id, id + ".img", id + ".stick"})
-            if (QFileInfo::exists(QDir(m_imagesDir).filePath(cand))) { id = QDir(m_imagesDir).filePath(cand); break; }
-    }
+    if (!id.startsWith("disk") && !id.startsWith("fd:") && !QFileInfo::exists(id))
+        if (const QString found = find(m_imagesDir, id); !found.isEmpty()) id = found;
     if (QFileInfo::exists(id)) id = QFileInfo(id).absoluteFilePath();
     return id;
 }

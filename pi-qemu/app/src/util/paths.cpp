@@ -1,5 +1,7 @@
 #include "util/paths.h"
 
+#include "util/files.h"
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QFileInfo>
@@ -59,11 +61,13 @@ namespace {
 
 std::function<void()> g_layoutCheck;
 
-// A variable's value, or the default place, checked the first time.
-QString place(const char* variable, const QString& fallback) {
+// A variable's value, or the default place, checked the first time; a folder
+// of its own (.cache/, archives/) keeps itself out of git.
+QString place(const char* variable, const QString& fallback, bool folder = true) {
     const QString env = qEnvironmentVariable(variable);
     if (!env.isEmpty()) return env;
     if (g_layoutCheck) std::exchange(g_layoutCheck, nullptr)();
+    if (folder) files::ignoreItself(fallback);
     return fallback;
 }
 
@@ -75,7 +79,7 @@ void setLayoutCheck(std::function<void()> check) { g_layoutCheck = std::move(che
 // built elsewhere (a worktree's, to try a patch).
 QString cache() { return place("PI_QEMU_CACHE", mainCheckout() + "/.cache"); }
 QString archives() { return place("PI_QEMU_ARCHIVES", mainCheckout() + "/archives"); }
-QString tools() { return place("PI_QEMU_TOOLS", mainCheckout() + "/.cache/qemu/bin"); }
+QString tools() { return place("PI_QEMU_TOOLS", mainCheckout() + "/.cache/qemu/bin", false); }
 QString golden() { return cache() + "/golden/trimixxx0"; }
 QString releases() { return archives() + "/releases"; }
 QString identities() { return archives() + "/decks"; }

@@ -15,5 +15,9 @@ bool inUse(const QString& path);                 // some process has it open (ls
 // unpacks it and dd writes it, seeking over each 1 MiB of zeros instead
 // (conv=sparse), so it takes its data's room on the Mac's disk. Fails if it can't.
 void unxz(const QString& from, const QString& to);
+// `dir`, if it is there, given a .gitignore of "*": git ignores the folder
+// whatever commit is checked out, the root's .gitignore or not (.cache/,
+// archives/: the firmware and people's sticks are never committed).
+void ignoreItself(const QString& dir);
 
 } // namespace files

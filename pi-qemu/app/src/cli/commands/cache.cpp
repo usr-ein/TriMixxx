@@ -58,7 +58,8 @@ void addCache(cli::Registry& r) {
                           "instant, and clones keep sharing. Refused, with nothing moved, while a deck, a\n"
                           "CDJ, a build or another pi-qemu runs. Twice is the same as once: what is in\n"
                           "both places stays where it was, said. Each move is recorded in\n"
-                          ".cache/moves.json, which --undo follows back.",
+                          ".cache/moves.json, which --undo follows back. With --root, only what is under\n"
+                          "DIR moves: never ~/.pi-qemu/cdj (PI_QEMU_CDJ under DIR stands for it).",
            .options = {{"undo", "", "move back what it moved"}, kRoot},
            .run = [](cli::Args& a) {
                a.done();

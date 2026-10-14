@@ -4,6 +4,7 @@
 #include "util/process.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QRegularExpression>
 
 #ifdef __APPLE__
@@ -57,6 +58,13 @@ void unxz(const QString& from, const QString& to) {
     }
     QFile::remove(to);
     if (!QFile::rename(part, to)) fail("cannot move " + part + " to " + to);
+}
+
+void ignoreItself(const QString& dir) {
+    const QString ignore = dir + "/.gitignore";
+    if (!QFileInfo(dir).isDir() || QFileInfo::exists(ignore)) return;
+    QFile f(ignore);
+    if (f.open(QIODevice::WriteOnly)) f.write("# pi-qemu's (pi-qemu cache): never in git, whatever commit is checked out\n*\n");
 }
 
 } // namespace files
