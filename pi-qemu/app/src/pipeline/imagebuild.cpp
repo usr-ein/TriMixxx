@@ -53,9 +53,9 @@ QString sha256(const QString& file) {
 // The stock card, downloaded once, checked, unpacked.
 QString stockCard() {
     const Stock s = stock();
-    const QString img = cacheDir() + "/" + s.name + ".img";
+    const QString img = cacheDir() + "/stock/" + s.name + ".img";
     if (QFileInfo::exists(img)) return img;
-    QDir().mkpath(cacheDir());
+    QDir().mkpath(cacheDir() + "/stock");
     const QString xz = img + ".xz";
     if (!QFileInfo::exists(xz)) {
         const QString part = xz + ".part";
@@ -217,7 +217,7 @@ QString build(const QString& deck, const Options& o) {
     Instance::Up up;
     up.deck = deck;
     if (QFileInfo::exists(base) && !o.rebuildBase) {
-        buildlog::say("deploy 000_base: cached, " + QDir(paths::shared()).relativeFilePath(base));
+        buildlog::say("deploy 000_base: cached, " + QDir(paths::mainCheckout()).relativeFilePath(base));
         files::clone(base, vm.card());
         buildlog::say("booting into the deck's boot flags");
         vm.up(up);

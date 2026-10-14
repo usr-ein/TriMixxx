@@ -5,6 +5,8 @@
 #include <QFileInfo>
 #include <QProcess>
 
+#include <utility>
+
 namespace {
 
 QString git(const QString& dir, const QStringList& args) {
@@ -52,23 +54,44 @@ bool isWorktree() { return QDir(checkout()) != QDir(mainCheckout()); }
 QString piq() { return checkout() + "/pi-qemu"; }
 QString units() { return checkout() + "/mixxx_config/units"; }
 QString shared() { return mainCheckout() + "/pi-qemu"; }
-QString cache() {
-    const QString env = qEnvironmentVariable("PI_QEMU_CACHE"); // tests, and builds kept apart
-    return env.isEmpty() ? shared() + "/.cache" : env;
+
+namespace {
+
+std::function<void()> g_layoutCheck;
+
+// A variable's value, or the default place, checked the first time.
+QString place(const char* variable, const QString& fallback) {
+    const QString env = qEnvironmentVariable(variable);
+    if (!env.isEmpty()) return env;
+    if (g_layoutCheck) std::exchange(g_layoutCheck, nullptr)();
+    return fallback;
 }
-QString tools() {
-    const QString env = qEnvironmentVariable("PI_QEMU_TOOLS"); // a QEMU built elsewhere: a worktree's, to try a patch
-    return env.isEmpty() ? shared() + "/qemu/.build/bin" : env;
-}
+
+} // namespace
+
+void setLayoutCheck(std::function<void()> check) { g_layoutCheck = std::move(check); }
+
+// The variables: tests, scratch copies, builds kept apart; for tools(), a QEMU
+// built elsewhere (a worktree's, to try a patch).
+QString cache() { return place("PI_QEMU_CACHE", mainCheckout() + "/.cache"); }
+QString archives() { return place("PI_QEMU_ARCHIVES", mainCheckout() + "/archives"); }
+QString tools() { return place("PI_QEMU_TOOLS", mainCheckout() + "/.cache/qemu/bin"); }
 QString golden() { return cache() + "/golden/trimixxx0"; }
-QString releases() { return shared() + "/release/out"; }
-QString identities() { return cache() + "/decks"; }
+QString releases() { return archives() + "/releases"; }
+QString identities() { return archives() + "/decks"; }
+QString sticks() { return archives() + "/sticks"; }
+QString captures() { return archives() + "/captures"; }
 QString secretsFile() { return shared() + "/image/secrets.env"; }
 QString binary() { return QCoreApplication::applicationFilePath(); }
 
 QString instances() {
     const QString env = qEnvironmentVariable("PI_QEMU_INSTANCES");
     return env.isEmpty() ? QDir::home().filePath(".pi-qemu/instances") : env;
+}
+
+QString cdjs() {
+    const QString env = qEnvironmentVariable("PI_QEMU_CDJ");
+    return env.isEmpty() ? QDir::home().filePath(".pi-qemu/cdj") : env;
 }
 
 QString sshKey() {

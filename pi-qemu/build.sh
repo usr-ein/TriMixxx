@@ -10,11 +10,12 @@
 #
 # Needs: brew install qemu qt cmake ninja mtools dtc python@3.12 (qemu pulls
 # its build dependencies). QEMU takes about ten minutes the first time on an
-# M1, and is pinned, so a rebuild is the same QEMU. A git worktree builds its
-# own pi-qemu (app/build/pi-qemu, run by its path) and uses the main checkout's
-# QEMU, which is what pi-qemu runs anyway. To try a QEMU patch from a worktree:
-# `build.sh qemu` there, then PI_QEMU_TOOLS=$PWD/pi-qemu/qemu/.build/bin in the
-# environment of each pi-qemu that runs a deck or a build.
+# M1, and is pinned, so a rebuild is the same QEMU. It is built in the
+# checkout's .cache/qemu (git-ignored: `pi-qemu cache`). A git worktree builds
+# its own pi-qemu (app/build/pi-qemu, run by its path) and uses the main
+# checkout's QEMU, which is what pi-qemu runs anyway. To try a QEMU patch from
+# a worktree: `build.sh qemu` there, then PI_QEMU_TOOLS=$PWD/.cache/qemu/bin in
+# the environment of each pi-qemu that runs a deck or a build.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,7 +38,14 @@ export SDKROOT="$SDK"
 # and its 44.1 kHz, and every device saved, for snapshots. Plus Raspberry Pi's
 # dtmerge, which applies dtoverlay=/dtparam= lines as the firmware does.
 build_qemu() {
-    local work="$HERE/qemu/.build"
+    local work
+    work="$(git -C "$HERE" rev-parse --show-toplevel)/.cache/qemu"
+    # Where it was built before .cache/: moved by pi-qemu, not built again here.
+    if [ -d "$HERE/qemu/.build" ] && [ ! -e "$work" ]; then
+        echo "QEMU's build is still in pi-qemu/qemu/.build: \`pi-qemu cache migrate\` moves it to .cache/qemu" >&2
+        echo "(from a pi-qemu that has it: pi-qemu/build.sh app first)" >&2
+        exit 1
+    fi
     local QEMU_VERSION=11.1.0
     local QEMU_SHA256=6ee1d1a61f68212476b27108c26da5f449dc09b626d42f8279ba0dc2e08fa858
     local RPI_QEMU_REPO=https://github.com/fpgas-online/rpi-qemu.git
@@ -78,6 +86,14 @@ build_qemu() {
         mkdir -p "$src/build"
         (
             cd "$src/build"
+            # A tree configured somewhere else (moved by pi-qemu cache migrate)
+            # has that place written all through it, its venv's scripts too:
+            # configured again here, a whole build.
+            if [ -f meson-info/meson-info.json ] && ! python3 -c 'import json, os, sys
+sys.exit(json.load(open("meson-info/meson-info.json"))["directories"]["build"] != os.getcwd())'; then
+                echo "==> QEMU: configured in another place before (moved): configured again, a whole build"
+                find . -mindepth 1 -delete
+            fi
             # No ParavirtualizedGraphics (apple-gfx, for macOS guests): the
             # macOS 27 SDK obsoletes the API QEMU 11.1 builds it with.
             if [ ! -f build.ninja ]; then

@@ -29,9 +29,9 @@ void addImage(cli::Registry& r) {
         .summary = "the card for DECK (trimixxx0): stock Pi OS, its seed, then every deploy step",
         .help = "DECK names the card's hostname and its unit file (mixxx_config/units/DECK.json).\n"
                 "The build runs in an instance of its own, build-DECK (deck ssh reaches it), and\n"
-                "the card lands in pi-qemu/.cache/build/DECK.img, with its log beside it,\n"
-                "DECK.log, which a window follows. The first boot and the base step are cached in\n"
-                "pi-qemu/.cache/base/ while their inputs are unchanged. trimixxx0's build ends by\n"
+                "the card lands in the main checkout's .cache/build/DECK.img, with its log beside\n"
+                "it, DECK.log, which a window follows. The first boot and the base step are cached\n"
+                "in .cache/base/ while their inputs are unchanged. trimixxx0's build ends by\n"
                 "remaking the golden pair agents' instances start from: the person's call.\n"
                 "Needs QEMU (pi-qemu/build.sh), Docker with ~6 GB free, mtools, and the key the\n"
                 "cards trust (SSH_KEY).",

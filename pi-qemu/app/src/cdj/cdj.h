@@ -1,13 +1,13 @@
 #pragma once
 // Emulated CDJs: a CDJ-2000NXS running Pioneer's own firmware on
 // cdj2000-emulator (the submodule; docs/cdj-emulator.md), side by side with
-// the emulated decks and on their links (board/link.h). Its state is kept
-// outside every checkout, since it holds the firmware and what is made from
-// it:
+// the emulated decks and on their links (board/link.h). The firmware is an
+// archive, the main checkout's archives/cdj-firmware/nxs/ (git-ignored: never
+// in any repository), and the pinned QEMU source a cache, its
+// .cache/cdj-qemu/<commit>/ (cache/cache.h). Each CDJ's own state is kept
+// where its sockets' paths stay short:
 //
 //   ~/.pi-qemu/cdj/ ($PI_QEMU_CDJ)
-//     firmware/nxs/      the NXS updater, split and extracted (cdj firmware)
-//     qemu-<commit>/     QEMU's pinned source, fetched once (cdj build)
 //     NAME/              one CDJ:
 //       cdj.json         how it was started: its link, MAC, media, checkout
 //       pid, pi-qemu.log the `pi-qemu cdj run` behind it, and its output
@@ -32,9 +32,9 @@ namespace cdj {
 inline constexpr char kQemuCommit[] = "55347990687e7bc5b6b0d624f290025726e8fbfa";
 inline constexpr char kQemuUrl[] = "https://gitlab.com/qemu-project/qemu.git";
 
-QString root();         // $PI_QEMU_CDJ, or ~/.pi-qemu/cdj
-QString firmware();     // root()/firmware: the emulator's CDJ_FIRMWARE_DIR, holding nxs/
-QString qemuSource();   // root()/qemu-<commit>: pristine, cloned into each checkout
+QString root();         // paths::cdjs(): $PI_QEMU_CDJ, or ~/.pi-qemu/cdj
+QString firmware();     // archives/cdj-firmware: the emulator's CDJ_FIRMWARE_DIR, holding nxs/
+QString qemuSource();   // .cache/cdj-qemu/<commit>: pristine, cloned into each checkout
 QString emulator();     // this checkout's cdj2000-emulator/
 QString qemu();         // emulator()/build/qemu/build/qemu-system-sh4
 QString python();       // emulator()/.venv/bin/python, made by `cdj build`

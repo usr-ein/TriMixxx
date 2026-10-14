@@ -5,8 +5,10 @@
 // `build-log`): everything else -- every other verb, a headless board, a build
 // -- is a plain QCoreApplication, with no Dock icon.
 
+#include "cache/cache.h"
 #include "cli/cli.h"
 #include "cli/commands/commands.h"
+#include "util/paths.h"
 #include "util/process.h"
 #include "util/tool.h"
 
@@ -21,6 +23,9 @@ int main(int argc, char** argv) {
     cli::Registry registry;
     commands::addAll(registry);
     cli::Registry::Call call = registry.parse(words);
+    // Nothing runs on the caches while they are still where they were before
+    // .cache/ and archives/, except `pi-qemu cache`, which moves them.
+    if (call.verb && call.verb->group != "cache") paths::setLayoutCheck(cache::requireMoved);
 
     std::unique_ptr<QCoreApplication> app;
     if (call.verb && call.verb->window && call.verb->window(call.args)) {

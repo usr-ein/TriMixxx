@@ -23,7 +23,10 @@ QString wrap(const QString& text, int indent) {
 
 } // namespace
 
-void Registry::group(const QString& name, const QString& summary) { m_groups.append({name, summary}); }
+void Registry::group(const QString& name, const QString& summary, const QString& byDefault) {
+    m_groups.append({name, summary});
+    if (!byDefault.isEmpty()) m_defaults[name] = byDefault;
+}
 
 void Registry::add(Verb v) { m_verbs.append(std::move(v)); }
 
@@ -42,7 +45,7 @@ QString Registry::usageLine(const Verb& v) const {
 QString Registry::help() const {
     QString t = QString(kTool) + ": TriMixxx's tool -- decks emulated and real, deploying, images, releases.\n\n";
     for (const auto& [name, summary] : m_groups)
-        t += ("  " + tool(name + " VERB ...")).leftJustified(34) + summary + "\n";
+        t += ("  " + tool(name + (m_defaults.contains(name) ? " [VERB ...]" : " VERB ..."))).leftJustified(34) + summary + "\n";
     for (const Verb& v : m_verbs)
         if (v.group.isEmpty()) t += ("  " + usageLine(v)).leftJustified(34) + v.summary + "\n";
     t += QString("\n`%1 GROUP` lists a group's verbs; `%1 GROUP VERB --help` says more about one.\n"
@@ -96,18 +99,21 @@ Registry::Call Registry::parse(const QStringList& words) const {
     const Verb* v = nullptr;
     QStringList rest;
     if (std::any_of(m_groups.begin(), m_groups.end(), [&](const auto& g) { return g.first == first; })) {
-        if (words.size() < 2 || isHelp(words[1])) {
+        if (words.size() < 2 && m_defaults.contains(first)) {
+            v = find(first, m_defaults[first]);
+        } else if (words.size() < 2 || isHelp(words[1])) {
             c.text = groupHelp(first);
             c.status = words.size() < 2 ? 2 : 0;
             return c;
+        } else {
+            v = find(first, words[1]);
+            if (!v) {
+                c.text = QString("%1: no verb %2\n\n").arg(tool(first), words[1]) + groupHelp(first);
+                c.status = 2;
+                return c;
+            }
+            rest = words.mid(2);
         }
-        v = find(first, words[1]);
-        if (!v) {
-            c.text = QString("%1: no verb %2\n\n").arg(tool(first), words[1]) + groupHelp(first);
-            c.status = 2;
-            return c;
-        }
-        rest = words.mid(2);
     } else {
         v = find({}, first);
         if (!v) {

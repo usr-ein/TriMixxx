@@ -105,7 +105,7 @@ int run(cli::Args& a) {
     }
     Machine machine(o);
     VirtualS3 s3(machine.s3Socket());
-    Sticks sticks(&machine, a.value("sticks", paths::cache() + "/sticks"));
+    Sticks sticks(&machine, a.value("sticks", paths::sticks()));
     ControlServer control(&machine, &s3, &sticks, &wiring);
     // Test hook: PI_QEMU_SNAPSHOT=file.png renders the control panel to a file
     // and quits, with no Pi started and no control socket taken.
@@ -197,7 +197,7 @@ void addRun(cli::Registry& r) {
             {"stick", "FILE", "an image plugged in as a USB stick at power-on (repeatable)"},
             {"sticks", "DIR", "USB stick images (*.img) offered alongside the Mac's own"},
             {"serial-log", "FILE", "the S3's UART into a file instead (debugging)"},
-            {"tools", "DIR", "qemu-system-aarch64 and dtmerge; the main checkout's qemu/.build/bin"},
+            {"tools", "DIR", "qemu-system-aarch64 and dtmerge; the main checkout's .cache/qemu/bin"},
         },
         .window = [](const cli::Args& a) { return !a.has("no-controls") && a.positional().size() == 1; },
         .run = run,

@@ -26,7 +26,8 @@ struct Verb {
 
 class Registry {
 public:
-    void group(const QString& name, const QString& summary);
+    // byDefault: the verb `pi-qemu GROUP` alone runs; none: it lists the verbs.
+    void group(const QString& name, const QString& summary, const QString& byDefault = {});
     void add(Verb v);
 
     struct Call {
@@ -47,6 +48,7 @@ private:
     QString usageLine(const Verb& v) const;
 
     QVector<QPair<QString, QString>> m_groups;
+    QHash<QString, QString> m_defaults; // group -> its verb by default
     QVector<Verb> m_verbs;
 };
 

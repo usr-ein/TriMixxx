@@ -7,14 +7,14 @@
 //     this board a section of its own, its panel overlay in it
 //     (release/boot/deck-sections.py). Build the release after this, with the
 //     unit file committed.
-//  2. its ssh host keys become its identity's (pi-qemu/.cache/decks/DECK/ssh),
+//  2. its ssh host keys become its identity's (archives/decks/DECK/ssh),
 //     unless that has keys already: the card keeps them, and known_hosts
 //     stays right through the reflash.
 //  3. its bootloader: one from before 2022-12-01 doesn't know tryboot_a_b and
 //     would start a fresh card's empty slot B (phase 1, T0). Without `eeprom`
 //     that fails the run.
 //  4. its boot files, EEPROM config, NetworkManager profiles and ALSA state
-//     are kept in pi-qemu/.cache/captures/DECK-<time>/ (Wi-Fi passwords
+//     are kept in archives/captures/DECK-<time>/ (Wi-Fi passwords
 //     included: gitignored, readable by its owner only), and the lines of its
 //     config.txt a unit file may need are shown: a panel's dtoverlay goes into
 //     "panelOverlay", other screen lines into "configTxt".

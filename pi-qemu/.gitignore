@@ -1,3 +1,5 @@
+# Where pi-qemu kept its caches before .cache/ at the repo's root: a pi-qemu
+# built before that may still write here.
 .cache/
 app/build/
 image/secrets.env

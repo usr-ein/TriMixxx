@@ -33,4 +33,14 @@ void requireFree(int gb) {
                  .arg(free).arg(gb));
 }
 
+bool vmUp() {
+    // Its hypervisor, com.docker.sailor (Docker VMM), is a process only while
+    // the VM runs; by its path, as the command's first word, since the short
+    // name is cut to 16 characters. pgrep failing to run: up, so the caller
+    // reads Docker as it always did.
+    proc::Options o;
+    o.quiet = true;
+    return proc::capture("pgrep", {"-qf", "^[^ ]*/com\\.docker\\.sailor( |$)"}, o).status != 1;
+}
+
 } // namespace docker

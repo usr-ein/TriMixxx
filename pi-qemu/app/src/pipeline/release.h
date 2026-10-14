@@ -7,8 +7,8 @@
 // A release's version is HEAD's tag pi/vX.Y.Z (the repo's other parts tag
 // midi-s3/v..., prolinks-compat/v...): after `git tag -m "TriMixxx 1.0.0"
 // pi/v1.0.0` (tags are signed, so they need -m), `release build`, `release
-// card` and `deck ship` all mean 1.0.0. Every release built is in
-// pi-qemu/release/out/VERSION/ of the main checkout.
+// card` and `deck ship` all mean 1.0.0. Every release built is in the main
+// checkout's archives/releases/VERSION/ (cache/cache.h).
 
 #include <QString>
 #include <QStringList>
@@ -19,7 +19,7 @@ inline constexpr char kTagPrefix[] = "pi/v";
 
 // `given`, or HEAD's pi/v tag; fails, saying how, if there is neither.
 QString version(const QString& given);
-QString outDir(const QString& version); // pi-qemu/release/out/VERSION
+QString outDir(const QString& version); // archives/releases/VERSION
 
 struct BuildOptions {
     QString rehearsal;        // a version for an untagged or dirty tree, said so in its manifest

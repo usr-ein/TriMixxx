@@ -1,6 +1,7 @@
 #pragma once
 // A deck's identity: what goes onto p7 (/data) of its release card, kept in
-// pi-qemu/.cache/decks/DECK/ (gitignored) and made the first time:
+// the main checkout's archives/decks/DECK/ (git-ignored; never cleared: its
+// keys can't be made again) and made the first time:
 //
 //   trimixxx.conf      its name
 //   ssh/               its ssh host keys, kept, so known_hosts survives a

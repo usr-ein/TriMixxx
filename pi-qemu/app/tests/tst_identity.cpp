@@ -9,12 +9,12 @@
 
 class TestIdentity : public QObject {
     Q_OBJECT
-    QTemporaryDir cache;
+    QTemporaryDir archives;
 
 private slots:
     void initTestCase() {
-        QVERIFY(cache.isValid());
-        qputenv("PI_QEMU_CACHE", cache.path().toUtf8());
+        QVERIFY(archives.isValid());
+        qputenv("PI_QEMU_ARCHIVES", archives.path().toUtf8()); // never the real decks' identities
         qputenv("HOME_WIFI_SSID", "Example Net");
         qputenv("HOME_WIFI_PSK", "not-a-real-one");
     }

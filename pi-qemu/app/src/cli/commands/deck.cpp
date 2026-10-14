@@ -276,9 +276,9 @@ void addDeck(cli::Registry& r) {
     r.add({
         .group = "deck", .name = "golden", .synopsis = "[CARD]",
         .summary = "remake the golden pair every new instance starts from (the person's call)",
-        .help = "CARD (default pi-qemu/.cache/build/trimixxx0.img, image build's) is booted\n"
-                "headless until Mixxx plays, then saved with its machine into\n"
-                "pi-qemu/.cache/golden/trimixxx0.img and .state. Running instances keep theirs.",
+        .help = "CARD (default .cache/build/trimixxx0.img, image build's) is booted headless\n"
+                "until Mixxx plays, then saved with its machine into .cache/golden/trimixxx0.img\n"
+                "and .state. Running instances keep theirs.",
         .run = golden,
     });
 
@@ -378,7 +378,7 @@ void addDeck(cli::Registry& r) {
     r.add({
         .group = "deck", .name = "ship", .synopsis = "TARGET [--version X.Y.Z]",
         .summary = "a release's update onto a deck running a release card, then a reboot into it as a trial",
-        .help = "The bundle (pi-qemu/release/out/X.Y.Z/trimixxx-X.Y.Z.raucb, HEAD's pi/vX.Y.Z tag by\n"
+        .help = "The bundle (archives/releases/X.Y.Z/trimixxx-X.Y.Z.raucb, HEAD's pi/vX.Y.Z tag by\n"
                 "default) is streamed into RAUC's state partition and installed into the other\n"
                 "slot; the deck reboots into it as a trial, and its health check keeps it or\n"
                 "drops it. Then what the deck says: its version, its slot, its health, RAUC's\n"
@@ -393,7 +393,7 @@ void addDeck(cli::Registry& r) {
                 "its board's serial into mixxx_config/units/DECK.json (the release's config.txt\n"
                 "then gives it its own section), its ssh host keys into its identity, its\n"
                 "bootloader checked (2022-12-01 or newer knows tryboot_a_b), and a capture of\n"
-                "its files in pi-qemu/.cache/captures/. --eeprom updates the bootloader and\n"
+                "its files in archives/captures/. --eeprom updates the bootloader and\n"
                 "sets its boot watchdog, rebooting the deck to flash it: the person's call.\n"
                 "Then commit the unit files, tag, release build, release card.",
         .options = {kHost, {"eeprom", {}, "update the bootloader, with its boot watchdog (reboots the deck)"}},

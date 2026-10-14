@@ -88,7 +88,7 @@ int build(const BuildOptions& o) {
     }
     return buildlog::run(paths::cache() + "/build/" + kSystem + ".log", o.window, plan(o), [&] {
         if (!o.keepSystem) imagebuild::build(kSystem, {});
-        if (!QFileInfo::exists(imagebuild::card(kSystem))) fail("no " + QString(kSystem) + " card in pi-qemu/.cache/build");
+        if (!QFileInfo::exists(imagebuild::card(kSystem))) fail("no " + QString(kSystem) + " card in " + paths::cache() + "/build");
         container("seal", {"--privileged", "-e", "VERSION=" + v, "-e", "COMMIT=" + commit, "-e", "HASH=" + hash,
                            "--mount", "type=bind,src=" + paths::cache() + "/build,dst=/build,readonly"});
         buildlog::say("release " + v + ": " + outDir(v));

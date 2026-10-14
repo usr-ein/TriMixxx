@@ -15,11 +15,12 @@
 //   pid, command, pi-qemu.log    the pi-qemu run behind it
 //
 // Starting is a restore, not a boot: a new instance gets clones of the golden
-// card and of the machine saved with it (pi-qemu/.cache/golden/trimixxx0.img
-// and .state, made by `deck golden`), and resumes that machine -- booted,
-// Mixxx running -- in seconds. `stop` saves an instance the same way. A
-// restore needs the card it was saved with, so a saved machine is used once:
-// it is gone the moment it starts, and the card goes on from there.
+// card and of the machine saved with it (the main checkout's
+// .cache/golden/trimixxx0.img and .state, made by `deck golden`), and resumes
+// that machine -- booted, Mixxx running -- in seconds. `stop` saves an
+// instance the same way. A restore needs the card it was saved with, so a
+// saved machine is used once: it is gone the moment it starts, and the card
+// goes on from there.
 //
 // On a link, a deck is a device of its own: its eth0 MAC comes from its name
 // (links::macFor), and so do its link-local address and its player number.

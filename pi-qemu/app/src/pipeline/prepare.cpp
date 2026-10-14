@@ -114,7 +114,7 @@ int prepare(Deck& d, const QString& deck, bool eeprom) {
     // ---- 2. its ssh host keys ----
     head("ssh host keys");
     if (!QDir(idDir + "/ssh").entryList({"ssh_host_*_key"}, QDir::Files).isEmpty()) {
-        print() << "  " << deck << "'s identity has keys already: kept (pi-qemu/.cache/decks/" << deck << "/ssh)" << Qt::endl;
+        print() << "  " << deck << "'s identity has keys already: kept (archives/decks/" << deck << "/ssh)" << Qt::endl;
     } else {
         QDir().mkpath(idDir + "/ssh");
         proc::Options o;
@@ -127,7 +127,7 @@ int prepare(Deck& d, const QString& deck, bool eeprom) {
         if (proc::run("tar", {"-C", idDir + "/ssh", "-xf", "-"}, in) != 0) fail("could not unpack the host keys");
         for (const QFileInfo& k : QDir(idDir + "/ssh").entryInfoList({"ssh_host_*_key"}, QDir::Files))
             QFile::setPermissions(k.absoluteFilePath(), QFile::ReadOwner | QFile::WriteOwner);
-        print() << "  copied into pi-qemu/.cache/decks/" << deck << "/ssh: the card keeps them" << Qt::endl;
+        print() << "  copied into archives/decks/" << deck << "/ssh: the card keeps them" << Qt::endl;
     }
     for (const QFileInfo& k : QDir(idDir + "/ssh").entryInfoList({"ssh_host_*_key.pub"}, QDir::Files))
         print() << "  " << proc::capture("ssh-keygen", {"-lf", k.absoluteFilePath()}).text() << Qt::endl;
@@ -154,8 +154,8 @@ int prepare(Deck& d, const QString& deck, bool eeprom) {
     }
 
     // ---- 4. what it runs today, for reference ----
-    const QString capture = paths::cache() + "/captures/" + deck + "-" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmm");
-    head("captured into " + QDir(paths::shared()).relativeFilePath(capture));
+    const QString capture = paths::captures() + "/" + deck + "-" + QDateTime::currentDateTime().toString("yyyyMMdd-HHmm");
+    head("captured into " + QDir(paths::mainCheckout()).relativeFilePath(capture));
     QDir().mkpath(capture);
     QFile::setPermissions(capture, QFile::ReadOwner | QFile::WriteOwner | QFile::ExeOwner);
     proc::Options quiet;

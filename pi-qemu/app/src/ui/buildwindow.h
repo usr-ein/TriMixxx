@@ -5,7 +5,7 @@
 // The steps are the build's own: its "==> plan:" line (util/buildlog), or,
 // without one, its "==>" lines as they come.
 //
-//   pi-qemu build-log pi-qemu/.cache/build/trimixxx0.log
+//   pi-qemu build-log .cache/build/trimixxx0.log
 
 #include <QDateTime>
 #include <QFile>

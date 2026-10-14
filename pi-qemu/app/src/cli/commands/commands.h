@@ -11,6 +11,7 @@ void addCdj(cli::Registry& r);      // cdj.cpp
 void addImage(cli::Registry& r);    // image.cpp
 void addRelease(cli::Registry& r);  // release.cpp
 void addWorktree(cli::Registry& r); // worktree.cpp
+void addCache(cli::Registry& r);    // cache.cpp
 void addRun(cli::Registry& r);      // run.cpp: run, build-log
 
 inline void addAll(cli::Registry& r) {
@@ -20,6 +21,7 @@ inline void addAll(cli::Registry& r) {
     addImage(r);
     addRelease(r);
     addWorktree(r);
+    addCache(r);
     addRun(r);
 }
 

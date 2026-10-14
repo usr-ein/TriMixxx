@@ -28,8 +28,8 @@ namespace {
 
 // The NXS updater (C2KNXS.UPD), split into its components, which the
 // emulator's extractors check (CRCs, checksums) and turn into what it boots.
-// Into a new directory, then in place of the old one: a CDJ never boots half
-// an extraction.
+// Into a new directory beside it, then in place of the old one: a CDJ never
+// boots half an extraction.
 int firmwareVerb(cli::Args& a) {
     const QString upd = QFileInfo(a.take("C2KNXS.UPD")).absoluteFilePath();
     a.done();
@@ -37,7 +37,7 @@ int firmwareVerb(cli::Args& a) {
     if (!QFileInfo(upd).isFile()) fail("no file " + upd);
     for (const QString& n : cdj::Cdj::all())
         if (cdj::Cdj(n).running()) fail(n + " is running on this firmware: " + tool("cdj rm " + n) + " first");
-    const QString fresh = cdj::root() + "/firmware.new", fw = cdj::firmware();
+    const QString fw = cdj::firmware(), fresh = fw + ".new";
     QDir(fresh).removeRecursively();
     if (!QDir().mkpath(fresh + "/nxs/updates")) fail("cannot make " + fresh);
     for (const QStringList& step : {QStringList{"tools.cdj_gui.nxs_container", upd, fresh + "/nxs/updates"},
@@ -49,7 +49,7 @@ int firmwareVerb(cli::Args& a) {
         }
     QDir(fw).removeRecursively();
     if (!QDir().rename(fresh, fw)) fail("cannot move " + fresh + " to " + fw);
-    print() << "NXS firmware in " << fw << "/nxs, outside every checkout\n";
+    print() << "NXS firmware in " << fw << "/nxs: an archive, git-ignored\n";
     return 0;
 }
 
@@ -253,18 +253,20 @@ void addCdj(cli::Registry& r) {
     r.group("cdj", "emulated CDJ-2000NXSs, on Pioneer's own firmware, on the decks' links");
     r.add({
         .group = "cdj", .name = "firmware", .synopsis = "C2KNXS.UPD",
-        .summary = "split and extract the NXS updater, outside every checkout",
+        .summary = "split and extract the NXS updater into archives/, git-ignored",
         .help = "The CDJ-2000NXS updater (1.44: C2KNXS.UPD), which Pioneer gives its owners.\n"
                 "The emulator's extractors check every CRC and checksum and write what it\n"
-                "boots into ~/.pi-qemu/cdj/firmware/nxs/: never into a repository.",
+                "boots into the main checkout's archives/cdj-firmware/nxs/, which git ignores:\n"
+                "never into the repository.",
         .run = firmwareVerb,
     });
     r.add({
         .group = "cdj", .name = "build",
         .summary = "build this checkout's emulator: QEMU with the CDJ boards, the GUI core",
         .help = "In cdj2000-emulator/'s ignored build/ and bin/. QEMU is fetched once, at the\n"
-                "revision the emulator's patches take, into ~/.pi-qemu/cdj/. In a worktree,\n"
-                "the submodule is the main checkout's, borrowed by `worktree prepare`.",
+                "revision the emulator's patches take, into the main checkout's\n"
+                ".cache/cdj-qemu/. In a worktree, the submodule is the main checkout's,\n"
+                "borrowed by `worktree prepare`.",
         .run = build,
     });
     r.add({

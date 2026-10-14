@@ -126,6 +126,12 @@ $RECYCLE.BIN/
 ### Node (mixxx_config JS tooling) ###
 node_modules/
 
+# pi-qemu's caches and archives, at the main checkout's root (`pi-qemu cache`):
+# .cache/, what it makes again, and archives/, what is hard to make again --
+# the NXS firmware and people's USB sticks among them, never in the repository.
+/.cache/
+/archives/
+
 # Agents' git worktrees (CLAUDE.md, pi-qemu worktree)
 .claude/worktrees/
 # The crew's state, in the main checkout and in each worktree (.claude/crew/README.md)

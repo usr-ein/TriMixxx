@@ -9,5 +9,8 @@ namespace docker {
 void requireRunning();
 int  freeGb();                  // free space in Docker's VM disk; -1 if unknown
 void requireFree(int gb);       // fails, saying how much there is
+// Whether Docker Desktop's VM runs now, asked without waking it: any docker
+// command wakes a VM that Resource Saver has stopped (crew's docker_vm_up).
+bool vmUp();
 
 } // namespace docker

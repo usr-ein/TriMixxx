@@ -50,13 +50,9 @@ void onSignal(int) {
 
 } // namespace
 
-QString root() {
-    const QString env = qEnvironmentVariable("PI_QEMU_CDJ");
-    return env.isEmpty() ? QDir::home().filePath(".pi-qemu/cdj") : env;
-}
-
-QString firmware() { return root() + "/firmware"; }
-QString qemuSource() { return root() + "/qemu-" + QString(kQemuCommit).left(8); }
+QString root() { return paths::cdjs(); }
+QString firmware() { return paths::archives() + "/cdj-firmware"; }
+QString qemuSource() { return paths::cache() + "/cdj-qemu/" + QString(kQemuCommit).left(8); }
 QString emulator() { return paths::checkout() + "/cdj2000-emulator"; }
 QString qemu() { return emulator() + "/build/qemu/build/qemu-system-sh4"; }
 QString python() { return emulator() + "/.venv/bin/python"; }

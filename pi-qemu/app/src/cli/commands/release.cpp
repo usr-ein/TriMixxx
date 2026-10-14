@@ -42,12 +42,12 @@ void addRelease(cli::Registry& r) {
         .group = "release", .name = "build", .synopsis = "[options]",
         .summary = "the release of HEAD's pi/vX.Y.Z tag: the system card, sealed into an A/B card and a bundle",
         .help = "The system is built as `image build trimixxx-release`, then sealed in the release\n"
-                "container: pi-qemu/release/out/X.Y.Z/ gets trimixxx-X.Y.Z.img (every deck's card),\n"
+                "container: archives/releases/X.Y.Z/ gets trimixxx-X.Y.Z.img.xz (every deck's card),\n"
                 "trimixxx-X.Y.Z.raucb (the update), rootfs.squashfs, boot.vfat and manifest.txt.\n"
                 "From a clean tree whose HEAD is tagged pi/vX.Y.Z (git tag -m \"TriMixxx X.Y.Z\"\n"
                 "pi/vX.Y.Z: tags are signed); --rehearsal lets an untagged or dirty tree through,\n"
                 "for trying releases on emulated decks, and its manifest says so. Its log,\n"
-                "pi-qemu/.cache/build/trimixxx-release.log, is shown in a window.",
+                ".cache/build/trimixxx-release.log, is shown in a window.",
         .options = {
             {"rehearsal", "X.Y.Z", "a rehearsal of version X.Y.Z, from whatever the tree holds"},
             {"keep-system", {}, "seal the system card built last time, without building it again"},
@@ -60,8 +60,8 @@ void addRelease(cli::Registry& r) {
         .summary = "DECK's card: the release card with the deck's identity on p7, to flash",
         .help = "The identity -- its name, its ssh host keys (kept, so known_hosts survives a\n"
                 "reflash), its hotspot, the home Wi-Fi from image/secrets.env -- is kept in\n"
-                "pi-qemu/.cache/decks/DECK/ and made the first time. The card is\n"
-                "pi-qemu/release/out/X.Y.Z/DECK-X.Y.Z.img. The person flashes it.",
+                "archives/decks/DECK/ and made the first time. The card is\n"
+                "archives/releases/X.Y.Z/DECK-X.Y.Z.img.xz. The person flashes it.",
         .options = {kVersion},
         .run = card,
     });
