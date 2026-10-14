@@ -98,13 +98,16 @@ Beside them, upstream's `rekordboxconstants.h`, which the analysis reads.
 | `previewwaveform.{h,cpp}`, `previewwaveformcache.{h,cpp}` | The info panel's preview waveform, from a stick's ANLZ or a player's reply, read off the GUI thread. |
 | `autoplay.{h,cpp}` | Autoplay's rule and memory: the nearest BPM among a genre's unplayed tracks, in rounds. Pure. |
 | `deckautoplay.{h,cpp}` | `DeckAutoplay`: the rule driven on the deck, track after track, through `DeckLoader`. |
+| `playhistory.{h,cpp}` | The History's rule: plays (a track on a player, from when to when) swept into segments of what played together, and those listed as rows (`Track 1 \| Track 2 (20s)`); `Recorder`, samples into plays starting and stopping. Pure. |
+| `historystore.{h,cpp}` | `HistoryStore`: the History on the card, a SQLite database of its own (WAL, synchronous=FULL) and cover thumbnails, in `/var/lib/rauc/trimixxx-history` (p8 on a release card). A session per power-up (boot id), the newest three kept; a database that will not open is put aside. |
+| `deckhistory.{h,cpp}` | `DeckHistory`: what plays on the link, sampled four times a second (this deck's `play` and `DeckLoader`'s track, every player's status), recorded through `Recorder` into `HistoryStore` on a thread of its own, with a heartbeat every 5 s; tracks named from `deck_library`, covers copied while the stick is in. |
 | `camelot.h` | Camelot order and compatibility. |
 
 ### `src/widget/deck/`: the deck's widgets
 
 | File | What it is |
 |---|---|
-| `wdeckbrowser.{h,cpp}` | `WDeckBrowser` (skin node `<DeckBrowser>`): the library as a menu stack. Levels, breadcrumb, sort, search, the info layout, and the `[Browser]` controls. Loads through `DeckLoader`. `DeckSortChip`, the breadcrumb's sort indicator, is declared beside it. |
+| `wdeckbrowser.{h,cpp}` | `WDeckBrowser` (skin node `<DeckBrowser>`): the library as a menu stack. Levels, breadcrumb, sort, search, the info layout, the History's two levels (power-ups, then what played, the latest first), and the `[Browser]` controls. Loads through `DeckLoader`. `DeckSortChip`, the breadcrumb's sort indicator, is declared beside it. |
 | `decklistview`, `deckdelegates`, `deckmenumodel`, `deckpage.h` | The lists: one view class with the deck's gestures, the row painters, the menu rows, and the page interface for a level that takes the encoder itself. |
 | `wdeckinfopanel`, `wdecksortmenu`, `wdecksearch` | The info panel, the sort menu, the on-screen keyboard. |
 | `wdeckkeypicker` | `<DeckKeyPicker>`: the key list over the deck (B6 held), built like the sort menu; `[KeyPicker]` drives it, and a pick writes `[ProLink] key_shift`. |
@@ -146,7 +149,8 @@ CoreServices                                    (upstream; owns one fork member)
      ├─ MediaRegistry                              │ named once, here,
      ├─ RemoteTrackStreamer                        │ and handed down
      ├─ DeckLoader                                 │
-     └─ DeckAutoplay           ────────────────────┘
+     ├─ DeckAutoplay           ────────────────────┘
+     └─ DeckHistory            the History; its store on a thread of its own
 
 the skin (rebuilt on a skin reload; the services above are not)
  ├─ WDeckToast, WDeckAutoplayBadge     handed the services by parseDeckNode()
@@ -206,6 +210,9 @@ Everything above runs on the GUI thread except:
   not yet there waits; it refuses to wait on the GUI thread, which is the
   thread that announces arrivals;
 - **KEY SYNC's keylock watcher**, on whichever thread toggled keylock;
+- **the History's store** (`HistoryStore`), on `DeckHistory`'s own thread: a
+  commit waits for the card. Opening it at start and closing it at the end are
+  waited for; every write in between is queued;
 - **the engine**, which sees the fork only as `phase_trim` (`RateControl`)
   and a decoder (`SoundSourceStreaming`).
 
