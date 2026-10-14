@@ -170,8 +170,10 @@ pi-qemu link capture NAME-net out.pcap 30   # every frame on the link for 30 s, 
   prints it. Decks on one link may be started in parallel.
 - The link stays with the deck through `stop`/`up`; `up NAME --link none`
   (on a stopped deck) takes it off.
-- Plain sticks (no rekordbox export) are not served over the network yet;
-  use a rekordbox stick such as `SANDISK-E02C` (read-only, nothing copied).
+- A plain stick (no rekordbox export, e.g. a folder of MP3s) is served as a
+  CDJ serves one: a CDJ's LINK shows its FOLDER category, and another deck
+  lists it as a Folders source. A rekordbox stick such as `SANDISK-E02C`
+  (read-only, nothing copied) is served with its whole library.
 - `rm` your decks when done: each takes its socket off the link with it.
 
 ### A CDJ on your deck's link

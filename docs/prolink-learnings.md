@@ -453,7 +453,8 @@ it merges. On real CDJ-2000NXSs and a deck on the new build, captured with
 ## 6. Not in this work
 
 - Sam's 07 (a plain stick's tempo `0xffff`) and 08 (the media response's
-  8-byte sizes): unrelated to these learnings, still in his folder.
+  8-byte sizes): unrelated to these learnings, and done since on the
+  prolink-todos branch (`plain-usb-plan.md` §6, prolink 0.5.0).
 - L6 (MASTER on the master), until Sam decides.
 - L7-L9, and decoding L8's bytes.
 - The emulator's own differences (03-05).

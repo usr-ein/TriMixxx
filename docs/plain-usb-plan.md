@@ -4,9 +4,11 @@ A stick with music files on it and no rekordbox export: MP3s at the root, MP3s
 in folders, folders in folders. Guest DJs bring them, and until now the deck
 showed nothing at all for one.
 
-Status (2026-10-02): **the local half is built and tested on unit 2** (§3),
-uncommitted. The network half waits on a capture of how a real CDJ shares a
-plain stick (§5). Read §1 before touching code.
+Status (2026-10-14): **both halves are built.** The local half since
+2026-10-02 (§3, tested on unit 2). The network half (§6) since 2026-10-14, from
+the emulated captures of Pioneer's own firmware sharing a plain stick
+(`mixxx/lib/prolink/emu-captures/PLAIN-STICKS.md`), and shown on emulated
+decks and CDJs only. Read §1 before touching code.
 
 ---
 
@@ -20,8 +22,8 @@ Settled with Sam on 2026-10-01/02.
 | D2 | What gets analysed | **Only the track loaded on the deck**, from the moment it is loaded. Nothing else: no analysis of the selected row, no background pass over a folder. Loading another track, or ejecting, cancels the analysis of the previous one. |
 | D3 | Musical key | **Tags only.** Key detection stays off (`[Key] KeyDetectionEnabled 0`). |
 | D4 | Formats offered to the network | MP3, M4A (AAC only), WAV, AIFF. No FLAC. (For §5.) |
-| D5 | Sharing a plain stick with CDJs | **Deferred.** Sam captures how a real CDJ shares a non-rekordbox stick with another CDJ, and we mimic that. We do **not** pass a folder stick off as a rekordbox medium. |
-| D6 | Plain sticks in *other* players | **Deferred**, with D5: the same capture shows the FOLDER browse we would consume. |
+| D5 | Sharing a plain stick with CDJs | **Built (2026-10-14), §6.** Served as a CDJ serves one, from the emulated captures (`PLAIN-STICKS.md` §10.1). We do **not** pass a folder stick off as a rekordbox medium. |
+| D6 | Plain sticks in *other* players | **Built (2026-10-14), §6.** Read by their FOLDER menus, as a Folders source like a stick of our own. |
 | D7 | What a dumb stick looks like | Files anywhere: at the root, at any depth, beside subfolders. One mapping rule (§4). |
 
 ## 2. Where we started
@@ -58,7 +60,7 @@ landing when the analysis finishes. Nothing modal, nothing silent.
 | L7 | Toasts: `KINGSTON inserted — browsing folders`; `— no music found`; `— rekordbox library unreadable, browsing folders`. A failed load shows `Couldn't load …` **instead of the modal dialog** | `wdecktoast.cpp`, `basetrackplayer.{h,cpp}`, `legacyskinparser.cpp` | Done — insert, no-music and load-failure toasts seen; a load pressed twice shows one toast; a stick's later toast replaces its insert toast |
 | L8 | D2: one analysis worker; a different track loaded, or an eject, **replaces** the scheduler (`stop()` is one-shot); analysis threads run at nice +10 | `playermanager.{h,cpp}`, `analyzerthread.cpp` | Done — one worker at nice 10; a new load abandons the old analysis |
 | L9 | D1: on the first start after a boot (`/proc/sys/kernel/random/boot_id` changed), purge Mixxx's library rows for tracks under the RAM store, the track cache's disk tier and `/media`. That removes their beats, cues and waveform files | `sessionpurge.{h,cpp}`, `wdeckbrowser.cpp` | Done — three same-boot restarts kept the analysis; the first start of a boot purges |
-| L10 | Announce nothing to the network for a local medium we are not serving (a folder medium is never served) | `mediaregistry.cpp` | Done — needs a second player on the network to observe |
+| L10 | Announce nothing to the network for a local medium we are not serving | `mediaregistry.cpp` | Done; a folder medium is served now (§6), and its tracks announced as plain files |
 | L11 | Unit tests for the mapping, the filename guesses and the natural order | `src/test/folderlibrary_test.cpp` | Done — 18 tests pass (`FolderLibrary*`, `FolderFileNames*`, `PlayerManager*`) |
 | L12 | Rows changed after they were first shown — tags, a written-back BPM — are re-read into the browser's track cache, which otherwise keeps its first copy of a row until Mixxx restarts | `wdeckbrowser.cpp`, `mediaregistry.{h,cpp}` | Done — found on the deck; see below |
 | L13 | A failed load or an eject takes the loaded marker off its row | `wdeckbrowser.{h,cpp}`, `legacyskinparser.cpp` | Done |
@@ -236,6 +238,86 @@ A. Then:
 It answers: the root menu for a plain stick, the shape and meaning of a file
 row, the requests a load makes (`0x2202`? `0x2102` with type 2? `0x2504`?), the
 NFS path read, the track type and id published, and the media-query counts.
+
+## 6. The network half — what was built
+
+Sam's calls of 2026-10-14 ("1a 2a 3a", twice), on the prolink-todos branch:
+
+- **Our plain sticks, served** (D5), by `lib/prolink` on its own, as it
+  serves a rekordbox stick: its volume watch takes any mounted filesystem with
+  music on it (`serve/folder.rs` walks it, directories only) and answers what
+  `PLAIN-STICKS.md` §10.1 says a CDJ answers for one. One root category,
+  FOLDER; folders then files, in a CDJ's collation, files by name with their
+  extension; a file's tags read when a player first asks (`serve/tags.rs`,
+  `lofty`); the `?\0D <folder> <entry>` NFS lookup; the media response a CDJ
+  sends for a plain stick (`02 00` at `0xaa`, no date, no counts).
+- **What a CDJ is offered:** only what this deck would play off its own
+  stick, MP3, M4A, WAV and AIFF (D4), with no `._*`, no empty file, no
+  `PIONEER/` or `System Volume Information`, and no folder with nothing
+  playable below it.
+- **A file we serve, announced:** a plain file on this deck is announced as
+  track type 2 with the id the server gave it (`served_file_id`), so a player
+  can name it with `GET_GENERIC_METADATA`.
+- **A player's plain stick, read** (D6): `MediaRegistry` walks its FOLDER
+  menus, maps them as a stick of our own (`buildFolderLibrary`, under the
+  player's own ids), then asks each file's tags with `GET_GENERIC_METADATA`,
+  one at a time and 50 ms apart; covers by the file's id. A load streams the
+  file by its `?\0D` name (`fetch_plain_file_streaming`). Each player is
+  asked over a connection of its own: with one for all, a second CDJ's plain
+  stick was walked and named as the first one's (prolink 0.5.0, E24).
+- **Naming a player's plain file** (07d): the History asks its player with
+  `GET_GENERIC_METADATA`; a player playing one of *our* plain files names it by
+  our served id, which the History turns back into the deck's own row.
+- **Occupancy** (F9): a player's slot is occupied when its status says so,
+  never by its name or track count.
+
+The facts of §5 that this rests on: F2 (a CDJ is browsed by FOLDER only), F3
+(now all known, from the emulated captures), F9 (fixed), F11 (a plain stick is
+walked instead). What only real CDJs can still show is in `PLAIN-STICKS.md`
+§11 and in §7 below.
+
+## 7. On real CDJs: what is left to show
+
+Sam's call (2026-10-14, "3a"): the emulated checks gate the merge, and this
+is the record for a later session on real decks. None of §6 has met a real
+CDJ. Two CDJ-2000NXSs and a deck on the new build, captured with
+`tools/capture-deck-to-deck.sh`. The deck's stick is a copy of the test stick
+(Appendix B). An NXS's is a plain stick of its own: files at the root and in
+nested folders, a WAV, an AIFF, an M4A, a VBR MP3, a file with no tags, a
+`cover.jpg`. Each check names the wire change it is for.
+
+1. **The sizes** (08: the media response's and `0x4902`'s sizes are eight
+   bytes). The deck's `0x06` about its stick carries the stick's total and
+   free bytes (`df -B1` on the deck) at `0xb0` and `0xb8`; `prolink media`
+   reads an NXS's stick at its real size.
+2. **The deck's plain stick on an NXS** (07e: the stick served by its
+   folders). LINK, the deck, USB:
+   - one category, FOLDER; folders before files, in the order the NXS lists
+     its own plain stick; file names with their extensions;
+   - a file's preview: title, artist, album, genre, BPM tag, duration and
+     bitrate, and its cover, the embedded JPEG or else the folder's
+     `cover.jpg`;
+   - a load plays from the start and shows `TRACK n/m`; needle search works
+     on the VBR MP3;
+   - three loads in a row off the deck, then one off the NXS's own stick,
+     each named right: nothing one behind after the `0x2005`, `0x2205` and
+     `0x3503` the NXS sends, which the capture shows unanswered.
+3. **The deck playing its own plain file** (07e: track type 2 in the
+   status). The capture shows the deck's status with `02` at `0x2a` and the
+   served id, and the NXS asks `0x2202` about it and shows its title in
+   LINK INFO.
+4. **An NXS's plain stick on the deck** (07c, 07b: `MENU_FOLDER`,
+   `0x2202`, `?\0D` read by us). The deck lists it as a Folders source, with
+   a volume label and without one; its folders and files are the ones the
+   NXS lists; titles and artists fill in as the tags pass runs, one `0x2202`
+   at a time, ~50 ms apart; a load streams and plays, its BPM and beats from
+   the deck's own analysis.
+5. **An NXS's plain play, named** (07d). An NXS plays a file off its own
+   plain stick: the deck's History names it by its title and artist.
+6. **No tempo, no beats** (07a, no wire change). An NXS plays a plain file
+   and takes MASTER, its status saying tempo `0xffff` and no beat: the deck
+   with SYNC on keeps its own tempo and follows nothing, and a deck that
+   plays takes MASTER back.
 
 ---
 
