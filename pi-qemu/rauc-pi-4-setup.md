@@ -82,7 +82,7 @@ sha256("trimixxx"), set in `release/container.sh`), so `<id>` below is `5d0bc1ec
 | p5 | rootfs-A | SquashFS (raw) | 4 GiB | the whole system, zstd-compressed (about 1–1.5 GB today, estimated) | `/`, underneath the RAM layer | by RAUC, idle slot only |
 | p6 | rootfs-B | SquashFS (raw) | 4 GiB | | | |
 | p7 | data | ext4 | 64 MiB | identity: deck name, Wi-Fi (NetworkManager keyfiles), ssh host keys | `/data`, read-only | when unlocked by hand (`mount -o remount,rw /data`) |
-| p8 | state | ext4 | 4 GiB: a bundle (about 1.1 GB) and RAUC's status. The card image ends here, at about 13 GiB, so it flashes in minutes; a bigger card's rest stays unused | RAUC's data directory, downloaded bundles | `/var/lib/rauc`, read-write | by RAUC only |
+| p8 | state | ext4 | 4 GiB: a bundle (about 1.1 GB) and RAUC's status. The card image ends here, at about 13 GiB, so it flashes in minutes; a bigger card's rest stays unused | RAUC's data directory, downloaded bundles, the health check's log, the browser's History (`trimixxx-history/`) | `/var/lib/rauc`, read-write | by RAUC, the health check, and Mixxx while a track plays |
 
 **Why each partition exists:**
 - **p1 on its own:** the file that decides which slot starts is never written
@@ -340,7 +340,8 @@ the normal build, so the dev deck carries it too:
 
 All of it stays idle on the dev card, for three reasons:
 - the command line has no `overlayroot=`;
-- `/data` and `/var/lib/rauc` don't exist there;
+- `/data` doesn't exist there, nor `/etc/rauc/system.conf` (only the seal
+  installs it); `/var/lib/rauc` is a plain directory, holding the History's;
 - `rauc.service` is D-Bus activated and nothing calls it.
 
 The release only seals the system: it leaves out trimixxx0's identity. **What

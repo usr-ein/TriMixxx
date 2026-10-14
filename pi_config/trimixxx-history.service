@@ -1,0 +1,27 @@
+[Unit]
+# The History's store (the browser's History: what played on the link, the
+# last three power-ups): its directory, made at every start, for Mixxx to
+# write as the deck's user.
+#
+# On a release card, on the state partition, p8: the one both slots share
+# and an update keeps (pi-qemu/PLAN.md 1.4). So after p8 is mounted, which
+# nothing early in the boot waits for: its fstab line is nofail, and a nofail
+# mount is not ordered before local-fs.target. Made before that, the
+# directory would be in RAM under the mount, and Mixxx would find none on p8.
+# A p8 that will not mount fails this unit, and the History stays in RAM that
+# power-up: the deck starts and plays all the same, and nothing waits for this.
+#
+# On a dev card, a directory of the root, which is on the card as well.
+#
+# Mixxx may start first: it looks for the directory until it is there, then
+# moves what it recorded so far onto the card (DeckHistory).
+Description=TriMixxx: the History's directory, on the state partition
+RequiresMountsFor=/var/lib/rauc
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/install -d -m 0755 -o sam1902 -g sam1902 /var/lib/rauc/trimixxx-history
+
+[Install]
+WantedBy=multi-user.target

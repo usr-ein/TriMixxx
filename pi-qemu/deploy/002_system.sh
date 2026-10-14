@@ -12,7 +12,7 @@
 #   ~/.xinitrc, ~/.bash_profile the X session and what starts it; the rescue console
 #   getty-tty1-stop-mixxx.conf  Mixxx quits before the session (and X) go
 #   a release card's pieces     identity, health check, RAUC's backend (inert here)
-#   trimixxx-history.conf       the History's store, kept across power-ups
+#   trimixxx-history.service    the History's store, kept across power-ups
 #   the boot splash             the logo on the panel for the first seconds
 #   eth0                        IPv4 link-local, for the CDJs' network
 #   the Wi-Fi fallback          the deck's own hotspot when it finds no Wi-Fi
@@ -226,15 +226,17 @@ ssh deck '
 
 # ---- the History's store ---------------------------------------------------------------
 # Where Mixxx keeps the browser's History across power-ups: on the state
-# partition on a release card, on the root on a dev card
-# (trimixxx-history.conf). Made at every start by systemd-tmpfiles, and now,
-# so a deck that is not rebooted has it too.
-scp $P/trimixxx-history.conf deck:/tmp/
+# partition on a release card, once it is mounted; on the root on a dev card
+# (trimixxx-history.service). Made at every start, and now, so a deck that is
+# not rebooted has it too. Enabled here, so a release built from this system
+# has it enabled.
+scp $P/trimixxx-history.service deck:/tmp/
 ssh deck '
     set -eux
-    sudo install -m 0644 /tmp/trimixxx-history.conf /etc/tmpfiles.d/trimixxx-history.conf
-    rm -f /tmp/trimixxx-history.conf
-    sudo systemd-tmpfiles --create /etc/tmpfiles.d/trimixxx-history.conf
+    sudo install -m 0644 /tmp/trimixxx-history.service /etc/systemd/system/trimixxx-history.service
+    rm -f /tmp/trimixxx-history.service
+    sudo systemctl daemon-reload
+    sudo systemctl enable --now trimixxx-history.service
 '
 
 # ---- the boot splash ------------------------------------------------------------------

@@ -144,7 +144,7 @@ of sha256("trimixxx"), set in `release/Makefile`), so `<id>` below is
 | p5 | rootfs-A | SquashFS (RAUC `type=raw`) | 4 GiB | the system |
 | p6 | rootfs-B | SquashFS | 4 GiB | the next system |
 | p7 | trimixxx-data | ext4 | 64 MiB | `trimixxx.conf` (deck name), `NetworkManager/*.nmconnection`, `ssh/ssh_host_*` |
-| p8 | trimixxx-state | ext4 | 4 GiB | RAUC's data directory, bundles, the health check's log, the browser's History (`trimixxx-history/`, `pi_config/trimixxx-history.conf`) |
+| p8 | trimixxx-state | ext4 | 4 GiB | RAUC's data directory, bundles, the health check's log, the browser's History (`trimixxx-history/`, `pi_config/trimixxx-history.service`) |
 
 The card ends with p8, at about 13 GiB (a 14.1 GB image), so it flashes onto
 any card of 16 GB or more: the decks' 32 GB cards and trimixxx3's 64 GB one
