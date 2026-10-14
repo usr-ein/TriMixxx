@@ -75,7 +75,7 @@ the decks' cards are APFS clones of each other, and share most of their blocks.
 | `archives/` | what is hard to make again: no command deletes from it |
 | `archives/releases/` | every release built, `VERSION/`: its cards and update bundle |
 | `archives/cdj-firmware/nxs/` | the NXS firmware the emulated CDJs boot (`cdj firmware`) |
-| `archives/sticks/` | USB sticks for decks and CDJs: images, folders, `.stick` files |
+| `archives/sticks/` | the decks' USB sticks: images, folders, `.stick` files; `cdj/`, the CDJs' (Sam's rekordbox copy) |
 | `archives/decks/` | each deck's identity: its ssh host keys, hotspot and home Wi-Fi (`release card`) |
 | `archives/captures/` | what each real deck ran before its first release card (`deck prepare`) |
 
@@ -98,14 +98,19 @@ pi-qemu cache prune base build   # those kinds of the cache; --all for all of th
 - **The build folders of each checkout** stay where their tools make them,
   listed: pi-qemu's `app/build`, prolink's `target/`, `mixxx/dist`, the CDJ
   emulator's `build/` and `.venv`, the S3's `.pio`.
+- **Each folder has a `.gitignore` of its own,** `*`: git ignores it whatever
+  commit is checked out, one from before these folders included.
 - **Before these folders,** pi-qemu kept its caches in `pi-qemu/.cache`,
   `pi-qemu/qemu/.build`, `pi-qemu/release/out` and `~/.pi-qemu/cdj`.
   `pi-qemu cache migrate` moves them once, with every deck and CDJ stopped:
   renames on one volume, instant, and clones keep sharing. A second run moves
   nothing. `--undo` moves them back. Until the move, the commands that need
-  them stop and say so. QEMU runs as it is after the move, but its build has
-  its old place written all through it, so its first `build.sh qemu` after
-  the move is a whole build (~10 min).
+  them stop and say so. `--root DIR` moves in a scratch copy, and then only
+  what is under DIR: never `~/.pi-qemu/cdj` (PI_QEMU_CDJ under DIR stands for
+  it). QEMU runs as it is after the move, but its build has its old place
+  written all through it: the first `build.sh qemu` after the move empties it
+  and builds QEMU whole (~10 min), during which no deck can start or reboot.
+  Run it once no deck runs, as for a change to QEMU's patches.
 
 ## Setting up a laptop
 
@@ -691,6 +696,10 @@ as they would on the deck.
 pi-qemu deck stick mix insert /Volumes/Drive/DJ-stick-copy   # a folder: MBR, FAT32, sized to fit
 pi-qemu deck stick mix insert SANDISK                        # archives/sticks/SANDISK.stick
 ```
+
+A bare name is NAME, NAME.img or NAME.stick in `archives/sticks/`, as
+written first, then whatever its case (the Mac's disk ignores it): `SAM1` is
+`SAM1.stick` even beside a folder `sam1/`.
 
 A `.stick` file (JSON) says how the stick was laid out. Every key but
 `folder` is optional, and relative paths are from the `.stick` file:

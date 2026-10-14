@@ -115,16 +115,17 @@ Finder or with `cp -R`: never give the emulator the stick itself. Then make
 the image from the folder, and start a CDJ with it:
 
 ```sh
-(cd cdj2000-emulator && .venv/bin/python -m tools.cdj_main.make_sd_image ../archives/sticks/mine ../archives/sticks/mine.img --size 4G)
-pi-qemu cdj up a --usb archives/sticks/mine.img --dsp-model --window
+(cd cdj2000-emulator && .venv/bin/python -m tools.cdj_main.make_sd_image ../archives/sticks/cdj/mine ../archives/sticks/cdj/mine.img --size 4G)
+pi-qemu cdj up a --usb archives/sticks/cdj/mine.img --dsp-model --window
 ```
 
 - **The image takes seconds.** Its size is a power of two, bigger than the
   files. It is sparse: on disk it takes only the files' room.
-- **Sticks live in `archives/sticks/`,** git-ignored and never cleared, the
-  decks' too: Sam's rekordbox copy is there (`sam1/`, `sam1-usb.img`). Keep
-  them out of `~/.pi-qemu/cdj/`: a CDJ named like a folder there takes it for
-  its own, and `cdj rm` deletes it.
+- **The CDJs' sticks live in `archives/sticks/cdj/`,** git-ignored and never
+  cleared: Sam's rekordbox copy is there (`sam1/`, `sam1-usb.img`). A folder
+  of their own, so no deck stick's name finds them: `SAM1`, Sam's own stick,
+  is `archives/sticks/SAM1.stick`. Keep them out of `~/.pi-qemu/cdj/`: a CDJ
+  named like a folder there takes it for its own, and `cdj rm` deletes it.
 - **A rekordbox stick** gives the CDJ its library: BPMs, beat grids,
   waveforms. A deck lists it, and two CDJs can sync on it. A stick of plain
   audio files is browsed by folder, and its tracks have no BPM.
