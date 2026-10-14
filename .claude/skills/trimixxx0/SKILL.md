@@ -97,7 +97,7 @@ pi-qemu deck browse NAME -2               # the track encoder, + is up (50 at mo
 pi-qemu deck press NAME push              # encoder push: opens the library, then activates the selection
 pi-qemu deck tempo NAME center            # fader 0..16383, 8192 (center) the middle
 pi-qemu deck midi NAME 90 3C 7F           # raw bytes, for anything else
-pi-qemu deck stick NAME insert SAM3       # a rekordbox USB stick image (read-only); `stick NAME list`
+pi-qemu deck stick NAME insert SAM3       # a rekordbox stick image, from archives/sticks/ (read-only); `stick NAME list`
 pi-qemu deck stick NAME insert /some/dir  # a folder as a FAT32 stick, nothing copied (or a .stick file)
 pi-qemu deck stick NAME insert-rw X.img   # an image file the deck may write to ("Record set")
 pi-qemu deck input NAME set.wav           # the sound card's line input hears it (16-bit stereo 44.1 kHz); none: silence
@@ -184,7 +184,7 @@ has the rest.
 
 ```sh
 pi-qemu cdj build                              # once per checkout (~1.5 min); in a worktree, after prepare
-pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD    # once per Mac: extracted outside every checkout, never in git
+pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD    # once per Mac: into archives/ (git-ignored), never in git
 pi-qemu cdj up NAME-cdj --link NAME-net        # ~25 s: "NAME-cdj: player 1 at 169.254.x.y, ... on link NAME-net"
 pi-qemu link devices NAME-net 10               # 10 s: with a deck there, a CDJ re-claims and keep-alives up to ~5 s apart
 pi-qemu cdj shot NAME-cdj cdj.png              # its 480x234 screen; `cdj press NAME-cdj link` a key

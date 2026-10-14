@@ -29,7 +29,7 @@ In the main checkout:
 git submodule update --init cdj2000-emulator   # the emulator, at the commit this checkout records
 pi-qemu/build.sh app                           # pi-qemu itself, with every `cdj` verb: about a minute
 pi-qemu cdj build                              # the emulator, in cdj2000-emulator/build: ~1.5 min the first time
-pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD    # once per Mac: extracted into ~/.pi-qemu/cdj/firmware/
+pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD    # once per Mac: extracted into archives/cdj-firmware/
 ```
 
 - **Whenever main has moved,** by a pull or a merge, run the first three
@@ -115,14 +115,16 @@ Finder or with `cp -R`: never give the emulator the stick itself. Then make
 the image from the folder, and start a CDJ with it:
 
 ```sh
-(cd cdj2000-emulator && .venv/bin/python -m tools.cdj_main.make_sd_image ~/cdj-sticks/mine ~/cdj-sticks/mine.img --size 4G)
-pi-qemu cdj up a --usb ~/cdj-sticks/mine.img --dsp-model --window
+(cd cdj2000-emulator && .venv/bin/python -m tools.cdj_main.make_sd_image ../archives/sticks/mine ../archives/sticks/mine.img --size 4G)
+pi-qemu cdj up a --usb archives/sticks/mine.img --dsp-model --window
 ```
 
 - **The image takes seconds.** Its size is a power of two, bigger than the
-  files. It is sparse: on disk it takes only the files' room. Keep stick
-  folders out of `~/.pi-qemu/cdj/`: a CDJ named like a folder there takes it
-  for its own, and `cdj rm` deletes it.
+  files. It is sparse: on disk it takes only the files' room.
+- **Sticks live in `archives/sticks/`,** git-ignored and never cleared, the
+  decks' too: Sam's rekordbox copy is there (`sam1/`, `sam1-usb.img`). Keep
+  them out of `~/.pi-qemu/cdj/`: a CDJ named like a folder there takes it for
+  its own, and `cdj rm` deletes it.
 - **A rekordbox stick** gives the CDJ its library: BPMs, beat grids,
   waveforms. A deck lists it, and two CDJs can sync on it. A stick of plain
   audio files is browsed by folder, and its tracks have no BPM.
@@ -234,7 +236,7 @@ The measurements against real NXSs, and the rest:
 | `no cdj2000-emulator checked out here` | `pi-qemu cdj build` checks it out. |
 | `no cdj2000-emulator in this worktree` | `pi-qemu worktree prepare`. |
 | `the emulator is not built in this checkout` | `pi-qemu cdj build`. |
-| `no NXS firmware in ~/.pi-qemu/cdj/firmware/nxs` | `pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD`. |
+| `no NXS firmware in .../archives/cdj-firmware/nxs` | `pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD`. |
 | `patch does not apply cleanly: .../qemu-sh-tmu-catch-up.patch`, or `... carries a different or unrecorded version of qemu-...patch` | The checkout's QEMU was patched for another commit of the emulator. Reset it once, then build again (below). |
 | `a is already running: its options cannot change now` | `pi-qemu cdj rm a`, then `up` again with the new options. |
 | `a: no player screen in 120 s` | `up` stopped it, and kept its logs in `~/.pi-qemu/cdj/a/` (`pi-qemu.log`, `run/`). The Mac may be too busy: `pi-qemu cdj list`, `pi-qemu deck list`. `cdj rm a` deletes the logs. |

@@ -39,19 +39,20 @@ the runbook for putting real decks on release cards.
    real deck's EEPROM and reboots it.
 6. **Docker's disk:** builds need ~6 GB free; pi-qemu checks and stops.
    Freeing space is the person's call: say so, never prune. Keep the build
-   caches (`pi-qemu/.cache/base`, Docker's build trees).
+   caches (`.cache/base`, Docker's build trees). `pi-qemu cache` lists them
+   all, with their sizes.
 
 ## Dev cards
 
 ```sh
-pi-qemu image build onetest           # -> pi-qemu/.cache/build/onetest.img, its log onetest.log
+pi-qemu image build onetest           # -> .cache/build/onetest.img, its log onetest.log
 pi-qemu image build onetest --no-window --rebuild-base
 ```
 
 - It builds in an instance of its own, `build-DECK`: `pi-qemu deck ssh
   build-DECK` looks at a build in progress. A failed build leaves its machine
   off and its card for a look (`deck up build-DECK`, then `deck rm build-DECK`).
-- The first boot and the base step are cached in `pi-qemu/.cache/base/` while
+- The first boot and the base step are cached in `.cache/base/` while
   their inputs are unchanged (the stock card, the deck's name and panel, the
   key, the password, the seed, `000_base.pi.sh`). The rest takes minutes,
   most of it Docker builds that are cached too.
@@ -61,17 +62,19 @@ pi-qemu image build onetest --no-window --rebuild-base
   committed).
 - A build window follows the log unless `--no-window`; its steps come from
   the build's own `==> plan:` line.
-- A scratch build's outputs to delete afterwards: `pi-qemu/.cache/build/DECK.img`,
-  `DECK.log`, and `pi-qemu/.cache/base/DECK-*.img`.
+- `.cache/` and `archives/` are at the main checkout's root, git-ignored, the
+  same for every worktree (`pi-qemu/README.md`, "Caches and archives").
+- A scratch build's outputs to delete afterwards: `.cache/build/DECK.img`,
+  `DECK.log`, and `.cache/base/DECK-*.img`.
 
 ## Releases
 
 ```sh
 git tag -m "TriMixxx 1.2.0" pi/v1.2.0      # the person's call
-pi-qemu release build                      # -> pi-qemu/release/out/1.2.0/
-pi-qemu release card trimixxx2             # -> out/1.2.0/trimixxx2-1.2.0.img.xz, to flash
+pi-qemu release build                      # -> archives/releases/1.2.0/
+pi-qemu release card trimixxx2             # -> releases/1.2.0/trimixxx2-1.2.0.img.xz, to flash
 pi-qemu deck ship --host trimixxx-pi-2     # the update, over the air (only when asked)
-pi-qemu release faults                     # out/1.2.0-nonet, -nossh, -noinitramfs, -panic, -hang
+pi-qemu release faults                     # releases/1.2.0-nonet, -nossh, -noinitramfs, -panic, -hang
 ```
 
 - `release build` builds the system (`image build trimixxx-release`), then
@@ -81,12 +84,12 @@ pi-qemu release faults                     # out/1.2.0-nonet, -nossh, -noinitram
   `manifest.txt`. `--keep-system` seals the system card built last time;
   `--rehearsal X.Y.Z` lets an untagged or dirty tree through, and says so in
   the manifest.
-- Releases always land in the main checkout's `pi-qemu/release/out/`, also
-  from a worktree. `--version X.Y.Z` names another release than HEAD's for
+- Releases always land in the main checkout's `archives/releases/`, also
+  from a worktree. Nothing clears the archives. `--version X.Y.Z` names another release than HEAD's for
   `release card`, `release faults` and `deck ship`.
 - A deck's identity (its name, ssh host keys kept across reflashes, its
-  hotspot, the home Wi-Fi) is in `pi-qemu/.cache/decks/DECK/`, made the first
-  time `release card` needs it.
+  hotspot, the home Wi-Fi) is in `archives/decks/DECK/`, made the first time
+  `release card` needs it.
 - `deck ship` streams the bundle into RAUC's state partition, installs it
   into the other slot and reboots into it as a trial; the deck's health check
   (network up and ssh answering) keeps it or rolls it back.
@@ -96,15 +99,15 @@ pi-qemu release faults                     # out/1.2.0-nonet, -nossh, -noinitram
 ```sh
 pi-qemu release build --rehearsal 0.0.9 --keep-system --no-window
 pi-qemu release card trimixxx0 --version 0.0.1            # the emulated deck's card of a release
-pi-qemu deck up abtest --from pi-qemu/release/out/0.0.1/trimixxx0-0.0.1.img.xz   # unpacked, sparse
+pi-qemu deck up abtest --from archives/releases/0.0.1/trimixxx0-0.0.1.img.xz   # unpacked, sparse
 pi-qemu deck ship abtest --version 0.0.9                  # a trial of B, then its health check
 pi-qemu deck ssh abtest 'tail -3 /var/lib/rauc/trimixxx-health.log; rauc status'
 ```
 
-Afterwards, delete what the rehearsal made: `deck rm abtest`, and
-`pi-qemu/release/out/0.0.9*` and `out/0.0.1/trimixxx0-0.0.1.img.xz`. Keep the
-tagged releases and their decks' cards: an untagged release is never left in
-`out/`.
+Afterwards, delete what the rehearsal made, and only that: `deck rm abtest`,
+and `archives/releases/0.0.9*` and `releases/0.0.1/trimixxx0-0.0.1.img.xz`.
+Keep the tagged releases and their decks' cards: an untagged release is never
+left in `archives/releases/`.
 
 ## Readying a real deck (only when asked)
 
@@ -117,6 +120,6 @@ It writes the board's serial into `mixxx_config/units/DECK.json` (commit it
 before the release is built: the release's config.txt gives each board its
 own section), keeps the deck's ssh host keys for its identity, checks the
 bootloader (2022-12-01 or newer knows `tryboot_a_b`), and captures its boot
-files and profiles in `pi-qemu/.cache/captures/` (private: Wi-Fi passwords).
+files and profiles in `archives/captures/` (private: Wi-Fi passwords).
 An emulated deck can stand in to try it (`deck prepare NAME DECK`); it has no
 bootloader, so `--eeprom` stops there.

@@ -113,15 +113,16 @@ downloads the NXS updater (`C2KNXS.UPD`, 1.44) himself;
 pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD
 ```
 
-- **Where it writes:** `~/.pi-qemu/cdj/firmware/nxs/`, outside every
-  checkout. Every worktree shares it.
+- **Where it writes:** the main checkout's `archives/cdj-firmware/nxs/`,
+  which git ignores and no command clears (`pi-qemu cache`). Every worktree
+  shares it.
 - **What it writes:** the MAIN flash image, the GUI boot ELF and the GUI
   flash, with the container's hashes.
 - **How it extracts:** with the submodule's own extractors. They check every
   CRC and checksum before they write.
-- **The ignore rules:** TriMixxx's `.gitignore` also ignores `*.UPD` and
-  `*.upd`. The fork's `.gitignore` already ignores them, and `firmware/`,
-  `runs/`, `*.bin`, `*.elf` and `*.img` with them.
+- **The ignore rules:** TriMixxx's `.gitignore` ignores `archives/` whole,
+  and `*.UPD` and `*.upd` anywhere. The fork's `.gitignore` already ignores
+  them, and `firmware/`, `runs/`, `*.bin`, `*.elf` and `*.img` with them.
 
 ### Building
 
@@ -134,8 +135,8 @@ It builds this checkout's emulator, in the submodule's own (ignored)
 
 - **QEMU** is pinned to `55347990`, the revision upstream tested. QEMU master
   breaks the SH-4 patches (upstream issue #41). The source is fetched once
-  into `~/.pi-qemu/cdj/qemu-55347990/` and copied into each checkout with an
-  APFS clone, which costs almost no disk.
+  into the main checkout's `.cache/cdj-qemu/55347990/` and copied into each
+  checkout with an APFS clone, which costs almost no disk.
 - **Two scripts** do the build, upstream's `scripts/build-qemu-sh4.sh` and
   `scripts/build-cdj-gui-run.sh`.
 - **The first build** in a checkout takes about 1.5 min. After that, only

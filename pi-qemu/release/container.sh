@@ -16,11 +16,11 @@
 #                         like a real one, for the fault tests (PLAN.md §5.4):
 #                         out/VERSION-nonet, -nossh, -noinitramfs, -panic, -hang
 #
-# Mounts: /release (this directory, its out/ the main checkout's), /repo (the
-# checkout, read-only), /build (seal: pi-qemu/.cache/build, read-only), /deck
-# (card: the deck's identity, read-only). Environment: VERSION; COMMIT and HASH
-# (seal); DECK (card); TZ, the Mac's offset, so the step lines carry the Mac's
-# time.
+# Mounts: /release (this directory, its out/ the main checkout's
+# archives/releases), /repo (the checkout, read-only), /build (seal: the main
+# checkout's .cache/build, read-only), /deck (card: the deck's identity,
+# read-only). Environment: VERSION; COMMIT and HASH (seal); DECK (card); TZ,
+# the Mac's offset, so the step lines carry the Mac's time.
 set -euo pipefail
 if [ -z "${IN_CONTAINER:-}" ]; then
     echo "container.sh runs in the release container: pi-qemu release build|card|faults" >&2

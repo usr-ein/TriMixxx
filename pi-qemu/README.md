@@ -49,7 +49,63 @@ then takes that link.
 | `deploy/` | the deploy steps, `NNN_name.sh` and `NNN_name.pi.sh`, and their contract, `lib.sh` |
 | `image/` | the stock card's pin (`stock.env`), its first-boot seed (`user-data.in`, `network-config`), and `secrets.env` (gitignored; `secrets.example.env` is the template) |
 | `release/` | the release container (`Dockerfile`, `container.sh`) and the release card's parts |
-| `.cache/` (gitignored) | images, built cards, the golden snapshot, decks' identities, USB stick images |
+
+What pi-qemu makes and keeps is outside this directory, at the main
+checkout's root: see [Caches and archives](#caches-and-archives).
+
+## Caches and archives
+
+pi-qemu keeps what it makes, and what can't easily be made again, in two
+git-ignored folders at the main checkout's root, which every worktree uses.
+`pi-qemu cache` lists them, and Docker's caches too, each with its size on
+disk, its own size, what it holds and what makes it again. Its own size is its
+private bytes, what deleting it alone frees: the golden, the build cards and
+the decks' cards are APFS clones of each other, and share most of their blocks.
+
+| Folder | What it holds |
+|---|---|
+| `.cache/` | what pi-qemu makes again: clearing it is fine, `pi-qemu cache prune KIND...` (or `--all`) |
+| `.cache/stock/` | the stock Raspberry Pi OS card, downloaded and unpacked (`image build`) |
+| `.cache/base/` | image build's first boot and base step, per deck |
+| `.cache/build/` | image build's cards (`DECK.img`), and the builds' logs |
+| `.cache/golden/` | `trimixxx0.img` + `.state`: what every emulated deck starts from (`deck golden`) |
+| `.cache/qemu/` | the decks' QEMU, patched: its source and build (`build.sh qemu`) |
+| `.cache/cdj-qemu/` | the CDJ emulator's QEMU source, at its pin (`cdj build`) |
+| `.cache/instances`, `cdj`, `links` | links to `~/.pi-qemu/`: the emulated decks' and CDJs' own state, kept there because macOS caps a Unix socket's path at 104 bytes |
+| `archives/` | what is hard to make again: no command deletes from it |
+| `archives/releases/` | every release built, `VERSION/`: its cards and update bundle |
+| `archives/cdj-firmware/nxs/` | the NXS firmware the emulated CDJs boot (`cdj firmware`) |
+| `archives/sticks/` | USB sticks for decks and CDJs: images, folders, `.stick` files |
+| `archives/decks/` | each deck's identity: its ssh host keys, hotspot and home Wi-Fi (`release card`) |
+| `archives/captures/` | what each real deck ran before its first release card (`deck prepare`) |
+
+```sh
+pi-qemu cache                    # everything, with its size
+pi-qemu cache prune base build   # those kinds of the cache; --all for all of them
+```
+
+- **`prune` takes nothing in use.** It refuses, clearing nothing, a kind that
+  something uses: a running deck's QEMU, an image or release build,
+  `deck golden`, `deck up`, `cdj build`, `build.sh`. The golden comes back with
+  `deck golden` (from `.cache/build/trimixxx0.img`) or `image build trimixxx0`;
+  QEMU with `build.sh qemu` (~10 min).
+- **Docker's caches stay in its VM,** listed only: Mixxx's build trees (a
+  checkout's each), the ccache, the cargo registry, the layers, the images.
+  They are read while the VM runs, since asking Docker anything wakes a VM
+  that sleeps, and shown as last read while it sleeps. Freeing them is the
+  person's call (`docker buildx prune`); a worktree's tree goes with
+  `pi-qemu worktree release`.
+- **The build folders of each checkout** stay where their tools make them,
+  listed: pi-qemu's `app/build`, prolink's `target/`, `mixxx/dist`, the CDJ
+  emulator's `build/` and `.venv`, the S3's `.pio`.
+- **Before these folders,** pi-qemu kept its caches in `pi-qemu/.cache`,
+  `pi-qemu/qemu/.build`, `pi-qemu/release/out` and `~/.pi-qemu/cdj`.
+  `pi-qemu cache migrate` moves them once, with every deck and CDJ stopped:
+  renames on one volume, instant, and clones keep sharing. A second run moves
+  nothing. `--undo` moves them back. Until the move, the commands that need
+  them stop and say so. QEMU runs as it is after the move, but its build has
+  its old place written all through it, so its first `build.sh qemu` after
+  the move is a whole build (~10 min).
 
 ## Setting up a laptop
 
@@ -74,11 +130,11 @@ Then build the card. Most of the time goes to apt and the Docker builds of
 the deck's binaries; the base stage is cached for later runs:
 
 ```sh
-pi-qemu image build              # -> pi-qemu/.cache/build/trimixxx0.img (+ the golden snapshot)
+pi-qemu image build              # -> .cache/build/trimixxx0.img (+ the golden snapshot)
 ```
 
 A window shows the build as it goes: its steps, a progress bar and the log
-(`pi-qemu build-log pi-qemu/.cache/build/trimixxx0.log`, the log it writes).
+(`pi-qemu build-log .cache/build/trimixxx0.log`, the log it writes).
 `release build` opens one too, for the whole release. `--no-window` (or
 `BUILD_WINDOW=0`) opens none.
 
@@ -126,7 +182,7 @@ board itself (`pi-qemu run --help` lists its options):
   - Power on, and Pull the plug (no shutdown, like the mains switch);
   - the sound mode;
   - every USB storage device on the Mac, and every image and `.stick` file
-    in `.cache/sticks/`, each with Insert / Unplug (two slots, read-only).
+    in `archives/sticks/`, each with Insert / Unplug (two slots, read-only).
 
 ### Driving it from the command line
 
@@ -168,10 +224,11 @@ pi-qemu deck console sam 'ip -br a'  # over the serial console, when ssh is down
 ### Where things are
 
 An emulated deck lives in `~/.pi-qemu/instances/NAME/` (kept short on
-purpose: macOS caps unix socket paths at 104 bytes): `card.img`, `state`
-while it is suspended, `ssh_config` and `bin/` (plain `ssh`/`scp` reaching it
-as NAME and as `deck`: `eval "$(pi-qemu deck env NAME)"`), `pi-qemu.log`, and
-the board's run directory, `card.run/`:
+purpose: macOS caps unix socket paths at 104 bytes; `.cache/instances` links
+to it): `card.img`, `state` while it is suspended, `ssh_config` and `bin/`
+(plain `ssh`/`scp` reaching it as NAME and as `deck`:
+`eval "$(pi-qemu deck env NAME)"`), `pi-qemu.log`, and the board's run
+directory, `card.run/`:
 - `qemu.cmd`: the exact QEMU command, to rerun by hand;
 - `qemu.log`, and `qemu.pid` while it runs;
 - `console.log`: the Pi's serial console, from the first kernel line;
@@ -306,14 +363,15 @@ Once per Mac, and once per checkout:
 
 ```sh
 pi-qemu cdj build                              # this checkout's emulator: ~1.5 min the first time
-pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD    # Pioneer's updater, extracted outside every checkout
+pi-qemu cdj firmware ~/Downloads/C2KNXS.UPD    # Pioneer's updater, extracted into archives/, git-ignored
 ```
 
 - **The firmware** is Pioneer's, given to the NXS's owners: never in a
   repository. `firmware` checks every CRC and checksum, and writes what the
-  emulator boots into `~/.pi-qemu/cdj/firmware/nxs/`.
+  emulator boots into the main checkout's `archives/cdj-firmware/nxs/`,
+  which git ignores.
 - **`build`** fetches QEMU once, at the revision the emulator's patches
-  take, into `~/.pi-qemu/cdj/`, and builds it into the submodule's ignored
+  take, into `.cache/cdj-qemu/`, and builds it into the submodule's ignored
   `build/`. It also builds the GUI core and a venv for the emulator's tools.
   In a worktree, the submodule is the main checkout's, which
   `pi-qemu worktree prepare` borrows.
@@ -454,7 +512,7 @@ The cards the decks run from, read-only and updated A/B over the network,
 come from such a build (PLAN.md Part 1, and [rauc-pi-4-setup.md](rauc-pi-4-setup.md)):
 
 ```sh
-pi-qemu release build                # HEAD's pi/vX.Y.Z tag -> release/out/X.Y.Z/: the card, the bundle
+pi-qemu release build                # HEAD's pi/vX.Y.Z tag -> archives/releases/X.Y.Z/: the card, the bundle
 pi-qemu release card trimixxx2       # trimixxx2's card: the release card with its identity on p7
 pi-qemu deck ship --host trimixxx-pi-2   # the update onto a deck running a release card
 pi-qemu deck prepare --host trimixxx-pi-2 trimixxx2   # before a deck's first release card
@@ -602,7 +660,7 @@ pi-qemu deck ssh mix 'sudo grep ^0: /proc/tty/driver/ttyAMA'   # rx: bytes the S
 ### Play a track from a USB stick
 
 ```sh
-pi-qemu deck stick mix list          # images in .cache/sticks/ and the Mac's USB disks
+pi-qemu deck stick mix list          # images in archives/sticks/ and the Mac's USB disks
 pi-qemu deck stick mix insert SAM3   # SAM3.img: a rekordbox export, read-only
 pi-qemu deck press mix push          # the encoder push opens the library...
 pi-qemu deck browse mix 2; pi-qemu deck press mix push   # ...then moves and activates
@@ -611,10 +669,10 @@ pi-qemu deck press mix play; pi-qemu deck leds mix       # "play": true
 ```
 
 An image of a real stick, with the same layout as the original (MBR, FAT32),
-as `.cache/sticks/SAM3.img` was made:
+as `archives/sticks/SAM3.img` was made:
 
 ```sh
-cd pi-qemu/.cache/sticks
+cd archives/sticks
 hdiutil create -srcfolder /Volumes/SAM3 -volname SAM3 -fs FAT32 -layout MBRSPUD -format UDTO -size 256m SAM3
 mv SAM3.cdr SAM3.img
 ```
@@ -631,7 +689,7 @@ as they would on the deck.
 
 ```sh
 pi-qemu deck stick mix insert /Volumes/Drive/DJ-stick-copy   # a folder: MBR, FAT32, sized to fit
-pi-qemu deck stick mix insert SANDISK                        # .cache/sticks/SANDISK.stick
+pi-qemu deck stick mix insert SANDISK                        # archives/sticks/SANDISK.stick
 ```
 
 A `.stick` file (JSON) says how the stick was laid out. Every key but

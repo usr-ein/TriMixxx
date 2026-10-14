@@ -396,7 +396,7 @@ snapshot of the A/B card can come later, if quick restores matter there.
 ```
 git tag -m "TriMixxx 1.0.0" pi/v1.0.0 && pi-qemu release build   # card + bundle (§5.2), version 1.0.0
 pi-qemu release card trimixxx0 --version 1.0.0    # the emulated deck's identity
-pi-qemu deck up ab --from pi-qemu/release/out/1.0.0/trimixxx0-1.0.0.img
+pi-qemu deck up ab --from archives/releases/1.0.0/trimixxx0-1.0.0.img.xz
 pi-qemu release build --rehearsal 1.0.1           # the change under test, untagged
 pi-qemu deck ship ab --version 1.0.1              # install, then a trial start of B;
                                                   # B committed once the health check passed
