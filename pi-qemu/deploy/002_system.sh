@@ -13,10 +13,11 @@
 #   getty-tty1-stop-mixxx.conf  Mixxx quits before the session (and X) go
 #   a release card's pieces     identity, health check, RAUC's backend (inert here)
 #   trimixxx-history.service    the History's store, kept across power-ups
+#   trimixxx-recording.service  where "Record set" records, emptied at every start
 #   the boot splash             the logo on the panel for the first seconds
 #   eth0                        IPv4 link-local, for the CDJs' network
 #   the Wi-Fi fallback          the deck's own hotspot when it finds no Wi-Fi
-#   dj-usb                      USB sticks mounted as DJ_USB_1/2
+#   dj-usb                      USB sticks mounted as DJ_USB_1/2; a recorded set written to one
 #
 # The session restarts at the end of the run (exit 11): the bridge restarted
 # here, and the session files take effect from the next session.
@@ -239,6 +240,23 @@ ssh deck '
     sudo systemctl enable --now trimixxx-history.service
 '
 
+# ---- the set recording's directory ------------------------------------------------------
+# Where "Record set" records the DAC's input until it is written to a stick:
+# on the state partition on a release card, once it is mounted; on the root on
+# a dev card (trimixxx-recording.service). Emptied and made at every start.
+# Enabled here, so a release built from this system has it enabled; started
+# only when it has never run, so a deploy never deletes a recording in
+# progress.
+scp $P/trimixxx-recording.service deck:/tmp/
+ssh deck '
+    set -eux
+    sudo install -m 0644 /tmp/trimixxx-recording.service /etc/systemd/system/trimixxx-recording.service
+    rm -f /tmp/trimixxx-recording.service
+    sudo systemctl daemon-reload
+    sudo systemctl enable trimixxx-recording.service
+    [ -d /var/lib/rauc/trimixxx-recording ] || sudo systemctl start trimixxx-recording.service
+'
+
 # ---- the boot splash ------------------------------------------------------------------
 # The logo on the panel for the first seconds of boot, on a spare VT so the
 # boot log is never hidden (trimixxx-splash.sh). Rendered here, into the
@@ -395,14 +413,20 @@ echo "wlan0 and the default route are unchanged"
 
 # ---- DJ USB sticks, mounted -------------------------------------------------------------
 # udev hands each stick to dj-usb@.service, which mounts it read-only as
-# DJ_USB_1/2. The trigger picks up a stick already plugged in.
-scp $P/dj-usb/dj-usb $P/dj-usb/99-dj-usb.rules $P/dj-usb/dj-usb@.service deck:/tmp/
+# DJ_USB_1/2. The trigger picks up a stick already plugged in. Its `write`,
+# "Record set"'s copy onto a stick, is the one command Mixxx may run as root
+# (dj-usb-write.sudoers), checked by visudo before sudo ever reads it: a
+# broken sudoers file would lock every deploy step out.
+scp $P/dj-usb/dj-usb $P/dj-usb/99-dj-usb.rules $P/dj-usb/dj-usb@.service \
+    $P/dj-usb/dj-usb-write.sudoers deck:/tmp/
 ssh deck '
     set -eux
     sudo install -m 0755 /tmp/dj-usb            /usr/local/bin/dj-usb
     sudo install -m 0644 /tmp/99-dj-usb.rules   /etc/udev/rules.d/99-dj-usb.rules
     sudo install -m 0644 /tmp/dj-usb@.service   /etc/systemd/system/dj-usb@.service
-    rm -f /tmp/dj-usb /tmp/99-dj-usb.rules /tmp/dj-usb@.service
+    sudo visudo -cqf /tmp/dj-usb-write.sudoers
+    sudo install -m 0440 /tmp/dj-usb-write.sudoers /etc/sudoers.d/dj-usb-write
+    rm -f /tmp/dj-usb /tmp/99-dj-usb.rules /tmp/dj-usb@.service /tmp/dj-usb-write.sudoers
     sudo systemctl daemon-reload
     sudo udevadm control --reload-rules
     sudo udevadm trigger --subsystem-match=block --action=add

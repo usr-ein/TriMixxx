@@ -1,0 +1,36 @@
+[Unit]
+# Where "Record set" records the DAC's input: a directory of its own, emptied
+# and made again at every start, so a recording lasts until the next power-up
+# and no longer, whatever ended the last one (a pulled plug mid-recording
+# included).
+#
+# On a release card, on the state partition, p8: the card's one read-write
+# partition, never RAM. So after p8 is mounted (RequiresMountsFor; its fstab
+# line is nofail, and a nofail mount is not ordered before local-fs.target).
+# A p8 that will not mount fails this unit, and no directory means no
+# recording that power-up: Mixxx never makes it itself, so a recording can
+# never land in the RAM under the mount point. On a dev card, a directory of
+# the root, which is on the card as well.
+#
+# Off the boot's targets (DefaultDependencies=no): a target waits for what it
+# wants, and through RequiresMountsFor this would hold multi-user.target (and
+# what comes after it) on a p8 that is slow to appear. Mixxx looks for the
+# directory only when the DJ starts a recording. What the default
+# dependencies gave it that it needs, it asks for itself: the root read-write
+# (a dev card's directory is on it; booted, it is read-only until remounted),
+# and gone before the shutdown.
+Description=TriMixxx: the set recording's directory, on the state partition, emptied
+DefaultDependencies=no
+RequiresMountsFor=/var/lib/rauc
+After=systemd-remount-fs.service
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/rm -rf /var/lib/rauc/trimixxx-recording
+ExecStart=/usr/bin/install -d -m 0755 -o sam1902 -g sam1902 /var/lib/rauc/trimixxx-recording
+
+[Install]
+WantedBy=multi-user.target

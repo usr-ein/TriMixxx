@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # dj-usb mount|unmount <kernel-name>   e.g. dj-usb mount sda1
+# dj-usb write <slot> <file>...        e.g. dj-usb write /media/DJ_USB_1 /var/lib/rauc/trimixxx-recording/recorded-set-12345678.mp3
 #
 # Mounts DJ sticks READ-ONLY at /media/DJ_USB_1 / /media/DJ_USB_2. Driven by
 # 99-dj-usb.rules -> dj-usb@.service; not meant to be run by hand except to
@@ -10,6 +11,13 @@
 # tolerates this -- its Rekordbox importer opens export.pdb and the ANLZ files
 # with std::ifstream::binary and parks everything it reads in Mixxx's own
 # database, never on the device.
+#
+# The one exception is `write`: a recorded set ("Record set" on the browser's
+# home list), its MP3 and its track list, copied onto a stick the DJ chose.
+# The stick is read-write for the copy and nothing else, under the same lock
+# as mount and unmount, and read-only again however the copy ends. Mixxx runs
+# it as root through sudo (/etc/sudoers.d/dj-usb-write); it copies only a
+# recording, out of the recording directory, and only onto a slot's root.
 #
 # The slot path matters and is not cosmetic. Mixxx's RekordboxFeature scans
 # /media, /media/$USER and /run/media/$USER, takes their IMMEDIATE children
@@ -25,6 +33,24 @@ LOCK=/run/dj-usb.lock
 DJ_USER="${DJ_USER:-$(id -un 1000 2>/dev/null || echo pi)}"
 
 log() { logger -t dj-usb -- "$*" 2>/dev/null || true; echo "dj-usb: $*" >&2; }
+
+# Where Mixxx records a set (pi_config/trimixxx-recording.service): what
+# `write` copies may only come from here.
+REC_DIR=/var/lib/rauc/trimixxx-recording
+# Filesystems Linux writes safely, of those a DJ's stick carries: FAT32 and
+# exFAT (what CDJs and rekordbox use) and ext. Not HFS+ (a journaled one is
+# read-only to Linux) nor NTFS.
+WRITABLE_FS="vfat exfat ext2 ext3 ext4"
+
+# `write`'s exits, which Mixxx tells apart: 2 refused (not a slot, not a
+# recording), 3 too little room, 4 a filesystem it does not write, 5 the
+# write failed (a stick pulled, a bad stick), 6 the name is taken.
+fail() {
+    local code=$1
+    shift
+    log "$*"
+    exit "$code"
+}
 
 slot_path() { echo "/media/DJ_USB_$1"; }
 
@@ -124,8 +150,85 @@ do_unmount() {
     done
 }
 
+# Read-only again, and said so if it would not go. A stick left read-write is
+# the one thing this must not leave behind, so it is tried a few times: a
+# remount refuses while a file is still open for writing.
+restore_ro() {
+    local mp=$1 i
+    mountpoint -q "$mp" || return 0 # pulled: nothing is mounted to restore
+    sync -f "$mp" 2>/dev/null || true
+    for ((i = 0; i < 10; i++)); do
+        if mount -o remount,ro "$mp" 2>/dev/null; then
+            log "remounted $mp read-only"
+            return 0
+        fi
+        sleep 0.2
+    done
+    log "could not remount $mp read-only: it is still read-write"
+    return 1
+}
+
+do_write() {
+    local mp=$1 src name fstype need avail part written=()
+    shift
+    [[ $mp =~ ^/media/DJ_USB_[0-9]+$ ]] && mountpoint -q "$mp" ||
+        fail 2 "$mp is not a stick in this deck"
+    (($# > 0)) || fail 2 "nothing to write to $mp"
+    need=$((1024 * 1024)) # and a megabyte to spare: the FAT and the directory
+    for src in "$@"; do
+        name=${src##*/}
+        [[ $src == "$REC_DIR/$name" && $name =~ ^recorded-set-[a-z0-9-]+\.(mp3|txt)$ &&
+            -f $src && ! -L $src ]] || fail 2 "$src is not a recording"
+        need=$((need + $(stat -c %s "$src")))
+    done
+
+    take_lock
+    # The lock waited for any mount or unmount: what was checked is checked
+    # again, against the stick that is there now.
+    mountpoint -q "$mp" || fail 5 "$mp went before the write"
+    fstype=$(findmnt -n -o FSTYPE --mountpoint "$mp")
+    [[ " $WRITABLE_FS " == *" $fstype "* ]] || fail 4 "$mp is $fstype, which this deck does not write"
+    for src in "$@"; do
+        [[ -e $mp/${src##*/} ]] && fail 6 "${src##*/} is on $mp already"
+    done
+    avail=$(df -B1 --output=avail "$mp" | tail -n 1 | tr -d ' ')
+    ((avail >= need)) || fail 3 "$mp is full: the set needs $need bytes, it has $avail"
+
+    # Read-only again however this ends: done, failed, or stopped.
+    trap 'restore_ro "$mp"' EXIT
+    trap 'exit 5' INT TERM HUP
+    mount -o remount,rw "$mp" || fail 5 "$mp would not remount read-write"
+    log "remounted $mp read-write for ${#} file(s)"
+    for src in "$@"; do
+        name=${src##*/}
+        # Under a name of its own until it is whole, so a stick pulled
+        # mid-copy is left with a hidden part and never a short file under
+        # the set's name. A megabyte at a time, each on the stick before the
+        # next (dsync): the part's size is what has reached the stick, which
+        # is what Mixxx's progress bar shows, rather than what the page cache
+        # took in a second and a slow stick then takes a minute to write.
+        # Neither end followed if it is a link (nofollow): checked above, but
+        # this runs as root, and a link swapped in since, or one an ext stick
+        # brought, must not make it read or write anything else.
+        part="$mp/.$name.part"
+        if ! { dd if="$src" of="$part" bs=1M iflag=nofollow oflag=dsync,nofollow status=none &&
+            sync "$part" && mv "$part" "$mp/$name"; }; then
+            rm -f "$part" 2>/dev/null || true
+            fail 5 "writing $name to $mp failed"
+        fi
+        written+=("$name")
+    done
+    sync -f "$mp" || fail 5 "$mp did not take the write"
+    log "wrote ${written[*]} to $mp"
+    # The EXIT trap remounts it read-only; a stick it could not be done for
+    # fails the write, so Mixxx says so.
+    trap - EXIT
+    restore_ro "$mp" || exit 5
+}
+
 case "${1:-}" in
 mount) do_mount "${2:?usage: dj-usb mount <kernel-name>}" ;;
 unmount) do_unmount "${2:?usage: dj-usb unmount <kernel-name>}" ;;
-*) echo "usage: dj-usb mount|unmount <kernel-name>" >&2; exit 2 ;;
+write) do_write "${2:?usage: dj-usb write <slot> <file>...}" "${@:3}" ;;
+*) echo "usage: dj-usb mount|unmount <kernel-name> | write <slot> <file>..." >&2; exit 2 ;;
 esac

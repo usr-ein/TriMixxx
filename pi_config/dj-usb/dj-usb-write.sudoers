@@ -1,0 +1,6 @@
+# "Record set": Mixxx, as the deck's user, writes a recorded set to one of the
+# deck's sticks through dj-usb's `write`, which remounts that stick read-write
+# for the copy and read-only again after it. That one command as root, and
+# nothing else, without a password: Mixxx asks with `sudo -n`, which fails
+# rather than wait for one. Installed as /etc/sudoers.d/dj-usb-write.
+sam1902 ALL=(root) NOPASSWD: /usr/local/bin/dj-usb write *

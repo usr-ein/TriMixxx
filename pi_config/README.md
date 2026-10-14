@@ -126,6 +126,16 @@ change here never has to go through the config step.
   the directory until it is there. Written only while something plays: a
   heartbeat every 5 s, so a pulled plug loses at most that. The system step
   installs and enables it, and runs it at once.
+- `trimixxx-recording.service` — a oneshot that empties and makes
+  `/var/lib/rauc/trimixxx-recording`, owned by the deck's user, at every start:
+  where "Record set" (the browser's home list) records the DAC's input as MP3
+  until the DJ writes it to a stick. A recording lasts until the next power-up
+  and never lives in RAM: on a release card that is p8, so the unit runs once
+  p8 is mounted (`RequiresMountsFor`), and a p8 that will not mount leaves no
+  directory and no recording, since Mixxx never makes the directory itself.
+  It is off the boot's targets (`DefaultDependencies=no`), so nothing waits
+  for it. The system step installs and enables it, and runs it only on a deck
+  that has never had it, so a deploy never deletes a recording.
 - `wifi-fallback/` — the deck's own hotspot, named after its hostname, when no
   Wi-Fi has been joined 45 s into a boot: the way in at a venue. Once per boot,
   never undone; a reboot retries home. Inert until the next boot. The system
