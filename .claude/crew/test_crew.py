@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -378,6 +379,110 @@ class CdjListTest(Sandbox):
     def test_none(self):
         self.assertEqual(self.listing(cdj_list()), [])
         self.assertEqual(self.listing("", code=2, stderr="pi-qemu: no command cdj\n"), [])  # a pi-qemu before CDJs
+
+
+class DockerProbeTest(Sandbox):
+    """Docker's VM disk is read by starting a container, and starting one wakes a sleeping VM for Resource Saver's
+    whole timeout: on 2026-10-13 the nightman's 20-minute heartbeat woke it each time. So it is probed only while the
+    VM runs, and the last probe stands while it sleeps: its disk can't change then."""
+
+    # `df -kP /` in alpine, as Docker's VM answered it on 2026-10-14.
+    DF = ("Filesystem           1024-blocks    Used Available Capacity Mounted on\n"
+          "overlay               65870640   7025940  55472928  11% /\n")
+    FREE = 55472928 / 2**20
+
+    def fake(self, up, code=0, out=DF, missing=False):
+        """The Mac: the VM up or asleep (pgrep), and what `docker run` does."""
+        self.calls = []
+
+        def run(cmd, **kw):
+            self.calls.append(cmd[0])
+            if cmd[0] == "pgrep":
+                self.assertEqual(cmd, ["pgrep", "-qf", r"^[^ ]*/com\.docker\.sailor( |$)"])
+                return subprocess.CompletedProcess(cmd, 0 if up else 1, "", "")
+            self.assertEqual(cmd[:2], ["docker", "run"])
+            if missing:
+                crew.die("docker: not found")
+            return subprocess.CompletedProcess(cmd, code, out, "" if code == 0 else "Cannot connect to the Docker daemon")
+        crew.run = run
+
+    def probed(self, gb, hours_ago=0.5):
+        path = crew.CREW / "docker-df.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"gb": gb, "at": time.time() - hours_ago * 3600}))
+
+    def kept(self) -> dict:
+        return json.loads((crew.CREW / "docker-df.json").read_text())
+
+    def test_asleep_the_last_probe_stands(self):
+        self.probed(31.2)
+        self.fake(up=False)
+        self.assertEqual(crew.docker_free_gb(), 31.2)
+        self.assertEqual(self.calls, ["pgrep"])  # no container: the VM sleeps on
+
+    def test_up_it_probes_and_keeps_the_value(self):
+        self.probed(31.2)
+        self.fake(up=True)
+        self.assertAlmostEqual(crew.docker_free_gb(), self.FREE)
+        self.assertEqual(self.calls, ["pgrep", "docker"])
+        self.assertAlmostEqual(self.kept()["gb"], self.FREE)
+        self.assertLess(time.time() - self.kept()["at"], 60)
+        self.assertEqual(sorted(p.name for p in crew.CREW.iterdir()), ["docker-df.json"])  # no temp file left
+
+    def test_asleep_with_no_probe_yet_or_a_day_old_one_it_probes_once(self):
+        self.fake(up=False)
+        self.assertAlmostEqual(crew.docker_free_gb(), self.FREE)  # the first ever: the crew state dir is made for it
+        self.assertEqual(self.calls, ["docker"])
+        self.probed(31.2, hours_ago=25)  # a VM whose process got renamed looks asleep for good: a wake a day
+        self.fake(up=False)
+        self.assertAlmostEqual(crew.docker_free_gb(), self.FREE)
+        self.assertEqual(self.calls, ["docker"])
+        self.fake(up=False)  # and then it stands again
+        self.assertAlmostEqual(crew.docker_free_gb(), self.FREE)
+        self.assertEqual(self.calls, ["pgrep"])
+
+    def test_a_failed_probe_keeps_the_last_value(self):
+        for how in ({"code": 1, "out": ""}, {"missing": True}, {"out": "df: /: no such file\n"}):
+            self.probed(31.2)
+            self.fake(up=True, **how)
+            self.assertEqual(crew.docker_free_gb(), 31.2, how)
+            self.assertEqual(self.kept()["gb"], 31.2, how)
+
+    def test_nothing_to_go_on(self):
+        """Docker down and never probed, or a file that isn't a probe: unknown, as before (preflight says why)."""
+        self.fake(up=False, code=1, out="")
+        self.assertIsNone(crew.docker_free_gb())
+        crew.CREW.mkdir(parents=True)
+        for junk in ("", "{", "[]", '{"gb": "lots"}', '{"gb": 3}'):
+            (crew.CREW / "docker-df.json").write_text(junk)
+            self.fake(up=False, code=1, out="")
+            self.assertIsNone(crew.docker_free_gb(), junk)
+            self.assertEqual(self.calls, ["docker"], junk)
+
+    def test_the_vm_by_its_command(self):
+        """The hypervisor's own process, not a shell whose command line mentions it: a shell waiting for the VM to
+        sleep saw itself up for good."""
+        self.fake(up=True)
+        crew.docker_vm_up()
+        rx = re.compile(r"^[^ ]*/com\.docker\.sailor( |$)")
+        self.assertTrue(rx.search("/Applications/Docker.app/Contents/MacOS/com.docker.sailor"))
+        self.assertTrue(rx.search("/Users/sam/Applications/Docker.app/Contents/MacOS/com.docker.sailor --x"))
+        self.assertFalse(rx.search("zsh -c until ! pgrep -qf /Contents/MacOS/com.docker.sailor; do sleep 10; done"))
+        self.assertFalse(rx.search("/usr/bin/tail -f /tmp/com.docker.sailor.log"))
+
+    def test_pgrep_failing_counts_as_up(self):
+        """Unsure whether the VM runs: probe, as crew always did, rather than trust an old value."""
+        self.probed(31.2)
+        calls = []
+
+        def run(cmd, **kw):
+            calls.append(cmd[0])
+            if cmd[0] == "pgrep":
+                crew.die("timed out after 10 s: pgrep")
+            return subprocess.CompletedProcess(cmd, 0, self.DF, "")
+        crew.run = run
+        self.assertAlmostEqual(crew.docker_free_gb(), self.FREE)
+        self.assertEqual(calls, ["pgrep", "docker"])
 
 
 class LockTest(Sandbox):

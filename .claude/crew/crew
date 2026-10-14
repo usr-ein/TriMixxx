@@ -382,16 +382,50 @@ def cdjs() -> list[tuple[str, str]]:
     return found
 
 
+def docker_vm_up() -> bool:
+    """Whether Docker Desktop's Linux VM runs now. Its hypervisor, com.docker.sailor (Docker VMM, Docker Desktop 4.86+),
+    is a process only while it does: Resource Saver stops it once Docker has been idle for its timeout. By its path,
+    as the command's first word: the short name is cut to 16 characters (com.docker.sailo), so `pgrep -x
+    com.docker.sailor` finds nothing, and anywhere in a command line it would match a shell whose command mentions it.
+    Re-check the name after a Docker Desktop update: Docker VMM was still a beta at 4.95. When pgrep itself fails, up:
+    the caller then probes, as it always did."""
+    try:
+        return run(["pgrep", "-qf", r"^[^ ]*/com\.docker\.sailor( |$)"], check=False, timeout=10).returncode != 1
+    except Fail:
+        return True
+
+
 def docker_free_gb() -> float | None:
-    """Free disk in Docker's VM, where Mixxx builds and their cache live: a container's / is on it. None when Docker
-    isn't up (or has no alpine image: it is never pulled for this)."""
+    """Free disk in Docker's VM, where Mixxx builds and their cache live: a container's / is on it. Probed only while
+    the VM is up: the probe starts a container, and starting one wakes a sleeping VM for Resource Saver's whole
+    timeout, every heartbeat. A stopped VM's disk cannot change, so while it sleeps the last probe stands; after a day
+    without one it probes anyway, so a VM missed because its process got renamed costs a wake a day, not a frozen
+    value. None when there is no probe yet and Docker isn't up (or has no alpine image: it is never pulled for this)."""
+    path = CREW / "docker-df.json"  # the last probe: {"gb": 31.2, "at": <epoch>}
+    try:
+        last = json.loads(path.read_text())
+        last_gb, last_at = float(last["gb"]), float(last["at"])
+    except (OSError, ValueError, KeyError, TypeError):
+        last_gb, last_at = None, 0.0
+    if last_gb is not None and time.time() - last_at < 86400 and not docker_vm_up():
+        return last_gb
     try:
         r = run(["docker", "run", "--rm", "--pull", "never", "--network", "none", "alpine", "df", "-kP", "/"],
                 check=False, timeout=60)
     except Fail:
-        return None
+        return last_gb
     m = re.match(r"\S+\s+\d+\s+\d+\s+(\d+)\s", (r.stdout.strip().splitlines() or [""])[-1])
-    return int(m.group(1)) / 2**20 if r.returncode == 0 and m else None
+    if r.returncode != 0 or not m:
+        return last_gb
+    gb = int(m.group(1)) / 2**20
+    try:  # whole or not at all: crew runs in several sessions at once, and a torn file would cost a wake
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(f"{path.name}.{os.getpid()}")
+        tmp.write_text(json.dumps({"gb": gb, "at": time.time()}) + "\n")
+        os.replace(tmp, path)
+    except OSError:
+        pass
+    return gb
 
 
 def snapshot() -> dict:
