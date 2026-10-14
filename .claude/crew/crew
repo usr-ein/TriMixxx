@@ -1770,6 +1770,25 @@ def push_reason(rest: list[str], d: Path, branch: str) -> str | None:
     return None
 
 
+def cache_reason(args: list[str], here: Path) -> str | None:
+    """`pi-qemu cache prune|migrate` clear or move what every deck and agent uses (the golden, QEMU, the releases,
+    the firmware): Sam's, or an errand's. On a scratch copy (--root DIR, not the main checkout), anyone's."""
+    if args[:1] != ["cache"] or args[1:2] not in (["prune"], ["migrate"]):
+        return None
+    root = None
+    for i, x in enumerate(args):
+        if x == "--root" and i + 1 < len(args):
+            root = args[i + 1]
+        elif x.startswith("--root="):
+            root = x.split("=", 1)[1]
+    if root and not re.search(r"[$`]", root):
+        path = Path(os.path.expanduser(root))
+        if os.path.realpath(path if path.is_absolute() else here / path) != os.path.realpath(MAIN):
+            return None
+    return ("that clears or moves the caches and archives everyone's decks use: Sam's call, or his errand "
+            "(a scratch copy: --root DIR)")
+
+
 def host_flag(args: list[str]) -> str | None:
     """pi-qemu's --host: a real deck, whatever its name."""
     for i, x in enumerate(args):
@@ -1862,6 +1881,9 @@ def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
         if prog == "pi-qemu":
             if args[:2] in (["deck", "golden"], ["image", "build"]):
                 return "that rebuilds the golden card everyone's decks start from: Sam's call"
+            why = cache_reason(args, here)
+            if why:
+                return why
             host = host_flag(args)
             why = real_deck_reason(host, reg, flagged=True) if host is not None else None
             if why:

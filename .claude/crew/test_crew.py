@@ -150,9 +150,18 @@ class GuardTest(Sandbox):
 
     def test_machine_wide_harm(self):
         for cmd in ("pkill -f qemu", "killall docker", "docker builder prune -f", "docker system prune",
-                    "diskutil list", "sudo dd if=x of=/dev/rdisk4", "pi-qemu deck golden x", "pi-qemu image build x"):
+                    "diskutil list", "sudo dd if=x of=/dev/rdisk4", "pi-qemu deck golden x", "pi-qemu image build x",
+                    "pi-qemu cache prune --all", "pi-qemu cache prune golden", "pi-qemu cache migrate",
+                    "pi-qemu cache migrate --undo", f"pi-qemu cache migrate --root {crew.MAIN}",
+                    "pi-qemu cache prune qemu --root=$HOME/x"):
             for reg in (self.minion, self.bitch, self.nightman):
                 self.assertTrue(self.denied(reg, cmd), f"{reg['role']}: {cmd}")
+
+    def test_caches(self):
+        """Listing is anyone's; clearing or moving them, Sam's; on a scratch copy, anyone's."""
+        for cmd in ("pi-qemu cache", "pi-qemu cache list", "pi-qemu cache migrate --root /tmp/scratch",
+                    "pi-qemu cache migrate --undo --root=/tmp/scratch", "pi-qemu cache prune --all --root /tmp/scratch"):
+            self.assertFalse(self.denied(self.minion, cmd), cmd)
 
     def test_decks(self):
         self.assertFalse(self.denied(self.minion, "pi-qemu deck up feat"))
