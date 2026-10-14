@@ -175,8 +175,10 @@ seal() {
     # and balenaEtcher flash an .img.xz as it is, so does `xz -dc CARD | dd`,
     # and pi-qemu unpacks it for an emulated deck. Plain, through Docker's share
     # of the Mac's disk, it came out with its zeros written: 12.6 GB on disk
-    # for 1.1 GB of data.
-    xz -T0 -c "$WORK"/img/trimixxx.img > "$o/trimixxx-$VERSION.img.xz"
+    # for 1.1 GB of data. -0: that data is mostly the system's SquashFS,
+    # compressed already, and xz's default level took 75 s for 1.083 GB where
+    # -0 takes 18 s for 1.102.
+    xz -T0 -0 -c "$WORK"/img/trimixxx.img > "$o/trimixxx-$VERSION.img.xz"
     cp "$WORK"/img/rootfs.squashfs "$WORK"/img/boot.vfat "$WORK/trimixxx-$VERSION.raucb" "$o"/
 
     # ---- what went in -----------------------------------------------------------------
@@ -208,7 +210,7 @@ card() {
     dd if="$WORK"/data.ext4 of="$img" bs=1M seek=$((start * 512)) oflag=seek_bytes conv=notrunc,sparse status=none
     debugfs -R 'ls -l /' "$WORK"/data.ext4 2>/dev/null | awk 'NR > 2 {print $NF}' | tr '\n' ' '
     echo
-    xz -T0 -c "$img" > "$o/$DECK-$VERSION.img.xz.part"
+    xz -T0 -0 -c "$img" > "$o/$DECK-$VERSION.img.xz.part"
     mv "$o/$DECK-$VERSION.img.xz.part" "$o/$DECK-$VERSION.img.xz"
     ls -l "$o/$DECK-$VERSION.img.xz"
 }
