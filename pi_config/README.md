@@ -115,6 +115,14 @@ change here never has to go through the config step.
   wlan0 is the deck's way to the world.
 - `dj-usb/` — USB stick auto-mount (udev rule → templated systemd service +
   mount helper). Installed by the system step.
+- `trimixxx-history.conf` — `/etc/tmpfiles.d` rule making
+  `/var/lib/rauc/trimixxx-history`, owned by the deck's user, at every start:
+  where Mixxx keeps the browser's History (what played on the link, the last
+  three power-ups) in a database of its own beside its cover thumbnails. On a
+  release card that is the state partition, p8, the one both slots share and
+  an update keeps; on a dev card, the root. Written only while something plays:
+  a heartbeat every 5 s, so a pulled plug loses at most that. The system step
+  installs it and makes the directory at once.
 - `wifi-fallback/` — the deck's own hotspot, named after its hostname, when no
   Wi-Fi has been joined 45 s into a boot: the way in at a venue. Once per boot,
   never undone; a reboot retries home. Inert until the next boot. The system
