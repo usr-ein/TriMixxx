@@ -395,37 +395,47 @@ def docker_vm_up() -> bool:
         return True
 
 
-def docker_free_gb() -> float | None:
-    """Free disk in Docker's VM, where Mixxx builds and their cache live: a container's / is on it. Probed only while
-    the VM is up: the probe starts a container, and starting one wakes a sleeping VM for Resource Saver's whole
-    timeout, every heartbeat. A stopped VM's disk cannot change, so while it sleeps the last probe stands; after a day
-    without one it probes anyway, so a VM missed because its process got renamed costs a wake a day, not a frozen
-    value. None when there is no probe yet and Docker isn't up (or has no alpine image: it is never pulled for this)."""
-    path = CREW / "docker-df.json"  # the last probe: {"gb": 31.2, "at": <epoch>}
+def docker_disk() -> tuple[float | None, float | None]:
+    """Free disk in Docker's VM, where Mixxx builds and their cache live (a container's / is on it), and when it was
+    read. Read only while the VM is up: the probe starts a container, and starting one wakes a sleeping VM for Resource
+    Saver's whole timeout, every heartbeat. A stopped VM's disk can't change, so while it sleeps the last attempt
+    stands: its reading, or unknown if it failed. The reading is as old as that attempt, which may predate the VM's
+    last run (a build that ran and slept between two checks): pi-qemu's own check before a build is exact. After a day
+    without an attempt it probes anyway, so a VM missed because its process got renamed costs a wake a day, not a
+    frozen value. A failed probe (Docker down, alpine pruned: it is never pulled for this) reads unknown, as it always
+    did, and never pins an older reading. (None, None) when unknown."""
+    path = CREW / "docker-df.json"  # {"gb": 31.2, "at": <the reading's epoch>, "tried": <the last attempt's>}
     try:
         last = json.loads(path.read_text())
-        last_gb, last_at = float(last["gb"]), float(last["at"])
-    except (OSError, ValueError, KeyError, TypeError):
-        last_gb, last_at = None, 0.0
-    if last_gb is not None and time.time() - last_at < 86400 and not docker_vm_up():
-        return last_gb
+    except (OSError, ValueError):
+        last = None
+
+    def num(key):
+        v = last.get(key) if isinstance(last, dict) else None
+        return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+    gb, at, tried = num("gb"), num("at"), num("tried")
+    tried = at if tried is None else tried  # a reading kept before attempts were
+    known = gb is not None and at is not None and at >= tried  # the last attempt gave the reading
+    if tried is not None and time.time() - tried < 86400 and not docker_vm_up():
+        return (gb, at) if known else (None, None)
+    now = time.time()
     try:
         r = run(["docker", "run", "--rm", "--pull", "never", "--network", "none", "alpine", "df", "-kP", "/"],
                 check=False, timeout=60)
+        m = re.match(r"\S+\s+\d+\s+\d+\s+(\d+)\s", (r.stdout.strip().splitlines() or [""])[-1])
+        known = r.returncode == 0 and m is not None
     except Fail:
-        return last_gb
-    m = re.match(r"\S+\s+\d+\s+\d+\s+(\d+)\s", (r.stdout.strip().splitlines() or [""])[-1])
-    if r.returncode != 0 or not m:
-        return last_gb
-    gb = int(m.group(1)) / 2**20
+        known = False
+    if known:
+        gb, at = int(m.group(1)) / 2**20, now
     try:  # whole or not at all: crew runs in several sessions at once, and a torn file would cost a wake
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_name(f"{path.name}.{os.getpid()}")
-        tmp.write_text(json.dumps({"gb": gb, "at": time.time()}) + "\n")
+        tmp.write_text(json.dumps({"gb": gb, "at": at, "tried": now}) + "\n")
         os.replace(tmp, path)
     except OSError:
         pass
-    return gb
+    return (gb, at) if known else (None, None)
 
 
 def snapshot() -> dict:
@@ -440,9 +450,10 @@ def snapshot() -> dict:
     sessions = claude_sessions()
     live = {s.get("sessionId") for s in sessions if s.get("status") not in ENDED}  # ended ones are listed too
     regs = [r for r in registrations() if r["sid"] in live]
+    docker_gb, docker_at = docker_disk()
     return {
         "ncpu": ncpu, "load": load, "pressure": pressure, "mem_free_pct": mem_free, "swap_gb": swap_gb,
-        "disk_gb": disk_gb, "docker_gb": docker_free_gb(), "decks": decks(), "cdjs": cdjs(),
+        "disk_gb": disk_gb, "docker_gb": docker_gb, "docker_at": docker_at, "decks": decks(), "cdjs": cdjs(),
         "minions": [session_name(r) for r in regs if r["role"] == "minion"],
         "bitches": [session_name(r) for r in regs if r["role"] == "bitch"],
         "sessions": [{k: s.get(k) for k in ("name", "kind", "status", "cwd")} for s in sessions],
@@ -490,10 +501,12 @@ def describe(snap: dict, lim: dict) -> str:
     running = [d for d, s in snap["decks"] if s == "running"]
     running_cdjs = [c for c, s in snap["cdjs"] if s == "running"]
     pressure = {1: "normal", 2: "warning", 4: "critical"}.get(snap["pressure"], str(snap["pressure"]))
-    docker = snap.get("docker_gb")
+    docker, age = snap.get("docker_gb"), time.time() - (snap.get("docker_at") or time.time())
     return (f"load {'/'.join(f'{x:.1f}' for x in snap['load'])} on {snap['ncpu']} cores; memory {pressure}"
             f" ({snap['mem_free_pct']}% free, {snap['swap_gb'] or 0:.1f} GB swap); {snap['disk_gb']:.0f} GB disk free;"
-            + (f" Docker's VM {docker:.1f} GB free;" if docker is not None else " Docker's VM: unknown (not up?);") +
+            + (" Docker's VM: unknown (not up?);" if docker is None else f" Docker's VM {docker:.1f} GB free"
+               + (f" (read {age / 3600:.0f} h ago);" if age >= 5400 else
+                  f" (read {age / 60:.0f} min ago);" if age >= 600 else ";")) +
             f" decks running {len(running)}/{lim['MAX_DECKS']:.0f} ({', '.join(running) or 'none'});"
             f" CDJs running {len(running_cdjs)}/{lim['MAX_CDJS']:.0f} ({', '.join(running_cdjs) or 'none'});"
             f" minions {len(snap['minions'])}/{lim['MAX_MINIONS']:.0f}")
