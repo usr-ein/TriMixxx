@@ -59,8 +59,8 @@ Usable and testable without a Library: nothing here includes `library/` or
 | `prolinksync.{h,cpp}` | `ProLinkSync`: tempo sync, as a CDJ does it. Who is tempo master (reconcile, stand down, auto-claim, hand over), what we tell the network we play (tempo, beat, loaded track), SYNC following the master (tempo, then the phase: landing, hold, trim), and the deck the phase meter draws. `docs/tempo-sync.md` is its specification. |
 | `syncsource`, `synctempo`, `automaster` | The pure rules `ProLinkSync` decides with: what SYNC follows and what the meter draws, fader or master, when to claim or hand over master. Tested without a network. |
 | `audiblebeatclock`, `prolinkbeatposition.h` | Where this deck is on its grid *as heard*, numbered from the rekordbox downbeat. Used by `ProLinkSync` and the phase meter. |
-| `keysync.{h,cpp}` | KEY SYNC's rules: a latch on a key, never let go by the network. |
-| `prolinkkeysync.{h,cpp}` | `ProLinkKeySync`: KEY SYNC wired to the deck (`pitch_adjust`, `file_key`, `keylock`) and the controls. |
+| `keysync.{h,cpp}` | KEY SYNC's rules: the shift (-5..+6) a press asks for, onto the master's Camelot number or back to the track's own key, and the key math behind it. |
+| `prolinkkeysync.{h,cpp}` | `ProLinkKeySync`: KEY SYNC wired to the deck (`pitch_adjust`, `file_key`, `keylock`) and the controls: the one thing that moves the deck's key, from the pad (`key_sync`) and the key list (`key_shift`). |
 | `prolinkcontrols.{h,cpp}` | `ProLinkControls`: the `[ProLink]` controls, `DeckServices`'s own. Made before any skin is parsed, because the first creator of a control key wins (see the class). |
 | `prolinktypes.h` | The values that cross from the service to the rest of Mixxx: `ProLinkDevice`, `MediaInfo`, `MediaSlot`, `kThisPlayer`. |
 | `prolinkbridge.h` | Between the Rust bridge's types and Mixxx's (slots, strings), for the two files that talk to the session. |
@@ -107,6 +107,7 @@ Beside them, upstream's `rekordboxconstants.h`, which the analysis reads.
 | `wdeckbrowser.{h,cpp}` | `WDeckBrowser` (skin node `<DeckBrowser>`): the library as a menu stack. Levels, breadcrumb, sort, search, the info layout, and the `[Browser]` controls. Loads through `DeckLoader`. `DeckSortChip`, the breadcrumb's sort indicator, is declared beside it. |
 | `decklistview`, `deckdelegates`, `deckmenumodel`, `deckpage.h` | The lists: one view class with the deck's gestures, the row painters, the menu rows, and the page interface for a level that takes the encoder itself. |
 | `wdeckinfopanel`, `wdecksortmenu`, `wdecksearch` | The info panel, the sort menu, the on-screen keyboard. |
+| `wdeckkeypicker` | `<DeckKeyPicker>`: the key list over the deck (B6 held), built like the sort menu; `[KeyPicker]` drives it, and a pick writes `[ProLink] key_shift`. |
 | `wdeckdiagnostics`, `decklevels`, `deckrelease` | Diagnostics, with the output level and backlight it adjusts and the release and A/B slots it reports. |
 | `wdecktoast` | `<DeckToast>`: the notification stack over everything. |
 | `wdeckautoplaybadge` | `<DeckAutoplay>`: autoplay's badge over the waveform. |
@@ -120,7 +121,7 @@ Beside them: `widget/wtempopanel` (`<TempoPanel>`) and
 
 | File | What it is |
 |---|---|
-| `skin/legacy/legacyskinparser_deck.cpp` | `LegacySkinParser::parseDeckNode()`: builds the deck's five skin nodes. A member of the upstream parser defined in a file of the fork's, so upstream's `parseNode()` carries one line for all of them. |
+| `skin/legacy/legacyskinparser_deck.cpp` | `LegacySkinParser::parseDeckNode()`: builds the deck's six skin nodes. A member of the upstream parser defined in a file of the fork's, so upstream's `parseNode()` carries one line for all of them. |
 | `sources/soundsourcestreaming.{h,cpp}` | `SoundSourceStreaming`: FFmpeg fed from a `StreamingFile`, for a track still arriving off a stick or a player. Declines every other file. |
 | `waveform/renderers/stackedwaveform.{h,cpp}` | `StackedWaveform`: the scrolling waveform's `<SignalStacked>` look (bass, mids, highs as stacked bars), drawn for `WaveformRendererRGB`. |
 | `util/posixsignalhandler.{h,cpp}` | SIGTERM, SIGINT and SIGHUP as a normal quit. |

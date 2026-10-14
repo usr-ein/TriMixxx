@@ -634,6 +634,17 @@ WTrackTableView QScrollBar::sub-page:horizontal {
     border: 1px solid #ffffff;
 }
 
+/* The key list (B6 held over the deck): the sort menu's look, over the deck.
+   The widget spans the panel and must paint nothing but its list, or the deck
+   behind it goes grey; the list is opaque, with the sort menu's white edge
+   (1px, which the widget counts in its height). */
+#DeckKeyPicker { background: transparent; }
+#DeckKeyPicker QListView {
+    background-color: #0c0c0c;
+    border: 1px solid #ffffff;
+    outline: none;
+}
+
 /* The search screen. */
 #DeckSearchPage { background-color: #0c0c0c; }
 #DeckSearchQuery {

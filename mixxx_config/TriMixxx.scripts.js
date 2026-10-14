@@ -96,10 +96,11 @@ TriMixxx.sortHoldTimer = 0;
 // The same pad over the deck. Purple, because that is the Key colour in the
 // sort table above and the pad should mean one thing whichever view it is in.
 //
-// Three states and they are not the usual on/off: dark when there is nothing to
-// sync to, dim when there is, bright while it is holding a key. The middle one
-// is the one that matters -- it is how a DJ knows the CDJ has taken master and
-// the button has become live, without looking at the screen.
+// Three states and they are not the usual on/off: bright while the deck is out
+// of the track's own key, dim when a press would put it on the master's key,
+// dark when a press would do nothing. The middle one is the one that matters --
+// it is how a DJ knows the CDJ has taken master and the button has become
+// live, without looking at the screen.
 //
 // "Dim" here is dimmer than any other pad on the deck, and it is done twice
 // over: 15% intensity AND only one of the node's two LEDs. Scaling alone did
@@ -324,7 +325,7 @@ TriMixxx.init = function(id, debugging) {
     TriMixxx.watch("[Browser]", "sort_column", TriMixxx.ledB6);
     TriMixxx.watch("[Browser]", "sort_order", TriMixxx.ledB6);
     TriMixxx.watch("[Browser]", "in_track_list", TriMixxx.ledB6);
-    TriMixxx.watch("[ProLink]", "key_sync_enabled", TriMixxx.ledB6);
+    TriMixxx.watch("[ProLink]", "key_shift", TriMixxx.ledB6);
     TriMixxx.watch("[ProLink]", "key_sync_available", TriMixxx.ledB6);
     TriMixxx.ledConnect("loop_enabled", TriMixxx.ledLoopMods);
     TriMixxx.ledConnect("beatloop_8_enabled", function() { TriMixxx.ledBeatloop(8, 2); });
@@ -536,9 +537,9 @@ TriMixxx.tempoRange = function(channel, control, value, status, group) {
 
 // A2: master tempo (Mixxx's keylock), in every view. SORT lives on B6.
 //
-// With KEY SYNC engaged, toggling it keeps the semitone shift: KeyControl
-// zeroes pitch_adjust on the toggle and the fork's KEY SYNC puts it straight
-// back (owner decision 8).
+// With the deck shifted by KEY SYNC or the key list, toggling it keeps the
+// semitone shift: KeyControl zeroes pitch_adjust on the toggle and the fork's
+// KEY SYNC puts it straight back (owner decision 8).
 TriMixxx.keylock = function(channel, control, value, status, group) {
     if (!value) { return; }
     engine.setValue(TriMixxx.DECK, "keylock", !engine.getValue(TriMixxx.DECK, "keylock"));
@@ -546,38 +547,62 @@ TriMixxx.keylock = function(channel, control, value, status, group) {
 
 // B6: SORT while the library is open, KEY SYNC over the deck.
 //
-// One pad, two jobs, decided by what is on screen -- the same rule as A2. There
-// is no track list to sort over the deck, and no reason to reach for the CDJ
-// link while reading one.
+// One pad, two jobs, decided by what is on screen when it goes down -- the same
+// rule as A2. There is no track list to sort over the deck, and no reason to
+// reach for the CDJ link while reading one. Both tell a press from a hold, so
+// the release goes to whichever job took the press: the view changing under a
+// held pad must not hand one half of a press to each.
+TriMixxx.b6Job = null;
 TriMixxx.sortKey = function(channel, control, value, status, group) {
-    if (engine.getValue("[Master]", "show_library")) {
-        TriMixxx.sortButton(value);
-        return;
+    if (value) {
+        TriMixxx.b6Job = engine.getValue("[Master]", "show_library")
+            ? TriMixxx.sortButton
+            : TriMixxx.keySyncButton;
     }
-    TriMixxx.keySyncButton(value);
+    var job = TriMixxx.b6Job;
+    if (!value) {
+        TriMixxx.b6Job = null;
+    }
+    if (job) {
+        job(value);
+    }
 };
 
-// KEY SYNC: hold this deck in the key the CDJ that has master is playing in.
+// KEY SYNC (Sam, 2026-10-14). A press puts the deck on the master's Camelot
+// number, or back in the track's own key when it is there already or there is
+// nothing to match; the rules are Mixxx's (keysync.h), and the press only says
+// it happened. A hold raises the key list, master or no master.
 //
-// A press, not a hold -- there is no second meaning to wait for, so unlike SORT
-// this acts on the way down.
-//
-// Turning it ON is refused unless the network is offering a key: another player
-// has to hold tempo master and its track's key has to be one we could resolve.
-// Turning it OFF is never refused, and that asymmetry is the whole behaviour --
-// once the deck is holding a key it goes on holding it, whatever the network
-// does next, until the DJ lets go. Mixxx enforces the same rule on its side; it
-// is repeated here so a refused press does not flash the pad on and off.
+// As with SORT, the two can only be told apart on the release: the timer
+// raises the list, and a release that beats it is the press.
+TriMixxx.keySyncHoldTimer = 0;
 TriMixxx.keySyncButton = function(value) {
-    if (!value) { return; } // press only
-    if (engine.getValue("[ProLink]", "key_sync_enabled")) {
-        engine.setValue("[ProLink]", "key_sync_enabled", 0);
+    if (value) {
+        if (TriMixxx.keyPickerOpen()) {
+            // B6 again with the list up puts it away, as BACK does.
+            engine.setValue("[KeyPicker]", "open", 0);
+            return;
+        }
+        TriMixxx.keySyncHoldTimer = engine.beginTimer(TriMixxx.LONG_PRESS_MS, function() {
+            TriMixxx.keySyncHoldTimer = 0;
+            // Refused by the list itself with no track on the deck, or with
+            // the library opened in the meantime.
+            engine.setValue("[KeyPicker]", "open", 1);
+        }, true);
         return;
     }
-    if (!engine.getValue("[ProLink]", "key_sync_available")) {
-        return;  // dark and dead: nothing to sync to
+    if (!TriMixxx.keySyncHoldTimer) {
+        return;  // the hold already fired, or the press closed the list
     }
-    engine.setValue("[ProLink]", "key_sync_enabled", 1);
+    engine.stopTimer(TriMixxx.keySyncHoldTimer);
+    TriMixxx.keySyncHoldTimer = 0;
+    engine.setValue("[ProLink]", "key_sync", 1);
+};
+
+// Whether the key list is up. While it is, the encoder, its push, BACK and B6
+// are its own.
+TriMixxx.keyPickerOpen = function() {
+    return engine.getValue("[KeyPicker]", "open") > 0;
 };
 
 // Press cycles the sort; hold clears it.
@@ -641,6 +666,12 @@ TriMixxx.back = function(channel, control, value, status, group) {
             return;
         }
         TriMixxx.backLastAt = now;
+        if (TriMixxx.keyPickerOpen()) {
+            // The key list goes, changing nothing, and that is all: the deck
+            // under it stays on screen. On the press, with nothing to wait for.
+            engine.setValue("[KeyPicker]", "open", 0);
+            return;
+        }
         if (!engine.getValue("[Master]", "show_library")) {
             // Opening is unambiguous -- there is no second meaning to wait for,
             // and making the DJ hold the button to see the library would be
@@ -715,15 +746,15 @@ TriMixxx.ledB6 = function() {
     }
 };
 
-// KEY SYNC pad: dark with nothing to sync to, dim when a CDJ has master and we
-// know its key, bright while this deck is holding one.
+// KEY SYNC pad: bright while the deck is out of the track's own key (KEY SYNC
+// or the key list moved it), dim when a press would put it on the master's
+// key -- a CDJ has master, and both keys are known -- and dark otherwise.
 //
-// Bright wins over dark deliberately: an engaged sync that has outlived the
-// master it took its key from is still engaged, and the pad has to keep saying
-// so -- it is the only thing on the deck that does, and it is still the button
-// that lets go.
+// Bright wins over dark deliberately: a deck shifted onto a master that has
+// since gone is still shifted, and the pad has to keep saying so -- it is the
+// only thing on the deck that does, and it is still the button that goes back.
 TriMixxx.ledKeySync = function() {
-    if (engine.getValue("[ProLink]", "key_sync_enabled")) {
+    if (engine.getValue("[ProLink]", "key_shift")) {
         TriMixxx.led(0x03, 5, TriMixxx.C_KEY_SYNC, TriMixxx.SORT_BRIGHT);
         return;
     }
@@ -853,7 +884,11 @@ TriMixxx.play = function(channel, control, value, status, group) {
 
 // ---- Track browse encoder: firmware sends 1 = up, 127 = down (one per detent). ----
 TriMixxx.browse = function(channel, control, value, status, group) {
-    if (engine.getValue("[Master]", "show_library")) {
+    if (TriMixxx.keyPickerOpen()) {
+        // The key list, while it is up, the way the library goes: up is up
+        // the list, towards +6.
+        engine.setValue("[KeyPicker]", "move", (value === 1) ? -1 : 1);
+    } else if (engine.getValue("[Master]", "show_library")) {
         // Browsing: one encoder, one selection. There is no pane to pick any
         // more -- the browser has a single focus (browser-prd.md 4.3).
         engine.setValue("[Browser]", "move", (value === 1) ? -1 : 1);
@@ -891,6 +926,11 @@ TriMixxx.hotcue = function(channel, control, value, status, group) {
 TriMixxx.encoderPush = function(channel, control, value, status, group) {
     if (!value) { return; } // press only
 
+    if (TriMixxx.keyPickerOpen()) {
+        // The key list: pick the selected key.
+        engine.setValue("[KeyPicker]", "select", 1);
+        return;
+    }
     if (!engine.getValue("[Master]", "show_library")) {
         engine.setValue("[Master]", "show_library", 1);
         return;

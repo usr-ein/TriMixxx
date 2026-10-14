@@ -307,6 +307,19 @@
         </Children>
       </WidgetGroup>
 
+      <!-- The key list: B6 held over the deck. The twelve keys the track can
+           be pitched to, picked with the encoder or a tap; BACK, B6 or a tap
+           off the list closes it. The fork's widget, driven by the mapping
+           through [KeyPicker] open/move/select, hides and shows itself.
+           Here, just above Root, so it covers the deck; it raises itself when
+           it opens. It spans the panel and paints only its list, so a tap
+           anywhere else lands on it, closes it and goes no further. -->
+      <DeckKeyPicker>
+        <ObjectName>DeckKeyPicker</ObjectName>
+        <MinimumSize>1024,600</MinimumSize>
+        <MaximumSize>1024,-1</MaximumSize>
+      </DeckKeyPicker>
+
       <!-- SIZES: every MINIMUM in this file is the 1024x600 panel's layout, and
            a 1024x600 screen gets exactly that. The MAXIMUM heights of the
            top-level groups, the deck view and the waveform row are left open,
@@ -427,7 +440,8 @@
                            deck is the one coming out of it. -->
                       <!-- The SAME key, twice, one lime and one purple, and
                            exactly one of them visible: purple while KEY SYNC
-                           is holding this deck at that key, lime otherwise.
+                           or the key list has the deck out of the track's own
+                           key ([ProLink],key_shift not 0), lime otherwise.
 
                            Two widgets rather than one, because a colour cannot
                            be driven from a control. Qt stylesheets can select
@@ -467,7 +481,7 @@
                           <ConfigKey>[Channel1],key</ConfigKey>
                         </Connection>
                         <Connection>
-                          <ConfigKey>[ProLink],key_sync_enabled</ConfigKey>
+                          <ConfigKey>[ProLink],key_shift</ConfigKey>
                           <Transform><Not/></Transform>
                           <BindProperty>visible</BindProperty>
                         </Connection>
@@ -481,8 +495,12 @@
                         <Connection>
                           <ConfigKey>[Channel1],key</ConfigKey>
                         </Connection>
+                        <!-- Not twice, making the shift 0 or 1: a visible
+                             binding reads "more than 0" as true, and a shift
+                             down (-5..-1) is not. -->
                         <Connection>
-                          <ConfigKey>[ProLink],key_sync_enabled</ConfigKey>
+                          <ConfigKey>[ProLink],key_shift</ConfigKey>
+                          <Transform><Not/><Not/></Transform>
                           <BindProperty>visible</BindProperty>
                         </Connection>
                       </Key>

@@ -106,42 +106,64 @@ populated, so adding a board never renumbers anything. `TriMixxx.RING_A_N` /
 `RING_B_N` at the top of the script are the counts actually wired today.
 
 ### KEY SYNC (B6, over the deck)
-Pitches this deck into a key compatible with the **track** the CDJ holding
-tempo master has loaded, as rekordbox analysed it -- not as that CDJ is heard:
-its own pitch fader and master tempo are not on the wire, and are ignored. The
-key this deck plays is `[Channel1],key` in the header, beside the artist.
+A **press** puts this deck on the Camelot number of the **track** the player
+holding tempo master has loaded, as rekordbox analysed it -- not as that CDJ is
+heard: its own pitch fader and master tempo are not on the wire, and are
+ignored. A **hold** raises the key list, master or no master. The key this deck
+plays is `[Channel1],key` in the header, beside the artist: lime in the
+track's own key, purple when shifted.
 
-The rules are Mixxx's, in [`keysync.h`](../mixxx/src/network/prolink/keysync.h),
-and the pad only mirrors them:
+The rules are Mixxx's, in [`keysync.h`](../mixxx/src/network/prolink/keysync.h)
+(Sam, 2026-10-14):
 
-- **Dark and dead** unless another player holds tempo master *and* we can resolve
-  what key its track is in. That key is not on the wire — a status packet gives a
-  player, a slot and a rekordbox id, and the key comes from this deck's own copy
-  of that medium's database, ingested when the medium appeared.
-- **Dim purple** once both hold: pressing it now engages.
-- **Bright** while engaged. What it captured is a *key*, not a deck, so the master
-  moving, loading something else or going away changes nothing — and it never
-  releases itself, because dropping the sync under a playing track would re-pitch
-  it mid-mix. Pressing it again releases it, always. A new key needs off, then on.
+- **A shift is -5..+6 semitones**, on top of the track's own key, and keeps
+  its mode, so the twelve shifts reach the twelve Camelot numbers once each.
+- **A press matches the master's Camelot number:** its key, or its relative
+  in our mode. Master in A minor (8A), ours in C major (8B): already there.
+  From any key there is exactly one shift onto any number; the tritone is +6.
+- **A press already there goes back to the track's own key**, and so does a
+  press with nothing to match: no other player holds master, or nobody knows
+  its track's key, or ours.
+- **Nothing else moves the shift.** The network is read at the press: the
+  master changing track, handing over or leaving changes nothing here.
+- **A new track plays in its own key.** One press matches the master again.
 
-Engaging turns master tempo (A2, keylock) on: a latched key would otherwise
-move with every tempo change from the moment it was set. Turning master tempo
-off afterwards keeps the semitone shift, and the key then also moves with the
+The pad:
+
+- **Bright purple** while the deck is out of the track's own key, whichever
+  way it got there, and whatever the network does meanwhile.
+- **Dim purple** when a press would put it on the master's key: another
+  player holds master and both keys are known. That key is not on the wire --
+  a status packet gives a player, a slot and a rekordbox id, and the key comes
+  from this deck's own copy of that medium's database, ingested when the
+  medium appeared.
+- **Dark** when a press would do nothing.
+
+**The key list** (hold B6, `LONG_PRESS_MS`): the twelve keys the track can be
+pitched to, +6 at the top and -5 at the bottom, each as its Camelot code, its
+name and its shift ("9A  Em  +2"). The track's own key says "original"; the
+key in force is drawn in the header's colour for it. It opens on the key in
+force, eight rows at a time. The encoder moves through it and its push picks;
+a finger flicks it and a tap picks. BACK, B6 again, a swipe right or a tap off
+the list closes it, changing nothing. It closes by itself when a track loads
+or the library opens, and does not open with no track on the deck. A track
+with no key of its own gets twelve shifts with no names, and a press does
+nothing for it: no shift lands anywhere in particular. The list is the fork's
+`WDeckKeyPicker` (skin node `<DeckKeyPicker>`), driven through `[KeyPicker]`
+`open`, `move` and `select`; a pick writes `[ProLink] key_shift`.
+
+A shift turns master tempo (A2, keylock) on: a chosen key would otherwise move
+with every tempo change from the moment it was set. Turning master tempo off
+afterwards keeps the semitone shift, and the key then also moves with the
 tempo fader, as it does with master tempo off; turning it back on keeps it too.
-The shift is an offset (`pitch_adjust`), so releasing leaves nothing behind
+The shift is an offset (`pitch_adjust`), so going back leaves nothing behind
 whatever the fader is doing.
 
-Only a rekordbox-analysed track has a key here: an unanalysed file on the
-master is not looked up, and KEY SYNC stays dark rather than guess.
+Only a rekordbox-analysed track has a key on the master's side: an unanalysed
+file on the master is not looked up, and the pad stays dark rather than guess.
 
-The shift lands on the tonic, the fourth or the fifth (`shortestStepsToCompatibleKey`,
-the same as Mixxx's own `sync_key`), so it never asks for more than two semitones,
-and it is re-applied from the new track's own key on every load.
-
-`mixxx.cfg` has `[Controls] SpeedAutoReset 0`. Mixxx's default (1) resets the
-pitch on every load, after the new key is set; the fork re-applies the shift
-after that reset, so either setting works, but at 0 nothing undoes it even for
-a moment, and nothing else on this deck moves `pitch_adjust`.
+`mixxx.cfg` has `[Controls] SpeedAutoReset 0`, so Mixxx itself never resets
+the pitch on a load; KEY SYNC puts the new track in its own key.
 
 ### SYNC's phase trim (`[ProLink] phase_trim_ms`)
 SYNC, the phase meter and the beats this deck sends compare phases *as heard*:
