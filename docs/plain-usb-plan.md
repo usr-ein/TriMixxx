@@ -318,6 +318,19 @@ nested folders, a WAV, an AIFF, an M4A, a VBR MP3, a file with no tags, a
    and takes MASTER, its status saying tempo `0xffff` and no beat: the deck
    with SYNC on keeps its own tempo and follows nothing, and a deck that
    plays takes MASTER back.
+7. **The deck's tags pass beside an NXS playing off the same stick** (07c:
+   one `0x2202` per file, every file, about ten a second, which no Pioneer
+   device does; E24's NOTES). An NXS plays a file off its own plain stick
+   while the deck reads that stick: no EMERGENCY LOOP and no dropout on the
+   NXS, and its browser stays responsive throughout the pass.
+8. **An NXS in SYNC with the deck as master on its own plain file** (07e:
+   our status then says track type 2 with a tempo, beats and the master
+   flag, E23 f885: `0xe4`, 120.00, which no CDJ sends; before this the deck
+   announced no track there, and no CDJ followed it). The NXS, playing a
+   rekordbox track with SYNC on: does it follow the deck's tempo and beat,
+   and does it keep following across the deck's next load? An emulated NXS
+   does: playing a 126.0 track in SYNC, it showed "MASTER PLAYER 4" and
+   120.0, the deck's (2026-10-14, review round 1 of TriMixxx#39).
 
 ---
 
