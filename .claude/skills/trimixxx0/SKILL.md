@@ -99,6 +99,8 @@ pi-qemu deck tempo NAME center            # fader 0..16383, 8192 (center) the mi
 pi-qemu deck midi NAME 90 3C 7F           # raw bytes, for anything else
 pi-qemu deck stick NAME insert SAM3       # a rekordbox USB stick image (read-only); `stick NAME list`
 pi-qemu deck stick NAME insert /some/dir  # a folder as a FAT32 stick, nothing copied (or a .stick file)
+pi-qemu deck stick NAME insert-rw X.img   # an image file the deck may write to ("Record set")
+pi-qemu deck input NAME set.wav           # the sound card's line input hears it (16-bit stereo 44.1 kHz); none: silence
 ```
 
 Controls: `tempo-range keylock loop8 loop4 loop-double loop-halve back hotcue1
@@ -120,6 +122,12 @@ pi-qemu deck where NAME                   # the pointer's position
 - **A copy of a real stick** (a DJ's files on an external drive): insert
   its folder, or a `.stick` file that also gives the real stick's layout,
   boot sector and size. See "A folder as a stick" in `pi-qemu/README.md`.
+- **The line input** (what "Record set" records) is on the same card as the
+  output, `hw:CARD=CODEC,DEV=0`, as on the real UCA222. A deck restored from a
+  golden snapshot older than QEMU patch 20 has no input: `deck up NAME --boot`.
+  It hears silence again after `deck stop` and `up`: give it the file again.
+  "A stick the deck writes to" and "The line input" in `pi-qemu/README.md`
+  have the rest.
 - **A slow stick:** `stick NAME speed ID 4M` (or `4M/300` for reads a
   second too, `full` to lift it), before or while it is in. Sticks range
   from ~3 MB/s to over 100, so try what you change at a few speeds.

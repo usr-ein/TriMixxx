@@ -829,4 +829,444 @@ edit("hw/misc/bcm2835_powermgt.c",
     device_class_set_props(dc, bcm2835_powermgt_props);
     dc->vmsd = &vmstate_bcm2835_powermgt;""")
 
+# ---- 20. usb-audio has the UCA222's input ------------------------------------------
+# The deck records its DAC's line input ("Record set"), and QEMU's card had an
+# output only. Like the UCA222 (a PCM2902), it now has a second streaming
+# interface: 16-bit stereo at 44.1 kHz, in on endpoint 0x84, from a line-in
+# terminal with no controls (the real ADC's gain is fixed; ALSA shows no
+# capture control on either). What it hears is a WAV file, the "input"
+# property, which may change while the machine runs (qom-set
+# /machine/peripheral/dac input FILE): played round and round, at the
+# guest's own pace, 44 frames a millisecond and 45 every tenth. Empty:
+# silence. Only the stereo card (multi=off) has it, and a guest sees it only
+# once it enumerates the card again: a machine saved before keeps a card
+# without one, and loads as it was.
+edit("hw/usb/dev-audio.c",
+     '#include "qom/object.h"\n',
+     '#include "qom/object.h"\n#include "qapi/error.h"\n')
+edit("hw/usb/dev-audio.c",
+     """    STRING_NULL_STREAM,
+    STRING_REAL_STREAM,
+};""",
+     """    STRING_NULL_STREAM,
+    STRING_REAL_STREAM,
+    STRING_LINE_IN,
+    STRING_LINE_IN_PIPE,
+    STRING_NULL_IN_STREAM,
+    STRING_REAL_IN_STREAM,
+};""")
+edit("hw/usb/dev-audio.c",
+     """    [STRING_REAL_STREAM]        = "Audio Output - 48 kHz Stereo",
+};""",
+     """    [STRING_REAL_STREAM]        = "Audio Output - 48 kHz Stereo",
+    [STRING_LINE_IN]            = "Line In",
+    [STRING_LINE_IN_PIPE]       = "Audio Input Pipe",
+    [STRING_NULL_IN_STREAM]     = "Audio Input - Disabled",
+    [STRING_REAL_IN_STREAM]     = "Audio Input - 44.1 kHz Stereo",
+};
+
+#define USBAUDIO_IN_EP          4   /* 0x84, as on the PCM2902 */
+#define ALTSET_IN_OFF           0
+#define ALTSET_IN_STEREO        1""")
+edit("hw/usb/dev-audio.c",
+     """static const USBDescIface desc_iface[] = {
+    {
+        .bInterfaceNumber              = 0,
+        .bNumEndpoints                 = 0,
+        .bInterfaceClass               = USB_CLASS_AUDIO,
+        .bInterfaceSubClass            = USB_SUBCLASS_AUDIO_CONTROL,
+        .iInterface                    = STRING_USBAUDIO_CONTROL,
+        .ndesc                         = 4,
+        .descs = (USBDescOther[]) {
+            {
+                /* Headphone Class-Specific AC Interface Header Descriptor */
+                .data = (uint8_t[]) {
+                    0x09,                       /*  u8  bLength */
+                    USB_DT_CS_INTERFACE,        /*  u8  bDescriptorType */
+                    DST_AC_HEADER,              /*  u8  bDescriptorSubtype */
+                    U16(0x0100),                /* u16  bcdADC */
+                    U16(0x2b),                  /* u16  wTotalLength */
+                    0x01,                       /*  u8  bInCollection */
+                    0x01,                       /*  u8  baInterfaceNr */
+                }""",
+     """static const USBDescIface desc_iface[] = {
+    {
+        .bInterfaceNumber              = 0,
+        .bNumEndpoints                 = 0,
+        .bInterfaceClass               = USB_CLASS_AUDIO,
+        .bInterfaceSubClass            = USB_SUBCLASS_AUDIO_CONTROL,
+        .iInterface                    = STRING_USBAUDIO_CONTROL,
+        .ndesc                         = 6,
+        .descs = (USBDescOther[]) {
+            {
+                /* Class-Specific AC Interface Header: the output and the input */
+                .data = (uint8_t[]) {
+                    0x0a,                       /*  u8  bLength */
+                    USB_DT_CS_INTERFACE,        /*  u8  bDescriptorType */
+                    DST_AC_HEADER,              /*  u8  bDescriptorSubtype */
+                    U16(0x0100),                /* u16  bcdADC */
+                    U16(0x41),                  /* u16  wTotalLength */
+                    0x02,                       /*  u8  bInCollection */
+                    0x01,                       /*  u8  baInterfaceNr(1) */
+                    0x02,                       /*  u8  baInterfaceNr(2) */
+                }
+            },{
+                /* Line In Input Terminal ID4 Descriptor */
+                .data = (uint8_t[]) {
+                    0x0c,                       /*  u8  bLength */
+                    USB_DT_CS_INTERFACE,        /*  u8  bDescriptorType */
+                    DST_AC_INPUT_TERMINAL,      /*  u8  bDescriptorSubtype */
+                    0x04,                       /*  u8  bTerminalID */
+                    U16(0x0603),                /* u16  wTerminalType (line) */
+                    0x00,                       /*  u8  bAssocTerminal */
+                    0x02,                       /*  u8  bNrChannels */
+                    U16(0x0003),                /* u16  wChannelConfig */
+                    0x00,                       /*  u8  iChannelNames */
+                    STRING_LINE_IN,             /*  u8  iTerminal */
+                }
+            },{
+                /* USB Streaming Output Terminal ID5 Descriptor, from ID4 */
+                .data = (uint8_t[]) {
+                    0x09,                       /*  u8  bLength */
+                    USB_DT_CS_INTERFACE,        /*  u8  bDescriptorType */
+                    DST_AC_OUTPUT_TERMINAL,     /*  u8  bDescriptorSubtype */
+                    0x05,                       /*  u8  bTerminalID */
+                    U16(0x0101),                /* u16  wTerminalType (USB) */
+                    0x00,                       /*  u8  bAssocTerminal */
+                    0x04,                       /*  u8  bSourceID */
+                    STRING_LINE_IN_PIPE,        /*  u8  iTerminal */
+                }""")
+edit("hw/usb/dev-audio.c",
+     """    }
+};
+
+static const USBDescDevice desc_device = {
+    .bcdUSB                        = 0x0100,
+    .bMaxPacketSize0               = 64,
+    .bNumConfigurations            = 1,
+    .confs = (USBDescConfig[]) {
+        {
+            .bNumInterfaces        = 2,""",
+     """    },{
+        .bInterfaceNumber              = 2,
+        .bAlternateSetting             = ALTSET_IN_OFF,
+        .bNumEndpoints                 = 0,
+        .bInterfaceClass               = USB_CLASS_AUDIO,
+        .bInterfaceSubClass            = USB_SUBCLASS_AUDIO_STREAMING,
+        .iInterface                    = STRING_NULL_IN_STREAM,
+    },{
+        .bInterfaceNumber              = 2,
+        .bAlternateSetting             = ALTSET_IN_STEREO,
+        .bNumEndpoints                 = 1,
+        .bInterfaceClass               = USB_CLASS_AUDIO,
+        .bInterfaceSubClass            = USB_SUBCLASS_AUDIO_STREAMING,
+        .iInterface                    = STRING_REAL_IN_STREAM,
+        .ndesc                         = 2,
+        .descs = (USBDescOther[]) {
+            {
+                /* Line In Class-specific AS General Interface Descriptor */
+                .data = (uint8_t[]) {
+                    0x07,                       /*  u8  bLength */
+                    USB_DT_CS_INTERFACE,        /*  u8  bDescriptorType */
+                    DST_AS_GENERAL,             /*  u8  bDescriptorSubtype */
+                    0x05,                       /*  u8  bTerminalLink */
+                    0x00,                       /*  u8  bDelay */
+                    0x01, 0x00,                 /* u16  wFormatTag */
+                }
+            },{
+                /* Line In Type I Format Type Descriptor */
+                .data = (uint8_t[]) {
+                    0x0b,                       /*  u8  bLength */
+                    USB_DT_CS_INTERFACE,        /*  u8  bDescriptorType */
+                    DST_AS_FORMAT_TYPE,         /*  u8  bDescriptorSubtype */
+                    0x01,                       /*  u8  bFormatType */
+                    0x02,                       /*  u8  bNrChannels */
+                    0x02,                       /*  u8  bSubFrameSize */
+                    0x10,                       /*  u8  bBitResolution */
+                    0x01,                       /*  u8  bSamFreqType */
+                    U24(USBAUDIO_SAMPLE_RATE),  /* u24  tSamFreq */
+                }
+            }
+        },
+        .eps = (USBDescEndpoint[]) {
+            {
+                .bEndpointAddress      = USB_DIR_IN | USBAUDIO_IN_EP,
+                .bmAttributes          = 0x05, /* isochronous, asynchronous */
+                .wMaxPacketSize        = USBAUDIO_PACKET_SIZE(2),
+                .bInterval             = 1,
+                .is_audio              = 1,
+                /* Line In Class-specific AS Audio Data Endpoint Descriptor */
+                .extra = (uint8_t[]) {
+                    0x07,                       /*  u8  bLength */
+                    USB_DT_CS_ENDPOINT,         /*  u8  bDescriptorType */
+                    DST_EP_GENERAL,             /*  u8  bDescriptorSubtype */
+                    0x00,                       /*  u8  bmAttributes */
+                    0x00,                       /*  u8  bLockDelayUnits */
+                    U16(0x0000),                /* u16  wLockDelay */
+                },
+            },
+        }
+    }
+};
+
+static const USBDescDevice desc_device = {
+    .bcdUSB                        = 0x0100,
+    .bMaxPacketSize0               = 64,
+    .bNumConfigurations            = 1,
+    .confs = (USBDescConfig[]) {
+        {
+            .bNumInterfaces        = 3,""")
+edit("hw/usb/dev-audio.c",
+     """    uint32_t mig_altset; /* out.altset, for migration */""",
+     """    /* the line input, interface 2: what it hears, from the "input" file */
+    struct {
+        int altset;
+        char *path;         /* the property: a WAV file, or empty: silence */
+        FILE *f;
+        long data_start;    /* where the samples start in f */
+        uint32_t data_len;  /* their bytes, whole frames */
+        uint32_t pos;       /* bytes read since data_start */
+        uint32_t frac;      /* 44.1 frames a millisecond: the part carried */
+    } in;
+
+    uint32_t mig_altset; /* out.altset, for migration */""")
+edit("hw/usb/dev-audio.c",
+     """static void usb_audio_set_interface(USBDevice *dev, int iface,
+                                    int old, int value)
+{
+    USBAudioState *s = USB_AUDIO(dev);
+
+    if (iface == 1) {
+        usb_audio_set_output_altset(s, value);
+    }
+}""",
+     """static void usb_audio_close_input(USBAudioState *s)
+{
+    if (s->in.f) {
+        fclose(s->in.f);
+        s->in.f = NULL;
+    }
+    s->in.data_len = 0;
+    s->in.pos = 0;
+}
+
+static uint32_t usb_audio_le(const uint8_t *b, int n)
+{
+    uint32_t v = 0;
+
+    while (n--) {
+        v = (v << 8) | b[n];
+    }
+    return v;
+}
+
+/* A WAV file of 16-bit stereo PCM at the card's rate, ready at its samples. */
+static bool usb_audio_open_input(USBAudioState *s, const char *path,
+                                 Error **errp)
+{
+    uint8_t h[16];
+    bool fmt = false;
+    long start, end;
+    uint32_t size;
+    FILE *f = fopen(path, "rb");
+
+    if (!f) {
+        error_setg_errno(errp, errno, "usb-audio: cannot open '%s'", path);
+        return false;
+    }
+    if (fread(h, 1, 12, f) != 12 || memcmp(h, "RIFF", 4) ||
+        memcmp(h + 8, "WAVE", 4)) {
+        error_setg(errp, "usb-audio: '%s' is not a WAV file", path);
+        goto fail;
+    }
+    for (;;) {
+        long next;
+
+        if (fread(h, 1, 8, f) != 8) {
+            error_setg(errp, "usb-audio: '%s' has no samples", path);
+            goto fail;
+        }
+        size = usb_audio_le(h + 4, 4);
+        next = ftell(f) + size + (size & 1);
+        if (!memcmp(h, "fmt ", 4)) {
+            fmt = size >= 16 && fread(h, 1, 16, f) == 16 &&
+                  usb_audio_le(h, 2) == 1 && usb_audio_le(h + 2, 2) == 2 &&
+                  usb_audio_le(h + 4, 4) == USBAUDIO_SAMPLE_RATE &&
+                  usb_audio_le(h + 14, 2) == 16;
+            if (!fmt) {
+                break;
+            }
+        } else if (!memcmp(h, "data", 4)) {
+            break;
+        }
+        if (fseek(f, next, SEEK_SET)) {
+            error_setg(errp, "usb-audio: '%s' has no samples", path);
+            goto fail;
+        }
+    }
+    if (!fmt) {
+        error_setg(errp, "usb-audio: '%s' is not 16-bit stereo PCM at %d Hz",
+                   path, USBAUDIO_SAMPLE_RATE);
+        goto fail;
+    }
+    /* No further than the file goes: one still being written says less. */
+    start = ftell(f);
+    if (start < 0 || fseek(f, 0, SEEK_END) || (end = ftell(f)) < start ||
+        fseek(f, start, SEEK_SET)) {
+        error_setg(errp, "usb-audio: cannot read '%s'", path);
+        goto fail;
+    }
+    size = MIN(size, (uint64_t)(end - start));
+    size -= size % 4;
+    if (!size) {
+        error_setg(errp, "usb-audio: '%s' has no samples", path);
+        goto fail;
+    }
+    usb_audio_close_input(s);
+    s->in.f = f;
+    s->in.data_start = start;
+    s->in.data_len = size;
+    return true;
+
+fail:
+    fclose(f);
+    return false;
+}
+
+/* len bytes of what the input hears: the file, round and round, or silence. */
+static void usb_audio_read_input(USBAudioState *s, uint8_t *buf, size_t len)
+{
+    size_t got = 0;
+    bool rewound = false;
+
+    while (s->in.f && got < len) {
+        size_t want = MIN(len - got, (size_t)(s->in.data_len - s->in.pos));
+        size_t n = want ? fread(buf + got, 1, want, s->in.f) : 0;
+
+        got += n;
+        s->in.pos += n;
+        if (n < want || s->in.pos >= s->in.data_len) {
+            /* its end: from the top again, once a packet at most */
+            if (rewound || fseek(s->in.f, s->in.data_start, SEEK_SET)) {
+                break;
+            }
+            s->in.pos = 0;
+            rewound = true;
+        }
+    }
+    memset(buf + got, 0, len - got);
+}
+
+static void usb_audio_handle_datain(USBAudioState *s, USBPacket *p)
+{
+    uint8_t buf[USBAUDIO_PACKET_SIZE(2)];
+    size_t len;
+
+    if (s->in.altset != ALTSET_IN_STEREO) {
+        p->status = USB_RET_STALL;
+        return;
+    }
+    /* a packet a millisecond: 44 frames, and 45 every tenth */
+    s->in.frac += USBAUDIO_SAMPLE_RATE;
+    len = (s->in.frac / 1000) * 4;
+    s->in.frac %= 1000;
+    len = MIN(len, p->iov.size - p->iov.size % 4);
+    usb_audio_read_input(s, buf, len);
+    usb_packet_copy(p, buf, len);
+}
+
+static void usb_audio_set_input_altset(USBAudioState *s, int altset)
+{
+    s->in.altset = altset == ALTSET_IN_STEREO ? altset : ALTSET_IN_OFF;
+    s->in.frac = 0;
+    if (s->debug) {
+        fprintf(stderr, "usb-audio: set input interface %d\\n", altset);
+    }
+}
+
+static char *usb_audio_get_input(Object *obj, Error **errp)
+{
+    USBAudioState *s = USB_AUDIO(obj);
+
+    return g_strdup(s->in.path ? s->in.path : "");
+}
+
+static void usb_audio_set_input(Object *obj, const char *value, Error **errp)
+{
+    USBAudioState *s = USB_AUDIO(obj);
+
+    if (*value && !usb_audio_open_input(s, value, errp)) {
+        return; /* the input it had, kept */
+    }
+    if (!*value) {
+        usb_audio_close_input(s);
+    }
+    g_free(s->in.path);
+    s->in.path = g_strdup(value);
+}
+
+static void usb_audio_set_interface(USBDevice *dev, int iface,
+                                    int old, int value)
+{
+    USBAudioState *s = USB_AUDIO(dev);
+
+    if (iface == 1) {
+        usb_audio_set_output_altset(s, value);
+    } else if (iface == 2) {
+        usb_audio_set_input_altset(s, value);
+    }
+}""")
+edit("hw/usb/dev-audio.c",
+     """        fprintf(stderr, "usb-audio: reset\\n");
+    }
+    usb_audio_set_output_altset(s, ALTSET_OFF);""",
+     """        fprintf(stderr, "usb-audio: reset\\n");
+    }
+    usb_audio_set_output_altset(s, ALTSET_OFF);
+    usb_audio_set_input_altset(s, ALTSET_IN_OFF);""")
+edit("hw/usb/dev-audio.c",
+     """    if (p->pid == USB_TOKEN_OUT && p->ep->nr == 1) {
+        usb_audio_handle_dataout(s, p);
+        return;
+    }""",
+     """    if (p->pid == USB_TOKEN_OUT && p->ep->nr == 1) {
+        usb_audio_handle_dataout(s, p);
+        return;
+    }
+    if (p->pid == USB_TOKEN_IN && p->ep->nr == USBAUDIO_IN_EP && !s->multi) {
+        usb_audio_handle_datain(s, p);
+        return;
+    }""")
+edit("hw/usb/dev-audio.c",
+     """    audio_be_close_out(s->audio_be, s->out.voice);
+
+    streambuf_fini(&s->out.buf);""",
+     """    audio_be_close_out(s->audio_be, s->out.voice);
+
+    streambuf_fini(&s->out.buf);
+    usb_audio_close_input(s);
+    g_free(s->in.path);
+    s->in.path = NULL;""")
+# A saved machine: the input's alternate setting is the USB device's own
+# (patch 13), so it comes back with it, and a machine saved without the input
+# loads with it off. What it heard does not: a loaded card hears silence until
+# it is given a file again.
+edit("hw/usb/dev-audio.c",
+     """    s->out.altset = ALTSET_OFF;
+    usb_audio_set_output_altset(s, s->mig_altset);""",
+     """    s->out.altset = ALTSET_OFF;
+    usb_audio_set_output_altset(s, s->mig_altset);
+    usb_audio_set_input_altset(s, !s->multi && s->dev.ninterfaces > 2
+                                  ? s->dev.altsetting[2] : ALTSET_IN_OFF);""")
+edit("hw/usb/dev-audio.c",
+     """    k->set_interface  = usb_audio_set_interface;
+}""",
+     """    k->set_interface  = usb_audio_set_interface;
+    object_class_property_add_str(klass, "input", usb_audio_get_input,
+                                  usb_audio_set_input);
+    object_class_property_set_description(klass, "input",
+        "what the line input hears: a WAV file (16-bit stereo, 44.1 kHz), "
+        "played round and round; empty: silence");
+}""")
+
 print("trimixxx-patches: applied")

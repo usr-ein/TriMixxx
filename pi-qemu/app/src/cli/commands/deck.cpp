@@ -150,6 +150,9 @@ int board(cli::Args& a, const QString& verb) {
     // A stick named by a path here: the board runs elsewhere, so absolute.
     if (verb == "stick" && words.size() >= 3 && QFileInfo::exists(words[2]))
         words[2] = QFileInfo(words[2]).absoluteFilePath();
+    // And what the input hears, likewise.
+    if (verb == "input" && words.size() == 2 && words[1] != "none")
+        words[1] = QFileInfo(words[1]).absoluteFilePath();
     // `speed ID RATE` here, `speed RATE ID` on the wire, where the ID is the
     // rest of the line (a folder's name may have spaces); `reads ID reset`
     // is `reads-reset ID`.
@@ -403,9 +406,15 @@ void addDeck(cli::Registry& r) {
            .run = [](cli::Args& a) { return board(a, "link"); }});
     r.add({.group = "deck", .name = "leds", .synopsis = "NAME", .summary = "what the deck's lights show now (JSON)",
            .run = [](cli::Args& a) { return board(a, "leds"); }});
-    r.add({.group = "deck", .name = "stick", .synopsis = "NAME list | insert ID | unplug ID | speed ID RATE | reads ID [reset]",
-           .summary = "USB sticks: the Mac's own (diskN), images, or folders as FAT32 sticks; two slots, read-only",
+    r.add({.group = "deck", .name = "stick",
+           .synopsis = "NAME list | insert ID | insert-rw FILE.img | unplug ID | speed ID RATE | reads ID [reset]",
+           .summary = "USB sticks: the Mac's own (diskN), images, or folders as FAT32 sticks; two slots, read-only "
+                      "(insert-rw: an image file the Pi can write to)",
            .run = [](cli::Args& a) { return board(a, "stick"); }});
+    r.add({.group = "deck", .name = "input", .synopsis = "NAME [FILE.wav|none]",
+           .summary = "what its sound card's line input hears: a WAV file (16-bit stereo, 44.1 kHz), round and round; "
+                      "none: silence",
+           .run = [](cli::Args& a) { return board(a, "input"); }});
     r.add({.group = "deck", .name = "power", .synopsis = "NAME on|off", .summary = "power: off pulls the plug",
            .run = [](cli::Args& a) { return board(a, "power"); }});
     r.add({.group = "deck", .name = "save", .synopsis = "NAME FILE",

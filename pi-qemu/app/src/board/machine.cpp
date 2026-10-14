@@ -104,7 +104,9 @@ bool Machine::powerOn(QString* error) {
     if (m_o.audio == "speakers") a << "-audiodev" << "coreaudio,id=snd,in.voices=0";
     else if (m_o.audio.startsWith("wav:")) a << "-audiodev" << "wav,id=snd,path=" + m_o.audio.mid(4);
     else a << "-audiodev" << "none,id=snd"; // silent; the guest still has its sound card
-    a << "-device" << "usb-audio,bus=xhci.0,audiodev=snd";
+    // Named, for its line input: what it hears is its "input" property
+    // (ControlServer's `input`), a WAV file or silence.
+    a << "-device" << "usb-audio,bus=xhci.0,audiodev=snd,id=dac";
 
     // eth0 (GENET) is the deck's CDJ port: link-local, on a link shared with
     // other emulated decks (board/link.h), or nobody on it (a cable to an

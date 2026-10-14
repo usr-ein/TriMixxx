@@ -23,12 +23,17 @@ QString ControlServer::help() {
                           "USB sticks (two slots, read-only):\n"
                           "  stick list | stick insert ID | stick unplug ID\n"
                           "      ID: diskN, an image file, a folder, or a .stick file describing one\n"
+                          "  stick insert-rw FILE.img   an image file the Pi can write to\n"
                           "  stick speed RATE ID    how fast it reads: 4M (bytes/s), 4M/300 (and reads/s), full\n"
                           "  stick reads ID | stick reads-reset ID   what the Pi read off a folder stick, by file\n"
                           "Its eth0, the CDJ port:\n"
                           "  link                   its link (the network it shares with other decks), and\n"
                           "                         the player it announces there\n"
                           "  link plug | link unplug   its cable in or out\n"
+                          "Its sound card's line input (the UCA222's RCA in):\n"
+                          "  input                  what it hears now\n"
+                          "  input FILE.wav | input none   a WAV file (16-bit stereo, 44.1 kHz), round and\n"
+                          "                         round; none: silence\n"
                           "The board:\n"
                           "  status | power on | power off (pulls the plug) | screenshot FILE.png\n"
                           "  save FILE      the whole machine to FILE, then off (run --restore FILE CARD)\n");
@@ -105,13 +110,15 @@ void ControlServer::onLine(QLocalSocket* client, const QString& line) {
                                [this, c](bool ok, const QString& msg) { reply(c, ok, msg); });
         } else if ((w[0] == "reads" || w[0] == "reads-reset") && w.size() > 1) {
             reply(c, true, m_sticks->reads(line.section(' ', 2, -1, QString::SectionSkipEmpty), w[0] == "reads-reset"));
-        } else if ((w[0] == "insert" || w[0] == "unplug") && w.size() > 1) {
+        } else if ((w[0] == "insert" || w[0] == "insert-rw" || w[0] == "unplug") && w.size() > 1) {
             auto done = [this, c](bool ok, const QString& msg) { reply(c, ok, msg); };
             // The rest of the line, spaces and all: a folder's name may have some.
             const QString id = line.section(' ', 2, -1, QString::SectionSkipEmpty);
-            if (w[0] == "insert") m_sticks->insert(id, done); else m_sticks->unplug(id, done);
+            if (w[0] == "insert") m_sticks->insert(id, done);
+            else if (w[0] == "insert-rw") m_sticks->insertWritable(id, done);
+            else m_sticks->unplug(id, done);
         } else {
-            reply(c, false, "stick list | insert ID | unplug ID | speed RATE ID | reads ID | reads-reset ID");
+            reply(c, false, "stick list | insert ID | insert-rw FILE.img | unplug ID | speed RATE ID | reads ID | reads-reset ID");
         }
     } else if (cmd == "status") {
         const Link* link = m_machine->options().link;
@@ -141,6 +148,30 @@ void ControlServer::onLine(QLocalSocket* client, const QString& line) {
         } else {
             reply(c, false, "link | link plug | link unplug");
         }
+    } else if (cmd == "input") {
+        // The sound card's "input" property (QEMU patch 20): a file it reads
+        // as the DAC's ADC would hear a cable, at the guest's own pace.
+        const QString path = "/machine/peripheral/dac";
+        auto said = [this, c](const QJsonObject& r, const QString& ok) {
+            if (!r.contains("error")) { reply(c, true, ok); return; }
+            const QString desc = r["error"].toObject()["desc"].toString();
+            reply(c, false, desc.contains("not found") ? desc + " (a QEMU without the input: pi-qemu/build.sh qemu)" : desc);
+        };
+        if (w.isEmpty()) {
+            m_machine->qmp("qom-get", QJsonObject{{"path", path}, {"property", "input"}},
+                           [said](const QJsonObject& r) {
+                               const QString file = r["return"].toString();
+                               said(r, file.isEmpty() ? QString("input: silence") : "input: " + file);
+                           });
+            return;
+        }
+        // The rest of the line, spaces and all, as for a stick.
+        const QString arg = line.section(' ', 1, -1, QString::SectionSkipEmpty);
+        const QString file = arg == "none" ? QString() : QFileInfo(arg).absoluteFilePath();
+        m_machine->qmp("qom-set", QJsonObject{{"path", path}, {"property", "input"}, {"value", file}},
+                       [said, file](const QJsonObject& r) {
+                           said(r, file.isEmpty() ? QString("input: silence") : "input: " + file);
+                       });
     } else if (cmd == "power" && !w.isEmpty()) {
         if (w[0] == "off") { m_machine->pullPlug(); reply(c, true, "plug pulled"); }
         else if (w[0] == "on") { emit powerOnRequested(); reply(c, true, "powering on"); }

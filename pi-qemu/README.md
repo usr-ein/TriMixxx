@@ -158,6 +158,7 @@ An emulated deck also has its board:
 ```sh
 pi-qemu deck leds sam                # what the deck's lights show now, as JSON
 pi-qemu deck stick sam list          # stick sam insert SAM3 | stick sam unplug SAM3
+pi-qemu deck input sam in.wav        # what the sound card's line input hears; input sam none: silence
 pi-qemu deck status sam              # the Pi, the S3 link, its wiring, its ports
 pi-qemu deck power sam off           # pull the plug; power sam on
 pi-qemu deck save sam FILE           # the whole machine to FILE, then off
@@ -667,6 +668,45 @@ pi-qemu deck stick mix reads SANDISK reset     # the same, then start counting a
    58.3 MB     466 reads  /Contents/FAÏG/South West EP/FAÏG - South West EP - 03 Deep Within.aiff
     0.3 MB     598 reads  FAT
 ```
+
+### A stick the deck writes to
+
+Sticks go in read-only, as the deck mounts them. The one thing the deck itself
+writes to a stick is a recorded set ("Record set" on the home list), which
+dj-usb remounts read-write for the copy. To try that, give it an image file it
+may write to, and read it back on the Mac afterwards:
+
+```sh
+pi-qemu deck stick mix insert-rw /tmp/rec.img   # an image file only: never diskN, a folder or a .stick
+pi-qemu deck stick mix speed /tmp/rec.img 4M     # writes go at the same rate as reads
+pi-qemu deck stick mix unplug /tmp/rec.img
+mdir -i /tmp/rec.img@@1M ::                      # its FAT, at the partition's offset
+```
+
+A FAT32 image to write to, partitioned like a stick: a sparse file with one
+partition entry (type 0x0c from sector 2048), then
+`mformat -i rec.img@@1M -F -v NAME -T SECTORS ::`.
+
+### The line input
+
+The emulated sound card has the UCA222's line input too (QEMU patch 20): 16-bit
+stereo at 44.1 kHz, on the same card as the output, as the deck's "Record set"
+records it. What it hears is a WAV file of that format, played round and round
+at the guest's own pace, sample for sample; with none, silence.
+
+```sh
+pi-qemu deck input mix /tmp/set.wav    # from now on, until another, or none
+pi-qemu deck input mix                 # what it hears: input: /tmp/set.wav, or input: silence
+pi-qemu deck input mix none            # silence
+pi-qemu deck ssh mix 'arecord -D hw:CARD=CODEC,DEV=0 -f S16_LE -c 2 -r 44100 -d 5 /tmp/in.wav'
+```
+
+- A deck sees the input once it has enumerated the card with it: a deck
+  restored from a snapshot made before patch 20 (the golden one, until it is
+  made again) has a card without it, which `arecord -l` shows. `deck up NAME
+  --boot`, or a new golden snapshot, has it.
+- What the input hears is not saved with the machine: after `deck stop` and
+  `deck up`, it hears silence until it is given the file again.
 
 ### Check the audio without hearing it
 

@@ -85,7 +85,9 @@ QJsonObject StickSpeed::limits() const {
     // Both, always: qom-set leaves alone whatever it is not given, so a limit
     // lifted has to be said as 0.
     return QJsonObject{{"bps-read", bytesPerSecond > 0 ? bytesPerSecond : 0},
-                       {"iops-read", readsPerSecond > 0 ? readsPerSecond : 0}};
+                       {"iops-read", readsPerSecond > 0 ? readsPerSecond : 0},
+                       {"bps-write", bytesPerSecond > 0 ? bytesPerSecond : 0},
+                       {"iops-write", readsPerSecond > 0 ? readsPerSecond : 0}};
 }
 
 Sticks::Sticks(Machine* m, QString imagesDir, QObject* parent)
@@ -116,7 +118,9 @@ QVector<HostStick> Sticks::list() {
     for (const QString& path : images) {
         const QFileInfo f(path);
         const bool folder = f.isDir() || f.suffix() == "stick";
-        out << HostStick{path, (f.isDir() ? f.fileName() : f.completeBaseName()) + (folder ? " (folder)" : " (image)"),
+        out << HostStick{path,
+                         (f.isDir() ? f.fileName() : f.completeBaseName()) +
+                             (folder ? " (folder)" : m_writable.contains(path) ? " (image, writable)" : " (image)"),
                          folder ? 0 : f.size(), m_inserted.contains(path)};
     }
     return out;
@@ -235,11 +239,11 @@ QString Sticks::resolve(const QString& name) const {
     return id;
 }
 
-// The drive under QEMU's usb-storage, read-only whatever is beneath it, and
-// read through a throttle group of its own: the stick's speed, which can
-// change while it is in.
+// The drive under QEMU's usb-storage, read-only whatever is beneath it
+// (unless inserted writable), and read through a throttle group of its own:
+// the stick's speed, which can change while it is in.
 void Sticks::plug(const QString& id, int n, const QJsonObject& file, const StickSpeed& speed, const QString& note,
-                  Done done) {
+                  bool writable, Done done) {
     const QString node = QString("stick%1").arg(n), dev = QString("usbstick%1").arg(n), group = QString("tg%1").arg(n);
     auto failed = [=, this](const QString& why) {
         m_machine->qmp("object-del", QJsonObject{{"id", group}});
@@ -249,8 +253,8 @@ void Sticks::plug(const QString& id, int n, const QJsonObject& file, const Stick
     m_machine->qmp("object-add", QJsonObject{{"qom-type", "throttle-group"}, {"id", group}, {"limits", speed.limits()}},
                    [=, this](const QJsonObject& r0) {
         if (r0.contains("error")) { m_servers.erase(n); done(false, r0["error"].toObject()["desc"].toString()); return; }
-        QJsonObject throttled{{"driver", "throttle"}, {"throttle-group", group}, {"read-only", true}, {"file", file}};
-        QJsonObject bd{{"node-name", node}, {"driver", "raw"}, {"read-only", true}, {"file", throttled}};
+        QJsonObject throttled{{"driver", "throttle"}, {"throttle-group", group}, {"read-only", !writable}, {"file", file}};
+        QJsonObject bd{{"node-name", node}, {"driver", "raw"}, {"read-only", !writable}, {"file", throttled}};
         m_machine->qmp("blockdev-add", bd, [=, this](const QJsonObject& r) {
             if (r.contains("error")) { failed(r["error"].toObject()["desc"].toString()); return; }
             m_machine->qmp("device_add",
@@ -262,9 +266,10 @@ void Sticks::plug(const QString& id, int n, const QJsonObject& file, const Stick
                                    return;
                                }
                                m_inserted[id] = n;
+                               if (writable) m_writable.insert(id);
                                m_deviceSpeed[n] = speed;
                                emit changed();
-                               QString said = id + " inserted";
+                               QString said = id + (writable ? " inserted, writable" : " inserted");
                                if (!note.isEmpty()) said += ": " + note;
                                if (speed.bytesPerSecond > 0 || speed.readsPerSecond > 0) said += ", read at " + speed.text();
                                done(true, said);
@@ -347,19 +352,30 @@ void Sticks::insertFolder(const QString& id, int n, Done done) {
                                    {"server", QJsonObject{{"type", "unix"}, {"path", socket}}},
                                    {"export", NbdServer::kExport},
                                    {"read-only", true}},
-                       speed, volume->summary(), done);
+                       speed, volume->summary(), false, done);
         }, Qt::QueuedConnection);
     }).detach();
 }
 
-void Sticks::insert(const QString& name, Done done) {
+void Sticks::insert(const QString& name, Done done) { insert(name, false, done); }
+
+void Sticks::insertWritable(const QString& name, Done done) { insert(name, true, done); }
+
+void Sticks::insert(const QString& name, bool writable, Done done) {
     const QString id = resolve(name);
     if (m_inserted.contains(id) || m_pending.contains(id)) { done(false, id + " is already in"); return; }
     if (m_inserted.size() + m_pending.size() >= kSlots) { done(false, "the deck has two USB slots, both taken"); return; }
     if (!m_machine->running()) { done(false, "the Pi is not running"); return; }
+    if (writable && (id.startsWith("disk") || id.startsWith("fd:") || !QFileInfo(id).isFile() || id.endsWith(".stick"))) {
+        done(false, id + ": only an image file goes in writable");
+        return;
+    }
+    if (writable && !QFileInfo(id).isWritable()) { done(false, id + ": not writable"); return; }
 
     const int n = m_next++;
-    auto plug = [=, this](const QJsonObject& file) { this->plug(id, n, file, m_speeds.value(id), QString(), done); };
+    auto plug = [=, this](const QJsonObject& file) {
+        this->plug(id, n, file, m_speeds.value(id), QString(), writable, done);
+    };
     if (QFileInfo(id).isDir() || (QFileInfo(id).isFile() && id.endsWith(".stick"))) {
         insertFolder(id, n, done);
         return;
@@ -377,7 +393,7 @@ void Sticks::insert(const QString& name, Done done) {
     }
     if (!id.startsWith("disk")) { // an image file
         if (!QFileInfo::exists(id)) { done(false, id + ": no such file"); return; }
-        plug(QJsonObject{{"driver", "file"}, {"filename", QFileInfo(id).absoluteFilePath()}, {"read-only", true}});
+        plug(QJsonObject{{"driver", "file"}, {"filename", QFileInfo(id).absoluteFilePath()}, {"read-only", !writable}});
         return;
     }
     // A real stick: off the Mac's hands first, then a descriptor from authopen.
@@ -403,6 +419,7 @@ void Sticks::unplug(const QString& name, Done done) {
     const QString id = resolve(name);
     if (!m_inserted.contains(id)) { done(false, id + " is not in"); return; }
     const int n = m_inserted.take(id);
+    m_writable.remove(id);
     const QString node = QString("stick%1").arg(n), dev = QString("usbstick%1").arg(n);
     // Pulling a stick: the guest sees it go at once, as dj-usb expects of a yank.
     m_machine->qmp("device_del", QJsonObject{{"id", dev}}, [=, this](const QJsonObject&) {
@@ -424,6 +441,7 @@ void Sticks::forgetAll() {
     for (auto it = m_inserted.begin(); it != m_inserted.end(); ++it)
         if (it.key().startsWith("disk")) run("diskutil", {"mountDisk", it.key()});
     m_inserted.clear();
+    m_writable.clear();
     m_servers.clear();
     m_deviceSpeed.clear();
     emit changed();

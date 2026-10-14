@@ -4,7 +4,9 @@
 // stick made up on the fly (FatVolume), inserted into and unplugged from the
 // Pi's xHCI on demand, two at most -- the deck's two slots (dj-usb's
 // DJ_USB_1/2). Read-only, as the deck mounts them, so nothing is ever written
-// to a stick, nor to a folder.
+// to a stick, nor to a folder; except an image file inserted writable
+// (insertWritable), for what the deck itself writes to a stick ("Record set":
+// dj-usb remounts one read-write for the copy).
 //
 // Each stick reads through a QEMU throttle group of its own, so it can be as
 // slow as a real one -- a cheap USB 2 stick gives 3 to 5 MB/s -- and its speed
@@ -26,7 +28,8 @@
 class Machine;
 
 // How fast a stick reads: bytes a second, and reads a second whatever their
-// size (what makes a cheap stick's small reads slow too). 0: no limit.
+// size (what makes a cheap stick's small reads slow too). 0: no limit. A
+// writable stick writes at the same rates.
 struct StickSpeed {
     qint64 bytesPerSecond = 0;
     int    readsPerSecond = 0;
@@ -53,6 +56,9 @@ public:
     QVector<HostStick> list();   // every USB storage device on the host, plus inserted images
     using Done = std::function<void(bool ok, const QString& message)>;
     void insert(const QString& id, Done done);
+    // An image file the Pi can write to: never the Mac's own disks, nor a
+    // folder or a .stick file, which are read-only by what they are.
+    void insertWritable(const QString& id, Done done);
     void unplug(const QString& id, Done done);
     // How fast it reads, now if it is in, or from the moment it goes in.
     void setSpeed(const QString& id, const StickSpeed& speed, Done done);
@@ -67,7 +73,9 @@ signals:
 
 private:
     QString resolve(const QString& name) const;
-    void    plug(const QString& id, int n, const QJsonObject& file, const StickSpeed& speed, const QString& note, Done done);
+    void    insert(const QString& id, bool writable, Done done);
+    void    plug(const QString& id, int n, const QJsonObject& file, const StickSpeed& speed, const QString& note,
+                 bool writable, Done done);
     void    insertFolder(const QString& id, int n, Done done);
     bool    passFd(int fd, int fdset, QString* error);
     void    dropFdset(int fdset);
@@ -75,6 +83,7 @@ private:
 
     Machine*             m_machine;
     QHash<QString, int>  m_inserted; // id -> device number (stickN)
+    QSet<QString>        m_writable; // ids inserted writable
     QSet<QString>        m_pending;  // folders being walked, not yet in
     std::map<int, std::unique_ptr<NbdServer>> m_servers; // device number -> a folder stick's server
     QHash<QString, StickSpeed> m_speeds;      // id -> a speed asked for (speed()), kept for its next insert
