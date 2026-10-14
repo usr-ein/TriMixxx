@@ -92,6 +92,10 @@ int build(const BuildOptions& o) {
         if (!QFileInfo::exists(imagebuild::card(kSystem))) fail("no " + QString(kSystem) + " card in pi-qemu/.cache/build");
         container("seal", {"--privileged", "-e", "VERSION=" + v, "-e", "COMMIT=" + commit, "-e", "HASH=" + hash,
                            "--mount", "type=bind,src=" + paths::cache() + "/build,dst=/build,readonly"});
+        // Through Docker's share of the Mac's disk the card comes out with its
+        // zeros written: 13 GB on disk for 1 GB of data. Sparse before any
+        // deck's card is cloned from it.
+        imagebuild::sparse(outDir(v) + "/trimixxx-" + v + ".img");
         buildlog::say("release " + v + ": " + outDir(v));
     });
 }

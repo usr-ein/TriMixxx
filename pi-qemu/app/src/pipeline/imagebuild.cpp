@@ -18,6 +18,7 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
@@ -155,6 +156,22 @@ void managementNic(Instance& vm) {
 
 QString card(const QString& deck) { return cacheDir() + "/build/" + deck + ".img"; }
 
+void sparse(const QString& card) {
+    QElapsedTimer t;
+    t.start();
+    const files::Sparse s = files::sparsify(card);
+    const QString name = QFileInfo(card).fileName();
+    if (!s.ok) {
+        eprint() << "warning: " << s.error << "\n";
+        return;
+    }
+    print() << QString("%1: %2 GB on disk, %3 GB once its zeros are holes (%4 s)\n")
+                   .arg(name)
+                   .arg(s.before / 1e9, 0, 'f', 2)
+                   .arg(s.after / 1e9, 0, 'f', 2)
+                   .arg(t.elapsed() / 1000.0, 0, 'f', 1);
+}
+
 QStringList plan(const QString& deck) {
     QStringList p{"the stock Raspberry Pi OS card", "seeding cloud-init", "first boot of the stock card", "deploy 000_base",
                   "booting into the deck's boot flags"};
@@ -217,6 +234,7 @@ QString build(const QString& deck, const Options& o) {
         // rebooted, to keep the card as it is now as the base card.
         buildlog::say("booting into the deck's boot flags (the base card kept)");
         vm.down();
+        sparse(vm.card());
         QDir().mkpath(cacheDir() + "/base");
         for (const QFileInfo& old : QDir(cacheDir() + "/base").entryInfoList({deck + "-*.img"}, QDir::Files))
             QFile::remove(old.absoluteFilePath());
@@ -236,6 +254,7 @@ QString build(const QString& deck, const Options& o) {
     buildlog::say("sealing: cloud-init off, caches cleared, power off");
     vm.ssh().run("sudo touch /etc/cloud/cloud-init.disabled && sudo apt-get clean");
     vm.down();
+    sparse(vm.card());
     QDir().mkpath(cacheDir() + "/build");
     files::clone(vm.card(), card(deck));
     off.dismiss();

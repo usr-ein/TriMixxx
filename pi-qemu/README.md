@@ -463,6 +463,15 @@ pi-qemu deck prepare --host trimixxx-pi-2 trimixxx2   # before a deck's first re
 The release container runs with 3 GB of Docker's memory at most, the file
 cache its images go through included, and mksquashfs with 1 GB of caches.
 
+**Cards are sparse.** QEMU, and the release container through Docker's share
+of the Mac's disk, write a card's zeros out in full: a deck's 8 GB card took
+6.6 GB of disk for 3.7 GB of data, a release card 12.6 GB for 1.1. `image
+build` (its base card and its card) and `release build` (the release card)
+make those zeros holes before anything clones the card, in a copy read back
+equal to it first, and say what it freed. The cards cloned from them, the
+golden, every deck's instance, a deck's release card, share their blocks:
+`du` counts shared blocks once per file, so measure with `df`.
+
 ## Git worktrees
 
 Several agents (or people) can work at once, each in a git worktree of the
