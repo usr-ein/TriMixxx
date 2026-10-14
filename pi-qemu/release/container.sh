@@ -178,7 +178,8 @@ seal() {
     # for 1.1 GB of data. -0: that data is mostly the system's SquashFS,
     # compressed already, and xz's default level took 75 s for 1.083 GB where
     # -0 takes 18 s for 1.102.
-    xz -T0 -0 -c "$WORK"/img/trimixxx.img > "$o/trimixxx-$VERSION.img.xz"
+    xz -T0 -0 -c "$WORK"/img/trimixxx.img > "$o/trimixxx-$VERSION.img.xz.part"
+    mv "$o/trimixxx-$VERSION.img.xz.part" "$o/trimixxx-$VERSION.img.xz"
     cp "$WORK"/img/rootfs.squashfs "$WORK"/img/boot.vfat "$WORK/trimixxx-$VERSION.raucb" "$o"/
 
     # ---- what went in -----------------------------------------------------------------
