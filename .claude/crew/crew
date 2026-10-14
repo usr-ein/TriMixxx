@@ -400,10 +400,11 @@ def docker_disk() -> tuple[float | None, float | None]:
     read. Read only while the VM is up: the probe starts a container, and starting one wakes a sleeping VM for Resource
     Saver's whole timeout, every heartbeat. A stopped VM's disk can't change, so while it sleeps the last attempt
     stands: its reading, or unknown if it failed. The reading is as old as that attempt, which may predate the VM's
-    last run (a build that ran and slept between two checks): pi-qemu's own check before a build is exact. After a day
-    without an attempt it probes anyway, so a VM missed because its process got renamed costs a wake a day, not a
-    frozen value. A failed probe (Docker down, alpine pruned: it is never pulled for this) reads unknown, as it always
-    did, and never pins an older reading. (None, None) when unknown."""
+    last run (a build that ran and slept between two checks, or Sam's prune): pi-qemu's own check before a build is
+    exact. So a reading under DOCKER_MIN_GB, which holds builds, is read again after an hour even while the VM sleeps:
+    a wake an hour, only while builds wait on Sam's prune anyway. Any other after a day without an attempt, so a VM
+    missed because its process got renamed costs a wake a day, not a frozen value. A failed probe (Docker down,
+    alpine pruned: it is never pulled for this) reads unknown, as it always did. (None, None) when unknown."""
     path = CREW / "docker-df.json"  # {"gb": 31.2, "at": <the reading's epoch>, "tried": <the last attempt's>}
     try:
         last = json.loads(path.read_text())
@@ -416,7 +417,8 @@ def docker_disk() -> tuple[float | None, float | None]:
     gb, at, tried = num("gb"), num("at"), num("tried")
     tried = at if tried is None else tried  # a reading kept before attempts were
     known = gb is not None and at is not None and at >= tried  # the last attempt gave the reading
-    if tried is not None and time.time() - tried < 86400 and not docker_vm_up():
+    stands = 3600 if known and gb < limits().get("DOCKER_MIN_GB", 8) else 86400
+    if tried is not None and time.time() - tried < stands and not docker_vm_up():
         return (gb, at) if known else (None, None)
     now = time.time()
     try:

@@ -477,6 +477,35 @@ class DockerProbeTest(Sandbox):
         self.assertAlmostEqual(self.free(), self.FREE)
         self.assertEqual(self.calls, ["docker"])
 
+    def test_a_low_reading_is_read_again_within_the_hour_even_asleep(self):
+        """Sam prunes with the VM up, and no check falls before it sleeps again: the pre-prune 5.0 GB held every build
+        until the attempt was a day old. A reading that holds builds stands an hour at most."""
+        crew.limits = lambda: dict(VerdictTest.LIM)
+        self.probed(5.0, hours_ago=0.5)
+        self.fake(up=False)
+        self.assertEqual(self.free(), 5.0)  # within the hour: it stands, no wake
+        self.assertEqual(self.calls, ["pgrep"])
+        self.probed(5.0, hours_ago=2)
+        self.fake(up=False, code=125, out="")  # the prune took alpine
+        self.assertEqual(crew.docker_disk(), (None, None))  # a wake, then unknown: no hold
+        self.assertEqual(self.calls, ["docker"])
+        self.assertEqual(crew.verdict(dict(snapshot(), docker_gb=None), VerdictTest.LIM, "build")[0], "ok")
+        self.fake(up=False, code=125, out="")  # and the failure stands a day: no wake per heartbeat
+        self.assertEqual(crew.docker_disk(), (None, None))
+        self.assertEqual(self.calls, ["pgrep"])
+        self.probed(5.0, hours_ago=2)
+        self.fake(up=False)  # or the prune kept alpine: the freed space reads at once
+        self.assertAlmostEqual(self.free(), self.FREE)
+        self.assertEqual(self.calls, ["docker"])
+
+    def test_a_fine_reading_never_wakes_a_sleeping_vm(self):
+        crew.limits = lambda: dict(VerdictTest.LIM)
+        for hours in (0.5, 5, 23):
+            self.probed(20.0, hours_ago=hours)
+            self.fake(up=False)
+            self.assertEqual(self.free(), 20.0, hours)
+            self.assertEqual(self.calls, ["pgrep"], hours)
+
     def test_nothing_to_go_on(self):
         """Docker down and never probed, or a file that isn't a reading: unknown, as before (preflight says why)."""
         self.fake(up=False, code=1, out="")
