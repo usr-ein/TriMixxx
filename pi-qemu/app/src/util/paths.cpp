@@ -56,7 +56,10 @@ QString cache() {
     const QString env = qEnvironmentVariable("PI_QEMU_CACHE"); // tests, and builds kept apart
     return env.isEmpty() ? shared() + "/.cache" : env;
 }
-QString tools() { return shared() + "/qemu/.build/bin"; }
+QString tools() {
+    const QString env = qEnvironmentVariable("PI_QEMU_TOOLS"); // a QEMU built elsewhere: a worktree's, to try a patch
+    return env.isEmpty() ? shared() + "/qemu/.build/bin" : env;
+}
 QString golden() { return cache() + "/golden/trimixxx0"; }
 QString releases() { return shared() + "/release/out"; }
 QString identities() { return cache() + "/decks"; }

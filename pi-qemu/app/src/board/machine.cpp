@@ -63,7 +63,9 @@ bool Machine::powerOn(QString* error) {
     QStringList a{
         "-M", "raspi4b", "-m", "2G", "-accel", m_o.accel,
         "-kernel", p.kernel, "-dtb", p.dtb, "-append", p.cmdline,
-        "-drive", "file=" + m_o.card + ",if=sd,format=raw",
+        // discard=unmap: the guest's trims give the card's space back to the
+        // Mac (QEMU patch 21), where they wrote zeroes over its free space.
+        "-drive", "file=" + m_o.card + ",if=sd,format=raw,discard=unmap",
         "-global", QString("bcm2835-fb.xres=%1").arg(m_o.fbWidth),
         "-global", QString("bcm2835-fb.yres=%1").arg(m_o.fbHeight),
         "-global", QString("bcm2835-fb.bpp=%1").arg(m_o.fbDepth),

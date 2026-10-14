@@ -12,7 +12,9 @@
 # its build dependencies). QEMU takes about ten minutes the first time on an
 # M1, and is pinned, so a rebuild is the same QEMU. A git worktree builds its
 # own pi-qemu (app/build/pi-qemu, run by its path) and uses the main checkout's
-# QEMU, which is what pi-qemu runs anyway.
+# QEMU, which is what pi-qemu runs anyway. To try a QEMU patch from a worktree:
+# `build.sh qemu` there, then PI_QEMU_TOOLS=$PWD/pi-qemu/qemu/.build/bin in the
+# environment of each pi-qemu that runs a deck or a build.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

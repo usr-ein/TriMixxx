@@ -19,7 +19,7 @@ QString piq();           // checkout()/pi-qemu: deploy steps, release and image 
 QString units();         // checkout()/mixxx_config/units
 QString shared();        // mainCheckout()/pi-qemu
 QString cache();         // $PI_QEMU_CACHE, or shared()/.cache: cards, the golden pair, identities
-QString tools();         // shared()/qemu/.build/bin: qemu-system-aarch64, dtmerge
+QString tools();         // shared()/qemu/.build/bin: qemu-system-aarch64, dtmerge ($PI_QEMU_TOOLS)
 QString instances();     // $PI_QEMU_INSTANCES, or ~/.pi-qemu/instances (short: socket paths)
 QString golden();        // cache()/golden/trimixxx0 (.img, .state)
 QString releases();      // shared()/release/out: every release built, out/VERSION/

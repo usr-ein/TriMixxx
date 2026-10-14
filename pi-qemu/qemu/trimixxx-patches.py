@@ -1269,4 +1269,35 @@ edit("hw/usb/dev-audio.c",
         "played round and round; empty: silence");
 }""")
 
+# ---- 21. a trim gives the card's space back on the Mac -------------------------------
+# The guest's trim (fstrim.timer, weekly on Raspberry Pi OS: due on any deck
+# restored from the golden) reaches the card as an erase, a zero write the host
+# may do by unmapping (sd_blk_erase). QEMU unmaps a zero write with Linux's
+# fallocate only: on macOS it wrote the zeros out, and a deck's card took ~4 GB
+# more of the Mac's disk at its first trim, the card's free space. APFS reads a
+# hole as zeroes, so F_PUNCHHOLE is that unmap; anything it refuses (a range not
+# in whole blocks, a filesystem without holes) is written as zeroes, as before.
+# The card's -drive asks for it with discard=unmap (pi-qemu's board/machine.cpp).
+edit("block/file-posix.c",
+     """    /* If we couldn't manage to unmap while guaranteed that the area reads as
+     * all-zero afterwards, just write zeroes without unmapping */
+    return handle_aiocb_write_zeroes(aiocb);
+}""",
+     """#if defined(__APPLE__) && (__MACH__)
+    {
+        fpunchhole_t fpunchhole = {
+            .fp_offset = aiocb->aio_offset,
+            .fp_length = aiocb->aio_nbytes,
+        };
+        if (fcntl(s->fd, F_PUNCHHOLE, &fpunchhole) == 0) {
+            return 0;
+        }
+    }
+#endif
+
+    /* If we couldn't manage to unmap while guaranteed that the area reads as
+     * all-zero afterwards, just write zeroes without unmapping */
+    return handle_aiocb_write_zeroes(aiocb);
+}""")
+
 print("trimixxx-patches: applied")
