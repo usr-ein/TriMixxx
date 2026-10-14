@@ -498,6 +498,13 @@ repo, each deploying its own code to its own emulated deck. The root
   - Builds queue on the shared compiler cache, so only one Mixxx compiles at a
     time: two agents deploying at once measured 87 s and 138 s.
   - Each tree takes about 2 GB of Docker's disk.
+  - A tree keeps the Dockerfile's choices in its CMake cache, mold's among
+    them (`MOLD_SUPPORT=ON`), and a new worktree's tree starts as a copy of
+    main's. A commit from before mold, built in such a tree (an old branch's
+    new worktree, a bisect, a hotfix from an older `pi/v` tag), stops at
+    "Could NOT find mold": merge main into the branch, or give that commit's
+    Dockerfile `-DMOLD_SUPPORT=OFF` in its cmake configure, uncommitted. The
+    next build of a newer Dockerfile turns mold back on.
 - **`pi-qemu worktree release`**, before removing a worktree, empties its
   Docker build trees and removes its submodule worktrees. Until then git
   refuses to remove a worktree with checked-out submodules, short of
