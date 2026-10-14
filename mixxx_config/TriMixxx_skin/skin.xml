@@ -26,6 +26,14 @@
            there pulses slot_switch_now. -->
       <attribute persist="false" config_key="[TriMixxx],slot_switch_confirm">0</attribute>
       <attribute persist="false" config_key="[TriMixxx],slot_switch_now">0</attribute>
+      <!-- "Record set"'s silence prompt: the fork's recorder (DeckRecorder)
+           sets record_silence while it has heard nothing on the DAC's input
+           for five minutes, which raises its overlay; KEEP RECORDING and END
+           RECORDING there pulse record_silence_keep and record_silence_end,
+           which the recorder acts on. -->
+      <attribute persist="false" config_key="[TriMixxx],record_silence">0</attribute>
+      <attribute persist="false" config_key="[TriMixxx],record_silence_keep">0</attribute>
+      <attribute persist="false" config_key="[TriMixxx],record_silence_end">0</attribute>
       <!-- Where the tempo fader physically is, in the same -1..1 the deck's own
            `rate` uses, so the tempo panel can show what the fader is ASKING for
            while the mapping's pickup is still holding it off. Without it there is
@@ -293,6 +301,93 @@
                     <State><Number>0</Number><Text>RESTART</Text></State>
                     <Connection>
                       <ConfigKey persist="false">[TriMixxx],slot_switch_now</ConfigKey>
+                      <ButtonState>LeftButton</ButtonState>
+                    </Connection>
+                  </PushButton>
+
+                  <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
+                </Children>
+              </WidgetGroup>
+            </Children>
+          </WidgetGroup>
+
+          <WidgetGroup><SizePolicy>e,e</SizePolicy><Children/></WidgetGroup>
+        </Children>
+      </WidgetGroup>
+
+      <!-- "Record set"'s silence prompt (Sam: "a popup ... if the recording
+           has been silent for >5 minutes prompting the user to end the
+           recording"). Up while record_silence = 1: the recorder sets it after
+           five minutes with nothing on the DAC's input, and clears it when the
+           input has sound again or the recording ends. The recording goes on
+           until it is answered. The deck's own controls still work under it:
+           only the screen is covered.
+           KEEP RECORDING pulses record_silence_keep: not asked again until the
+           input has had sound, then five more silent minutes. END RECORDING
+           pulses record_silence_end: the recording stops there, and the browser
+           opens on the sticks to write it to. Both momentary, as CANCEL and
+           SHUT DOWN are (LeftClickIsPushButton: see CANCEL's note). -->
+      <WidgetGroup>
+        <ObjectName>RecordSilenceOverlay</ObjectName>
+        <Layout>vertical</Layout>
+        <MinimumSize>1024,600</MinimumSize>
+        <MaximumSize>1024,-1</MaximumSize>
+        <Connection>
+          <ConfigKey persist="false">[TriMixxx],record_silence</ConfigKey>
+          <BindProperty>visible</BindProperty>
+        </Connection>
+        <Children>
+          <WidgetGroup><SizePolicy>e,e</SizePolicy><Children/></WidgetGroup>
+
+          <WidgetGroup>
+            <ObjectName>RecordSilenceDialog</ObjectName>
+            <Layout>vertical</Layout>
+            <MinimumSize>1024,270</MinimumSize>
+            <MaximumSize>1024,270</MaximumSize>
+            <Children>
+              <Label>
+                <ObjectName>RecordSilenceTitle</ObjectName>
+                <MinimumSize>1024,80</MinimumSize>
+                <MaximumSize>1024,80</MaximumSize>
+                <Text>End the recording?</Text>
+              </Label>
+              <Label>
+                <ObjectName>RecordSilenceHint</ObjectName>
+                <MinimumSize>1024,40</MinimumSize>
+                <MaximumSize>1024,40</MaximumSize>
+                <Text>Nothing on the input for 5 minutes. It keeps recording until you answer.</Text>
+              </Label>
+              <WidgetGroup>
+                <Layout>horizontal</Layout>
+                <MinimumSize>1024,140</MinimumSize>
+                <MaximumSize>1024,140</MaximumSize>
+                <Children>
+                  <WidgetGroup><SizePolicy>e,f</SizePolicy><Children/></WidgetGroup>
+
+                  <PushButton>
+                    <ObjectName>RecordSilenceKeep</ObjectName>
+                    <MinimumSize>260,110</MinimumSize>
+                    <MaximumSize>260,110</MaximumSize>
+                    <NumberStates>1</NumberStates>
+                    <LeftClickIsPushButton>true</LeftClickIsPushButton>
+                    <State><Number>0</Number><Text>KEEP RECORDING</Text></State>
+                    <Connection>
+                      <ConfigKey persist="false">[TriMixxx],record_silence_keep</ConfigKey>
+                      <ButtonState>LeftButton</ButtonState>
+                    </Connection>
+                  </PushButton>
+
+                  <WidgetGroup><MinimumSize>60,10</MinimumSize><MaximumSize>60,10</MaximumSize><Children/></WidgetGroup>
+
+                  <PushButton>
+                    <ObjectName>RecordSilenceEnd</ObjectName>
+                    <MinimumSize>260,110</MinimumSize>
+                    <MaximumSize>260,110</MaximumSize>
+                    <NumberStates>1</NumberStates>
+                    <LeftClickIsPushButton>true</LeftClickIsPushButton>
+                    <State><Number>0</Number><Text>END RECORDING</Text></State>
+                    <Connection>
+                      <ConfigKey persist="false">[TriMixxx],record_silence_end</ConfigKey>
                       <ButtonState>LeftButton</ButtonState>
                     </Connection>
                   </PushButton>

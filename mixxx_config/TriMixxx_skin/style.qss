@@ -341,6 +341,56 @@ QMenu::separator {
     color: #0c0c0c;
 }
 
+/* "Record set"'s silence prompt, the same dialog in the red of a recording:
+   it asks, it ends nothing by itself. */
+#RecordSilenceOverlay {
+    background-color: rgba(8, 8, 8, 242);
+}
+
+#RecordSilenceDialog {
+    background-color: #161616;
+    border-top: 2px solid #ff3333;
+    border-bottom: 2px solid #ff3333;
+}
+
+#RecordSilenceTitle {
+    color: #ffffff;
+    font-size: 34px;
+    font-weight: bold;
+    qproperty-alignment: 'AlignCenter';
+}
+
+#RecordSilenceHint {
+    color: #909090;
+    font-size: 15px;
+    qproperty-alignment: 'AlignCenter';
+}
+
+#RecordSilenceKeep, #RecordSilenceEnd {
+    border-radius: 6px;
+    font-size: 20px;
+    font-weight: bold;
+    margin: 3px;
+}
+#RecordSilenceKeep {
+    background-color: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    color: #e0e0e0;
+}
+#RecordSilenceKeep:pressed {
+    background-color: #88ff00;
+    color: #0c0c0c;
+}
+#RecordSilenceEnd {
+    background-color: #2a2a2a;
+    border: 2px solid #ff3333;
+    color: #ff6666;
+}
+#RecordSilenceEnd:pressed {
+    background-color: #ff3333;
+    color: #0c0c0c;
+}
+
 /* ============== LIBRARY ==============
    Selectors here are WIDGET CLASS NAMES, not <ObjectName>s, which is how every
    stock skin styles the library. The previous rules targeted #LibraryTable /
