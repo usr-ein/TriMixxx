@@ -24,7 +24,9 @@ the runbook for putting real decks on release cards.
    `trimixxx2`, ... are real decks: ship to one, or prepare one, only when the
    person asked for that deck. Try everything on emulated decks first.
 2. **The person flashes cards.** Build the image and give them the exact
-   path; never run `diskutil`, `dd` or anything else on a card or disk.
+   path; never run `diskutil`, `dd` or anything else on a card or disk. A
+   release's cards are `.img.xz`: Raspberry Pi Imager and balenaEtcher take
+   them as they are, or `xz -dc CARD | sudo dd of=/dev/rdiskN bs=4m`.
 3. **Releases are tags.** A release's version is HEAD's `pi/vX.Y.Z` tag, and
    `release build` refuses a dirty tree. Tags are signed, so they need a
    message: `git tag -m "TriMixxx X.Y.Z" pi/vX.Y.Z`. The repo's other parts
@@ -67,14 +69,14 @@ pi-qemu image build onetest --no-window --rebuild-base
 ```sh
 git tag -m "TriMixxx 1.2.0" pi/v1.2.0      # the person's call
 pi-qemu release build                      # -> pi-qemu/release/out/1.2.0/
-pi-qemu release card trimixxx2             # -> out/1.2.0/trimixxx2-1.2.0.img, to flash
+pi-qemu release card trimixxx2             # -> out/1.2.0/trimixxx2-1.2.0.img.xz, to flash
 pi-qemu deck ship --host trimixxx-pi-2     # the update, over the air (only when asked)
 pi-qemu release faults                     # out/1.2.0-nonet, -nossh, -noinitramfs, -panic, -hang
 ```
 
 - `release build` builds the system (`image build trimixxx-release`), then
   seals it in the release container (`release/Dockerfile` running
-  `release/container.sh`): `trimixxx-X.Y.Z.img` (every deck's card),
+  `release/container.sh`): `trimixxx-X.Y.Z.img.xz` (every deck's card),
   `trimixxx-X.Y.Z.raucb` (the update), `rootfs.squashfs`, `boot.vfat`,
   `manifest.txt`. `--keep-system` seals the system card built last time;
   `--rehearsal X.Y.Z` lets an untagged or dirty tree through, and says so in
@@ -94,13 +96,13 @@ pi-qemu release faults                     # out/1.2.0-nonet, -nossh, -noinitram
 ```sh
 pi-qemu release build --rehearsal 0.0.9 --keep-system --no-window
 pi-qemu release card trimixxx0 --version 0.0.1            # the emulated deck's card of a release
-pi-qemu deck up abtest --from pi-qemu/release/out/0.0.1/trimixxx0-0.0.1.img
+pi-qemu deck up abtest --from pi-qemu/release/out/0.0.1/trimixxx0-0.0.1.img.xz   # unpacked, sparse
 pi-qemu deck ship abtest --version 0.0.9                  # a trial of B, then its health check
 pi-qemu deck ssh abtest 'tail -3 /var/lib/rauc/trimixxx-health.log; rauc status'
 ```
 
 Afterwards, delete what the rehearsal made: `deck rm abtest`, and
-`pi-qemu/release/out/0.0.9*` and `out/0.0.1/trimixxx0-0.0.1.img`. Keep the
+`pi-qemu/release/out/0.0.9*` and `out/0.0.1/trimixxx0-0.0.1.img.xz`. Keep the
 tagged releases and their decks' cards: an untagged release is never left in
 `out/`.
 

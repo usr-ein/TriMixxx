@@ -5,7 +5,6 @@
 #include "util/buildlog.h"
 #include "util/docker.h"
 #include "util/fail.h"
-#include "util/files.h"
 #include "util/git.h"
 #include "util/paths.h"
 #include "util/print.h"
@@ -92,23 +91,19 @@ int build(const BuildOptions& o) {
         if (!QFileInfo::exists(imagebuild::card(kSystem))) fail("no " + QString(kSystem) + " card in pi-qemu/.cache/build");
         container("seal", {"--privileged", "-e", "VERSION=" + v, "-e", "COMMIT=" + commit, "-e", "HASH=" + hash,
                            "--mount", "type=bind,src=" + paths::cache() + "/build,dst=/build,readonly"});
-        // Through Docker's share of the Mac's disk the card comes out with its
-        // zeros written: 13 GB on disk for 1 GB of data. Sparse before any
-        // deck's card is cloned from it.
-        imagebuild::sparse(outDir(v) + "/trimixxx-" + v + ".img");
         buildlog::say("release " + v + ": " + outDir(v));
     });
 }
 
 void card(const QString& deck, const QString& v) {
     const QString o = outDir(v);
+    // Compressed (.img.xz) since mem-optim; a release from before is a plain .img.
     const QString release = o + "/trimixxx-" + v + ".img";
-    if (!QFileInfo::exists(release)) fail("no release " + v + " (" + release + "): " + tool("release build"));
+    if (!QFileInfo::exists(release + ".xz") && !QFileInfo::exists(release))
+        fail("no release " + v + " (" + release + ".xz): " + tool("release build"));
     const QString data = identity::prepare(deck);
-    const QString img = o + "/" + deck + "-" + v + ".img";
-    files::clone(release, img);
     container("card", {"-e", "DECK=" + deck, "-e", "VERSION=" + v, "--mount", "type=bind,src=" + data + ",dst=/deck,readonly"});
-    print() << deck << "'s card: " << img << "\n";
+    print() << deck << "'s card: " << o + "/" + deck + "-" + v + ".img.xz" << "\n";
 }
 
 void faults(const QString& v) {

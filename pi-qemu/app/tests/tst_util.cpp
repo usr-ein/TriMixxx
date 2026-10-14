@@ -1,19 +1,18 @@
 // util/: secrets.env's quoting, release versions from tags, shell quoting,
-// sparse cards.
+// cards unpacked from .xz.
 
 #include "util/files.h"
 #include "util/git.h"
 #include "util/process.h"
 #include "util/sshtarget.h"
 #include "util/envfile.h"
+#include "util/fail.h"
 
 #include <QFileInfo>
 #include <QTemporaryDir>
 #include <QTest>
 
 #include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/time.h>
 #include <unistd.h>
 
 class TestUtil : public QObject {
@@ -67,68 +66,31 @@ private slots:
         QCOMPARE(proc::quote(""), QString("''"));
         QCOMPARE(proc::join({"ssh", "-p", "22 33"}), QString("ssh -p '22 33'"));
     }
-    // A card's zeros given back, as QEMU leaves them: written out in full.
-    // Every whole 64 KiB block of zeros becomes a hole and nothing else does;
-    // the card reads the same, keeps its times, and a clone made before keeps
-    // its blocks.
-    void sparseCards() {
+    // A release's card ships as .xz, and an emulated deck gets it unpacked:
+    // sparse, its zeros not written (but those it ends with: dd writes them),
+    // its size whole; a damaged one fails rather than leave half a card.
+    void unxzCards() {
         QTemporaryDir dir;
-        const QString card = dir.filePath("card.img"), twin = dir.filePath("twin.img");
-        constexpr int K = 1024;
-        QByteArray content;
-        auto data = [&](int n) {
-            for (int i = 0; i < n; ++i) content += char(1 + (content.size() * 7) % 251);
-        };
-        auto zero = [&](int n) { content += QByteArray(n, '\0'); };
-        data(64 * K);       // [0, 64K)
-        zero(1024 * K);     // [64K, 1088K): a hole
-        data(4 * K);        // [1088K, 1092K)
-        zero(60 * K);       // [1092K, 1152K): in a block with data, kept
-        data(68 * K);       // [1152K, 1220K)
-        zero(128 * K);      // [1220K, 1348K): only [1280K, 1344K) is a whole block
-        data(60 * K);       // [1348K, 1408K)
-        zero(8192 * K - 1408 * K); // [1408K, 8M): a hole, up to where the next read starts
-        zero(64 * K);       // [8M, 8M+64K): a hole, in the next read
-        data(100);          // a tail shorter than a block
+        const QString card = dir.filePath("card.img"), xz = card + ".xz", out = dir.filePath("deck.img");
+        constexpr int M = 1024 * 1024;
+        QByteArray content(3 * M, '\x5a');      // 3 MiB of data
+        content += QByteArray(60 * M, '\0');    // 60 MiB of zeros
+        content += QByteArray(M, '\xa5');       // 1 MiB of data
+        content += QByteArray(8 * M + 100, '\0'); // zeros to the end, not a whole MiB
         files::write(card, content);
-        auto stat = [](const QString& f) {
-            struct stat st {};
-            ::stat(QFile::encodeName(f).constData(), &st);
-            return st;
-        };
-        const struct timeval then[2] = {{1600000000, 0}, {1600000000, 0}};
-        ::utimes(QFile::encodeName(card).constData(), then);
-        files::clone(card, twin);
-        const qint64 full = stat(card).st_blocks * 512;
-        QVERIFY(full >= content.size()); // written out in full
-
-        const files::Sparse s = files::sparsify(card);
-        QVERIFY2(s.ok, qPrintable(s.error));
-        QCOMPARE(s.before, full);
-        QCOMPARE(s.after, qint64(stat(card).st_blocks) * 512);
-        QCOMPARE(s.before - s.after, qint64(1024 + 64 + 6784 + 64) * K);
-        QCOMPARE(files::read(card), content);
-        QCOMPARE(qint64(stat(card).st_mtimespec.tv_sec), qint64(1600000000));
-        QVERIFY(!QFileInfo::exists(card + ".sparse"));
-        const int fd = ::open(QFile::encodeName(card).constData(), O_RDONLY);
-        QCOMPARE(qint64(::lseek(fd, 0, SEEK_HOLE)), qint64(64 * K));
-        QCOMPARE(qint64(::lseek(fd, 64 * K, SEEK_DATA)), qint64(1088 * K));
-        QCOMPARE(qint64(::lseek(fd, 1088 * K, SEEK_HOLE)), qint64(1280 * K));
-        QCOMPARE(qint64(::lseek(fd, 1280 * K, SEEK_DATA)), qint64(1344 * K));
-        QCOMPARE(qint64(::lseek(fd, 1344 * K, SEEK_HOLE)), qint64(1408 * K));
-        QCOMPARE(qint64(::lseek(fd, 1408 * K, SEEK_DATA)), qint64(8256 * K));
+        QCOMPARE(proc::run("xz", {"-k", "-1", card}), 0);
+        files::unxz(xz, out);
+        QCOMPARE(files::read(out), content);
+        const int fd = ::open(QFile::encodeName(out).constData(), O_RDONLY);
+        QCOMPARE(qint64(::lseek(fd, 0, SEEK_HOLE)), qint64(3 * M)); // the 60 MiB of zeros: a hole
+        QCOMPARE(qint64(::lseek(fd, 3 * M, SEEK_DATA)), qint64(63 * M));
         ::close(fd);
-        QCOMPARE(files::read(twin), content); // the clone, untouched
-        QCOMPARE(qint64(stat(twin).st_blocks) * 512, full);
+        QVERIFY(!QFileInfo::exists(out + ".part"));
 
-        const files::Sparse again = files::sparsify(card); // nothing left to give
-        QVERIFY2(again.ok, qPrintable(again.error));
-        QCOMPARE(again.after, s.after);
-        QCOMPARE(files::read(card), content);
-
-        const files::Sparse none = files::sparsify(dir.filePath("none.img"));
-        QVERIFY(!none.ok);
-        QVERIFY(none.error.contains("none.img"));
+        files::write(xz, files::read(xz).left(2000)); // cut short
+        QVERIFY_THROWS_EXCEPTION(Failure, files::unxz(xz, out));
+        QCOMPARE(files::read(out), content); // the deck's card it had stays
+        QVERIFY(!QFileInfo::exists(out + ".part"));
     }
 };
 

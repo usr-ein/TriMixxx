@@ -463,14 +463,24 @@ pi-qemu deck prepare --host trimixxx-pi-2 trimixxx2   # before a deck's first re
 The release container runs with 3 GB of Docker's memory at most, the file
 cache its images go through included, and mksquashfs with 1 GB of caches.
 
-**Cards are sparse.** QEMU, and the release container through Docker's share
-of the Mac's disk, write a card's zeros out in full: a deck's 8 GB card took
-6.6 GB of disk for 3.7 GB of data, a release card 12.6 GB for 1.1. `image
-build` (its base card and its card) and `release build` (the release card)
-make those zeros holes before anything clones the card, in a copy read back
-equal to it first, and say what it freed. The cards cloned from them, the
-golden, every deck's instance, a deck's release card, share their blocks:
-`du` counts shared blocks once per file, so measure with `df`.
+**Cards on the Mac's disk.** A release's cards are compressed with xz, as
+Raspberry Pi OS ships its own: `release build` writes `trimixxx-X.Y.Z.img.xz`
+and `release card` a deck's `DECK-X.Y.Z.img.xz`. Plain, through Docker's share
+of the Mac's disk, a card came out with its zeros written: 12.6 GB on disk for
+1.1 GB of data. Raspberry Pi Imager and balenaEtcher flash an `.img.xz` as it
+is, and so does `xz -dc CARD | sudo dd of=/dev/rdiskN bs=4m`. `deck up --from
+CARD.img.xz` unpacks one into the deck's own card, sparse (`xz -dc | dd
+conv=sparse`). A release from before its cards were compressed still has a
+plain `.img`, which `release card` takes too.
+
+`image build` has the guest trim its card (`fstrim`) before it keeps it, and
+QEMU (patch 21, the card's `discard=unmap`) makes the trimmed space holes in
+the card on the Mac. A deck's own trims (fstrim.timer) give its card's space
+back the same way. A QEMU from before patch 21 would write zeroes over that
+space instead, so then `image build` doesn't trim and says so: rebuild it
+(`pi-qemu/build.sh qemu`). Cards cloned from others (the golden, every deck's
+instance) share their blocks: `du` counts shared blocks once per file, so
+measure with `df`.
 
 ## Git worktrees
 

@@ -27,9 +27,4 @@ QString card(const QString& deck);      // pi-qemu/.cache/build/DECK.img
 QStringList plan(const QString& deck);  // the steps, for the build window
 QString build(const QString& deck, const Options& o); // the card's path
 
-// A card pi-qemu just made, its zeros given back to the Mac's disk before
-// anything clones it (files::sparsify), said in a line. One it can't make
-// sparse stays as it was, with a warning: the build goes on.
-void sparse(const QString& card);
-
 } // namespace imagebuild

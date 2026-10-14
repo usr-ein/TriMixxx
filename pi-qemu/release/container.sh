@@ -6,12 +6,12 @@
 #
 #   container.sh seal     the release, from the built system card
 #                         (/build/trimixxx-release.img): out/VERSION/
-#                         trimixxx-VERSION.img (every deck's card),
+#                         trimixxx-VERSION.img.xz (every deck's card),
 #                         trimixxx-VERSION.raucb (the update), rootfs.squashfs,
 #                         boot.vfat, manifest.txt. Privileged: it mounts the
 #                         built card, read-only.
-#   container.sh card     DECK's identity (/deck) onto p7 of its copy of the
-#                         release card, out/VERSION/DECK-VERSION.img
+#   container.sh card     DECK's identity (/deck) onto p7 of a copy of the
+#                         release card, out/VERSION/DECK-VERSION.img.xz
 #   container.sh faults   broken updates made from release VERSION, each signed
 #                         like a real one, for the fault tests (PLAN.md §5.4):
 #                         out/VERSION-nonet, -nossh, -noinitramfs, -panic, -hang
@@ -171,32 +171,46 @@ seal() {
     rauc bundle --cert=$p/rauc/keyring.pem --key=signing-key.pem --mksquashfs-args="-mem 1G" \
         "$WORK"/bundle "$WORK/trimixxx-$VERSION.raucb"
     rauc info --keyring=$p/rauc/keyring.pem "$WORK/trimixxx-$VERSION.raucb" | grep -E "Compatible|Version|Build"
-    cp --sparse=always "$WORK"/img/trimixxx.img "$o/trimixxx-$VERSION.img"
+    # The card compressed, as Raspberry Pi OS ships its own: Raspberry Pi Imager
+    # and balenaEtcher flash an .img.xz as it is, so does `xz -dc CARD | dd`,
+    # and pi-qemu unpacks it for an emulated deck. Plain, through Docker's share
+    # of the Mac's disk, it came out with its zeros written: 12.6 GB on disk
+    # for 1.1 GB of data.
+    xz -T0 -c "$WORK"/img/trimixxx.img > "$o/trimixxx-$VERSION.img.xz"
     cp "$WORK"/img/rootfs.squashfs "$WORK"/img/boot.vfat "$WORK/trimixxx-$VERSION.raucb" "$o"/
 
     # ---- what went in -----------------------------------------------------------------
     {
         echo "TriMixxx $VERSION, from $COMMIT, built $built"
         echo
-        (cd "$o" && sha256sum "trimixxx-$VERSION.img" "trimixxx-$VERSION.raucb" rootfs.squashfs boot.vfat)
+        (cd "$o" && sha256sum "trimixxx-$VERSION.img.xz" "trimixxx-$VERSION.raucb" rootfs.squashfs boot.vfat)
         echo
         cat "$WORK"/packages.txt
     } > "$o"/manifest.txt
     ls -l "$o"
 }
 
-# The deck's identity onto p7 of its copy of the release card (an APFS clone
-# made on the Mac).
+# The deck's own card: the release card with DECK's identity (/deck) on p7,
+# compressed as the release card is. Unpacked and packed in the container's own
+# filesystem, where it stays sparse.
 card() {
     : "${DECK:?}"
-    local img=out/$VERSION/$DECK-$VERSION.img start size
-    read -r start size < <(partx -g -o START,SECTORS -n 7 "$img")
+    local o=out/$VERSION img=$WORK/card.img start size
     rm -rf "$WORK" && mkdir -p "$WORK"
+    # A release from before its card was compressed has it plain.
+    if [ -f "$o/trimixxx-$VERSION.img.xz" ]; then
+        xz -dcT0 "$o/trimixxx-$VERSION.img.xz" > "$img"
+    else
+        cp --sparse=always "$o/trimixxx-$VERSION.img" "$img"
+    fi
+    read -r start size < <(partx -g -o START,SECTORS -n 7 "$img")
     mke2fs -q -t ext4 -L trimixxx-data -d /deck "$WORK"/data.ext4 $((size / 2))k
     dd if="$WORK"/data.ext4 of="$img" bs=1M seek=$((start * 512)) oflag=seek_bytes conv=notrunc,sparse status=none
     debugfs -R 'ls -l /' "$WORK"/data.ext4 2>/dev/null | awk 'NR > 2 {print $NF}' | tr '\n' ' '
     echo
-    ls -l "$img"
+    xz -T0 -c "$img" > "$o/$DECK-$VERSION.img.xz.part"
+    mv "$o/$DECK-$VERSION.img.xz.part" "$o/$DECK-$VERSION.img.xz"
+    ls -l "$o/$DECK-$VERSION.img.xz"
 }
 
 # Broken releases from release VERSION's images, each signed like a real one:

@@ -18,7 +18,6 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
-#include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
@@ -152,25 +151,32 @@ void managementNic(Instance& vm) {
     if (!r.text().split('\n').contains("pi-qemu-home:usb0")) fail("the management NIC did not get its own profile");
 }
 
+// Whether the QEMU pi-qemu runs was built from this checkout's patches
+// (qemu/trimixxx-patches.py): its source tree keeps their hash in .patched,
+// beside the build its qemu-system-aarch64 links to.
+bool qemuCurrent() {
+    const QString qemu = QFileInfo(paths::tools() + "/qemu-system-aarch64").symLinkTarget();
+    if (qemu.isEmpty()) return false;
+    QFile stamp(QFileInfo(qemu).absolutePath() + "/../.patched");
+    if (!stamp.open(QIODevice::ReadOnly)) return false;
+    return QString::fromLatin1(stamp.readAll()).trimmed() == sha256(paths::piq() + "/qemu/trimixxx-patches.py");
+}
+
+// The card's free space given back to the Mac before it is kept: the guest
+// trims it, which QEMU, as patched (patch 21, discard=unmap), makes holes in
+// the card. A QEMU from before that writes zeroes over all of it instead, the
+// card's whole size on disk: then it is left alone, with a word.
+void trim(Instance& vm) {
+    if (!qemuCurrent()) {
+        print() << "not trimmed: QEMU is older than this checkout's patches (pi-qemu/build.sh qemu)" << Qt::endl;
+        return;
+    }
+    vm.ssh().run("sudo fstrim -av");
+}
+
 } // namespace
 
 QString card(const QString& deck) { return cacheDir() + "/build/" + deck + ".img"; }
-
-void sparse(const QString& card) {
-    QElapsedTimer t;
-    t.start();
-    const files::Sparse s = files::sparsify(card);
-    const QString name = QFileInfo(card).fileName();
-    if (!s.ok) {
-        eprint() << "warning: " << s.error << "\n";
-        return;
-    }
-    print() << QString("%1: %2 GB on disk, %3 GB once its zeros are holes (%4 s)\n")
-                   .arg(name)
-                   .arg(s.before / 1e9, 0, 'f', 2)
-                   .arg(s.after / 1e9, 0, 'f', 2)
-                   .arg(t.elapsed() / 1000.0, 0, 'f', 1);
-}
 
 QStringList plan(const QString& deck) {
     QStringList p{"the stock Raspberry Pi OS card", "seeding cloud-init", "first boot of the stock card", "deploy 000_base",
@@ -233,8 +239,8 @@ QString build(const QString& deck, const Options& o) {
         // they apply from the next boot, as on a deck. Powered off rather than
         // rebooted, to keep the card as it is now as the base card.
         buildlog::say("booting into the deck's boot flags (the base card kept)");
+        trim(vm);
         vm.down();
-        sparse(vm.card());
         QDir().mkpath(cacheDir() + "/base");
         for (const QFileInfo& old : QDir(cacheDir() + "/base").entryInfoList({deck + "-*.img"}, QDir::Files))
             QFile::remove(old.absoluteFilePath());
@@ -253,8 +259,8 @@ QString build(const QString& deck, const Options& o) {
     // 1.4), so later boots do not spend seconds in it.
     buildlog::say("sealing: cloud-init off, caches cleared, power off");
     vm.ssh().run("sudo touch /etc/cloud/cloud-init.disabled && sudo apt-get clean");
+    trim(vm);
     vm.down();
-    sparse(vm.card());
     QDir().mkpath(cacheDir() + "/build");
     files::clone(vm.card(), card(deck));
     off.dismiss();

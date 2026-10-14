@@ -187,7 +187,9 @@ void Instance::up(const Up& o) {
     if (!o.from.isEmpty()) { // a card of its own: booted, no saved machine
         if (!QFileInfo::exists(o.from)) fail("no card at " + o.from);
         QFile::remove(state());
-        files::clone(o.from, card());
+        // A release's card ships compressed: unpacked into the deck's own card.
+        if (o.from.endsWith(".xz")) files::unxz(o.from, card());
+        else files::clone(o.from, card());
         // QEMU's SD card is a power of two; a real card is any size. The
         // clone is rounded up, and stays sparse.
         const qint64 size = QFileInfo(card()).size();

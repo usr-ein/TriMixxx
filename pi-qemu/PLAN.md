@@ -171,7 +171,7 @@ These paths are proposals; keep them unless there's a reason not to.
 | `pi-qemu/release/boot/deck-sections.py` | each deck's `[0x<serial>]` section of the release's `config.txt`, from `mixxx_config/units/*.json` |
 | `pi-qemu deck prepare` | readies a deck for its first card from its current system: serial, host keys, bootloader (§7); `pipeline/prepare` |
 | `mixxx_config/units/trimixxx3.json` | the bench Pi's unit: its serial and hotspot channel |
-| `pi-qemu/release/out/<v>/` | outputs, gitignored: `trimixxx-<v>.img`, `trimixxx-<v>.raucb`, `manifest.txt` |
+| `pi-qemu/release/out/<v>/` | outputs, gitignored: `trimixxx-<v>.img.xz`, `trimixxx-<v>.raucb`, `manifest.txt` |
 | `pi-qemu/.cache/decks/<deck>/` | per-deck secrets, gitignored: `trimixxx.conf`, `NetworkManager/`, `ssh/` |
 | `pi_config/rauc/` | `system.conf`, `keyring.pem` (the certificate), `rpi-tryboot` (backend) |
 | `pi_config/trimixxx-health.service`, `pi_config/trimixxx-health` | the health unit and its checks |
@@ -323,6 +323,9 @@ Sam flashes the card. The agent runs no disk command. On the Mac:
      can't read the fourth (the ext4 root): choose "Ignore", then eject.
    - Raspberry Pi Imager works too ("Use custom"). Answer **No** to OS
      customisation: it would write its own seed onto p1.
+   - A release's cards are compressed (`.img.xz`, since 2026-10-14): `xz -dc
+     CARD.img.xz | sudo dd of=/dev/rdiskN bs=4m status=progress`. Raspberry Pi
+     Imager and balenaEtcher take the `.img.xz` as it is.
 3. **Cable** the Pi's Ethernet to the Mac. With no DHCP server, both sides take
    link-local addresses, and avahi announces `trimixxx3.local`. The Mac's
    Wi-Fi can stay on.
@@ -1124,7 +1127,7 @@ still run those systems.
    The release must come after step 1: the serials are written into its
    `config.txt`. `release card` must come after it too: run first, it would
    make new host keys.
-3. **Sam flashes** each deck's card (`out/X.Y.Z/<deck>-X.Y.Z.img`), as in
+3. **Sam flashes** each deck's card (`out/X.Y.Z/<deck>-X.Y.Z.img.xz`), as in
    §2.2.
 4. **Check each deck:** its panel shows the splash's `A` label; ssh by its
    alias answers without a host key warning; it joins the home Wi-Fi; Mixxx
