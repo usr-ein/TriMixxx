@@ -460,6 +460,9 @@ pi-qemu deck ship --host trimixxx-pi-2   # the update onto a deck running a rele
 pi-qemu deck prepare --host trimixxx-pi-2 trimixxx2   # before a deck's first release card
 ```
 
+The release container runs with 3 GB of Docker's memory at most, the file
+cache its images go through included, and mksquashfs with 1 GB of caches.
+
 ## Git worktrees
 
 Several agents (or people) can work at once, each in a git worktree of the

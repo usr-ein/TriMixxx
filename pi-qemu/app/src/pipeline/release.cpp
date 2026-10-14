@@ -42,7 +42,12 @@ void container(const QString& verb, const QStringList& extra) {
     const proc::Result image = proc::capture("docker", {"build", "-q", "-t", "trimixxx-release", "-"}, build);
     if (!image.ok()) fail("could not build the release container: " + QString::fromUtf8(image.err).trimmed());
     QDir().mkpath(paths::releases());
-    QStringList args{"run", "--rm", "-e", "IN_CONTAINER=1", "-e", "TZ=" + macZone(),
+    // 3 GB at most, the file cache its gigabytes of images go through
+    // included: the kernel charges that to the container and reclaims it
+    // there, where uncapped it filled Docker's VM, which kept it after the
+    // container was gone. mksquashfs sizes its own caches on the VM's memory:
+    // container.sh gives it -mem.
+    QStringList args{"run", "--rm", "--memory", "3g", "-e", "IN_CONTAINER=1", "-e", "TZ=" + macZone(),
                      "--mount", "type=bind,src=" + dir + ",dst=/release", "-w", "/release",
                      "--mount", "type=bind,src=" + paths::releases() + ",dst=/release/out",
                      "--mount", "type=bind,src=" + paths::checkout() + ",dst=/repo,readonly"};

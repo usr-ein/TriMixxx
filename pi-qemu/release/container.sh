@@ -126,8 +126,10 @@ seal() {
     printf 'VERSION=%s\nCOMMIT=%s\nHASH=%s\nBUILT=%s\n' "$VERSION" "$COMMIT" "$HASH" "$built" > "$r"/etc/trimixxx-release
     dpkg-query --admindir="$r"/var/lib/dpkg -W -f='${Package} ${Version}\n' > "$WORK"/packages.txt
     # POSIX ACLs (the journal's directory) have no place in SquashFS: left out.
+    # -mem: mksquashfs's caches, otherwise a quarter of Docker's VM's memory,
+    # in a container capped at 3 GB (release.cpp).
     mksquashfs "$r" "$WORK"/img/rootfs.squashfs -comp zstd -xattrs -xattrs-exclude '^system\.posix_acl' \
-        -noappend -quiet -no-progress
+        -noappend -quiet -no-progress -mem 1G
     umount "$r" /lower /up
     trap - EXIT
 
@@ -165,7 +167,9 @@ seal() {
     ln "$WORK"/img/rootfs.squashfs "$WORK"/img/boot.vfat "$WORK"/bundle/
     # Made and checked in the container's own filesystem: RAUC won't read a
     # plain bundle off a FUSE mount such as Docker's share of the Mac's disk.
-    rauc bundle --cert=$p/rauc/keyring.pem --key=signing-key.pem "$WORK"/bundle "$WORK/trimixxx-$VERSION.raucb"
+    # Its mksquashfs gets -mem too.
+    rauc bundle --cert=$p/rauc/keyring.pem --key=signing-key.pem --mksquashfs-args="-mem 1G" \
+        "$WORK"/bundle "$WORK/trimixxx-$VERSION.raucb"
     rauc info --keyring=$p/rauc/keyring.pem "$WORK/trimixxx-$VERSION.raucb" | grep -E "Compatible|Version|Build"
     cp --sparse=always "$WORK"/img/trimixxx.img "$o/trimixxx-$VERSION.img"
     cp "$WORK"/img/rootfs.squashfs "$WORK"/img/boot.vfat "$WORK/trimixxx-$VERSION.raucb" "$o"/
@@ -209,7 +213,8 @@ faults() {
         mkdir -p "$d" "out/$v"
         sed -e "s|@VERSION@|$v|" -e "s|@BUILD@|a fault test, from $VERSION|" manifest.raucm.in > "$d"/manifest.raucm
         ln "$2" "$d"/rootfs.squashfs && ln "$3" "$d"/boot.vfat
-        rauc bundle --cert=$p/rauc/keyring.pem --key=signing-key.pem --keyring=$p/rauc/keyring.pem "$d" "$WORK/$v.raucb" > /dev/null
+        rauc bundle --cert=$p/rauc/keyring.pem --key=signing-key.pem --keyring=$p/rauc/keyring.pem \
+            --mksquashfs-args="-mem 1G" "$d" "$WORK/$v.raucb" > /dev/null
         cp "$WORK/$v.raucb" "out/$v/trimixxx-$v.raucb"
         echo "out/$v/trimixxx-$v.raucb"
     }
@@ -221,7 +226,7 @@ faults() {
         n=${f%%:*} u=${f#*:}
         ln -s /dev/null "$WORK"/root/etc/systemd/system/"$u"
         sed -i "s/^VERSION=.*/VERSION=$VERSION-$n/" "$WORK"/root/etc/trimixxx-release
-        mksquashfs "$WORK"/root "$WORK/rootfs-$n.squashfs" -comp zstd -xattrs -noappend -quiet -no-progress
+        mksquashfs "$WORK"/root "$WORK/rootfs-$n.squashfs" -comp zstd -xattrs -noappend -quiet -no-progress -mem 1G
         rm "$WORK"/root/etc/systemd/system/"$u"
         bundle "$n" "$WORK/rootfs-$n.squashfs" "$WORK"/boot.vfat
     done
