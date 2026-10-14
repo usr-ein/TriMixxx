@@ -14,3 +14,10 @@ Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/local/bin/dj-usb mount %i
 ExecStop=/usr/local/bin/dj-usb unmount %i
+# The unmount waits on dj-usb's lock, which a set being written to the other
+# port's stick holds for the whole copy ("Record set": dj-usb write, at most
+# its COPY_LIMIT_S, 15 minutes). The default 90 s would kill it first, and
+# leave the slot holding a mount of a stick that has gone, until the next
+# boot. Bounded all the same, so a stuck one cannot hold a shutdown for ever.
+# (A oneshot's start has no timeout: a stick put in mid-write mounts after.)
+TimeoutStopSec=20min

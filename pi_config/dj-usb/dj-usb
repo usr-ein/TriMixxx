@@ -44,7 +44,19 @@ WRITABLE_FS="vfat exfat ext2 ext3 ext4"
 
 # `write`'s exits, which Mixxx tells apart: 2 refused (not a slot, not a
 # recording), 3 too little room, 4 a filesystem it does not write, 5 the
-# write failed (a stick pulled, a bad stick), 6 the name is taken.
+# write failed (a stick pulled, a bad stick, one too slow), 6 the name is
+# taken.
+#
+# The longest a write may take: three hours of set (432 MB) at half a
+# megabyte a second, which no working stick is slower than. It holds the lock
+# all that time, so a stick pulled from the other port is unmounted only once
+# it is done: dj-usb@.service's stop timeout is set past this.
+COPY_LIMIT_S=900
+# How much is written at a time, each on the stick before the next (dsync):
+# what a pull or a cut can tear is the block under way, and the FAT and the
+# part file's directory entry (in the root, beside PIONEER/) are written once
+# a block -- 27 times for three hours -- and not once a megabyte.
+COPY_BLOCK=16M
 fail() {
     local code=$1
     shift
@@ -169,7 +181,7 @@ restore_ro() {
 }
 
 do_write() {
-    local mp=$1 src name fstype need avail part written=()
+    local mp=$1 src name fstype need avail part deadline left rc written=()
     shift
     [[ $mp =~ ^/media/DJ_USB_[0-9]+$ ]] && mountpoint -q "$mp" ||
         fail 2 "$mp is not a stick in this deck"
@@ -199,21 +211,29 @@ do_write() {
     trap 'exit 5' INT TERM HUP
     mount -o remount,rw "$mp" || fail 5 "$mp would not remount read-write"
     log "remounted $mp read-write for ${#} file(s)"
+    deadline=$((SECONDS + COPY_LIMIT_S))
     for src in "$@"; do
         name=${src##*/}
         # Under a name of its own until it is whole, so a stick pulled
         # mid-copy is left with a hidden part and never a short file under
-        # the set's name. A megabyte at a time, each on the stick before the
-        # next (dsync): the part's size is what has reached the stick, which
-        # is what Mixxx's progress bar shows, rather than what the page cache
-        # took in a second and a slow stick then takes a minute to write.
+        # the set's name. COPY_BLOCK at a time, synchronously: little ever
+        # waits in the page cache (a big copy to a slow stick would otherwise
+        # stall every writer on the deck), and the stick's metadata is
+        # written once a block. Mixxx reads the progress off the stick's own
+        # count of what it has written.
         # Neither end followed if it is a link (nofollow): checked above, but
         # this runs as root, and a link swapped in since, or one an ext stick
         # brought, must not make it read or write anything else.
         part="$mp/.$name.part"
-        if ! { dd if="$src" of="$part" bs=1M iflag=nofollow oflag=dsync,nofollow status=none &&
-            sync "$part" && mv "$part" "$mp/$name"; }; then
+        left=$((deadline - SECONDS))
+        rc=0
+        ((left > 0)) || rc=124
+        ((rc != 0)) || timeout "$left" dd if="$src" of="$part" bs=$COPY_BLOCK \
+            iflag=nofollow oflag=dsync,nofollow status=none || rc=$?
+        ((rc != 0)) || { sync "$part" && mv "$part" "$mp/$name"; } || rc=$?
+        if ((rc != 0)); then
             rm -f "$part" 2>/dev/null || true
+            ((rc == 124)) && fail 5 "$mp is too slow: the set was not written in $((COPY_LIMIT_S / 60)) minutes"
             fail 5 "writing $name to $mp failed"
         fi
         written+=("$name")
