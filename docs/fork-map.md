@@ -101,13 +101,16 @@ Beside them, upstream's `rekordboxconstants.h`, which the analysis reads.
 | `playhistory.{h,cpp}` | The History's rule: plays (a track on a player, from when to when) swept into segments of what played together, and those listed as rows (`Track 1 \| Track 2 (20s)`); `Recorder`, samples into plays starting and stopping. Pure. |
 | `historystore.{h,cpp}` | `HistoryStore`: the History on the card, a SQLite database of its own (WAL, synchronous=FULL) and cover thumbnails, in `/var/lib/rauc/trimixxx-history` (p8 on a release card). A session per power-up (boot id), the newest three kept; a database that will not open is put aside. |
 | `deckhistory.{h,cpp}` | `DeckHistory`: what plays on the link, sampled four times a second (this deck's `play` and `DeckLoader`'s track, every player's status), recorded through `Recorder` into `HistoryStore` on a thread of its own, with a heartbeat every 5 s; tracks named from `deck_library`, covers copied while the stick is in. A store whose directory comes after Mixxx (p8 mounted late) is opened then, and takes what was recorded in RAM. |
+| `setrecording.{h,cpp}` | "Record set"'s rules: its files' names, the three hours, what it takes on the card, the track list's text, the silence watch (five minutes under -50 dBFS), the meter's ballistics. Pure. |
+| `inputcapture.{h,cpp}` | `InputCapture`: the DAC's line input into an MP3, on a thread of its own: ALSA's capture of `hw:CARD=CODEC` opened only while it records, beside the output the engine holds; each block's L and R peaks; LAME at 320 kbit/s CBR straight into the file. |
+| `deckrecorder.{h,cpp}` | `DeckRecorder`: "Record set". One recording at a time in `/var/lib/rauc/trimixxx-recording` (p8 on a release card, emptied every boot), its state in `recording.json`; the room on the card, the three hours and the silence prompt (`[TriMixxx],record_silence`, the skin's overlay) watched; the deck's own sticks from the kernel's mount table; the set and its track list (from `DeckHistory`) written by `sudo -n dj-usb write`. |
 | `camelot.h` | Camelot order and compatibility. |
 
 ### `src/widget/deck/`: the deck's widgets
 
 | File | What it is |
 |---|---|
-| `wdeckbrowser.{h,cpp}` | `WDeckBrowser` (skin node `<DeckBrowser>`): the library as a menu stack. Levels, breadcrumb, sort, search, the info layout, the History's two levels (power-ups, then what played, the latest first), and the `[Browser]` controls. Loads through `DeckLoader`. `DeckSortChip`, the breadcrumb's sort indicator, is declared beside it. |
+| `wdeckbrowser.{h,cpp}` | `WDeckBrowser` (skin node `<DeckBrowser>`): the library as a menu stack. Levels, breadcrumb, sort, search, the info layout, the History's two levels (power-ups, then what played, the latest first), "Record set"'s row (End recording and its L/R meter) and its "Write the set to" level, and the `[Browser]` controls. Loads through `DeckLoader`. `DeckSortChip`, the breadcrumb's sort indicator, is declared beside it. |
 | `decklistview`, `deckdelegates`, `deckmenumodel`, `deckpage.h` | The lists: one view class with the deck's gestures, the row painters, the menu rows, and the page interface for a level that takes the encoder itself. |
 | `wdeckinfopanel`, `wdecksortmenu`, `wdecksearch` | The info panel, the sort menu, the on-screen keyboard. |
 | `wdeckkeypicker` | `<DeckKeyPicker>`: the key list over the deck (B6 held), built like the sort menu; `[KeyPicker]` drives it, and a pick writes `[ProLink] key_shift`. |
@@ -150,7 +153,8 @@ CoreServices                                    (upstream; owns one fork member)
      ├─ RemoteTrackStreamer                        │ and handed down
      ├─ DeckLoader                                 │
      ├─ DeckAutoplay           ────────────────────┘
-     └─ DeckHistory            the History; its store on a thread of its own
+     ├─ DeckHistory            the History; its store on a thread of its own
+     └─ DeckRecorder           "Record set"; InputCapture on a thread of its own
 
 the skin (rebuilt on a skin reload; the services above are not)
  ├─ WDeckToast, WDeckAutoplayBadge     handed the services by parseDeckNode()
@@ -213,6 +217,10 @@ Everything above runs on the GUI thread except:
 - **the History's store** (`HistoryStore`), on `DeckHistory`'s own thread: a
   commit waits for the card. Opening it at start and closing it at the end are
   waited for; every write in between is queued;
+- **"Record set"'s capture** (`InputCapture`), on `DeckRecorder`'s own thread:
+  a read waits for the sound card's input, and each block is encoded there;
+  levels and the end come back queued. Writing a set to a stick is another
+  process (`sudo -n dj-usb write`), watched from the GUI thread;
 - **the engine**, which sees the fork only as `phase_trim` (`RateControl`)
   and a decoder (`SoundSourceStreaming`).
 
@@ -225,7 +233,7 @@ newer Mixxx means replaying these.
 
 | Upstream file | What the fork does there |
 |---|---|
-| `CMakeLists.txt`, `cmake/modules/ProlinkRust.cmake` | The fork's sources; `lib/prolink` linked statically. |
+| `CMakeLists.txt`, `cmake/modules/ProlinkRust.cmake` | The fork's sources; `lib/prolink` linked statically; ALSA on Linux, for "Record set"'s capture. |
 | `library/rekordbox/rekordboxfeature.{h,cpp}`, `lib/kaitai/`, `lib/rekordbox-metadata/` | Deleted: the deck reads sticks itself, through `lib/prolink`, and the Kaitai parsers went with the feature. `.pre-commit-config.yaml` loses their exclusion. |
 | `coreservices.{h,cpp}` | Makes and drops `DeckServices`. Never writes `mixxx.cfg`. `--log-path`. |
 | `util/cmdlineargs.{h,cpp}`, `dialog/dlgdevelopertools.cpp`, `dialog/dlgdevelopertoolsdlg.ui` | `--log-path`, and the log found there; a "ProLink only" filter. |
