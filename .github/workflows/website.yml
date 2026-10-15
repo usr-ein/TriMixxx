@@ -50,13 +50,16 @@ jobs:
       - name: Install
         run: npm ci
 
-      # Astro keeps every picture it has already resized here; restoring it
-      # turns a ~45 s image pass into a few seconds.
+      # Astro keeps every picture it has already resized here, each under a
+      # hash of its source and settings; restoring it turns a ~15 min image
+      # pass into seconds. Any earlier cache will do: what changed is redone.
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: website/node_modules/.astro
           key: astro-${{ hashFiles('website/package-lock.json') }}-${{ github.sha }}
-          restore-keys: astro-${{ hashFiles('website/package-lock.json') }}-
+          restore-keys: |
+            astro-${{ hashFiles('website/package-lock.json') }}-
+            astro-
 
       - name: Photos
         run: npm run media
