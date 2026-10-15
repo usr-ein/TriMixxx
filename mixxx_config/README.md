@@ -48,7 +48,10 @@ Mixxx, so a mapping tweak can never disturb the deck's system config.
   deck's settings: a change made in Preferences on the deck lasts until Mixxx
   exits, and a lasting one is made here and uploaded. Keep its `[Config]
   Version` at the fork's (2.5.6): an older one makes Mixxx treat every start as
-  an upgrade, since the bumped version is never saved.
+  an upgrade, since the bumped version is never saved. `[ProLink] Interface
+  eth0` keeps the deck's Pro DJ Link on its Ethernet port: with no cable in,
+  it is a player nowhere, rather than one on its Wi-Fi serving its sticks
+  there (empty: Mixxx picks an interface, link-local first).
 - `../pi-qemu/deploy/005_config.sh` — the config deploy step, which puts all of
   the above on the deck (`pi-qemu deck deploy TARGET config`). **Validates every
   XML before anything leaves this machine**: Qt rejects a malformed skin silently
