@@ -22,6 +22,12 @@ proc::Result SshTarget::capture(const QString& command, const proc::Options& o) 
     return proc::capture("ssh", args({}, command), o);
 }
 
+int SshTarget::follow(const QString& command, const proc::Options& o,
+                      const std::function<void(const QString& line, bool err)>& line,
+                      const std::function<void(qint64 taken)>& tick) const {
+    return proc::follow("ssh", args({}, command), o, line, tick);
+}
+
 bool SshTarget::reachable(int seconds) const {
     proc::Options o;
     o.quiet = true;

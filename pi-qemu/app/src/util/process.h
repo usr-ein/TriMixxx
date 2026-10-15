@@ -1,12 +1,15 @@
 #pragma once
 // Running programs: ssh to a deck, docker, git, the release container. `run`
 // passes their output through to ours (the terminal, and the build log when
-// one is open: util/buildlog); `capture` keeps their output.
+// one is open: util/buildlog); `capture` keeps their output; `follow` hands it
+// over a line at a time, while it runs.
 
 #include <QByteArray>
 #include <QHash>
 #include <QString>
 #include <QStringList>
+
+#include <functional>
 
 namespace proc {
 
@@ -32,6 +35,15 @@ struct Result {
 
 int    run(const QString& program, const QStringList& args, const Options& o = {});
 Result capture(const QString& program, const QStringList& args, const Options& o = {});
+
+// For a step that shows how far it has got (util/meter): like run, but what
+// the program prints comes to `line` a line at a time (stderr's with `err`),
+// and `tick` is called about four times a second while it runs, with how much
+// of o.file (Input::File) it has taken so far. That file is fed into its stdin
+// by us, to count it, as `pv FILE | program` would.
+int follow(const QString& program, const QStringList& args, const Options& o,
+           const std::function<void(const QString& line, bool err)>& line,
+           const std::function<void(qint64 taken)>& tick);
 
 // A shell word, quoted for sh -c (and for ssh, whose command is one).
 QString quote(const QString& word);

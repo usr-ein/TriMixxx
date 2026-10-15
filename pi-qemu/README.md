@@ -556,6 +556,20 @@ pi-qemu deck ship --host trimixxx-pi-2-eth   # the update onto a deck running a 
 pi-qemu deck prepare --host trimixxx-pi-2-eth trimixxx2   # before a deck's first release card
 ```
 
+**Shipping.** `deck ship` sends the bundle (1.1 GB) into the deck's
+`/var/lib/rauc`, has RAUC install it into the other slot, and reboots the deck
+into it as a trial. Sending and installing each show how far they have got:
+
+- **On a terminal:** one line, drawn again each second. While sending: a bar,
+  what has gone of the whole, the rate over the last 10 s and the time left.
+  While installing: RAUC's own percent and the step it is on.
+- **Piped, logged, or run by an agent:** no bar, but a plain line with the same
+  figures every 10%, or every 30 s.
+
+The bytes are counted as they go into ssh: pi-qemu feeds it the bundle itself,
+so the figures are the same over a cable or Wi-Fi. A transfer cut short says how
+far it got; the next `deck ship` sends the whole bundle again.
+
 **Versions.** A release is X.Y.Z, tagged `pi/vX.Y.Z`. From 1.0.0 on, in
 Sam's words:
 

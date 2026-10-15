@@ -396,7 +396,10 @@ void addDeck(cli::Registry& r) {
                 "default) is streamed into RAUC's state partition and installed into the other\n"
                 "slot; the deck reboots into it as a trial, and its health check keeps it or\n"
                 "drops it. Then what the deck says: its version, its slot, its health, RAUC's\n"
-                "status. An emulated deck runs a release card with: deck up NAME --from CARD." + kCableHelp,
+                "status. Sending and installing show how far they have got: on a terminal, a\n"
+                "bar drawn again each second (what has gone, the rate, the time left; then\n"
+                "RAUC's percent); otherwise a line every 10% or 30 s. An emulated deck runs a\n"
+                "release card with: deck up NAME --from CARD." + kCableHelp,
         .options = {kHost, kWifi, {"version", "X.Y.Z", "another release than HEAD's (a fault test's: X.Y.Z-panic)"}},
         .run = shipVerb,
     });

@@ -3,6 +3,8 @@
 #include "util/fail.h"
 #include "util/tool.h"
 
+#include <QElapsedTimer>
+#include <QFile>
 #include <QFileInfo>
 #include <QProcess>
 #include <QProcessEnvironment>
@@ -79,6 +81,82 @@ Result capture(const QString& program, const QStringList& args, const Options& o
     r.out = p.readAllStandardOutput();
     if (o.quiet) r.err = p.readAllStandardError();
     return r;
+}
+
+int follow(const QString& program, const QStringList& args, const Options& o,
+           const std::function<void(const QString& line, bool err)>& line,
+           const std::function<void(qint64 taken)>& tick) {
+    constexpr qint64 kPiece = 1 << 20; // the file read 1 MB at a time,
+    constexpr qint64 kAhead = 4 << 20; // with at most 4 MB of it waiting in QProcess
+    QFile in(o.file);
+    if (o.input == Input::File && !in.open(QIODevice::ReadOnly)) {
+        fprintf(stderr, "%s: cannot read %s: %s\n", kTool, qPrintable(o.file), qPrintable(in.errorString()));
+        return -1;
+    }
+    Options piped = o;
+    if (o.input == Input::File) piped.input = Input::Data; // its stdin a pipe, fed below
+    QProcess p;
+    setUp(p, program, args, piped);
+    p.start();
+    if (!p.waitForStarted(-1)) {
+        fprintf(stderr, "%s: cannot run %s: %s\n", kTool, qPrintable(program), qPrintable(p.errorString()));
+        return -1;
+    }
+    if (o.input == Input::Data) {
+        p.write(o.data);
+        p.closeWriteChannel();
+    }
+    // Its output's complete lines, handed over; at its end, the rest too.
+    QByteArray partial[2];
+    const auto relay = [&](bool err, bool end) {
+        QByteArray& b = partial[err];
+        b += err ? p.readAllStandardError() : p.readAllStandardOutput();
+        for (qsizetype nl; (nl = b.indexOf('\n')) >= 0; b.remove(0, nl + 1))
+            line(QString::fromUtf8(b.left(nl)).remove(u'\r'), err);
+        if (end && !b.isEmpty()) {
+            line(QString::fromUtf8(b).remove(u'\r'), err);
+            b.clear();
+        }
+    };
+    qint64 fed = 0; // of the file, into QProcess: it has taken all but what still waits there
+    bool failed = false;
+    QElapsedTimer clock, sinceTick;
+    clock.start();
+    sinceTick.start();
+    while (p.state() != QProcess::NotRunning) {
+        while (in.isOpen() && p.bytesToWrite() < kAhead) {
+            const QByteArray piece = in.read(kPiece);
+            if (piece.isEmpty()) {
+                if (!in.atEnd()) { // the Mac's disk failed us: stopped, rather than waited on forever
+                    fprintf(stderr, "%s: cannot read %s: %s\n", kTool, qPrintable(o.file), qPrintable(in.errorString()));
+                    failed = true;
+                    p.kill();
+                }
+                in.close();
+                p.closeWriteChannel(); // its input ends once what waits is written
+                break;
+            }
+            p.write(piece);
+            fed += piece.size();
+        }
+        if (o.timeoutMs >= 0 && clock.elapsed() > o.timeoutMs && !failed) {
+            failed = true;
+            p.kill();
+        }
+        if (p.bytesToWrite() > 0) p.waitForBytesWritten(250);
+        else p.waitForFinished(250);
+        relay(false, false);
+        relay(true, false);
+        if (tick && sinceTick.elapsed() >= 250) {
+            tick(fed - p.bytesToWrite());
+            sinceTick.restart();
+        }
+    }
+    relay(false, true);
+    relay(true, true);
+    if (tick) tick(fed - p.bytesToWrite());
+    if (failed) return -1;
+    return p.exitStatus() == QProcess::NormalExit ? p.exitCode() : -1;
 }
 
 QString quote(const QString& word) {

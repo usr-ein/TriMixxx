@@ -148,7 +148,10 @@ pi-qemu release faults                     # releases/1.2.0-nonet, -nossh, -noin
   has no host keys). A deck is flashed with its own card.
 - `deck ship` streams the bundle into RAUC's state partition, installs it
   into the other slot and reboots into it as a trial; the deck's health check
-  (network up and ssh answering) keeps it or rolls it back.
+  (network up and ssh answering) keeps it or rolls it back. Sending and
+  installing show how far they have got: a bar on a terminal; run by an agent
+  (no terminal), a plain line every 10% or 30 s (sent, rate, time left; then
+  RAUC's percent).
 
 ## Trying a release on emulated decks
 

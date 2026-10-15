@@ -18,6 +18,10 @@ struct SshTarget {
     // A command on the deck, its output passed through; its exit status.
     int run(const QString& command, const proc::Options& o = {}) const;
     proc::Result capture(const QString& command, const proc::Options& o = {}) const;
+    // As proc::follow: its output a line at a time, `tick` while it runs.
+    int follow(const QString& command, const proc::Options& o,
+               const std::function<void(const QString& line, bool err)>& line,
+               const std::function<void(qint64 taken)>& tick) const;
     // ssh answers within `seconds`.
     bool reachable(int seconds = 2) const;
     int scpTo(const QStringList& local, const QString& remote) const; // remote: a path on the deck
