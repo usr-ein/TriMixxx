@@ -17,12 +17,20 @@ done on trimixxx2 and what it showed.
 > `trimixxx-pi-2`, the deck this was written on. On a new deck, use its own
 > alias. `pi-qemu help` lists the commands.
 >
-> `pi-qemu deck deploy --host ALIAS` runs every deploy step, in this document's
-> order: `base` (most of §1–2), `ttymidi` (§3.1), `system` (§3.2), `launcher`
-> (§3.3), `mixxx`, `config` and `library` (§3.4), then `doom` (§3.5). Naming
-> steps after the alias runs only those. Passwordless sudo (§1.1) comes first,
-> by hand. trimixxx2 was set up with the scripts these steps replaced; §6 names
-> them.
+> Deploys go over the deck's cable, by its `-eth` alias
+> (`--host trimixxx-pi-2-eth`; `pi-qemu deck alias --host trimixxx-pi-2`
+> writes it, the deck cabled): over Wi-Fi they are refused unless `--wifi`.
+> A deck whose eth0 doesn't answer on the cable yet (`deck alias` says so)
+> takes its deploys over Wi-Fi with `--wifi`, the person's call. The `[x]`
+> steps below are as they were run, by the Wi-Fi alias, before deploys
+> needed the cable.
+>
+> `pi-qemu deck deploy --host ALIAS-eth` runs every deploy step, in this
+> document's order: `base` (most of §1–2), `ttymidi` (§3.1), `system`
+> (§3.2), `launcher` (§3.3), `mixxx`, `config` and `library` (§3.4), then
+> `doom` (§3.5). Naming steps after the alias runs only those. Passwordless
+> sudo (§1.1) comes first, by hand. trimixxx2 was set up with the scripts
+> these steps replaced; §6 names them.
 
 ## Where it stands
 

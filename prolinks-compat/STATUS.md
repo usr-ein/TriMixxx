@@ -107,7 +107,7 @@ Build order steps 1–5 of `research/10` §B10 are done and deployable:
 | **step 5** | `ProLinkFeature` — players appear, grey out, disappear, in the library sidebar |
 
 **Deploy and test: `docs/HARDWARE.md` §11.**
-`pi-qemu deck deploy --host trimixxx-pi mixxx config`.
+`pi-qemu deck deploy --host trimixxx-pi-eth mixxx config` (over its cable).
 
 Passive throughout: this build transmits **nothing** on any Pro DJ Link port, so
 it cannot contend for a device number or disturb a live rig.

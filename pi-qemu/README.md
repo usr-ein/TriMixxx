@@ -522,6 +522,10 @@ unplugged), a name whose addresses go both ways. `--wifi` sends all the same,
 without looking. The Mac itself (an alias to 127.0.0.1) passes, and an
 emulated deck's NAME is never checked.
 
+The check sees the Mac's side only: a cable into a LAN whose router reached
+the deck over the deck's Wi-Fi would pass. On Sam's Mac the dock's port is on
+the decks' switch, with link-local addresses only.
+
 An IPv4 link-local address (169.254.x.x) is no cable here: macOS routes
 169.254/16 through its primary interface (Wi-Fi on Sam's Mac, first in its
 service order), so it is refused. The `-eth` aliases name their interface

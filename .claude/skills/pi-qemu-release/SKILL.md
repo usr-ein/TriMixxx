@@ -27,6 +27,7 @@ the runbook for putting real decks on release cards.
      over the Mac's cable, by its `-eth` alias (`--host trimixxx-pi-2-eth`;
      `pi-qemu deck alias --host trimixxx-pi-2` writes it, the deck cabled).
    - Over Wi-Fi they refuse, unless `--wifi`: the person's call, never yours.
+     Refused, go back to them.
    - Commands handed to the person name the `-eth` alias; with `--wifi` only
      if they asked for Wi-Fi.
 2. **The person flashes cards.** Build the image and give them the exact
