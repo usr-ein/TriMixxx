@@ -13,6 +13,14 @@
 #
 #  - autoboot.txt (p1, the only file written outside RAUC's slots) is always
 #    generated whole, written to a new file, synced and renamed: never edited.
+#  - p1 (BOOTSEL) is mounted only while autoboot.txt is read or written, and
+#    read-write only to write it (commit). A read-write mount writes p1 even
+#    when nothing changes: the FAT's dirty flag, set at the mount and cleared
+#    at the unmount, its FSInfo, and the file's access date once it is read.
+#    A normal start reads it twice, and so writes nothing there (PLAN.md
+#    invariant 15). One caller at a time, under a lock: the health check at
+#    start and a RESTART INTO may meet, and one's unmount would pull BOOTSEL
+#    from under the other's write.
 #  - A copy goes first to the state partition (/var/lib/rauc, ext4 with a
 #    journal). A damaged autoboot.txt makes the firmware start p2 whichever
 #    slot was committed (phase 1, T6c and T7), so the copy, not the running
@@ -38,6 +46,7 @@ set -eu
 
 BOOTSEL=/dev/disk/by-partuuid/5d0bc1ec-01
 MNT=/run/rauc/bootsel
+LOCK=/run/rauc/bootsel.lock
 COPY=/var/lib/rauc/autoboot.txt
 DT=/proc/device-tree/chosen/bootloader
 
@@ -82,9 +91,26 @@ named_in() {
         END { print v }')"
 }
 
-mount_bootsel() {
+# BOOTSEL, for this run alone until it exits: so `set-primary` reads and
+# writes it in one go, and nobody unmounts it under another.
+lock_bootsel() {
+    mkdir -p "${LOCK%/*}"
+    exec 9> "$LOCK"
+    flock -w 60 9 || die "BOOTSEL stayed busy for 60 s"
+}
+
+# BOOTSEL at $MNT, read-only to read autoboot.txt, read-write (sync) to write
+# it. Whatever is there goes first, a killed run's mount included: Linux won't
+# mount one FAT read-only and read-write at once. -w: a read-write mount the
+# kernel refuses fails, where mount would quietly make it read-only.
+mount_bootsel() { # ro | rw
+    umount_bootsel
     mkdir -p "$MNT"
-    mountpoint -q "$MNT" || mount -t vfat -o rw,sync "$BOOTSEL" "$MNT"
+    case "$1" in
+    ro) mount -t vfat -r "$BOOTSEL" "$MNT" ;;
+    rw) mount -t vfat -w -o sync "$BOOTSEL" "$MNT" ;;
+    esac
+    trap umount_bootsel EXIT
 }
 umount_bootsel() { ! mountpoint -q "$MNT" || umount "$MNT"; }
 
@@ -97,22 +123,23 @@ write_whole() {
     sync "$(dirname "$dest")"
 }
 
-# Commit SLOT: the copy first, then p1.
+# Commit SLOT: the copy first, then p1, the one read-write mount.
 commit() {
     autoboot_for "$1" | write_whole "$COPY"
-    mount_bootsel
-    trap umount_bootsel EXIT
+    mount_bootsel rw
     autoboot_for "$1" | write_whole "$MNT/autoboot.txt"
 }
 
 # The committed slot: p1's file, else the copy, else the slot running.
 committed() {
-    mount_bootsel
-    trap umount_bootsel EXIT
+    mount_bootsel ro
     committed_in "$MNT/autoboot.txt" || committed_in "$COPY" || booted
 }
 
 cmd="${1:-}"
+case "$cmd" in
+get-primary|set-primary|set-state|repair|committed) lock_bootsel ;;
+esac
 case "$cmd" in
 get-primary)
     committed
@@ -139,8 +166,7 @@ get-current)
     booted
     ;;
 repair)
-    mount_bootsel
-    trap umount_bootsel EXIT
+    mount_bootsel ro
     b="$(booted)"
     if s="$(committed_in "$MNT/autoboot.txt")"; then
         # Keep the copy in step with the file the firmware reads.
