@@ -161,8 +161,11 @@ dispatch and every 20 minutes, and minions check before starting a deck
 - free disk: 40 GB to dispatch; shed below 20
 - free disk in Docker's VM, where Mixxx builds and their cache live: 8 GB to
   start a minion or a build; shed below 4. A prune is your call. It is read
-  only while the VM runs (a reading starts a container, which would wake it);
-  while it sleeps, the last reading stands (`.crew/docker-df.json`).
+  while the VM runs (a reading starts a container, which would wake it). While
+  it sleeps, the last reading stands (`.crew/docker-df.json`) for a day, but
+  one under that 8 GB, which holds builds, only for an hour: after a prune it
+  is read again within the hour. A failed reading is unknown, and holds
+  nothing.
 - review rounds
 - drift-check cadence
 
