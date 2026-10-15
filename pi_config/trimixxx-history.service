@@ -15,8 +15,20 @@
 #
 # Mixxx may start first: it looks for the directory until it is there, then
 # moves what it recorded so far onto the card (DeckHistory).
+#
+# Off the boot's targets (DefaultDependencies=no), as trimixxx-recording.service
+# is: a target waits for what it wants, and through RequiresMountsFor this held
+# multi-user.target, and what comes after it, on a p8 slow to appear (90 s for
+# cpu-governor when p8's label could not be read). What the default
+# dependencies gave it that it needs, it asks for itself: the root read-write (a
+# dev card's directory is on it; booted, it is read-only until remounted), and
+# gone before the shutdown.
 Description=TriMixxx: the History's directory, on the state partition
+DefaultDependencies=no
 RequiresMountsFor=/var/lib/rauc
+After=systemd-remount-fs.service
+Conflicts=shutdown.target
+Before=shutdown.target
 
 [Service]
 Type=oneshot
