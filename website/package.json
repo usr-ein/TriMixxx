@@ -1,0 +1,54 @@
+{
+  "name": "trimixxx-website",
+  "private": true,
+  "type": "module",
+  "description": "trimixxx.e1n.sh: TriMixxx's website, built with Astro and published on GitHub Pages",
+  "license": "GPL-3.0-or-later",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "media": "sh scripts/media.sh",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "astro sync && npm run format:check && npm run lint:js && npm run lint:css && npm run lint:sh && npm run lint:spaces && npm run lint:types",
+    "lint:js": "eslint . --max-warnings 0",
+    "lint:css": "stylelint \"src/**/*.{css,astro}\" --max-warnings 0",
+    "lint:sh": "command -v shellcheck >/dev/null || { echo 'lint:sh needs shellcheck (brew install shellcheck)' >&2; exit 1; }; shellcheck --shell=sh --severity=style scripts/*.sh",
+    "lint:spaces": "node scripts/check-inline-spaces.mjs",
+    "lint:types": "astro check --minimumFailingSeverity warning"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "8.0.2",
+    "@astrojs/rss": "4.0.19",
+    "@astrojs/sitemap": "3.7.4",
+    "@fontsource-variable/archivo": "5.3.0",
+    "@fontsource-variable/jetbrains-mono": "5.3.0",
+    "astro": "7.3.5",
+    "sharp": "0.35.4"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.10",
+    "@eslint/js": "10.0.1",
+    "@typescript-eslint/parser": "8.71.0",
+    "eslint": "10.11.0",
+    "eslint-plugin-astro": "3.2.1",
+    "eslint-plugin-jsx-a11y-x": "0.2.0",
+    "eslint-plugin-mdx": "3.8.1",
+    "globals": "17.12.0",
+    "postcss-html": "2.0.0",
+    "prettier": "3.9.9",
+    "prettier-plugin-astro": "1.1.0",
+    "remark-frontmatter": "5.0.0",
+    "remark-preset-lint-consistent": "6.0.1",
+    "remark-preset-lint-recommended": "7.0.1",
+    "stylelint": "17.15.0",
+    "stylelint-config-html": "2.0.0",
+    "stylelint-config-standard": "40.0.0",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.71.0"
+  }
+}

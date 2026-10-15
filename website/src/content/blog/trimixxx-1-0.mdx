@@ -1,0 +1,127 @@
+---
+title: TriMixxx 1.0
+description: The first release numbered like one. A History of everything played on the link, Record set, KEY SYNC with a list of keys, plain sticks shared with CDJs both ways, and two fixes the same day, one of them for a deck that offered its own operating system as a USB stick.
+date: 2026-10-15
+period: 15 Oct 2026
+tags: [release, software]
+cover: ../../assets/covers/release-1-0.webp
+coverAlt: The number 1.0.0 in orange seven-segment digits, with the words History, Record set, KEY SYNC and plain sticks both ways.
+---
+
+import Figure from "../../components/Figure.astro";
+import Callout from "../../components/mdx/Callout.astro";
+import Gallery from "../../components/mdx/Gallery.astro";
+import history from "../../assets/screens/history-plain-plays.webp";
+import endRecording from "../../assets/screens/end-recording.webp";
+import writing from "../../assets/screens/writing.webp";
+import plainTags from "../../assets/screens/plain-stick-tags.webp";
+import before from "../../assets/screens/before-root-ro-listed.webp";
+import after from "../../assets/screens/after-only-the-stick.webp";
+import Photo from "../../components/mdx/Photo.astro";
+
+On 15 October 2026 TriMixxx released 1.0.0, and from it on, its versions mean something: the first number moves for a large change such as a new feature, the second for smaller features and refactors, the third for bug fixes. By the end of the day it was at 1.0.2.
+
+## For the DJ
+
+**History.** What played on the Pro DJ Link network during this power-up and the two before it, whoever played it: this deck, another TriMixxx or a CDJ. Each power-up reads as a timeline, the latest at the top, with the tracks that played together on one row and for how long, each with its cover, its artist and the stick it came from. A Pi has no clock at a gig, so there are no dates; there is what overlapped with what.
+
+**Record set.** The deck records its sound card's line input, the mixer's record output, as an MP3 onto its card, never into RAM. While it records, the row says how long, with a meter for each side. Ending it writes the set to one of the deck's own sticks, with the History's track list for the same time beside it. Three hours at most, and after five silent minutes the deck asks whether the set is over.
+
+<Gallery>
+  <Figure
+    src={history}
+    alt="The History list, with one row holding two tracks that played together for 3 seconds."
+    caption="History: two tracks on one row played together."
+    frame="screen"
+    zoom="release"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+  <Figure
+    src={endRecording}
+    alt="The home list while recording: an End recording row with the time and a level meter."
+    caption="Record set, running."
+    frame="screen"
+    zoom="release"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+</Gallery>
+
+**KEY SYNC, with a list.** Over the deck, the KEY SYNC pad shifts the track onto the master's Camelot number, one shift of −5 to +6 semitones in the track's own mode. Another press takes it back to its own key. A hold opens the twelve keys the track can be pitched to, master or no master, and the encoder or a finger picks one. The pad stays lit purple while the track is out of its own key.
+
+**Plain sticks, both ways with CDJs.** A stick of music files with no rekordbox library, plugged into the deck, is shared on the link the way a CDJ shares one: a CDJ browses it by folder, sees each file's tags and cover, loads it and plays it. A CDJ's plain stick appears on the deck as a folder source, and History names what a CDJ plays from one.
+
+<Gallery>
+  <Figure
+    src={plainTags}
+    alt="A plain stick's folder on the deck: tracks listed by tag, some with covers."
+    caption="A plain stick, by folder."
+    frame="screen"
+    zoom="release"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+  <Figure
+    src={writing}
+    alt="A recorded set being written to a stick, 42 % done."
+    caption="A set going onto a stick."
+    frame="screen"
+    zoom="release"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+</Gallery>
+
+**Pro DJ Link, as two CDJs do it.** Rebuilt from captures of two CDJs talking to each other: a CDJ beside the deck no longer re-claims its player number every few seconds, a master hand-over runs at a CDJ's pace, a stopped master hands master on, and the first deck to play takes it when nobody holds it.
+
+**And the small things.** Diagnostics shows the release, its slots, and a button to restart into the other one. A second load within half a second of the first, which used to be taken for a double tap and lost, now just loads.
+
+## Underneath
+
+The fork's own C++ was reorganised along a written map of its layers: one owner for all the deck's services, classes split along their jobs, 1,750 lines shorter, and 45 of Mixxx's own files touched instead of 55. It still sits on Mixxx 2.5.6, with the Pro DJ Link library at 0.5.0.
+
+## 1.0.1: the CPU waited for a partition
+
+The History needs a directory on the state partition, and the service that makes it had been ordered into the boot's main sequence. A partition slow to appear held that sequence back, and with it the service that sets the CPU's `performance` governor, the one there to keep scratching free of underruns: for as long as the partition took, and for 90 seconds when it never mounted at all. The network, ssh and Mixxx never waited; the CPU's clock did. 1.0.1 takes the service out of that sequence.
+
+## 1.0.2: the stick called root-ro
+
+Then a deck on 1.0.1 was found listing a source nobody had plugged in: a stick called **root-ro**, with nine tracks of ALSA test sounds as its music. It was the other deck's own operating system.
+
+A release card mounts its read-only system's two layers under `/media`, and the Pro DJ Link side had offered every mount there as a stick of plain files. So each deck offered its whole system, 74,478 files, to every player on the link, and with no cable in, to anyone on its Wi-Fi. It also took the deck's USB slot, so a real stick plugged in later landed in the SD slot.
+
+<Gallery>
+  <Figure
+    src={before}
+    alt="The home list on 1.0.1, with a source called root-ro above the real stick."
+    caption="On 1.0.1: root-ro, listed above the real stick."
+    frame="screen"
+    zoom="rootro"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+  <Figure
+    src={after}
+    alt="The home list on 1.0.2, with only the real stick."
+    caption="On 1.0.2: only the stick that is plugged in."
+    frame="screen"
+    zoom="rootro"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+</Gallery>
+
+1.0.2 offers only what the kernel says is a USB disk, the rule the deck's own browser had followed since the first release. The database server now answers only on the cable, and the deck is a player only on its Ethernet port: with no cable in, it isn't a player at all, and Diagnostics says "waiting for eth0".
+
+## What is still to be shown
+
+Every release says where it has been tried, and 1.0's notes are plain about it: its features were tried on emulated decks, and its Pro DJ Link changes on emulated CDJ-2000NXS players running Pioneer's own firmware. Still to be shown on real hardware:
+
+- Record set, from the real sound card's input, with its timings;
+- the Pro DJ Link changes, against real CDJs;
+- History and KEY SYNC, on a real deck.
+
+<Callout kind="note" title="Get it">
+  Releases are tagged <code>pi/vX.Y.Z</code> in the repository, with their notes on GitHub. A
+  release card holds no deck's identity, and an update ships as a RAUC bundle to the deck's idle
+  slot over its cable. The controller's firmware hasn't changed since 0.1.1.
+</Callout>
+
+<Photo id="2026-10-10-img-9308" />
+
+That's where TriMixxx stands in October 2026: two decks, a booth on a laptop, and a deck that has played a gig. Everything that comes next will be in this log, and on GitHub as it happens.

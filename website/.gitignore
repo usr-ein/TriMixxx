@@ -1,0 +1,7 @@
+# Built site and Astro's generated types
+dist/
+.astro/
+node_modules/
+
+# The photo library, cloned from its own repository by `npm run media`
+media/

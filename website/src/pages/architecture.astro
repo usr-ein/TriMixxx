@@ -1,0 +1,597 @@
+---
+import figEmulated from "../assets/figures/ab-6-emulated-vs-real.webp";
+import CardLayout from "../components/diagrams/CardLayout.astro";
+import RingDiagram from "../components/diagrams/RingDiagram.astro";
+import Steps from "../components/diagrams/Steps.astro";
+import SystemDiagram from "../components/diagrams/SystemDiagram.astro";
+import Figure from "../components/Figure.astro";
+import StackDiagram from "../components/StackDiagram.astro";
+import { site } from "../data/site";
+import Base from "../layouts/Base.astro";
+
+const tree = `${site.repo}/tree/main`;
+const blob = `${site.repo}/blob/main`;
+
+const midiMap = [
+  ["Ring A pad i", "Note 0x00 + i", "tempo range, master tempo, 8- and 4-beat loops, ×2, ÷2, back"],
+  ["Ring B pad i", "Note 0x43 + i", "hot cues 1–4, slip, SORT / KEY SYNC"],
+  ["PLAY, CUE", "Notes 0x3C, 0x3D", "play (toggle), cue_default"],
+  ["LOOP IN, OUT, RELOOP", "Notes 0x3E–0x40", "loop_in, loop_out, reloop_toggle"],
+  ["Track encoder", "CC 0x10 relative + Note 0x41", "browse, open, load"],
+  ["Jog wheel", "CC 0x11 relative + Note 0x42 (touch)", "scratch when touched, bend otherwise"],
+  ["Tempo fader", "CC 0x12 MSB + CC 0x32 LSB, 14-bit", "rate, picked up by the script"],
+] as const;
+
+const sysex = [
+  [
+    "F0 7D 01 node RGB… F7",
+    "Mixxx → S3",
+    "Ring A colours, each 8-bit channel split into two nibbles",
+  ],
+  ["F0 7D 03 node RGB… F7", "Mixxx → S3", "Ring B colours, the same way"],
+  ["F0 7D 02 'RST' F7", "Mixxx → S3", "Reboot the S3; the magic word stops a stray message"],
+  ["F0 7D 04 F7", "Mixxx → S3", "Report the tempo fader's position now"],
+  ["F0 7D 01 F7", "Mixxx → launchd", "Power off (and 02 reboot)"],
+  ["F0 7D 03 'SLOT' F7", "Mixxx → launchd", "Restart into the other A/B slot"],
+  ["F0 7D 20–22 'MIX'…", "Mixxx → launchd", "Switch mode: Mixxx, DOOM or the rescue console"],
+] as const;
+
+const ports = [
+  [
+    "UDP 50000",
+    "broadcast",
+    "Who's here: hello, claim a player number, then a keep-alive every 2 s. Five missed means gone.",
+  ],
+  [
+    "UDP 50001",
+    "broadcast",
+    "Beats: tempo, pitch and the position in the bar. Master hand-over requests travel here too.",
+  ],
+  [
+    "UDP 50002",
+    "unicast",
+    "Status every 200 ms, sent only to players that have announced themselves; also the media queries.",
+  ],
+  [
+    "UDP 111 → NFSv2",
+    "unicast",
+    "Files: portmapper, mount, then the audio itself, streamed as 8 KB reads.",
+  ],
+  [
+    "TCP 12523 → 1051",
+    "unicast",
+    "dbserver: menus, metadata, artwork, waveforms, beat grids and cues.",
+  ],
+] as const;
+
+const playSteps = [
+  {
+    title: "Press",
+    text: "The switch shorts a 100 nF capacitor; the S3's pin, held high by its pull-up, falls. Buttons are active-low.",
+    time: "0 ms",
+  },
+  {
+    title: "Debounce",
+    text: "A FreeRTOS task on core 1 samples the pin every 2 ms and wants three stable samples. It latches the press, so a stalled main loop can't miss it.",
+    time: "≈ 6 ms",
+  },
+  {
+    title: "MIDI out",
+    text: "The main loop takes the latch and sends Note-On 0x3C, velocity 127, three bytes on UART0.",
+    time: "+ 0.26 ms on the wire",
+  },
+  {
+    title: "ttymidi",
+    text: "On the Pi, ttymidi turns the bytes into an ALSA sequencer event on the TriMixxx port.",
+  },
+  {
+    title: "Mixxx",
+    text: "The mapping matches note 0x3C and calls the script's play handler, which toggles [Channel1] play.",
+  },
+  {
+    title: "The light",
+    text: "Mixxx sends play_indicator back on the same note, and the S3 lights PLAY from it: the lamp shows Mixxx's state, not the button's.",
+  },
+  {
+    title: "The network",
+    text: "The deck's next status packet tells every player on the link that it is playing: at once on a change, otherwise every 200 ms.",
+  },
+];
+
+const bootSteps = [
+  {
+    title: "Bootloader",
+    text: "The Pi's EEPROM reads which slot to boot, A or B. An update's first start is a one-shot trial.",
+  },
+  {
+    title: "Kernel and initramfs",
+    text: "The panel's drivers sit in the initramfs, so the screen is up early instead of after the root mounts.",
+    time: "panel ≈ 1.7 s",
+  },
+  {
+    title: "Splash",
+    text: "The logo goes up on a spare console while the boot log keeps printing behind it: a failing unit is still visible before a gig.",
+    time: "≈ 8 s after power-on",
+  },
+  {
+    title: "Identity",
+    text: "The deck's name, Wi-Fi networks and ssh keys come from their own partition into RAM; the system itself carries none.",
+  },
+  {
+    title: "The MIDI bridge",
+    text: "ttymidi opens the UART and creates the TriMixxx MIDI port before anything that would look for it.",
+  },
+  {
+    title: "Launch manager",
+    text: "trimixxx-launchd watches the deck's buttons for three seconds and picks the mode: Mixxx, DOOM or the rescue console. Whatever fails, the answer is Mixxx.",
+  },
+  {
+    title: "Mixxx",
+    text: "Autologin starts X and Mixxx, full screen. If Mixxx ever exits, it is back two seconds later.",
+    time: "≈ 16 s",
+  },
+  {
+    title: "Health check",
+    text: "On a trial start only: if the network and ssh are up within 150 s the release is kept, otherwise the deck reboots into the one before.",
+  },
+];
+---
+
+<Base
+  title="Architecture"
+  description="How TriMixxx works, layer by layer: CH32V003 pad rings, an ESP32-S3 controller, MIDI over a UART, a Raspberry Pi with A/B updates, a Mixxx fork, and a Rust Pro DJ Link stack."
+>
+  <section class="wrap section section--tight">
+    <div class="section__head">
+      <span class="kicker">Architecture</span>
+      <h1>A deck is a small network.</h1>
+      <p class="lede">
+        A CDJ's main board does everything. TriMixxx splits the work: tiny RISC-V nodes for the
+        pads, an ESP32-S3 for every control, a Raspberry Pi for the music and a Rust library for the
+        network. They talk over plain UARTs and plain MIDI, and any piece can be swapped without
+        touching the rest.
+      </p>
+    </div>
+    <SystemDiagram />
+  </section>
+
+  <section class="wrap section section--line">
+    <div class="section__head">
+      <span class="kicker">The layers</span>
+      <h2>Top to bottom.</h2>
+      <p class="lede">
+        Each layer below has its own section, in the order a press of PLAY travels through them:
+        from the copper up.
+      </p>
+    </div>
+    <StackDiagram />
+  </section>
+
+  <section class="wrap section section--line layer" id="controls">
+    <div class="layer__head">
+      <span class="kicker">01 · Controls</span>
+      <h2>Real parts, read properly.</h2>
+    </div>
+    <div class="layer__body prose">
+      <p>
+        The jog wheel is a <strong>CDJ-1000MK3 jog assembly</strong>. A Sharp GP1A038RBK optical
+        sensor reads its 3,240-line disk in quadrature: <strong>12,960 counts a turn</strong>,
+        counted by the ESP32-S3's hardware pulse counter, so no interrupt ever fires and no count is
+        lost. The signal is clean from the comparator, so it is not debounced. A touch switch in the
+        platter decides between scratch and bend.
+      </p>
+      <p>
+        The tempo fader is read <strong>ratiometrically</strong>: the wiper minus a live reading of
+        the centre tap, so the centre lands on the middle without calibration. Each side has its own
+        span because the centre tap isn't centred, and the value is smoothed, given hysteresis and
+        sent as <strong>14-bit MIDI</strong>. A single 7-bit CC would have cut the whole pitch range
+        into 128 steps.
+      </p>
+      <p>
+        The browse encoder is mechanical, so it is the opposite case: a state-table decoder rejects
+        contact bounce and gives exactly one tick per detent. The buttons have 100 nF on the board
+        and are polled, never put on an edge interrupt, which a slow RC edge can make fire twice.
+      </p>
+    </div>
+  </section>
+
+  <section class="wrap section section--line layer" id="boards">
+    <div class="layer__head">
+      <span class="kicker">02 · Satellite boards</span>
+      <h2>Thirteen pads, one frame.</h2>
+    </div>
+    <div class="layer__body prose">
+      <p>
+        The RGB pads sit on <strong>OneButton</strong> nodes: 20 mm boards with a CH32V003 RISC-V
+        microcontroller, a switch and two RGB LEDs. They are daisy-chained into two rings, seven
+        nodes and six, each ring on its own UART of the S3 at <strong>500 kbaud</strong>.
+      </p>
+      <p>
+        The S3 sends one fixed-length frame round the ring. It carries every LED's colour outward,
+        and every node writes its button into its own slot as the frame passes through. Nodes relay{" "}
+        <strong>cut-through</strong>: each byte goes out as soon as it arrives, so a frame's trip
+        costs one frame time plus a byte per node, not a frame per node. Each node re-clocks the
+        bytes, so UART clock error never adds up along the chain.
+      </p>
+    </div>
+    <div class="layer__wide">
+      <RingDiagram />
+    </div>
+    <div class="layer__body prose">
+      <p>
+        Addresses are <strong>positional</strong>. At start-up the S3 sends an enumeration frame
+        with a hop count of zero; each node takes the count as its index and passes on count + 1.
+        Every node runs the same binary with no configuration, and a ring sizes itself to however
+        many nodes are fitted, up to 50. Ten bad frames or a second of silence, and the S3
+        enumerates again.
+      </p>
+      <p>
+        The protocol is written up as a specification, with its timing and failure model:{" "}
+        <a href={`${blob}/firmwares/onebutton/onebutton-protocol.md`} rel="noopener">
+          the OneButton Protocol
+        </a>
+        . The node firmware is bare-metal C on{" "}
+        <a href="https://github.com/cnlohr/ch32fun" rel="noopener">
+          ch32fun
+        </a>
+        , and its WS2812 timing was tuned for margin and held at 150 °C.
+      </p>
+    </div>
+  </section>
+
+  <section class="wrap section section--line layer" id="brain">
+    <div class="layer__head">
+      <span class="kicker">03 · Controller</span>
+      <h2>An ESP32-S3 with house rules.</h2>
+    </div>
+    <div class="layer__body prose">
+      <p>
+        The{" "}
+        <a href={`${tree}/firmwares/trimixxx-midi`} rel="noopener">
+          S3's firmware
+        </a>{" "}
+        is PlatformIO and Arduino on FreeRTOS. Each peripheral is a self-contained module: the two
+        rings, the jog, the fader, the encoder, the play/cue and loop boards, and the link to the
+        Pi. Only <code>main.cpp</code> knows how they connect, and one switch swaps the MIDI loop
+        for each module's own self-test.
+      </p>
+      <ul>
+        <li>
+          <strong>No heap.</strong> Every buffer is sized at compile time; memory use is known at
+          link time.
+        </li>
+        <li>
+          <strong>Hardware before software.</strong> The pulse counter for the jog, UARTs for the
+          rings.
+        </li>
+        <li>
+          <strong>Two cores, no contention.</strong> The ring task owns core 0; the button poller
+          runs on core 1. Moving the fader's ADC reads off the main loop took it from about 480 Hz
+          to about 98 kHz, and the jog is reported every 300 µs.
+        </li>
+        <li>
+          <strong>Formatted and checked.</strong> clang-format and cppcheck run on every commit.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="wrap section section--line layer" id="link">
+    <div class="layer__head">
+      <span class="kicker">04 · The link</span>
+      <h2>Plain MIDI, one header file.</h2>
+    </div>
+    <div class="layer__body prose">
+      <p>
+        The S3 and the Pi share a <strong>3.3 V UART at 115 200 baud</strong>, so no level shifting
+        is needed, and on it travels raw MIDI on channel 1. To Mixxx, the deck is an ordinary MIDI
+        controller. Every address lives in one place,{" "}
+        <a href={`${blob}/firmwares/trimixxx-midi/lib/PiLink/MidiMap.hpp`} rel="noopener">
+          <code>MidiMap.hpp</code>
+        </a>
+        . The Mixxx mapping matches it, and the emulated deck's virtual S3 compiles the same header
+        in, so the contract can't drift.
+      </p>
+    </div>
+    <div class="layer__wide grid grid--2">
+      <div class="table-wrap" role="region" aria-label="The MIDI map" tabindex="0">
+        <table>
+          <caption class="visually-hidden">The deck's MIDI map</caption>
+          <thead>
+            <tr>
+              <th scope="col">Control</th>
+              <th scope="col">MIDI</th>
+              <th scope="col">Mixxx</th>
+            </tr>
+          </thead>
+          <tbody>
+            {midiMap.map(([control, midi, mixxx]) => (
+              <tr>
+                <th scope="row">{control}</th>
+                <td>
+                  <code>{midi}</code>
+                </td>
+                <td class="muted">{mixxx}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div class="table-wrap" role="region" aria-label="The SysEx messages" tabindex="0">
+        <table>
+          <caption class="visually-hidden">The deck's SysEx messages</caption>
+          <thead>
+            <tr>
+              <th scope="col">SysEx</th>
+              <th scope="col">Way</th>
+              <th scope="col">Does</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sysex.map(([message, way, does]) => (
+              <tr>
+                <td>
+                  <code>{message}</code>
+                </td>
+                <td class="muted nowrap">{way}</td>
+                <td class="muted">{does}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="layer__body prose">
+      <p>
+        A 7-bit Note velocity can only set a pad's white brightness, so colours travel as SysEx
+        under <code>0x7D</code>, MIDI's ID for non-commercial use. Each 8-bit channel is split into
+        two nibbles to fit SysEx's 7-bit bytes.
+      </p>
+    </div>
+  </section>
+
+  <section class="wrap section section--line layer" id="play">
+    <div class="layer__head">
+      <span class="kicker">A press of PLAY</span>
+      <h2>From copper to the network.</h2>
+    </div>
+    <div class="layer__body">
+      <Steps steps={playSteps} label="What happens when PLAY is pressed" />
+    </div>
+  </section>
+
+  <section class="wrap section section--line layer" id="pi">
+    <div class="layer__head">
+      <span class="kicker">05 · Operating system</span>
+      <h2>A Pi that boots into a deck.</h2>
+    </div>
+    <div class="layer__body prose">
+      <p>
+        A Raspberry Pi 4 runs Raspberry Pi OS Lite, with every unit, rule and script that makes it a
+        deck in{" "}
+        <a href={`${tree}/pi_config`} rel="noopener">
+          <code>pi_config/</code>
+        </a>
+        . Sound goes out through a Behringer UCA222 at 44.1 kHz with a 256-frame buffer, 5.8 ms. A
+        512-frame buffer measured cleaner under heavy scratching, but 256 was kept on purpose: the
+        jog's lag is a multiple of the buffer, and the smaller one keeps it feeling attached. The
+        CPU runs the <code>performance</code> governor: <code>ondemand</code> samples load only
+        every 100 ms and waits for half of all four cores to be busy, which can leave a single
+        saturated audio core at the lowest clock.
+      </p>
+      <Steps steps={bootSteps} label="The deck's boot, in order" />
+      <h3>MIDI is the only way out of Mixxx</h3>
+      <p>
+        Mixxx's controller scripts run in a JavaScript engine with no file, process or network
+        access. So the system-level jobs, shutting down, switching mode, restarting into the other
+        slot, are SysEx messages to a second MIDI device: <code>trimixxx-launchd</code>, a static Go
+        binary. Each message picks an action from a fixed table, with magic words where a stray byte
+        could hurt, and no MIDI byte ever reaches a shell. Its sibling,{" "}
+        <code>trimixxx-deckkeys</code>, replays the deck's MIDI as a virtual keyboard and mouse,
+        which is how DOOM and the rescue console are played.
+      </p>
+      <h3>USB sticks, read-only</h3>
+      <p>
+        A udev rule mounts every stick read-only, and that is the whole safety model: nothing on the
+        deck can write to a DJ's stick except Record set's one copy command, which remounts it
+        read-write for the copy alone.
+      </p>
+    </div>
+  </section>
+
+  <section class="wrap section section--line layer" id="updates">
+    <div class="layer__head">
+      <span class="kicker">05 · Updates</span>
+      <h2>Two of everything that changes.</h2>
+    </div>
+    <div class="layer__body prose">
+      <p>
+        A release card has eight partitions. The boot files and the system come twice, A and B; the
+        deck's identity and its state come once and outlive every update. An update is a{" "}
+        <a href="https://rauc.io" rel="noopener">
+          RAUC
+        </a>{" "}
+        bundle written into the idle slot, started with the Pi's own one-shot <code>tryboot</code>,
+        and kept only if the health check passes. The system itself is a read-only SquashFS under a
+        layer in RAM.
+      </p>
+    </div>
+    <div class="layer__wide">
+      <CardLayout />
+    </div>
+    <div class="layer__body prose">
+      <p>
+        Every release is rehearsed on emulated decks first, fault table included: a damaged bundle,
+        a power cut during the copy, no network, a kernel panic, a hung initramfs. The table was
+        then run on a bench Pi, with a real power cut five seconds into an install. Bundles are
+        integrity-checked; the signing key is in the repository on purpose, because anyone may build
+        and sign a release for their own deck.
+      </p>
+    </div>
+  </section>
+
+  <section class="wrap section section--line layer" id="mixxx">
+    <div class="layer__head">
+      <span class="kicker">06 · DJ software</span>
+      <h2>Mixxx, forked for a deck.</h2>
+    </div>
+    <div class="layer__body prose">
+      <p>
+        The deck runs{" "}
+        <a href="https://github.com/usr-ein/mixxx" rel="noopener">
+          a fork
+        </a>{" "}
+        of{" "}
+        <a href={site.mixxx} rel="noopener">
+          Mixxx
+        </a>{" "}
+        2.5.6, the open-source DJ software. The fork keeps its changes to upstream small, 45 of
+        Mixxx's own files touched, and puts the deck's own code in layers of its own: the deck
+        widgets, the deck library, the rekordbox reader and the Pro DJ Link glue, over the Rust
+        library. One owner starts and stops all of it.
+      </p>
+      <ul>
+        <li>
+          <strong>The skin</strong> is XML and QSS, the <strong>mapping</strong> XML and JavaScript:
+          both change in seconds, with no compiler.
+        </li>
+        <li>
+          <strong>Each deck</strong> has a small JSON file: its accent colour, its own button
+          wiring, whether its jog runs backwards.
+        </li>
+        <li>
+          <strong>Settings are the repository's.</strong> The fork never writes its config back, so
+          the deck's settings are exactly the file in git.
+        </li>
+        <li>
+          <strong>Built for arm64 in Docker</strong>: a cold build in about ten minutes, a one-file
+          change on a deck in about 25 seconds.
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="wrap section section--line layer" id="network">
+    <div class="layer__head">
+      <span class="kicker">07 · Network</span>
+      <h2>Pro DJ Link, from the wire up.</h2>
+    </div>
+    <div class="layer__body prose">
+      <p>
+        CDJs talk to each other over plain Ethernet, with self-assigned 169.254 addresses. TriMixxx
+        learned their protocol by watching two CDJ-2000NXS players it owns, and implements it in{" "}
+        <a href="https://github.com/usr-ein/prolink" rel="noopener">
+          prolink
+        </a>
+        , a Rust library the fork links in.
+      </p>
+    </div>
+    <div class="layer__wide table-wrap" role="region" aria-label="Pro DJ Link's ports" tabindex="0">
+      <table>
+        <caption class="visually-hidden">Pro DJ Link's ports</caption>
+        <thead>
+          <tr>
+            <th scope="col">Port</th>
+            <th scope="col">How</th>
+            <th scope="col">What travels</th>
+          </tr>
+        </thead>
+        <tbody>
+          {ports.map(([port, how, what]) => (
+            <tr>
+              <th scope="row" class="nowrap">
+                {port}
+              </th>
+              <td class="muted">{how}</td>
+              <td class="muted">{what}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    <div class="layer__body prose">
+      <p>
+        The library is six crates: the wire format with no I/O, the rekordbox database, captures,
+        the session, a command line, and the bridge to C++. Its <strong>805 tests</strong> include a
+        replay of <strong>37 sessions captured from real players</strong>: 9,308 discovery packets
+        re-encoded byte for byte, 46,103 status packets, 65,705 dbserver messages and 60,138 RPC
+        calls, with no failure. Its types encode the protocol's traps, such as a player number that
+        can only be 1 to 4, because at 5 a CDJ accepts you and then never asks you anything.
+      </p>
+      <p>
+        Everything it knows comes from captures of the author's own hardware; no code from other
+        implementations was copied. The protocol as observed is written up, with the evidence for
+        every claim, in{" "}
+        <a href="https://github.com/usr-ein/prolink/blob/main/docs/PROTOCOL.md" rel="noopener">
+          prolink's PROTOCOL.md
+        </a>
+        .
+      </p>
+    </div>
+  </section>
+
+  <section class="wrap section section--line layer" id="tooling">
+    <div class="layer__head">
+      <span class="kicker">Tooling</span>
+      <h2>Decks that run on a laptop.</h2>
+    </div>
+    <div class="layer__body prose">
+      <p>
+        <a href={`${tree}/pi-qemu`} rel="noopener">
+          <code>pi-qemu</code>
+        </a>{" "}
+        runs a whole deck on an Apple-silicon Mac: QEMU's Raspberry Pi 4 with 21 patches of its own,
+        booting the deck's real card unmodified. A virtual S3 compiles the real MIDI contract and
+        plays the panel; a folder becomes a USB stick without being copied; several decks share a
+        network and see each other over Pro DJ Link. From a snapshot, a deck is up with Mixxx
+        running in about three seconds.
+      </p>
+      <p>
+        Beside them, an emulated <strong>CDJ-2000NXS</strong> boots Pioneer's own firmware, which
+        its owner supplies and the repository never contains, through a fork of{" "}
+        <a href="https://github.com/usr-ein/cdj2000-emulator" rel="noopener">
+          cdj2000-emulator
+        </a>
+        . A change to how the deck speaks Pro DJ Link can be tried against a CDJ without a booth.
+      </p>
+    </div>
+    <div class="layer__wide">
+      <Figure
+        src={figEmulated}
+        alt="Two columns comparing a real deck and an emulated deck layer by layer: the same card layout, the same boot rules, the same files, a different CPU and RAM, and the same software on top."
+        caption="A real deck and an emulated one, layer by layer: the same card and the same software; only the board differs."
+        frame="paper"
+        zoom="architecture"
+      />
+    </div>
+  </section>
+</Base>
+
+<style>
+  .layer {
+    display: grid;
+    gap: 1.75rem;
+  }
+
+  .layer__head {
+    display: grid;
+    gap: 0.9rem;
+    max-width: 48rem;
+  }
+
+  .layer__body {
+    max-width: var(--max-prose);
+  }
+
+  .layer__body h3 {
+    margin-top: 2rem;
+  }
+
+  .layer__wide {
+    width: 100%;
+  }
+
+  .nowrap {
+    white-space: nowrap;
+  }
+</style>

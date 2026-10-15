@@ -1,0 +1,80 @@
+---
+// The TriMixxx wordmark, drawn from the same 10-unit pixel cells as the deck's
+// boot splash (pi_config/trimixxx_logo_crt.svg), so the site and the deck share
+// one logo. `glow` adds the splash's phosphor bloom and colour fringes.
+interface Props {
+  class?: string;
+  glow?: boolean;
+  cursor?: boolean;
+  title?: string;
+}
+
+const { class: className, glow = false, cursor = true, title = "TriMixxx" } = Astro.props;
+
+const cells =
+  "M114 55h50v10h-50z M134 65h10v60h-10z M174 75h30v10h-30z M204 85h10v10h-10z M174 85h10v40h-10z M234 55h10v10h-10z M234 75h10v50h-10z M224 115h30v10h-30z M264 55h10v70h-10z M304 55h10v70h-10z M274 65h10v10h-10z M294 65h10v10h-10z M284 75h10v10h-10z M334 55h10v10h-10z M334 75h10v50h-10z M324 115h30v10h-30z M364 75h10v10h-10z M404 75h10v10h-10z M374 85h10v10h-10z M394 85h10v10h-10z M384 95h10v10h-10z M374 105h10v10h-10z M394 105h10v10h-10z M364 115h10v10h-10z M404 115h10v10h-10z M424 75h10v10h-10z M464 75h10v10h-10z M434 85h10v10h-10z M454 85h10v10h-10z M444 95h10v10h-10z M434 105h10v10h-10z M454 105h10v10h-10z M424 115h10v10h-10z M464 115h10v10h-10z M484 75h10v10h-10z M524 75h10v10h-10z M494 85h10v10h-10z M514 85h10v10h-10z M504 95h10v10h-10z M494 105h10v10h-10z M514 105h10v10h-10z M484 115h10v10h-10z M524 115h10v10h-10z";
+const viewBox = cursor ? "104 45 472 90" : "104 45 440 90";
+---
+
+<svg
+  class:list={["wordmark", { "wordmark--glow": glow }, className]}
+  viewBox={viewBox}
+  role="img"
+  aria-label={title}
+  xmlns="http://www.w3.org/2000/svg"
+>
+  {glow && (
+    <g aria-hidden="true">
+      <path d={cells} class="wordmark__bloom" />
+      <path d={cells} class="wordmark__red" transform="translate(-4,0)" />
+      <path d={cells} class="wordmark__cyan" transform="translate(4,0)" />
+    </g>
+  )}
+  <path d={cells} class="wordmark__cells" />
+  {cursor && <rect x="544" y="75" width="22" height="50" class="wordmark__cursor" />}
+</svg>
+
+<style>
+  .wordmark {
+    height: 1em;
+    width: auto;
+    overflow: visible;
+  }
+
+  .wordmark__cells {
+    fill: currentcolor;
+  }
+
+  .wordmark__cursor {
+    fill: var(--lime);
+    animation: blink 1.1s steps(1, end) infinite;
+  }
+
+  .wordmark--glow .wordmark__cells {
+    fill: var(--phosphor);
+  }
+
+  .wordmark__bloom {
+    fill: #279256;
+    stroke: #279256;
+    stroke-width: 8;
+    opacity: 0.4;
+    filter: blur(6px);
+  }
+
+  .wordmark__red {
+    fill: #ff2f5e;
+    opacity: 0.35;
+  }
+
+  .wordmark__cyan {
+    fill: #2fd2ff;
+    opacity: 0.35;
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+</style>

@@ -1,0 +1,78 @@
+---
+title: Talking to CDJs
+description: Two CDJ-2000NXS players, a Mac bridging their network, and one long evening of captures. By its end a real CDJ was browsing, loading and playing music served by TriMixxx. 51 findings, and a protocol nobody had implemented from the serving side.
+date: 2026-07-31
+period: 29 – 31 Jul 2026
+tags: [pro-dj-link, reverse-engineering, network]
+cover: ../../assets/covers/pro-dj-link.webp
+coverAlt: The ten bytes every Pro DJ Link packet starts with, 51 73 70 74 31 57 6d 4a 4f 4c, spelling Qspt1WmJOL, above a list of the protocol's ports.
+---
+
+import Callout from "../../components/mdx/Callout.astro";
+import Photo from "../../components/mdx/Photo.astro";
+
+A booth is a network. The CDJs in it talk to each other over Ethernet: they share what's on their sticks, they agree on who sets the tempo, and they tell each other where the beat is. A deck that can't join that conversation is a guest in the booth. TriMixxx wanted to be a player.
+
+Three things were on the list: see and play the music on other players' sticks; share its own sticks with them; and look, to every CDJ on the link, like a legitimate player.
+
+## What was already known
+
+Pioneer doesn't document Pro DJ Link. What is known comes from people who watched it, above all Deep Symmetry's [dysentery](https://github.com/Deep-Symmetry/dysentery), and from the projects that followed it in JavaScript, Python and C++. A literature review in June went through them all, and found one gap that mattered: every one of them is a **client**. They listen, they browse, they fetch. Not one serves music to a CDJ the way another CDJ does. Sharing TriMixxx's sticks meant going where nobody had published anything.
+
+## The rig
+
+Two CDJ-2000NXS players, both on firmware 1.44. A Mac with two USB Ethernet adapters, one player on each, bridged, so the players shared one network through the Mac and every packet between them could be captured. Two rekordbox sticks with different music, and an SD card.
+
+<Photo id="2026-07-17-img-8893" />
+
+One rule came first: **watch before you speak**. The proof-of-concept tool, written in Python, refused to transmit anything on a Pro DJ Link port while it was observing, and checked that in code before every send. The players were going to be listened to for a long time before anything answered them.
+
+## One evening, 29 July
+
+The first capture started a little after seven in the evening. The players' cold boot, their greetings, their keep-alives: the documented 1.5 seconds between keep-alives turned out to be 2.0026 on this hardware. Then the questions that decided whether the project was possible at all. Does a CDJ from 2012 really serve its sticks over NFS? It does. Can an observer read them without announcing itself? It can: the export's access list is the whole link-local range.
+
+The anchor test pulled the stick's rekordbox database from a player over the network and compared it with the same file read off the stick in a computer. They matched, except for two bytes of the header, which the player itself had rewritten between the two reads. The database parsed on first contact: 692 tracks, 329 artists, 275 albums. A browse on a real player, decoded end to end, was 1,957 messages long.
+
+Then came the attempt to make a CDJ browse the Mac, and a long list of reasons why it didn't:
+
+- A player won't list a source at all until that source answers its **media query**, "what's in your slot?". The first serving attempt let 22 of them go unanswered. No published project answers it, because none of them serve.
+- An unknown request answered with an error ends the whole browse, and the menu just looks empty.
+- A CDJ treats the 32-byte NFS file handle, which the standard says is opaque, as anything but: it keeps twelve bytes of it and overwrites the rest.
+- The waveforms, beat grid and cues aren't sent as rekordbox stores them; they are transformed on the way, and a waveform header with one unexplained word left at zero means the main waveform never draws.
+
+Each was found, fixed and tried again on the real player. At about half past ten, a CDJ-2000NXS loaded a track from the Mac and played it, waveforms and all. Around midnight all four audio containers the player accepts were playing, and settings loaded over the link too. The last capture of the night was the acceptance test: **568 requests from a real CDJ, and not one error**.
+
+## The day after
+
+The next two days filled in the rest. A server has to claim a player number from 1 to 4: at 5, the CDJs accepted the Mac on the link and then never asked it a single question. A player won't mount anything until a portmapper answers on UDP port 111, and it asks once a second, forever, so the Pi needed a small change to let Mixxx bind a port that low without root.
+
+Every finding went into a written record with the capture that proved it: **52 numbered findings**, one of them later retracted, and fourteen corrections to what had been published before. The wire format was written up as Kaitai schemas and checked against every packet captured, 7,833 discovery packets, 38,371 status packets, 8,415 RPC calls and 11,809 database messages, with no disagreement.
+
+<Callout kind="note" title="Errors that cancel out">
+  Some bugs only show up on the right input. rekordbox's UTF-16 strings were being read with the
+  wrong byte order and from the wrong offset, two mistakes that cancel each other exactly for plain
+  ASCII. It took a title in Japanese, and filenames whose accents were composed differently on the
+  stick, to notice that 33 of 692 paths couldn't be opened.
+</Callout>
+
+## From proof of concept to the deck
+
+On 30 July a C++ port ran inside the Mixxx fork, on the deck. On 31 July it served both of a deck's slots, a USB stick of 651 tracks and an SD card of 692, to both CDJs, which browsed them, loaded tracks and played them; pulling a stick cleared its slot on the players cleanly.
+
+The same day a Rust library was started, and the day after, the deck switched to it and dropped the C++: twenty-one files, and the vendored parsers with them. [prolink](https://github.com/usr-ein/prolink) reads and writes every message from one definition, encodes the protocol's traps in its types, so a player number that isn't 1 to 4 can't be written, and replays every capture from the real players in its tests: 9,308 discovery packets re-encoded byte for byte, 46,103 status packets, 65,705 database messages and 60,138 RPC calls, with no failure.
+
+The real players kept teaching after that. One request turned out to need no reply at all: answering it shifted every later reply by one, and the menus went blank about a minute into each track. The framing was perfect throughout; only counting which requests a real player answers found it.
+
+<Photo id="2026-08-01-img-8956" />
+
+## How it was done
+
+The rules were written down before the first capture. Protocol facts, offsets, magic numbers, procedure numbers, are not copyrightable; code is. So other projects were read for what they say about the protocol, never copied, and everything TriMixxx implements was established from captures of hardware the author owns. The research project is licensed GPLv2-or-later on purpose, to match Mixxx, so that nothing in it is less free than what could go upstream.
+
+<Callout kind="note" title="Not affiliated">
+  CDJ, rekordbox and Pro DJ Link are trademarks of AlphaTheta Corporation, formerly Pioneer DJ.
+  TriMixxx is independent of them, and this work exists for interoperability: so that a deck anyone
+  can build can stand in the same booth as theirs.
+</Callout>
+
+Sharing music was the first half. Agreeing on the tempo, who is master and where the beat falls, came a few days later, with a live CDJ on the other side.

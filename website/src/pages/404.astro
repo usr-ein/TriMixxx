@@ -1,0 +1,35 @@
+---
+import SevenSeg from "../components/SevenSeg.astro";
+import Base from "../layouts/Base.astro";
+---
+
+<Base title="Not found" description="This page isn't on the stick.">
+  <section class="wrap section lost">
+    <SevenSeg class="lost__code" value="404" label="Error 404" />
+    <h1>This track isn't on the stick.</h1>
+    <p class="lede">The page you asked for doesn't exist, or it moved.</p>
+    <div class="btn-row">
+      <a class="btn" href="/">
+        Back to the deck
+      </a>
+      <a class="btn btn--ghost" href="/blog/">
+        The build log
+      </a>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .lost {
+    display: grid;
+    gap: 1.5rem;
+    justify-items: start;
+    min-height: 60vh;
+    align-content: center;
+  }
+
+  .lost :global(.lost__code) {
+    height: clamp(4rem, 14vw, 8rem);
+    color: var(--orange);
+  }
+</style>

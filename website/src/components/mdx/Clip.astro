@@ -1,0 +1,71 @@
+---
+// A short silent clip from the media repository, by id, in a post: muted,
+// looping, with its poster frame. Renders nothing without the media clone;
+// with it, an unknown id fails the build (see src/lib/photos.ts).
+import { getImage } from "astro:assets";
+
+import { clip } from "../../lib/photos";
+
+interface Props {
+  id: string;
+  caption?: string | undefined;
+}
+
+const { id, caption } = Astro.props;
+const entry = await clip(id);
+
+// Every clip's MP4, emitted into the build with a hashed name.
+const videos = import.meta.glob<string>("/media/trimixxx/video/*.mp4", {
+  query: "?url",
+  import: "default",
+  eager: true,
+});
+const src = entry ? videos[`/media/trimixxx/video/${entry.data.video.slice(2)}`] : undefined;
+if (entry && !src) throw new Error(`Clip "${id}": ${entry.data.video} is missing`);
+const poster = entry
+  ? await getImage({ src: entry.data.poster, width: 1280, format: "webp" })
+  : undefined;
+const text = [caption ?? entry?.data.caption, entry?.data.credit].filter(Boolean).join(" · ");
+---
+
+{entry && src && poster && (
+  <figure class="clip">
+    <video
+      src={src}
+      poster={poster.src}
+      width={entry.data.poster.width}
+      height={entry.data.poster.height}
+      aria-label={entry.data.label}
+      muted
+      loop
+      playsinline
+      controls
+      preload="none"
+    >
+      <track kind="captions" />
+    </video>
+    {text && <figcaption class="clip__caption">{text}</figcaption>}
+  </figure>
+)}
+
+<style>
+  .clip {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+  }
+
+  /* No height here: the width and height attributes keep the proportions,
+     and a page can still set a height of its own. */
+  .clip video {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: #000;
+  }
+
+  .clip__caption {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+  }
+</style>

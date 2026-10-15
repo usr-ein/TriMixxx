@@ -1,0 +1,106 @@
+---
+title: Updates that roll back
+description: A deck in a booth can't be reflashed between two tracks. So TriMixxx releases go into a second slot on the card, start as a one-shot trial, and are kept only if the deck can still take the next one. Designed, built and fault-tested in two days.
+date: 2026-10-09
+period: 7 – 9 Oct 2026
+tags: [system, updates, reliability]
+cover: ../../assets/covers/ab-updates.webp
+coverAlt: Slot A, running the release before, and slot B, holding the update as a one-shot trial; if the network and ssh come up within 150 seconds the update is kept, otherwise the deck goes back to A.
+---
+
+import Figure from "../../components/Figure.astro";
+import Callout from "../../components/mdx/Callout.astro";
+import CardLayout from "../../components/diagrams/CardLayout.astro";
+import figBoot from "../../assets/figures/ab-2-boot.webp";
+import figStates from "../../assets/figures/ab-4-update-states.webp";
+import figSequence from "../../assets/figures/ab-5-update-sequence.webp";
+import figWorkflow from "../../assets/figures/ab-7-workflow.webp";
+import Clip from "../../components/mdx/Clip.astro";
+
+Until October, updating a deck meant copying files onto its running system over ssh. That works on a bench. It doesn't work for a deck that has to boot at a gig after an update that went wrong at home. The fix is old and well known, two copies of the system and a way to fall back, and the work was in making it fit a Raspberry Pi without breaking anything that already worked.
+
+## Tryboot, not U-Boot
+
+The usual way to do A/B on a Raspberry Pi is to put U-Boot in front of Linux. TriMixxx uses the Pi's own mechanism instead: **tryboot**, a flag the firmware honours for exactly one start. Its advantages decided it: the firmware, the device tree and `config.txt` are swapped along with the system; nothing is written to the card on every boot; the boot gets no slower; and the boot chain stays stock Raspberry Pi OS.
+
+Its cost is real, and written down: once a slot has been committed, nothing falls back automatically if it later fails to start. So a slot is committed only after a health check, and the Pi's EEPROM can add a boot watchdog besides.
+
+<Clip id="2026-10-02-img-9268-boot" />
+
+## Eight partitions
+
+A release card has eight partitions. The boot files and the system come twice; the deck's identity and its state come once and are never touched by an update.
+
+<CardLayout />
+
+The system is a compressed, read-only SquashFS image, with a layer in RAM on top: every write the running deck makes lands in RAM and is gone at the next start. Measured, that layer grows by about 130 KiB per analysed track, about 10 MB over a four-hour set. Nothing that belongs to one deck, its name, its Wi-Fi networks, its ssh keys, lives in the system slots; they are copied into RAM from their own partition at every start. So the same release image runs on every deck, and a card made from the release alone boots as a deck called `trimixxx`, with no Wi-Fi and no ssh.
+
+<Figure
+  src={figBoot}
+  alt="A diagram of the boot: the bootloader reads autoboot.txt on partition 1, starts boot A by default or boot B when the one-shot trial flag is set, each pointing at its own system partition, then Linux starts with a RAM layer over the read-only system."
+  caption="How a deck boots slot A, or slot B once as a trial."
+  frame="paper"
+  zoom="ab"
+/>
+
+## The one question
+
+The heart of it is the health check, and it asks one question on a trial start: **can this deck take the next release?** If the deck is on a network, by cable, a known Wi-Fi or its own hotspot, and ssh is running, within 150 seconds, the new release is kept. Otherwise it is marked bad, and the deck reboots into the release it ran before.
+
+It deliberately doesn't check Mixxx, the sound card or the controller. A release that breaks Mixxx but keeps the network can be fixed with the next one; a release that loses the network can't be reached at all. In Sam's words: "As long as I can reflash, the update should stay there."
+
+<Figure
+  src={figStates}
+  alt="A state diagram: running A, then B installed, then a trial start of B; if the check passes, running B with A kept; if the check fails, a hang, a panic or a power cut, back to running A."
+  caption="An update's states. Every red path leads back to the release before."
+  frame="paper"
+  zoom="ab"
+/>
+
+The update itself is a [RAUC](https://rauc.io) bundle, about 1.1 GB, streamed to the deck over ssh, installed into the idle slot and started as a trial. TriMixxx's own code in all this is small: a bootloader backend for RAUC that writes the slot choice atomically and arms the trial flag, and the health check.
+
+<Figure
+  src={figSequence}
+  alt="A sequence diagram across six actors: the Mac, RAUC on the deck, the tryboot backend, autoboot.txt, the Pi firmware and the health check, from rauc install to the slot being marked good."
+  caption="One update, step by step. Only the backend and the health check are TriMixxx's code."
+  frame="paper"
+  zoom="ab"
+/>
+
+## Breaking it on purpose
+
+Before any real deck got it, the whole system was attacked on purpose, first on emulated decks, then on a bench Pi with no controller and no sound card. The fault table, as it ran on the bench Pi:
+
+| Fault                                       | What happened                             |
+| ------------------------------------------- | ----------------------------------------- |
+| A damaged bundle                            | refused; nothing written                  |
+| The power cut five seconds into the install | the deck came back on its old release     |
+| No network on the trial                     | back on the old release after 224 s       |
+| No ssh on the trial                         | back after 228 s                          |
+| A kernel panic                              | back after 67 s                           |
+| The initramfs gives up, or hangs            | back after 72 s, or 120 s by the watchdog |
+| A normal update                             | kept 14 to 23 s after it started          |
+
+The table also has a known gap, kept in it on purpose: a slot that was committed and later hangs at start-up keeps restarting. That is tryboot's cost, and the fix is to take the card out and edit one text file on another computer.
+
+<Callout kind="note" title="Signed, in the open">
+  Bundles are signed and checked before they are installed, and the signing key is in the repository
+  on purpose: TriMixxx is open hardware, and anyone may build and sign a release for their own deck.
+  The signature guards against a damaged bundle, not a hostile one.
+</Callout>
+
+## The first releases
+
+The design was written on 7 October, and on the 8th the first release, 0.0.1, was on the bench Pi. On 9 October both real decks were on 0.1.1, each with its own section of the boot configuration for its own screen, picked by the board's serial number.
+
+The same day, Diagnostics learned to show the release, its commit and date, which slot it started from, and what the other slot holds, with a **RESTART INTO** button that starts the other slot as a trial. On the first deck, a rehearsal build was kept 17 seconds after it started, and switching back took about 34.
+
+<Figure
+  src={figWorkflow}
+  alt="A workflow diagram: commits become dev decks for quick deploys; tagged commits become a release build, which produces an update bundle and a card image; the bundle is rehearsed on an emulated A/B deck, then the bench Pi, then shipped to the decks."
+  caption="How a release travels: tagged commit, sealed build, an emulated deck, the bench Pi, then the decks."
+  frame="paper"
+  zoom="ab"
+/>
+
+Shipping over Wi-Fi was measured too: 4.2 MB/s, with the connection dropping twice, against 37 MB/s and about 100 seconds over a cable. Since 1.0.1, the tooling sends updates to a real deck only over its cable, unless told otherwise.

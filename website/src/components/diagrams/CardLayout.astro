@@ -1,0 +1,145 @@
+---
+// The release card's eight partitions, not to scale: two of everything that
+// an update replaces, one of everything it must keep.
+
+interface Partition {
+  name: string;
+  what: string;
+  size: string;
+  kind: "boot" | "a" | "b" | "keep";
+  grow: number;
+}
+
+const partitions: readonly Partition[] = [
+  { name: "p1", what: "which slot boots", size: "64 MiB", kind: "boot", grow: 0.7 },
+  { name: "p2", what: "boot A", size: "512 MiB", kind: "a", grow: 1 },
+  { name: "p3", what: "boot B", size: "512 MiB", kind: "b", grow: 1 },
+  { name: "p5", what: "system A, SquashFS", size: "4 GiB", kind: "a", grow: 2.2 },
+  { name: "p6", what: "system B, SquashFS", size: "4 GiB", kind: "b", grow: 2.2 },
+  { name: "p7", what: "the deck's identity", size: "64 MiB", kind: "keep", grow: 1 },
+  { name: "p8", what: "History, recordings, RAUC", size: "4 GiB", kind: "keep", grow: 2.2 },
+];
+---
+
+<figure class="card-layout">
+  <ol class="card-layout__strip" aria-label="The partitions of a release card">
+    {partitions.map((part) => (
+      <li
+        class:list={`card-layout__part card-layout__part--${part.kind}`}
+        style={`flex-grow: ${String(part.grow)}`}
+      >
+        <span class="card-layout__name mono">{part.name}</span>
+        <span class="card-layout__what">{part.what}</span>
+        <span class="card-layout__size mono">{part.size}</span>
+      </li>
+    ))}
+  </ol>
+  <figcaption class="card-layout__caption">
+    <span>
+      <span class="card-layout__key card-layout__key--a" aria-hidden="true"></span> running slot
+    </span>
+    <span>
+      <span class="card-layout__key card-layout__key--b" aria-hidden="true"></span> idle slot, where
+      the next update goes
+    </span>
+    <span>
+      <span class="card-layout__key card-layout__key--keep" aria-hidden="true"></span> kept across
+      updates
+    </span>
+  </figcaption>
+</figure>
+
+<style>
+  .card-layout {
+    display: grid;
+    gap: 0.9rem;
+    margin: 0;
+  }
+
+  .card-layout__strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .card-layout__part {
+    display: grid;
+    flex-basis: 7.5rem;
+    gap: 0.2rem;
+    padding: 0.75rem 0.8rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 0.45rem;
+    background: var(--panel);
+  }
+
+  .card-layout__part--a {
+    border-color: var(--lime-line);
+    background: rgb(136 255 0 / 9%);
+  }
+
+  .card-layout__part--b {
+    border-style: dashed;
+    border-color: rgb(255 176 0 / 50%);
+    background: rgb(255 176 0 / 6%);
+  }
+
+  .card-layout__part--keep {
+    border-color: rgb(0 200 255 / 40%);
+    background: rgb(0 200 255 / 6%);
+  }
+
+  .card-layout__name {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+  }
+
+  .card-layout__what {
+    font-size: 0.88rem;
+    line-height: 1.3;
+  }
+
+  .card-layout__size {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+  }
+
+  .card-layout__caption {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1.5rem;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+
+  .card-layout__caption span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+  }
+
+  .card-layout__key {
+    display: inline-block;
+    width: 0.8rem;
+    height: 0.8rem;
+    border: 1px solid;
+    border-radius: 0.2rem;
+  }
+
+  .card-layout__key--a {
+    border-color: var(--lime);
+    background: rgb(136 255 0 / 20%);
+  }
+
+  .card-layout__key--b {
+    border-color: var(--amber);
+    border-style: dashed;
+  }
+
+  .card-layout__key--keep {
+    border-color: var(--cyan);
+    background: rgb(0 200 255 / 15%);
+  }
+</style>

@@ -1,0 +1,64 @@
+---
+title: Decks that don't exist
+description: A whole TriMixxx deck running on a Mac from its real SD card, up in three seconds, beside emulated CDJ-2000NXS players booting Pioneer's own firmware. How a booth fits on a laptop, and what it changed about testing.
+date: 2026-10-13
+period: 4 – 13 Oct 2026
+tags: [tooling, emulation, testing]
+cover: ../../assets/covers/emulation.webp
+coverAlt: "A terminal with four commands: an emulated deck brought up on a link called booth, two emulated CDJs on the same link, and a listing of who announces itself there."
+---
+
+import Figure from "../../components/Figure.astro";
+import Callout from "../../components/mdx/Callout.astro";
+import figEmulated from "../../assets/figures/ab-6-emulated-vs-real.webp";
+
+Testing a deck on a deck is slow. A real deck has to be on the desk, its card flashed, its screen watched, its buttons pressed by hand. And testing it against CDJs needs CDJs. From 4 October, TriMixxx stopped needing either for most of its testing.
+
+## A Raspberry Pi 4 on a Mac
+
+`pi-qemu` runs a deck on an Apple-silicon Mac. It is QEMU's model of a Raspberry Pi 4, running on the Mac's own cores through Apple's hypervisor, and it boots the **deck's real SD card, unmodified**: its own kernel, device tree and initramfs. Where a Pi's firmware would read `config.txt` and apply its overlays, pi-qemu does that work on the Mac, using Raspberry Pi's own tools.
+
+Getting there took **21 patches** to QEMU, each an exact edit that fails loudly if QEMU's code moves: DMA for the SD card, which took a boot from about 60 seconds to 22; a sound card that behaves like the deck's UCA222, line input included; saving every device's state, so a whole deck can be snapshotted; an SD card fast enough to boot in about five seconds; and the Pi's one-shot trial boot, so the update system could be tested before any card was flashed.
+
+The snapshot is the trick. A freshly built card is booted until Mixxx has its sound card open, then saved, RAM and all. Every new emulated deck is a copy of that moment: **up in about three seconds, with Mixxx already running**.
+
+<Figure
+  src={figEmulated}
+  alt="Two columns comparing a real deck and an emulated deck, layer by layer: the same card layout, the same boot rules and files, a different CPU and RAM, converging on the same software, and below, the hardware around each board."
+  caption="A real deck and an emulated one: the same card and the same software, only the board under them differs."
+  frame="paper"
+  zoom="emulation"
+/>
+
+## Everything a deck touches, faked faithfully
+
+- **The controller.** A virtual S3 sits on the emulated Pi's UART. It is played from an on-screen panel or from the command line, and it compiles the real firmware's MIDI header in, so the contract between the controller and Mixxx can't drift between the real deck and the emulated one.
+- **The screen.** Screenshots work headless, so a script, a person or a reviewer can see exactly what the deck shows.
+- **USB sticks.** A folder on the Mac can be plugged into a deck as a FAT32 stick, built in memory and served file by file as the Pi reads it, without copying anything. A stick can be made as slow as a real one, and pi-qemu says what the deck read, file by file. This is how the gig's freeze was reproduced.
+- **The network.** Several decks can share a virtual network, with pi-qemu forwarding frames between them like a switch. Each deck claims its own Pro DJ Link player number; they browse each other's sticks and play each other's tracks.
+
+It isn't a perfect copy, and doesn't pretend to be: the graphics are drawn in software, the cores are the Mac's, and the RAM is half a real deck's. It tests behaviour, not the GPU or timing.
+
+## A CDJ-2000NXS, on its own firmware
+
+Decks talking to decks is half of Pro DJ Link. The other half is CDJs, and those weren't on the desk either. On 10 October they joined the emulated network through [cdj2000-emulator](https://github.com/cdj2k-revival/cdj2000-emulator), an emulator of the CDJ-2000 that boots the player's own firmware: its main processor on a QEMU machine built for it, its interface processor in a simulator, its DSP interpreted.
+
+The firmware is Pioneer's, supplied by the player's owner, and is never in any TriMixxx repository. What TriMixxx added is the plumbing to put an emulated NXS on a deck's network, and fixes to the emulator itself, offered back upstream:
+
+- frames shorter than 60 bytes are now padded, because the deck's 42-byte ARP replies were being dropped as runts and the CDJ never learned the deck's address;
+- a way to put an emulated NXS on a Pro DJ Link network next to decks;
+- and three fixes to time on macOS, which together took the emulator from 0.64–0.74 of real time to real time: keep-alives every 2.000 seconds, against a real player's 2.003.
+
+The first two were merged upstream on 12 October; the timing fixes are on offer.
+
+## What it changed
+
+With a booth on a laptop, a protocol change could be tested the same way every time, on a network that never misses a packet, before anyone carried hardware anywhere. Master hand-overs the hardware session had never tried were captured between two emulated NXS players; the way CDJs serve sticks with no rekordbox library on them, for which there was no hardware capture at all, was worked out on them; and a deck between two emulated CDJs became the test a Pro DJ Link change had to pass before merging.
+
+<Callout kind="verify" title="Emulated is not real">
+  On 13 October, a release of the Pro DJ Link library was merged with emulated CDJs as its only
+  gate, and the release notes say so. The checks against real CDJs are written down and still owed.
+  An emulator makes testing cheap; it doesn't replace the booth.
+</Callout>
+
+Much of TriMixxx's code was written together with AI coding agents; since October they each work in a git worktree and on an emulated deck of their own, reviewing each other's changes, and Sam decides what merges.

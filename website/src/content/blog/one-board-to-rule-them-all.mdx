@@ -1,0 +1,152 @@
+---
+title: One board to rule them all
+description: TriMixxx began as a single 250 mm board carrying a Compute Module 5, a DAC, USB-C power and a MIDI controller. It was fully routed, and never built.
+date: 2026-03-26
+period: Feb – Mar 2026
+tags: [hardware, history, kicad]
+cover: ../../assets/history/mainboard-3d.webp
+coverAlt: KiCad's 3D view of the monolithic main board, a long green PCB with RCA jacks, a USB-C port and the Compute Module 5 in the middle.
+---
+
+import Figure from "../../components/Figure.astro";
+import Callout from "../../components/mdx/Callout.astro";
+import Gallery from "../../components/mdx/Gallery.astro";
+import Video from "../../components/mdx/Video.astro";
+import routingPoster from "../../assets/history/mainboard-routing-poster.webp";
+import schematic from "../../assets/history/mainboard-schematic-2026-02-08.webp";
+import sheetAudio from "../../assets/history/sheet-audio.webp";
+import sheetPower from "../../assets/history/sheet-power.webp";
+import sheetUsb from "../../assets/history/sheet-usb.webp";
+import sheetMidi from "../../assets/history/sheet-midi.webp";
+import spiceDac from "../../assets/history/spice-dac.webp";
+import spiceBuck from "../../assets/history/spice-buck.webp";
+import topCase from "../../assets/history/top-case-2026-02.webp";
+import Photo from "../../components/mdx/Photo.astro";
+import Clip from "../../components/mdx/Clip.astro";
+
+A CDJ is a computer, a sound card, a power supply and a control surface in one box, on a main board that does all of it. So the first plan for TriMixxx, in February 2026, was the obvious one: draw that main board, with open parts.
+
+## A CDJ on the bench
+
+Before any schematic there was a real deck to learn from. In mid-February a Pioneer CDJ-1000MK3 was opened up, and its jog wheel, the part a DJ's hand knows best, came out whole.
+
+<Gallery>
+  <Photo id="2026-02-17-img-6976" sizes="(min-width: 44rem) 21rem, 100vw" />
+  <Photo id="2026-02-17-img-6995" sizes="(min-width: 44rem) 21rem, 100vw" />
+</Gallery>
+
+The jog's own circuit board has three connectors: the optical encoder that counts the platter's turns, a pin header, and the touch contact in the platter. By 23 February an Arduino was reading the encoder and counting pulses as the platter spun. Whatever else changed, the jog would stay a CDJ's.
+
+<Photo id="2026-02-17-img-6991" />
+
+<Clip id="2026-02-23-img-7047" />
+
+## Everything on one PCB
+
+The board took shape in KiCad from 8 February. By March it carried:
+
+- a **Raspberry Pi Compute Module 5** on two 100-pin DF40 connectors, for the computer;
+- a **TI PCM5122** I²S DAC feeding RCA outputs and 6.35 mm and 3.5 mm headphone jacks;
+- **USB-C Power Delivery**: a CH224K asking the charger for 20 V at 3 A, an SY8368AQQC buck down to 5 V, and AP2112K regulators for the logic;
+- an **ATmega32U4** presenting every button, the jog wheel and the tempo fader to the Compute Module as a USB-MIDI device, through MCP23017 expanders and a 74HC4067 analog multiplexer;
+- two micro-HDMI ports, gigabit Ethernet, an SD card, and the USB ports the DJ's sticks go into, behind HD3SS3220 and HD3SS3212 muxes and USBLC6 ESD protection.
+
+About 160 components, on one board.
+
+<Figure
+  src={schematic}
+  alt="A dense KiCad schematic sheet with the Compute Module's symbols, the USB-C power section, the HDMI and Ethernet connectors, the ATmega32U4 and the DAC."
+  caption="The whole design on one sheet, on 8 February. It was split into hierarchical sheets a few days later."
+  frame="paper"
+  zoom="mainboard"
+/>
+
+<Gallery>
+  <Figure
+    src={sheetAudio}
+    alt="Schematic sheet of the audio outputs: the DAC, its filters, the RCA and headphone jacks."
+    caption="Audio: the DAC, its output filters and the jacks."
+    zoom="mainboard"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+  <Figure
+    src={sheetPower}
+    alt="Schematic sheet of the power delivery: USB-C PD negotiation, the buck converter and the regulators."
+    caption="Power: 20 V from USB-C, bucked to 5 V."
+    zoom="mainboard"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+  <Figure
+    src={sheetMidi}
+    alt="Schematic sheet of the MIDI controller: the ATmega32U4 and the connectors for the deck's controls."
+    caption="The controller: an ATmega32U4 speaking USB-MIDI."
+    zoom="mainboard"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+  <Figure
+    src={sheetUsb}
+    alt="Schematic sheet of the USB ports: the muxes and the ESD protection."
+    caption="The DJ's USB ports, muxed and protected."
+    zoom="mainboard"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+</Gallery>
+
+## Simulate before you solder
+
+Two parts of the board were analog enough to be worth simulating first. On 11 March both went through SPICE in KiCad: the DAC's output stage, to see what reaches the RCA jacks, and the buck converter, to see how 20 V becomes a clean 5 V under load.
+
+<Gallery>
+  <Figure
+    src={spiceDac}
+    alt="A SPICE plot of the DAC output stage's response."
+    caption="The DAC's output stage in SPICE."
+    zoom="spice"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+  <Figure
+    src={spiceBuck}
+    alt="A SPICE plot of the buck converter's output voltage settling."
+    caption="The buck converter starting up."
+    zoom="spice"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+</Gallery>
+
+<Photo
+  id="2026-02-13-mainboard-kicad"
+  caption="13 February: every part placed on the board, and every connection still a straight line waiting for a track."
+/>
+
+## Routing it
+
+Then a week of routing, one subsystem a day: the buck, the two HDMI ports (with the via-in-pads taken out or tented), Ethernet, the four USB ports, the SD card, then audio and the microcontroller. On 26 March the board was finished: **250 × 104 mm, four copper layers, 210 footprints and 406 vias.**
+
+<Video
+  src="/video/mainboard-routing.mp4"
+  poster={routingPoster}
+  label="A time-lapse of the main board being routed in KiCad."
+  caption="The routing, as a time-lapse at double speed: from a rat's nest to a finished four-layer board."
+/>
+
+Meanwhile the top panel was taking shape in Fusion 360, with the cut-outs for the jog wheel and buttons:
+
+<Figure
+  src={topCase}
+  alt="A Fusion 360 render of the first top panel: a grey plate with a large round opening for the jog wheel and holes for the buttons."
+  caption="The top panel, version 18, in February."
+  zoom="mainboard"
+/>
+
+## Why it was never built
+
+The board was finished, and never ordered. Looking back in July, the README put it plainly: cramming compute, audio, power and a controller onto one board **made every revision expensive and every mistake fatal**.
+
+A wrong footprint on the USB-C controller would have meant a new board for the Compute Module too. A noisy ground under the DAC would have meant re-spinning the MIDI controller with it. And every one of those subsystems already existed, tested, on boards that cost less than a re-spin: a Raspberry Pi has its own power, HDMI and USB, and a USB sound card has its own DAC.
+
+<Callout kind="note" title="What carried over">
+  The idea that the deck's controls should look like a MIDI device to the computer survived
+  everything that came after. Only where that MIDI comes from changed.
+</Callout>
+
+So the next design started from the opposite end: use the boards that already exist, and only make the ones that don't. The monolithic board's sources were removed from the repository on 9 July. They survive in its history, with the schematics, the SPICE runs and the time-lapse, as the road not taken.

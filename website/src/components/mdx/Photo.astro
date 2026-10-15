@@ -1,0 +1,27 @@
+---
+// A photograph from the media repository, by id, in a post. Renders nothing
+// when the media clone isn't there (see src/lib/photos.ts).
+import Figure from "../Figure.astro";
+import { photo } from "../../lib/photos";
+
+interface Props {
+  id: string;
+  caption?: string;
+  zoom?: string;
+  sizes?: string;
+}
+
+const { id, caption, zoom = "post", sizes } = Astro.props;
+const entry = await photo(id);
+---
+
+{entry && (
+  <Figure
+    src={entry.data.image}
+    alt={entry.data.alt}
+    caption={caption ?? entry.data.caption}
+    credit={entry.data.credit}
+    zoom={zoom}
+    sizes={sizes}
+  />
+)}

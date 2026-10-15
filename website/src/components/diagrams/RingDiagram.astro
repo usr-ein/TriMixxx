@@ -1,0 +1,255 @@
+---
+// The OneButton ring: one DATA frame as it sits on the wire, and the chain it
+// circulates round. Byte layout from firmwares/onebutton/onebutton-protocol.md.
+
+interface Cell {
+  label: string;
+  kind: "head" | "led-r" | "led-g" | "led-b" | "btn" | "gap" | "crc";
+}
+
+const slot = (): Cell[] => [
+  { label: "R", kind: "led-r" },
+  { label: "G", kind: "led-g" },
+  { label: "B", kind: "led-b" },
+  { label: "R", kind: "led-r" },
+  { label: "G", kind: "led-g" },
+  { label: "B", kind: "led-b" },
+  { label: "BTN", kind: "btn" },
+];
+
+const cells: Cell[] = [
+  { label: "A5", kind: "head" },
+  { label: "SEQ", kind: "head" },
+  ...slot(),
+  ...slot(),
+  { label: "…", kind: "gap" },
+  ...slot(),
+  { label: "CRC", kind: "crc" },
+];
+
+const W = 38;
+const X0 = 40;
+const Y0 = 52;
+
+const groups = [
+  { label: "header", from: 0, to: 1 },
+  { label: "slot 0: node 0's LEDs, then its button", from: 2, to: 8 },
+  { label: "slot 1", from: 9, to: 15 },
+  { label: "slot N−1", from: 17, to: 23 },
+  { label: "CRC-8", from: 24, to: 24 },
+];
+
+const nodes = ["node 0", "node 1", "node 2", "node 3", "…", "node N−1"];
+const NX = 210;
+const NW = 112;
+const NY = 196;
+---
+
+<div class="diagram-scroll" role="region" aria-label="Ring frame diagram" tabindex="0">
+  <svg
+    class="ring"
+    viewBox="0 0 1060 330"
+    role="img"
+    aria-labelledby="ring-title ring-desc"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <title id="ring-title">One OneButton DATA frame and the ring it travels</title>
+    <desc id="ring-desc">
+      A frame starts with the type byte A5 and a sequence number, then one seven-byte slot per node:
+      the red, green and blue of two LEDs, written by the controller, and a button byte that only
+      the slot's own node overwrites. A CRC-8 ends it. The controller sends it to node 0, each node
+      passes it to the next byte by byte, and the last node returns it to the controller.
+    </desc>
+    <defs>
+      <marker
+        id="ring-arrow"
+        viewBox="0 0 10 10"
+        refX="9"
+        refY="5"
+        markerWidth="7"
+        markerHeight="7"
+        orient="auto"
+      >
+        <path d="M0 0 L10 5 L0 10 z" class="ring__arrowhead"></path>
+      </marker>
+    </defs>
+
+    <text x={X0} y="26" class="ring__heading">
+      ONE DATA FRAME, 2 + 7·N + 1 BYTES
+    </text>
+    {cells.map((cell, i) => (
+      <g>
+        <rect
+          x={X0 + i * W}
+          y={Y0}
+          width={W - 4}
+          height="38"
+          rx="5"
+          class:list={`ring__cell ring__cell--${cell.kind}`}
+        />
+        <text x={X0 + i * W + (W - 4) / 2} y={Y0 + 24} class="ring__cell-text">
+          {cell.label}
+        </text>
+      </g>
+    ))}
+    {groups.map((group) => (
+      <g>
+        <line
+          x1={X0 + group.from * W}
+          y1={Y0 + 50}
+          x2={X0 + group.to * W + W - 4}
+          y2={Y0 + 50}
+          class="ring__brace"
+        />
+        <text x={X0 + group.from * W} y={Y0 + 68} class="ring__group">
+          {group.label}
+        </text>
+      </g>
+    ))}
+
+    <rect x="40" y={NY} width="120" height="54" rx="10" class="ring__master"></rect>
+    <text x="100" y={NY + 23} class="ring__node-title">
+      ESP32-S3
+    </text>
+    <text x="100" y={NY + 41} class="ring__node-sub">
+      master
+    </text>
+    {nodes.map((name, i) => (
+      <g>
+        {name === "…" ? (
+          <text x={NX + i * (NW + 26) + NW / 2} y={NY + 32} class="ring__node-title">
+            …
+          </text>
+        ) : (
+          <g>
+            <rect x={NX + i * (NW + 26)} y={NY} width={NW} height="54" rx="10" class="ring__node" />
+            <text x={NX + i * (NW + 26) + NW / 2} y={NY + 23} class="ring__node-title">
+              {name}
+            </text>
+            <text x={NX + i * (NW + 26) + NW / 2} y={NY + 41} class="ring__node-sub">
+              CH32V003
+            </text>
+          </g>
+        )}
+        <line
+          x1={i === 0 ? 160 : NX + (i - 1) * (NW + 26) + NW}
+          y1={NY + 27}
+          x2={NX + i * (NW + 26) - 4}
+          y2={NY + 27}
+          class="ring__wire"
+          marker-end="url(#ring-arrow)"
+        />
+      </g>
+    ))}
+    <path
+      d={`M ${String(NX + 5 * (NW + 26) + NW)} ${String(NY + 27)} h 18 V 300 H 100 V ${String(NY + 58)}`}
+      class="ring__wire ring__wire--return"
+      marker-end="url(#ring-arrow)"
+    ></path>
+    <text x="540" y="318" class="ring__note">
+      back to the master, with every node's button in its slot · 500 kbaud TTL UART
+    </text>
+  </svg>
+</div>
+
+<style>
+  .ring {
+    min-width: 56rem;
+    width: 100%;
+    height: auto;
+    font-family: var(--font-mono);
+  }
+
+  .ring__heading {
+    fill: var(--lime);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+  }
+
+  .ring__cell {
+    fill: var(--panel);
+    stroke: var(--line-strong);
+  }
+
+  .ring__cell--led-r {
+    fill: rgb(255 59 59 / 22%);
+  }
+
+  .ring__cell--led-g {
+    fill: rgb(61 220 75 / 22%);
+  }
+
+  .ring__cell--led-b {
+    fill: rgb(59 120 255 / 28%);
+  }
+
+  .ring__cell--btn {
+    fill: rgb(136 255 0 / 25%);
+    stroke: var(--lime);
+  }
+
+  .ring__cell--gap {
+    fill: transparent;
+    stroke: transparent;
+  }
+
+  .ring__cell-text {
+    fill: var(--text);
+    font-size: 11px;
+    text-anchor: middle;
+  }
+
+  .ring__brace {
+    stroke: var(--text-faint);
+  }
+
+  .ring__group {
+    fill: var(--text-muted);
+    font-size: 10.5px;
+  }
+
+  .ring__master {
+    fill: rgb(136 255 0 / 8%);
+    stroke: var(--lime);
+  }
+
+  .ring__node {
+    fill: var(--panel);
+    stroke: var(--line-strong);
+  }
+
+  .ring__node-title {
+    fill: var(--text);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 650;
+    text-anchor: middle;
+  }
+
+  .ring__node-sub {
+    fill: var(--text-faint);
+    font-size: 10px;
+    text-anchor: middle;
+  }
+
+  .ring__wire {
+    fill: none;
+    stroke: var(--lime);
+    stroke-width: 1.4;
+  }
+
+  .ring__wire--return {
+    stroke-dasharray: 5 4;
+    opacity: 0.8;
+  }
+
+  .ring__arrowhead {
+    fill: var(--lime);
+  }
+
+  .ring__note {
+    fill: var(--text-muted);
+    font-size: 10.5px;
+    text-anchor: middle;
+  }
+</style>

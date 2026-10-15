@@ -1,0 +1,58 @@
+---
+title: Sends and returns
+description: For a few weeks the deck doubled as an effects unit on an Allen & Heath Xone:92's aux send, returning wet signal only. It worked, it taught a lot about mixers and manuals, and in October it was taken out again.
+date: 2026-08-14
+period: 11 – 14 Aug 2026
+tags: [audio, effects, experiment]
+cover: ../../assets/covers/sends-returns.webp
+coverAlt: "A signal-flow drawing: the Xone:92's aux send into the UCA222's input, through TriMixxx's rack of reverb, delay, echo and filters, and back into the mixer's return."
+coverPhoto: 2026-08-14-img-9018
+---
+
+import Callout from "../../components/mdx/Callout.astro";
+import Clip from "../../components/mdx/Clip.astro";
+
+A deck is a player, but it is also a computer with a sound card, and a sound card has an input. In August the question was whether TriMixxx could replace an effect pedal in the booth: take the mixer's effects send, process it, and give it back.
+
+## The pedal's problem
+
+The setup it replaced was a Boss compact pedal on an Allen & Heath Xone:92's aux send and return. It had a flaw that no knob on the mixer could fix.
+
+The Xone:92 has no effects loop as such, just two aux buses, and its mix is a plain sum: a return comes in **on top of** the channels, never instead of them. A compact pedal returns the dry signal along with its effect. So the track came back twice, the mixer's dry and the pedal's dry, and since both are the same analogue signal, they add up to exactly **6 dB** louder, every time the return comes up.
+
+The only fix is at the device: it has to return the effect alone, wet only. Mixxx's effects can mix their output as dry/wet or dry + wet, and both put the dry back. So the deck got a mode Mixxx doesn't have: wet only.
+
+## The rack
+
+The wiring: the mixer's aux out into the UCA222's input, and the deck's output into one of the mixer's channels, so that the deck's own music and the effect return share that channel and its fader.
+
+Inside the deck, the return became a rack of up to six modules drawn on the screen, reverb, delay, echo, and high- and low-pass filters, each with its own wet amount. A module that kills the dry was locked at the start of the chain, so that nothing further down could let the dry back in. At the end, a master level of ±12 dB and a rocker to switch the whole return between RING OUT and CUT. The delay followed the beat of whichever deck had been playing longest.
+
+<Clip id="2026-08-14-img-9019" />
+
+## What the measurements said
+
+The work log for those four days reads like a list of things that weren't what they seemed.
+
+- **The cable costs a decibel, and the hum it adds is under the noise.** Measured, not assumed, before anything else was built on top.
+- **The round trip is 32 ms, and the estimate was 60 percent short.** The estimate had said about 20 ms through the deck and back. An `alsabat` measurement said 32, give or take 3: on a USB 1.1 sound card, each direction costs a full buffer.
+- **The leak was the switch the manual said couldn't do that.** The dry was leaking into the return, and the culprit was the UCA222's MONITOR switch, which the manual describes as affecting the headphones only. It also feeds the input to the RCA outputs.
+- **CUT was fine; a filter closed to 13 Hz was eating the rack.** "CUT doesn't work" turned out to be a low-pass filter parked at 13 Hz, taking the rack from −37.9 dBFS to −79.6. After that, every module got a level meter.
+
+<Callout kind="quote" title="From the work log">
+  Flip the switch and listen before reasoning from the documentation.
+</Callout>
+
+By 14 August the rack was built and had been played on the first deck, through the real Xone, a CDJ and the UCA222: an effects unit with a DJ's controls, made from a deck that already had a screen and a jog wheel.
+
+## Why it went
+
+On 1 October, the evening the second deck was brought up, the rack came out again: 4,271 lines across 50 files of the fork, and Mixxx's effects and engine code back to stock. The reason in the commit is short: the effects were not worth their place on the deck. It isn't hard to see the arithmetic: a large patch to Mixxx's audio engine has to be carried through every update, and this one served one mixer, used one way.
+
+What stayed was the input. A sound card that can take the mixer's send can take its record output just as well, and two weeks later the same line input became Record set, which records the whole set to the deck's stick.
+
+<Callout kind="note" title="An experiment, kept in the history">
+  This is what a deck you can open is for: trying an idea on real equipment in a few days, and
+  taking it back out when it doesn't earn its place. The whole rack is still in the fork's history
+  for anyone who wants to pick it up.
+</Callout>

@@ -1,0 +1,84 @@
+---
+title: Two decks
+description: A second chassis drawn around a 10.1-inch screen, a second deck built on 1 October, an eighth pad nobody expected, an accent colour each, a hotspot of its own, and a splash on screen twelve seconds sooner.
+date: 2026-10-01
+period: Sep – Oct 2026
+tags: [hardware, chassis, bring-up]
+cover: ../../assets/renders/deck-v2-render.webp
+coverAlt: A render of the V2 deck, a black chassis on pink legs with an angled 10.1-inch screen behind the jog wheel and rows of round pads.
+coverPhoto: 2026-09-17-img-9211
+---
+
+import Figure from "../../components/Figure.astro";
+import Callout from "../../components/mdx/Callout.astro";
+import v2Model from "../../assets/renders/deck-v2-model.webp";
+import Photo from "../../components/mdx/Photo.astro";
+import Clip from "../../components/mdx/Clip.astro";
+import Gallery from "../../components/mdx/Gallery.astro";
+
+One deck is a prototype. Two decks are a booth, or at least half of one. September went into a second chassis, and on 1 October a second deck was built in it.
+
+## The second chassis
+
+The first chassis had copied a CDJ-3000's whole envelope. The second, drawn in September, is lower and tighter: **423 × 329 × 85 mm**, with the screen tilted back behind the jog wheel and the pads, and the PLAY and CUE buttons down to 33 mm.
+
+The screen is a Waveshare 10.1-inch DSI panel, 1280 × 800, with touch. Its mounting was measured from the panel itself once it had arrived, and the notes are glad of that order of events: designing it from the datasheet first would have gone wrong. On the back panel are an IEC mains inlet feeding a 5 V module inside, an RJ45 coupler for the Pro DJ Link cable, and the sound card's RCA sockets.
+
+<Gallery>
+  <Photo id="2026-09-09-img-9172" sizes="(min-width: 44rem) 21rem, 100vw" />
+  <Photo id="2026-09-10-img-9174" sizes="(min-width: 44rem) 21rem, 100vw" />
+</Gallery>
+
+<Figure
+  src={v2Model}
+  alt="The V2 chassis in Fusion 360, from the side: the tempo fader slot lit green, the angled screen, and the rear panel with its sockets, on pink legs."
+  caption="V2 in Fusion 360, September 2026: mains, Ethernet and RCA on the back."
+  zoom="v2"
+/>
+
+## Bringing up trimixxx2
+
+The second deck was assembled on 1 October, and its bring-up was written down step by step as it happened, from a freshly flashed card to a working deck: what a new unit needs, in order, so the third won't need anyone's memory.
+
+The best moment of the day was a button that did nothing. BACK seemed dead. Pressing every control on the deck in order, with a MIDI monitor running, showed why: this deck's ring A had an **eighth pad**, third in its chain. Every pad after it arrived one note late, so ÷2 was opening the library and BACK was sending a note nobody listened to. Its hot cues arrived in reverse order too, and its jog wheel turned the other way.
+
+<Gallery>
+  <Photo id="2026-10-02-img-9266" sizes="(min-width: 44rem) 21rem, 100vw" />
+  <Photo id="2026-10-10-img-9309" sizes="(min-width: 44rem) 21rem, 100vw" />
+</Gallery>
+
+None of that was fixed in the firmware. Each deck now has a small file describing its own wiring, and the configuration step renumbers the Mixxx mapping from it for that deck alone. The S3s all run the same firmware, and a deck wired differently is one more file.
+
+<Clip id="2026-10-02-img-9268-playing" />
+
+## An accent colour each
+
+Two decks on a table look identical from a distance, so each got its own **accent colour**: the selection in the browser, the header's rule, the key, the BPM, the remaining time. trimixxx1 keeps the skin's lime. trimixxx2 is pink. The emulated deck, which is a virtual copy of trimixxx2, is cyan, so a screenshot never says the wrong deck.
+
+<Photo id="2026-10-09-img-9295" />
+
+The same file also says whether the panel sits behind a lip or flush with the case, so the skin knows whether to keep its edges clear. And the pads were dimmed to a perceived 80 % of full, which, because eyes aren't linear, is about 61 % of full drive.
+
+## A splash in eight seconds
+
+On power-on, trimixxx2's screen stayed black for about twenty seconds before the logo. A day of measuring found where they went:
+
+- the bootloader showed a network-install screen on every cold boot, which cost more than five seconds, until the Pi's EEPROM was told not to;
+- the panel waited for its drivers to load from the root filesystem, until they were put in the initramfs, which brought the panel up 1.66 s after the kernel started instead of 6.15;
+- the swap configuration ran a Perl script on every boot, until its sizes were pinned.
+
+Counted by hand from the power switch, the logo now appears after about **8 seconds**, and the whole boot takes 15.3 seconds, down from 22.9, and from 49.5 on a fresh card. The splash still lets the boot log print behind it: on a deck about to play a gig, a service that failed to start should be visible before the music needs it.
+
+<Callout kind="note" title="Changing the boot path without locking yourself out">
+  Every one of these boot changes was tried first through the Pi's own one-shot <code>tryboot</code>
+  : a candidate configuration that runs once, and if it fails, the next power cycle comes back as
+  before. A deck you can't plug a keyboard into has to be changed this way.
+</Callout>
+
+## A network of its own
+
+In a club there is no known Wi-Fi to join, and a deck nobody can reach can't be fixed. So if the deck has joined no network 45 seconds into its boot, it becomes a **hotspot** named after itself, on its own 2.4 GHz channel, once per boot, with nothing waiting on it. On trimixxx2, a phone joined it and logged into the deck over ssh.
+
+The next two days added the rest of what a deck needs when something goes wrong: the touchscreen rescue console, every light switched off at shutdown, because the controller stays powered after the Pi halts and the last lit lamp used to stay lit, and a Diagnostics page that can set the deck's output level and its screen's brightness.
+
+Three days later, trimixxx2 went to a gig.

@@ -1,10 +1,14 @@
 # Git pre-commit hooks, run by `prek` (https://github.com/j178/prek).
 # Install once per clone:  prek install
 #
-# Scoped to the trimixxx-midi firmware only -- other projects in this monorepo
-# are untouched. Two gates, using the locally-installed tools:
-#   1. clang-format -- auto-formats staged C/C++ (config: firmwares/trimixxx-midi/.clang-format)
-#   2. pio check    -- cppcheck static analysis; blocks the commit on medium+ defects
+# Scoped to two projects in this monorepo; the others are untouched. Gates,
+# using the locally-installed tools:
+#   trimixxx-midi firmware:
+#     1. clang-format -- auto-formats staged C/C++ (config: firmwares/trimixxx-midi/.clang-format)
+#     2. pio check    -- cppcheck static analysis; blocks the commit on medium+ defects
+#   website (needs `npm ci` in website/ once):
+#     3. prettier     -- auto-formats staged files (config: website/.prettierrc.json)
+#     4. lint         -- ESLint, Stylelint, shellcheck and astro check, no warning allowed
 repos:
   - repo: local
     hooks:
@@ -22,3 +26,28 @@ repos:
         language: system
         pass_filenames: false
         files: ^firmwares/trimixxx-midi/.*\.(c|cc|cpp|h|hpp|ini)$
+
+      - id: website-prettier
+        name: prettier (website)
+        # Run from website/, where Prettier finds its config, its ignore file and
+        # its Astro plugin; the staged paths are made relative to it.
+        entry: >-
+          bash -c 'cd website && test -x node_modules/.bin/prettier
+          || { echo "website: run npm ci in website/ first" >&2; exit 1; };
+          files=(); for f in "$@"; do files+=("${f#website/}"); done;
+          node_modules/.bin/prettier --write --ignore-unknown "${files[@]}"' --
+        language: system
+        files: ^website/
+        exclude: ^website/(public/schematics|media|dist|node_modules)/|^website/package-lock\.json$
+
+      - id: website-lint
+        name: eslint, stylelint, shellcheck, astro check (website)
+        entry: >-
+          bash -c 'cd website && test -d node_modules
+          || { echo "website: run npm ci in website/ first" >&2; exit 1; };
+          npx astro sync >/dev/null && npm run --silent lint:js && npm run --silent lint:css
+          && npm run --silent lint:sh
+          && npm run --silent lint:spaces && npm run --silent lint:types'
+        language: system
+        pass_filenames: false
+        files: ^website/

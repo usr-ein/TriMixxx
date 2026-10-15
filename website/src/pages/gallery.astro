@@ -1,0 +1,536 @@
+---
+import type { ImageMetadata } from "astro";
+import { getCollection } from "astro:content";
+import { getImage, Picture } from "astro:assets";
+
+import fig1 from "../assets/figures/ab-1-card.webp";
+import fig2 from "../assets/figures/ab-2-boot.webp";
+import fig4 from "../assets/figures/ab-4-update-states.webp";
+import fig5 from "../assets/figures/ab-5-update-sequence.webp";
+import fig7 from "../assets/figures/ab-7-workflow.webp";
+import boardLoop from "../assets/boards/loop.webp";
+import boardMidiLaser from "../assets/boards/midi-laser.webp";
+import boardS3 from "../assets/boards/midi-s3-mini.webp";
+import boardOneButton from "../assets/boards/one-button.webp";
+import boardPlayCue from "../assets/boards/play-cue.webp";
+import laserBack from "../assets/history/laser-play-cue-b.webp";
+import laserFront from "../assets/history/laser-play-cue-f.webp";
+import mainboard3d from "../assets/history/mainboard-3d.webp";
+import mainboardRouted from "../assets/history/mainboard-routed.webp";
+import mainboardSchematic from "../assets/history/mainboard-schematic-2026-02-08.webp";
+import oneButtonV1 from "../assets/history/onebutton-v1-layout.webp";
+import sheetAudio from "../assets/history/sheet-audio.webp";
+import sheetPower from "../assets/history/sheet-power.webp";
+import spiceBuck from "../assets/history/spice-buck.webp";
+import spiceDac from "../assets/history/spice-dac.webp";
+import topCase from "../assets/history/top-case-2026-02.webp";
+import v1Back from "../assets/renders/deck-v1-back.webp";
+import v1Front from "../assets/renders/deck-v1-front.webp";
+import v2Model from "../assets/renders/deck-v2-model.webp";
+import v2Render from "../assets/renders/deck-v2-render.webp";
+import schLoop from "../assets/schematics/loop.webp";
+import schS3 from "../assets/schematics/midi-s3-mini.webp";
+import schOneButton from "../assets/schematics/one-button.webp";
+import schPlayCue from "../assets/schematics/play-cue.webp";
+import autoplayGenres from "../assets/screens/autoplay-genres.webp";
+import deckView from "../assets/screens/autoplay-master.webp";
+import autoplayPlaying from "../assets/screens/autoplay-playing.webp";
+import endRecording from "../assets/screens/end-recording.webp";
+import history from "../assets/screens/history-plain-plays.webp";
+import homeList from "../assets/screens/after-only-the-stick.webp";
+import firstSkin from "../assets/screens/playback.webp";
+import firstSkinLoop from "../assets/screens/loop.webp";
+import plainTags from "../assets/screens/plain-stick-tags.webp";
+import trackList from "../assets/screens/rekordbox-genre-tracks.webp";
+import silencePrompt from "../assets/screens/silence-prompt.webp";
+import Clip from "../components/mdx/Clip.astro";
+import Base from "../layouts/Base.astro";
+
+interface Item {
+  src: ImageMetadata;
+  alt: string;
+  caption: string;
+  date?: string;
+}
+
+interface Section {
+  id: string;
+  title: string;
+  lede: string;
+  items: readonly Item[];
+  paper?: boolean;
+}
+
+const photoTags = [
+  ["deck", "The decks"],
+  ["event", "In the booth"],
+  ["build", "Building it"],
+  ["boards", "Boards"],
+  ["detail", "Details"],
+] as const;
+
+const clips = (await getCollection("clips")).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+
+const photos = (await getCollection("photos")).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+const photoSections: Section[] = photoTags
+  .map(([tag, title]) => ({
+    id: `photos-${tag}`,
+    title,
+    lede: "",
+    items: photos
+      .filter((photo) => photo.data.tags[0] === tag)
+      .map((photo) => ({
+        src: photo.data.image,
+        alt: photo.data.alt,
+        caption: photo.data.caption ?? "",
+        date: photo.data.date.toLocaleDateString("en-GB", { month: "short", year: "numeric" }),
+      })),
+  }))
+  .filter((section) => section.items.length > 0);
+
+const sections: readonly Section[] = [
+  ...photoSections,
+  {
+    id: "renders",
+    title: "Renders",
+    lede: "The chassis in Fusion 360: the second version from September 2026, and the first from June.",
+    items: [
+      {
+        src: v2Render,
+        alt: "The V2 deck rendered: black chassis on pink legs, angled screen, jog wheel and pads.",
+        caption: "V2, raytraced.",
+        date: "Sep 2026",
+      },
+      {
+        src: v2Model,
+        alt: "The V2 chassis in Fusion 360 from the side, with the rear panel's sockets.",
+        caption: "V2 in Fusion 360.",
+        date: "Sep 2026",
+      },
+      {
+        src: v1Front,
+        alt: "The V1 chassis in Fusion 360: a grey box with an angled screen housing and a jog wheel.",
+        caption: "V1, the first full chassis.",
+        date: "Jun 2026",
+      },
+      {
+        src: v1Back,
+        alt: "The back of the V1 chassis in Fusion 360.",
+        caption: "V1 from behind.",
+        date: "Jun 2026",
+      },
+      {
+        src: topCase,
+        alt: "The first top panel in Fusion 360, a plate with the jog wheel's opening.",
+        caption: "The first top panel.",
+        date: "Feb 2026",
+      },
+    ],
+  },
+  {
+    id: "boards",
+    title: "Board renders",
+    lede: "Rendered by KiCad from the boards' own sources.",
+    items: [
+      {
+        src: boardS3,
+        alt: "The midi_s3_mini controller board in 3D.",
+        caption: "midi_s3_mini v2, the controller.",
+        date: "Jul 2026",
+      },
+      {
+        src: boardOneButton,
+        alt: "A OneButton ring node in 3D: a 20 mm board with a switch, two LEDs and a tiny chip.",
+        caption: "one_button, a ring node.",
+        date: "Jul 2026",
+      },
+      {
+        src: boardPlayCue,
+        alt: "The play/cue board in 3D: bare copper, two switches, eight red LEDs.",
+        caption: "play_cue_btn.",
+        date: "Jun 2026",
+      },
+      {
+        src: boardLoop,
+        alt: "The loop board in 3D from its component side: bare copper, three switches, two LEDs.",
+        caption: "loop_btn.",
+        date: "Jun 2026",
+      },
+      {
+        src: boardMidiLaser,
+        alt: "The abandoned midi-laser controller board in 3D, with a Pro Micro footprint and an expander.",
+        caption: "midi-laser-pcb, abandoned.",
+        date: "May 2026",
+      },
+    ],
+  },
+  {
+    id: "screens",
+    title: "Screens",
+    lede: "The deck's own interface. Most of these were taken on an emulated deck, whose accent colour is cyan; the real decks are lime and pink.",
+    items: [
+      {
+        src: deckView,
+        alt: "The deck view with a three-band waveform, MASTER lit and a tempo of 126.00.",
+        caption: "The deck view.",
+        date: "Oct 2026",
+      },
+      {
+        src: autoplayPlaying,
+        alt: "The deck view during Autoplay: a House badge over the waveform and a tempo of 124.00.",
+        caption: "Autoplay at work.",
+        date: "Oct 2026",
+      },
+      {
+        src: trackList,
+        alt: "A rekordbox stick's house tracks with BPM and Camelot keys.",
+        caption: "A genre on a rekordbox stick.",
+        date: "Oct 2026",
+      },
+      {
+        src: homeList,
+        alt: "The home list: a stick, Autoplay, History, Record set, Diagnostics, Shut down.",
+        caption: "The home list.",
+        date: "Oct 2026",
+      },
+      {
+        src: plainTags,
+        alt: "A plain stick's folder listing tracks by their tags.",
+        caption: "A plain stick, by folder.",
+        date: "Oct 2026",
+      },
+      {
+        src: history,
+        alt: "The History list of tracks played on the link.",
+        caption: "History.",
+        date: "Oct 2026",
+      },
+      {
+        src: autoplayGenres,
+        alt: "Autoplay's list of genres on a stick.",
+        caption: "Autoplay's genres.",
+        date: "Oct 2026",
+      },
+      {
+        src: endRecording,
+        alt: "Record set running, with a level meter.",
+        caption: "Record set.",
+        date: "Oct 2026",
+      },
+      {
+        src: silencePrompt,
+        alt: "The prompt after five silent minutes: keep recording or end it.",
+        caption: "Five silent minutes.",
+        date: "Oct 2026",
+      },
+      {
+        src: firstSkin,
+        alt: "The first skin: a red waveform with beat lines, a CUE marker and a seven-segment tempo of 145.00.",
+        caption: "The first skin, before the deck had a browser of its own.",
+        date: "Jul 2026",
+      },
+      {
+        src: firstSkinLoop,
+        alt: "The first skin with an active loop drawn as an amber window over the waveform.",
+        caption: "A loop in the first skin.",
+        date: "Jul 2026",
+      },
+    ],
+  },
+  {
+    id: "schematics",
+    title: "Schematics",
+    lede: "Previews. The full sheets, which zoom as far as you like, are on the hardware page.",
+    paper: true,
+    items: [
+      {
+        src: schS3,
+        alt: "The midi_s3_mini schematic, with handwritten notes in its margins.",
+        caption: "midi_s3_mini.",
+      },
+      { src: schOneButton, alt: "The OneButton node's schematic.", caption: "one_button." },
+      { src: schPlayCue, alt: "The play/cue board's schematic.", caption: "play_cue_btn." },
+      { src: schLoop, alt: "The loop board's schematic.", caption: "loop_btn." },
+    ],
+  },
+  {
+    id: "history",
+    title: "The road not taken",
+    lede: "The monolithic main board of February and March 2026, the boards etched at home, and the first OneButton layout.",
+    items: [
+      {
+        src: mainboard3d,
+        alt: "KiCad's 3D view of the monolithic main board.",
+        caption: "The main board in 3D.",
+        date: "Mar 2026",
+      },
+      {
+        src: mainboardRouted,
+        alt: "The monolithic board fully routed in KiCad's PCB editor.",
+        caption: "Fully routed, never built.",
+        date: "Mar 2026",
+      },
+      {
+        src: mainboardSchematic,
+        alt: "The whole main board on one schematic sheet.",
+        caption: "The whole design on one sheet.",
+        date: "Feb 2026",
+      },
+      {
+        src: sheetAudio,
+        alt: "The main board's audio output sheet.",
+        caption: "Its audio outputs.",
+        date: "Feb 2026",
+      },
+      {
+        src: sheetPower,
+        alt: "The main board's USB-C power delivery sheet.",
+        caption: "Its power delivery.",
+        date: "Feb 2026",
+      },
+      {
+        src: spiceDac,
+        alt: "A SPICE plot of the DAC's output stage.",
+        caption: "SPICE: the DAC's output.",
+        date: "Mar 2026",
+      },
+      {
+        src: spiceBuck,
+        alt: "A SPICE plot of the buck converter.",
+        caption: "SPICE: the buck converter.",
+        date: "Mar 2026",
+      },
+      {
+        src: laserFront,
+        alt: "The play/cue board's front copper as a laser file.",
+        caption: "A laser file for a home-etched board.",
+        date: "Jun 2026",
+      },
+      {
+        src: laserBack,
+        alt: "The play/cue board's back copper as a laser file.",
+        caption: "Its other side.",
+        date: "Jun 2026",
+      },
+      {
+        src: oneButtonV1,
+        alt: "The first OneButton layout in KiCad's PCB editor.",
+        caption: "OneButton's first layout.",
+        date: "Jul 2026",
+      },
+    ],
+  },
+  {
+    id: "figures",
+    title: "Diagrams",
+    lede: "The A/B update system, as drawn in its design notes.",
+    paper: true,
+    items: [
+      { src: fig1, alt: "The release card's eight partitions.", caption: "The card." },
+      { src: fig2, alt: "How the Pi boots slot A or B.", caption: "The boot." },
+      {
+        src: fig4,
+        alt: "An update's states, from install to kept or rolled back.",
+        caption: "An update's states.",
+      },
+      {
+        src: fig5,
+        alt: "The sequence of an update across RAUC, the bootloader and the health check.",
+        caption: "An update, step by step.",
+      },
+      {
+        src: fig7,
+        alt: "From the repository to an emulated deck, a bench Pi and the real decks.",
+        caption: "How a release travels.",
+      },
+    ],
+  },
+];
+
+const largeOf = async (src: ImageMetadata): Promise<string> =>
+  (await getImage({ src, width: Math.min(src.width, 2000), format: "webp", quality: 78 })).src;
+
+const rendered = await Promise.all(
+  sections.map(async (section) => ({
+    ...section,
+    items: await Promise.all(
+      section.items.map(async (item) => ({ ...item, large: await largeOf(item.src) })),
+    ),
+  })),
+);
+---
+
+<Base
+  title="Gallery"
+  description="TriMixxx in pictures: the decks, the boards rendered from KiCad, the screens, the schematics, the chassis renders and the main board that was never built."
+>
+  <section class="wrap section section--tight">
+    <div class="section__head">
+      <span class="kicker">Gallery</span>
+      <h1>Every layer, in pictures.</h1>
+      <p class="lede">Click any picture to see it large; the arrow keys step through a section.</p>
+    </div>
+    <nav class="jump" aria-label="Gallery sections">
+      {clips.length > 0 && (
+        <a class="pill" href="#clips">
+          Clips
+        </a>
+      )}
+      {rendered.map((section) => (
+        <a class="pill" href={`#${section.id}`}>
+          {section.title}
+        </a>
+      ))}
+    </nav>
+  </section>
+
+  {clips.length > 0 && (
+    <section class="wrap section section--line section--tight" id="clips">
+      <div class="gallery-head">
+        <h2>Clips</h2>
+        <p class="muted">
+          Short and silent: the deck moving, from the first jog test to the booth.
+        </p>
+      </div>
+      <ul class="clips">
+        {clips.map((clip) => (
+          <li class="clips__item">
+            <Clip id={clip.id} />
+          </li>
+        ))}
+      </ul>
+    </section>
+  )}
+
+  {rendered.map((section) => (
+    <section class="wrap section section--line section--tight" id={section.id}>
+      <div class="gallery-head">
+        <h2>{section.title}</h2>
+        {section.lede && <p class="muted">{section.lede}</p>}
+      </div>
+      <ul class:list={["shots", { "shots--paper": section.paper }]}>
+        {section.items.map((item) => (
+          <li class="shots__item">
+            <a
+              class="shots__link"
+              href={item.large}
+              data-lightbox={section.id}
+              data-caption={item.date ? `${item.caption} ${item.date}.` : item.caption}
+              data-alt={item.alt}
+            >
+              <Picture
+                src={item.src}
+                alt={item.alt}
+                formats={["avif"]}
+                fallbackFormat="webp"
+                width={720}
+                sizes="(min-width: 75rem) 23rem, (min-width: 40rem) 45vw, 100vw"
+                loading="lazy"
+              />
+            </a>
+            <p class="shots__caption">
+              {item.caption}
+              {item.date && <span class="mono">{item.date}</span>}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  ))}
+</Base>
+
+<style>
+  .jump {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .jump a {
+    text-decoration: none;
+  }
+
+  .jump a:hover {
+    border-color: var(--lime);
+    color: var(--lime);
+  }
+
+  .gallery-head {
+    display: grid;
+    gap: 0.5rem;
+    max-width: 48rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .clips {
+    columns: 4 14rem;
+    column-gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .clips__item {
+    margin-bottom: 1.25rem;
+    break-inside: avoid;
+  }
+
+  .shots {
+    columns: 3 18rem;
+    column-gap: 1rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .shots__item {
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    break-inside: avoid;
+  }
+
+  .shots__link {
+    display: block;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: radial-gradient(120% 90% at 50% 40%, #1b1f1b 0%, #0b0c0b 72%);
+    cursor: zoom-in;
+  }
+
+  .shots--paper .shots__link {
+    padding: 0.5rem;
+    background: var(--paper);
+  }
+
+  .shots__link :global(img) {
+    width: 100%;
+    height: auto;
+    transition: transform 0.3s ease;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .shots__link:hover :global(img) {
+      transform: scale(1.02);
+    }
+  }
+
+  .shots__caption {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0.25rem 0.75rem;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+  }
+
+  .shots__caption .mono {
+    color: var(--text-faint);
+    font-size: 0.72rem;
+  }
+</style>

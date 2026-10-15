@@ -1,0 +1,60 @@
+---
+// A boxed aside in a post: a note, a warning about what is not yet shown on
+// real hardware, or a quote from the repository's own notes.
+interface Props {
+  kind?: "note" | "verify" | "quote";
+  title?: string;
+}
+
+const { kind = "note", title } = Astro.props;
+const label =
+  title ?? { note: "Note", verify: "Shown on emulated decks", quote: "From the notes" }[kind];
+---
+
+<div class:list={["callout", `callout--${kind}`]} role="note">
+  <span class="callout__label label">{label}</span>
+  <div class="callout__body">
+    <slot />
+  </div>
+</div>
+
+<style>
+  .callout {
+    display: grid;
+    gap: 0.5rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--line-strong);
+    border-left: 3px solid var(--lime);
+    border-radius: var(--radius-sm);
+    background: var(--bg-raised);
+  }
+
+  .callout--verify {
+    border-left-color: var(--amber);
+  }
+
+  .callout--quote {
+    border-left-color: var(--cyan);
+  }
+
+  .callout__label {
+    color: var(--lime);
+  }
+
+  .callout--verify .callout__label {
+    color: var(--amber);
+  }
+
+  .callout--quote .callout__label {
+    color: var(--cyan);
+  }
+
+  .callout__body {
+    color: var(--text-muted);
+    font-size: 0.97rem;
+  }
+
+  .callout__body :global(p + p) {
+    margin-top: 0.75em;
+  }
+</style>

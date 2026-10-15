@@ -1,0 +1,217 @@
+---
+import { repositories, site } from "../data/site";
+import Base from "../layouts/Base.astro";
+
+const credits = [
+  {
+    name: "Mixxx",
+    href: site.mixxx,
+    what: "The free, open-source DJ software the deck runs. TriMixxx is a fork of Mixxx 2.5.6; everything that makes a deck play music starts there.",
+  },
+  {
+    name: "ttymidi",
+    href: "https://github.com/usr-ein/ttymidi",
+    what: "varal's serial-to-ALSA MIDI bridge, forked to carry SysEx both ways: the only thing between the controller's UART and Mixxx.",
+  },
+  {
+    name: "ch32fun",
+    href: "https://github.com/cnlohr/ch32fun",
+    what: "cnlohr's bare-metal toolkit for the CH32V003, and its minichlink flasher. Every pad node runs on it.",
+  },
+  {
+    name: "cdj2000-emulator",
+    href: "https://github.com/cdj2k-revival/cdj2000-emulator",
+    what: "cdj2k-revival's emulator of the CDJ-2000, which boots the player's own firmware. TriMixxx's fork puts emulated CDJ-2000NXS players on the decks' network.",
+  },
+  {
+    name: "RAUC",
+    href: "https://rauc.io",
+    what: "The update framework behind the deck's A/B slots and its signed bundles.",
+  },
+  {
+    name: "Chocolate Doom",
+    href: "https://www.chocolate-doom.org",
+    what: "The faithful DOOM port the deck boots into when PLAY is held, unmodified.",
+  },
+  {
+    name: "Raspberry Pi OS, KiCad, PlatformIO",
+    href: "https://www.kicad.org",
+    what: "The system the deck boots, the tool every board was drawn in, and the build system of its controller firmware.",
+  },
+  {
+    name: "The Pro DJ Link community",
+    href: "https://github.com/Deep-Symmetry/dysentery",
+    what: "Deep Symmetry's dysentery and the other published Pro DJ Link projects were the starting map. TriMixxx's own implementation was then written from captures of its own hardware, without their code.",
+  },
+] as const;
+---
+
+<Base
+  title="About"
+  description="Who makes TriMixxx, how to get in touch, the projects it builds on, and its repositories and licences."
+>
+  <section class="wrap section section--tight">
+    <div class="about">
+      <div class="section__head">
+        <span class="kicker">About</span>
+        <h1>A deck, made in the open.</h1>
+        <p class="lede">
+          TriMixxx is designed and built by {site.author}: the boards, the firmware, the Mixxx fork
+          and the Pro DJ Link work. It began in February 2026 as a single circuit board, and became
+          a deck that played its first gig eight months later.
+        </p>
+        <p class="lede">
+          It is not a product, and there is nothing to buy. It is a working deck whose every layer
+          is published, so that whoever wants to try an idea in the booth, whether a new control, a
+          new way to sync or a new screen, has a whole deck to try it on.
+        </p>
+      </div>
+
+      <aside class="contact card" aria-labelledby="contact-title">
+        <span class="label">Get in touch</span>
+        <h2 id="contact-title" class="contact__title">
+          Write to the deck.
+        </h2>
+        <p>About the project, a collaboration, an event or the press:</p>
+        <p class="contact__email mono">
+          <a href={`mailto:${site.email}`}>{site.email}</a>
+        </p>
+        <p>
+          Bugs and code go to{" "}
+          <a href={`${site.repo}/issues`} rel="noopener">
+            GitHub issues
+          </a>
+          .
+        </p>
+      </aside>
+    </div>
+  </section>
+
+  <section class="wrap section section--line" id="credits">
+    <div class="section__head">
+      <span class="kicker">Standing on</span>
+      <h2>What TriMixxx is built on.</h2>
+      <p class="lede">
+        Most of a deck already existed as free software. These are the projects it would not exist
+        without.
+      </p>
+    </div>
+    <div class="grid grid--2">
+      {credits.map((credit) => (
+        <article class="card">
+          <h3>
+            <a href={credit.href} rel="noopener">
+              {credit.name}
+            </a>
+          </h3>
+          <p>{credit.what}</p>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <section class="wrap section section--line" id="source">
+    <div class="section__head">
+      <span class="kicker">Source</span>
+      <h2>Repositories and licences.</h2>
+      <p class="lede">
+        Everything is on GitHub under free licences. The deck's own repository is GPL-3.0-or-later,
+        hardware sources and documentation included; the projects it forks keep theirs.
+      </p>
+    </div>
+    <div class="table-wrap" role="region" aria-label="The repositories" tabindex="0">
+      <table>
+        <caption class="visually-hidden">TriMixxx's repositories and their licences</caption>
+        <thead>
+          <tr>
+            <th scope="col">Repository</th>
+            <th scope="col">What it holds</th>
+            <th scope="col">Licence</th>
+          </tr>
+        </thead>
+        <tbody>
+          {repositories.map((repo) => (
+            <tr>
+              <th scope="row">
+                <a href={repo.href} rel="noopener">
+                  {repo.name}
+                </a>
+              </th>
+              <td class="muted">{repo.what}</td>
+              <td class="mono nowrap">{repo.licence}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="wrap section section--line" id="trademarks">
+    <div class="section__head">
+      <span class="kicker">Fine print</span>
+      <h2>Trademarks and affiliation.</h2>
+    </div>
+    <div class="prose">
+      <p>
+        TriMixxx is an independent project, with no affiliation with, sponsorship by or endorsement
+        from AlphaTheta Corporation (formerly Pioneer DJ) or the Mixxx project.
+      </p>
+      <p>
+        CDJ, rekordbox, Pro DJ Link, DJM, NXS and Pioneer DJ are trademarks of AlphaTheta
+        Corporation. They appear here only to say which equipment TriMixxx works with, which
+        protocol it speaks, and which decks it was measured against. Mixxx is the name of the
+        independent open-source project at{" "}
+        <a href={site.mixxx} rel="noopener">
+          mixxx.org
+        </a>
+        ; TriMixxx is this project's own name, not a Mixxx product.
+      </p>
+      <p>
+        The Pro DJ Link work is reverse engineering for interoperability, from network traffic
+        between devices the author owns. Protocol facts are not copyrightable, and no code from any
+        other implementation was copied. No Pioneer firmware is, or will be, in any TriMixxx
+        repository.
+      </p>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .about {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: start;
+  }
+
+  .about .section__head {
+    margin-bottom: 0;
+  }
+
+  .contact {
+    gap: 0.9rem;
+    border-color: var(--lime-line);
+  }
+
+  .contact__title {
+    font-size: 1.6rem;
+  }
+
+  .contact__email {
+    font-size: 1.15rem;
+  }
+
+  .contact__email a {
+    color: var(--lime);
+  }
+
+  .nowrap {
+    white-space: nowrap;
+  }
+
+  @media (width <= 62rem) {
+    .about {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

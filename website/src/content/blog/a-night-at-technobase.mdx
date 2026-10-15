@@ -1,0 +1,66 @@
+---
+title: A night at Technobase
+description: On 4 October 2026 the second deck played its first gig, at Technobase, in a secret underground location. It read every stick it was given, froze on the big ones, and taught the next release what a deck in a booth really needs.
+date: 2026-10-04
+period: 4 Oct 2026
+tags: [gig, field-test, lessons]
+cover: ../../assets/covers/technobase.webp
+coverAlt: The date 04.10 in orange seven-segment digits, under the words A night at Technobase.
+coverPhoto: 2026-10-04-img-9282
+---
+
+import Callout from "../../components/mdx/Callout.astro";
+import Photo from "../../components/mdx/Photo.astro";
+import Clip from "../../components/mdx/Clip.astro";
+import Gallery from "../../components/mdx/Gallery.astro";
+
+Most of this story happened in a workshop. On 4 October 2026, three days after it was built, trimixxx2 went to [Technobase](https://technobase.nl), a techno night at a secret underground location, and played in the booth.
+
+<Photo id="2026-10-04-img-9281" />
+
+It wasn't the first TriMixxx in that booth. Five days earlier, on 29 September, trimixxx1 had stood there, beside the booth's own players and mixer.
+
+<Gallery>
+  <Photo id="2026-09-29-trimixxx1-booth" sizes="(min-width: 44rem) 21rem, 100vw" />
+  <Photo id="2026-09-29-img-9255" sizes="(min-width: 44rem) 21rem, 100vw" />
+</Gallery>
+
+## No Wi-Fi, no clock
+
+The venue had no network the deck knew, so 45 seconds into its boot it did what it had been taught three days earlier and became its own hotspot. That worked; it also meant no time server. A Raspberry Pi has no battery-backed clock, so the deck spent the whole night believing it was the previous day, about thirty hours behind, counting on from the last time it had saved the time at home.
+
+It was on for about nine hours. Four hours and forty minutes in, it was still reading rekordbox databases off sticks as they were plugged in.
+
+<Clip id="2026-10-04-img-9279" />
+
+## What the sticks did
+
+Every stick it was given was read: the rekordbox exports, their playlists, grids and cues. The trouble was size. Friends' sticks carried tracks as uncompressed AIFF and WAV files, 50 to 150 MB each, and loading one **froze the deck** while it copied the whole file off a slow stick before playing a note: 18 seconds for a 52 MB AIFF. A second load in the meantime could race the first.
+
+In a booth, eighteen seconds of a frozen screen is a long time.
+
+<Photo id="2026-10-04-img-9280" />
+
+## The night after
+
+What the deck remembered of the night turned out to be the second lesson. Its logs lived in RAM, a choice made just before the gig to spare the SD card from writes, so when the night ended, most likely with the power pulled rather than a shutdown, the logs went with it. The deck's next start, days later, wiped the session's library and history, as it was designed to. The card itself was fine: no filesystem errors, only the orphan clean-up a pulled plug leaves.
+
+A post-mortem a few days later, read off the deck without changing anything on it, wrote down what to do next time:
+
+- keep the gig's logs on the card, at least capped ones;
+- save what played before the next start wipes it;
+- put real time somewhere, from a phone on the hotspot or a clock module;
+- and shut down rather than pull the plug.
+
+<Callout kind="note" title="What a field test is for">
+  None of this showed up on the bench. Big files on slow sticks, a booth with no network, a night
+  that ends with the plug: the gig found in one evening what months of testing at home didn't.
+</Callout>
+
+## Fixed four days later
+
+The freeze was the first thing fixed, and the emulator, born the same day as the gig, was how. The emulated deck learned to take a folder as a USB stick, and to be as slow as a real stick, so the night's sticks could be loaded again from read-only copies until the freeze happened on demand.
+
+By 8 October a track off a stick **plays while it copies**: a 52 MB AIFF that had taken 18 seconds to start now starts in 0.46. Only the track being loaded is copied, where browsing a gig stick used to pre-copy anything from 28 to 492 MB. And once the deck's copy is far enough ahead, it leaves most of the stick's speed to anyone else reading it, so a CDJ playing from the same stick gets 1.82 MB/s instead of 0.97. (These numbers were measured on the emulated deck, with sticks as slow as the real ones.)
+
+One of the post-mortem's wishes went into 1.0, eleven days after the gig: the deck now keeps a **History** of what played on the link, for the last three power-ups, on a partition that survives a pulled plug. And 1.0 brought something that night would have wanted too: the deck can **record the set** onto a stick, with the track list beside it.

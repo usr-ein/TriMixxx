@@ -1,0 +1,134 @@
+---
+// A seven-segment read-out, like the deck's tempo display. Unlit segments stay
+// faintly visible, as on a real LCD. Digits, "-", "." and spaces are drawn.
+interface Props {
+  value: string;
+  label?: string;
+  class?: string;
+}
+
+const { value, label = value, class: className } = Astro.props;
+
+const W = 12;
+const H = 22;
+const T = 2.6;
+const GAP = 0.55;
+const PITCH = W + 4;
+const DOT = 4;
+
+type Segment = "a" | "b" | "c" | "d" | "e" | "f" | "g";
+
+const glyphs: Record<string, readonly Segment[]> = {
+  "0": ["a", "b", "c", "d", "e", "f"],
+  "1": ["b", "c"],
+  "2": ["a", "b", "g", "e", "d"],
+  "3": ["a", "b", "g", "c", "d"],
+  "4": ["f", "g", "b", "c"],
+  "5": ["a", "f", "g", "c", "d"],
+  "6": ["a", "f", "g", "e", "c", "d"],
+  "7": ["a", "b", "c"],
+  "8": ["a", "b", "c", "d", "e", "f", "g"],
+  "9": ["a", "b", "c", "d", "f", "g"],
+  "-": ["g"],
+  " ": [],
+};
+
+const horizontal = (x1: number, x2: number, y: number): string => {
+  const h = T / 2;
+  const a = x1 + GAP;
+  const b = x2 - GAP;
+  return `${String(a)},${String(y)} ${String(a + h)},${String(y - h)} ${String(b - h)},${String(y - h)} ${String(b)},${String(y)} ${String(b - h)},${String(y + h)} ${String(a + h)},${String(y + h)}`;
+};
+
+const vertical = (x: number, y1: number, y2: number): string => {
+  const h = T / 2;
+  const a = y1 + GAP;
+  const b = y2 - GAP;
+  return `${String(x)},${String(a)} ${String(x + h)},${String(a + h)} ${String(x + h)},${String(b - h)} ${String(x)},${String(b)} ${String(x - h)},${String(b - h)} ${String(x - h)},${String(a + h)}`;
+};
+
+const segments: Record<Segment, string> = {
+  a: horizontal(T / 2, W - T / 2, T / 2),
+  g: horizontal(T / 2, W - T / 2, H / 2),
+  d: horizontal(T / 2, W - T / 2, H - T / 2),
+  f: vertical(T / 2, T / 2, H / 2),
+  b: vertical(W - T / 2, T / 2, H / 2),
+  e: vertical(T / 2, H / 2, H - T / 2),
+  c: vertical(W - T / 2, H / 2, H - T / 2),
+};
+
+const order: readonly Segment[] = ["a", "b", "c", "d", "e", "f", "g"];
+
+interface Cell {
+  kind: "digit" | "dot";
+  x: number;
+  lit: readonly Segment[];
+}
+
+const cells: Cell[] = [];
+let x = 0;
+for (const char of value) {
+  if (char === ".") {
+    cells.push({ kind: "dot", x, lit: [] });
+    x += DOT;
+  } else {
+    cells.push({ kind: "digit", x, lit: glyphs[char] ?? [] });
+    x += PITCH;
+  }
+}
+const width = x + 4;
+---
+
+<svg
+  class:list={["seven-seg", className]}
+  viewBox={`-2 -1 ${String(width)} ${String(H + 2)}`}
+  role="img"
+  aria-label={label}
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <g transform="skewX(-7)">
+    {cells.map((cell) =>
+      cell.kind === "dot" ? (
+        <rect
+          x={cell.x + 0.2}
+          y={H - T}
+          width={T}
+          height={T}
+          class="seven-seg__on"
+          transform={`translate(${String(H * 0.12)},0)`}
+        />
+      ) : (
+        <g transform={`translate(${String(cell.x)},0)`}>
+          {order.map((name) => (
+            <polygon
+              points={segments[name]}
+              class:list={{
+                "seven-seg__on": cell.lit.includes(name),
+                "seven-seg__off": !cell.lit.includes(name),
+              }}
+            />
+          ))}
+        </g>
+      ),
+    )}
+  </g>
+</svg>
+
+<style>
+  .seven-seg {
+    height: 1em;
+    width: auto;
+    overflow: visible;
+    color: var(--orange);
+  }
+
+  .seven-seg__on {
+    fill: currentcolor;
+    filter: drop-shadow(0 0 0.35px currentcolor);
+  }
+
+  .seven-seg__off {
+    fill: currentcolor;
+    opacity: 0.08;
+  }
+</style>

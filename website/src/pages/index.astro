@@ -1,0 +1,446 @@
+---
+import { getCollection } from "astro:content";
+
+import render from "../assets/renders/deck-v2-render.webp";
+import deckView from "../assets/screens/autoplay-master.webp";
+import trackList from "../assets/screens/rekordbox-genre-tracks.webp";
+import Figure from "../components/Figure.astro";
+import Clip from "../components/mdx/Clip.astro";
+import Photo from "../components/mdx/Photo.astro";
+import PostCard from "../components/PostCard.astro";
+import SevenSeg from "../components/SevenSeg.astro";
+import StackDiagram from "../components/StackDiagram.astro";
+import { site } from "../data/site";
+import Base from "../layouts/Base.astro";
+import { photo } from "../lib/photos";
+
+const posts = (await getCollection("blog", ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+const latest = posts.slice(0, 3);
+
+// The gig photo leads when the photos are there; the render otherwise.
+const heroPhoto = await photo("2026-10-04-img-9281");
+const hero = heroPhoto
+  ? { src: heroPhoto.data.image, alt: heroPhoto.data.alt, frame: "none" as const }
+  : {
+      src: render,
+      alt: "A render of the TriMixxx deck: a black chassis on pink legs, a jog wheel, a tempo fader, rows of round pads and an angled touchscreen showing a waveform.",
+      frame: "dark" as const,
+    };
+const booth = await photo("2026-10-04-img-9282");
+
+const pillars = [
+  {
+    kicker: "Open at every layer",
+    title: "Nothing in it is a black box.",
+    text: "The boards are KiCad projects. The firmwares are C++ on the ESP32-S3 and bare-metal C on RISC-V. The system is Raspberry Pi OS with its units in the repo, the DJ software is a Mixxx fork, and the network stack is a Rust library. All of it is GPL.",
+  },
+  {
+    kicker: "Fits in the booth",
+    title: "It plays with the gear already there.",
+    text: "It reads rekordbox USB sticks with their grids, cues and colour waveforms. On a Pro DJ Link network beside CDJs it browses their sticks, shares its own, and takes or follows tempo master the way a CDJ does.",
+  },
+  {
+    kicker: "Built to be changed",
+    title: "Changing it is the point.",
+    text: "One header file is the whole MIDI contract. A deck, or a few, start in seconds under emulation, beside emulated CDJs. Releases go to an A/B card, and a release that does not come up healthy rolls itself back.",
+  },
+] as const;
+
+const features = [
+  {
+    tag: "rekordbox",
+    title: "Your sticks, as they are",
+    text: "Plug in a stick exported from rekordbox: playlists, beat grids, hot cues, colour waveforms and cover art, read straight off it. A stick of plain files works too, browsed by folder.",
+  },
+  {
+    tag: "Pro DJ Link",
+    title: "On the link with CDJs",
+    text: "Browse and load from a CDJ's stick, serve your own to the CDJs, sync tempo and phase both ways, and hand master over the way two CDJs do.",
+  },
+  {
+    tag: "KEY SYNC",
+    title: "In key with the master",
+    text: "One press shifts the track onto the master's Camelot number, keeping its mode. Hold the pad to pick any of the twelve keys yourself.",
+  },
+  {
+    tag: "Record set",
+    title: "Take the set home",
+    text: "Record the mixer's output to an MP3, then write it to your stick with the night's track list beside it.",
+  },
+  {
+    tag: "History",
+    title: "What played, and with what",
+    text: "Every track played on the link, by any deck or CDJ, as a timeline of what overlapped, for the last three power-ups.",
+  },
+  {
+    tag: "A/B updates",
+    title: "Updates that undo themselves",
+    text: "Each release goes into the deck's idle slot and starts as a trial. If the network and ssh don't come up, the deck goes back to the release it ran before.",
+  },
+] as const;
+---
+
+<Base>
+  <section class="hero">
+    <div class="wrap hero__grid">
+      <div class="hero__copy">
+        <span class="kicker">Open-source DJ deck</span>
+        <h1>Open from the copper to the cue&nbsp;point.</h1>
+        <p class="lede">
+          TriMixxx is an all-in-one DJ player. A jog wheel, a tempo fader and two rings of RGB pads
+          on custom boards; an ESP32-S3 that reads them; a Raspberry Pi running a fork of{" "}
+          <a href={site.mixxx} rel="noopener">
+            Mixxx
+          </a>
+          , the open-source DJ software; and a Pro DJ Link stack that plays with real CDJs. Every
+          layer of it is open.
+        </p>
+        <div class="btn-row">
+          <a class="btn" href="/architecture/">
+            See how it works <span aria-hidden="true">→</span>
+          </a>
+          <a class="btn btn--ghost" href="/blog/">
+            Read the build log
+          </a>
+        </div>
+        <ul class="hero__chips" aria-label="What it runs on">
+          <li class="pill">Raspberry Pi 4</li>
+          <li class="pill">ESP32-S3</li>
+          <li class="pill">CH32V003</li>
+          <li class="pill">Mixxx 2.5.6 fork</li>
+          <li class="pill">GPL</li>
+        </ul>
+      </div>
+
+      <div class="hero__visual">
+        <Figure
+          src={hero.src}
+          alt={hero.alt}
+          priority
+          sizes="(min-width: 62rem) 40rem, 100vw"
+          frame={hero.frame}
+        />
+        <div class="readout" aria-hidden="true">
+          <div class="readout__side">
+            <span class="readout__pitch mono">+0.00%</span>
+            <span class="readout__range mono">±6%</span>
+          </div>
+          <SevenSeg class="readout__bpm" value="145.00" label="145.00 BPM" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--line">
+    <div class="wrap">
+      <div class="manifesto">
+        <div class="section__head">
+          <span class="kicker">Not a product. A platform.</span>
+          <h2>The booth runs on closed boxes. This one opens.</h2>
+          <p class="lede">
+            The decks DJs learn on are designed, built and updated by a handful of companies, and
+            what they don't ship doesn't happen. TriMixxx is a complete, working deck whose
+            schematics, firmware, operating system, DJ software and network protocol are all in the
+            open. Read it, fork it, change one layer and keep the rest.
+          </p>
+        </div>
+        <div class="grid grid--3">
+          {pillars.map((pillar) => (
+            <article class="card pillar">
+              <span class="label">{pillar.kicker}</span>
+              <h3>{pillar.title}</h3>
+              <p>{pillar.text}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  {booth && (
+    <section class="section section--line">
+      <div class="wrap">
+        <div class="section__head">
+          <span class="kicker">In the booth</span>
+          <h2>It has already played a night.</h2>
+          <p class="lede">
+            On 4 October 2026, three days after it was built, the second deck played its first gig:
+            Technobase, a techno night at a secret underground location. It read every stick it was
+            handed, and froze on the biggest files, which the next release fixed.
+          </p>
+        </div>
+        <div class="booth">
+          <Photo id="2026-10-04-img-9282" zoom="booth" sizes="(min-width: 62rem) 40rem, 100vw" />
+          <Clip id="2026-10-04-img-9279" />
+          <Photo id="2026-10-09-img-9295" zoom="booth" sizes="(min-width: 62rem) 20rem, 100vw" />
+        </div>
+        <p class="after-stack">
+          <a class="btn btn--ghost" href="/blog/a-night-at-technobase/">
+            The night, and what it taught
+          </a>
+        </p>
+      </div>
+    </section>
+  )}
+
+  <section class="section section--line">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="kicker">From copper to cue point</span>
+        <h2>Seven layers, one deck.</h2>
+        <p class="lede">
+          A press on PLAY crosses every one of them: a debounced GPIO on the controller, a Note-On
+          on the UART, an ALSA event on the Pi, a control in Mixxx, a status packet on the network.
+          Each layer is its own small, documented piece.
+        </p>
+      </div>
+      <StackDiagram linked />
+      <p class="after-stack">
+        <a class="btn btn--ghost" href="/architecture/">
+          The architecture, layer by layer
+        </a>
+      </p>
+    </div>
+  </section>
+
+  <section class="section section--line">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="kicker">The screen</span>
+        <h2>Made for a booth, not a laptop.</h2>
+        <p class="lede">
+          No mouse, no keyboard: every control is on the deck or under a thumb. The skin is built
+          around big targets and the browse encoder, and the space the buttons gave back goes to the
+          waveform.
+        </p>
+      </div>
+      <div class="grid grid--2">
+        <Figure
+          src={deckView}
+          alt="The deck view: a scrolling waveform in three stacked bands, blue bass outside, yellow mids and white highs at the centre, with white beat lines and red downbeats; the title, key and artist at the top, the MASTER button lit, the times, and a seven-segment tempo of 126.00."
+          caption="The deck view: rekordbox's beat grid with red downbeats over a three-band waveform, the whole track underneath, MASTER lit in the header, and the tempo in seven segments."
+          frame="screen"
+          zoom="screens"
+          sizes="(min-width: 62rem) 36rem, 100vw"
+        />
+        <Figure
+          src={trackList}
+          alt="The deck's browser: a full-width list of house tracks from a rekordbox stick, each row with its cover, title, artist, BPM and Camelot key, the first row highlighted."
+          caption="The browser: a stick's genre, its tracks with BPM and Camelot key. The encoder scrolls, a press loads. (An emulated deck, whose accent is cyan.)"
+          frame="screen"
+          zoom="screens"
+          sizes="(min-width: 62rem) 36rem, 100vw"
+        />
+      </div>
+    </div>
+  </section>
+
+  <section class="section section--line">
+    <div class="wrap">
+      <div class="section__head">
+        <span class="kicker">What it does</span>
+        <h2>A deck first. Then the ideas.</h2>
+        <p class="lede">
+          The basics a DJ expects, and some that no deck had to have until someone could add them.
+        </p>
+      </div>
+      <div class="grid grid--3">
+        {features.map((feature) => (
+          <article class="card feature">
+            <span class="pill pill--lime">{feature.tag}</span>
+            <h3>{feature.title}</h3>
+            <p>{feature.text}</p>
+          </article>
+        ))}
+      </div>
+      <p class="after-stack">
+        <a class="btn btn--ghost" href="/features/">
+          Every feature
+        </a>
+      </p>
+    </div>
+  </section>
+
+  {latest.length > 0 && (
+    <section class="section section--line">
+      <div class="wrap">
+        <div class="section__head">
+          <span class="kicker">Build log</span>
+          <h2>How it got here.</h2>
+          <p class="lede">
+            One monolithic board that was never built, then a deck taken apart into small boards, a
+            Mixxx fork, a reverse-engineered protocol and a release system. Each phase, written up.
+          </p>
+        </div>
+        <div class="grid grid--3">
+          {latest.map((post) => (
+            <PostCard post={post} />
+          ))}
+        </div>
+        <p class="after-stack">
+          <a class="btn btn--ghost" href="/blog/">
+            All {posts.length} posts
+          </a>
+        </p>
+      </div>
+    </section>
+  )}
+
+  <section class="section section--line">
+    <div class="wrap cta">
+      <div class="cta__copy">
+        <span class="kicker">Build on it</span>
+        <h2>Fork a layer. Keep the rest.</h2>
+        <p class="lede">
+          Change the skin without touching C++. Add a control by adding a node to a ring. Run a
+          deck, or three, and a pair of CDJs under emulation before any hardware sees your change.
+          Follow along on GitHub, or write to <a href={`mailto:${site.email}`}>{site.email}</a> to
+          talk about the deck, a collaboration or a booking.
+        </p>
+      </div>
+      <div class="btn-row">
+        <a class="btn" href={site.repo} rel="noopener">
+          Follow on GitHub
+        </a>
+        <a class="btn btn--ghost" href={`mailto:${site.email}`}>
+          Get in touch
+        </a>
+      </div>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .hero {
+    position: relative;
+    padding-block: clamp(3rem, 7vw, 6rem) clamp(3.5rem, 8vw, 6.5rem);
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgb(136 255 0 / 13%) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(80% 70% at 70% 30%, #000 0%, transparent 75%);
+    pointer-events: none;
+  }
+
+  .hero__grid {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    gap: clamp(2rem, 5vw, 4rem);
+    align-items: center;
+  }
+
+  .hero__copy {
+    display: grid;
+    gap: 1.5rem;
+    justify-items: start;
+  }
+
+  .hero__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.5rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .hero__visual {
+    position: relative;
+  }
+
+  .readout {
+    position: absolute;
+    right: clamp(0.75rem, 3vw, 1.5rem);
+    bottom: clamp(-1.5rem, -2vw, -1rem);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.8rem 1.1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 0.6rem;
+    background: rgb(5 6 5 / 92%);
+    box-shadow: var(--shadow);
+  }
+
+  .readout__side {
+    display: grid;
+    justify-items: end;
+    gap: 0.15rem;
+  }
+
+  .readout__pitch {
+    font-size: 0.85rem;
+    color: var(--text);
+  }
+
+  .readout__range {
+    font-size: 0.75rem;
+    color: #3ddc4b;
+  }
+
+  .readout :global(.readout__bpm) {
+    height: 2.4rem;
+    color: var(--orange);
+  }
+
+  .pillar h3 {
+    font-size: 1.3rem;
+  }
+
+  .feature h3 {
+    font-size: 1.2rem;
+  }
+
+  .feature .pill {
+    justify-self: start;
+  }
+
+  .booth {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(1rem, 2.4vw, 1.5rem);
+    align-items: start;
+  }
+
+  .booth :global(figure img),
+  .booth :global(figure video) {
+    height: clamp(16rem, 30vw, 26rem);
+    object-fit: cover;
+  }
+
+  .after-stack {
+    margin-top: 1.75rem;
+  }
+
+  .cta {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) auto;
+    gap: 2rem;
+    align-items: end;
+  }
+
+  .cta__copy {
+    display: grid;
+    gap: 1rem;
+  }
+
+  @media (width <= 62rem) {
+    .hero__grid,
+    .booth,
+    .cta {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .readout {
+      bottom: -1.25rem;
+    }
+  }
+</style>

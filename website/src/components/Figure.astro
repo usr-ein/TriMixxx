@@ -1,0 +1,166 @@
+---
+// A picture with a caption. The picture is served as AVIF/WebP in responsive
+// widths; with `zoom`, a click opens a large WebP in the site's lightbox, and
+// pictures sharing a `zoom` value form one set there.
+import type { ImageMetadata } from "astro";
+import { getImage, Picture } from "astro:assets";
+
+interface Props {
+  src: ImageMetadata;
+  alt: string;
+  caption?: string | undefined;
+  credit?: string | undefined;
+  zoom?: string | boolean;
+  sizes?: string | undefined;
+  frame?: "none" | "screen" | "paper" | "dark";
+  priority?: boolean;
+  class?: string;
+}
+
+const {
+  src,
+  alt,
+  caption,
+  credit,
+  zoom = false,
+  sizes,
+  frame = "none",
+  priority = false,
+  class: className,
+} = Astro.props;
+
+const pictureSizes = sizes ?? "(min-width: 75rem) 70rem, 100vw";
+const group = zoom === true ? "page" : zoom === false ? undefined : zoom;
+const large = group
+  ? await getImage({ src, width: Math.min(src.width, 2000), format: "webp", quality: 78 })
+  : undefined;
+const zoomCaption = [caption, credit].filter(Boolean).join(" · ");
+---
+
+<figure class:list={["figure", `figure--${frame}`, className]}>
+  {large ? (
+    <a
+      class="figure__zoom"
+      href={large.src}
+      data-lightbox={group}
+      data-caption={zoomCaption}
+      data-alt={alt}
+    >
+      <Picture
+        src={src}
+        alt={alt}
+        formats={["avif"]}
+        fallbackFormat="webp"
+        sizes={pictureSizes}
+        loading={priority ? "eager" : "lazy"}
+        fetchpriority={priority ? "high" : "auto"}
+      />
+      <span class="figure__hint" aria-hidden="true">
+        ⤢
+      </span>
+    </a>
+  ) : (
+    <Picture
+      src={src}
+      alt={alt}
+      formats={["avif"]}
+      fallbackFormat="webp"
+      sizes={pictureSizes}
+      loading={priority ? "eager" : "lazy"}
+      fetchpriority={priority ? "high" : "auto"}
+    />
+  )}
+  {(caption ?? credit) && (
+    <figcaption class="figure__caption">
+      {caption}
+      {credit && <span class="figure__credit">{credit}</span>}
+    </figcaption>
+  )}
+</figure>
+
+<style>
+  .figure {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+  }
+
+  .figure :global(img) {
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius-sm);
+  }
+
+  .figure__zoom {
+    position: relative;
+    display: block;
+    border-radius: var(--radius-sm);
+    cursor: zoom-in;
+  }
+
+  .figure__hint {
+    position: absolute;
+    right: 0.6rem;
+    bottom: 0.6rem;
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 60%);
+    color: var(--text);
+    font-size: 0.95rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  .figure__zoom:hover .figure__hint,
+  .figure__zoom:focus-visible .figure__hint {
+    opacity: 1;
+  }
+
+  .figure--screen .figure__zoom,
+  .figure--screen > :global(picture) {
+    padding: clamp(0.4rem, 1.2vw, 0.75rem);
+    border: 1px solid var(--line-strong);
+    border-radius: calc(var(--radius-sm) + 0.5rem);
+    background: #000;
+    box-shadow: var(--shadow);
+  }
+
+  .figure--screen :global(img) {
+    border-radius: 0.2rem;
+  }
+
+  .figure--paper .figure__zoom,
+  .figure--paper > :global(picture) {
+    padding: clamp(0.5rem, 1.5vw, 1rem);
+    border-radius: var(--radius-sm);
+    background: var(--paper);
+  }
+
+  .figure--dark .figure__zoom,
+  .figure--dark > :global(picture) {
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: radial-gradient(120% 90% at 50% 40%, #1b1f1b 0%, #0b0c0b 70%);
+  }
+
+  .figure--none :global(img) {
+    border: 1px solid var(--line);
+  }
+
+  .figure__caption {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+
+  .figure__credit {
+    display: block;
+    margin-top: 0.2rem;
+    color: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+  }
+</style>

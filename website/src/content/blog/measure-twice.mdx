@@ -1,0 +1,173 @@
+---
+title: Measure twice, etch four times
+description: A real CDJ taken apart and measured photo by photo, a chassis drawn around it, a 3D printer, boards etched at home with a laser, and the first controller board of its own.
+date: 2026-06-30
+period: Apr – Jun 2026
+tags: [hardware, chassis, pcb]
+cover: ../../assets/renders/deck-v1-front.webp
+coverAlt: The first full chassis in Fusion 360, a grey box with an angled screen housing, a jog wheel, a tempo fader slot and buttons.
+coverPhoto: 2026-06-02-img-8661
+---
+
+import Figure from "../../components/Figure.astro";
+import Callout from "../../components/mdx/Callout.astro";
+import Gallery from "../../components/mdx/Gallery.astro";
+import jogFront from "../../assets/history/measure-jog-front.webp";
+import jogSide from "../../assets/history/measure-jog-side.webp";
+import topCase from "../../assets/history/measure-top-case.webp";
+import bottomCase from "../../assets/history/measure-bottom-case.webp";
+import v1Front from "../../assets/renders/deck-v1-front.webp";
+import v1Back from "../../assets/renders/deck-v1-back.webp";
+import laserFront from "../../assets/history/laser-play-cue-f.webp";
+import laserBack from "../../assets/history/laser-play-cue-b.webp";
+import midiLaser from "../../assets/boards/midi-laser.webp";
+import Photo from "../../components/mdx/Photo.astro";
+
+A deck is played by feel. The jog wheel has to sit where the hand expects it, the tempo fader has to travel the length a DJ's thumb knows, and the buttons have to be where a CDJ has them. So before drawing a chassis, TriMixxx needed the real thing's measurements, and the most reliable source was a real deck.
+
+## A CDJ on the bench
+
+The CDJ-1000MK3 opened in February went back on the bench in April. Its top case, bottom case and jog assembly were photographed flat beside references of known size, then measured on the photos: every hole, every control, the jog's diameters and its height above the panel.
+
+<Gallery>
+  <Figure
+    src={topCase}
+    alt="The top case of a CDJ-1000MK3, photographed from above with dozens of coloured measurement labels on its buttons, fader slot and jog opening."
+    caption="The CDJ-1000MK3's top case, measured control by control."
+    zoom="measure"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+  <Figure
+    src={jogFront}
+    alt="The jog wheel assembly from above, with concentric circles drawn on it and their diameters labelled."
+    caption="The jog assembly: its platter and rings, diameter by diameter."
+    zoom="measure"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+</Gallery>
+
+<Gallery>
+  <Figure
+    src={jogSide}
+    alt="The jog assembly from the side, with heights labelled in millimetres."
+    caption="From the side: how high everything sits."
+    zoom="measure"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+  <Figure
+    src={bottomCase}
+    alt="The bottom case of a CDJ, empty, with the jog's opening measured."
+    caption="The bottom case, where the jog mounts."
+    zoom="measure"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+</Gallery>
+
+<Gallery>
+  <Photo id="2026-04-14-img-8252" sizes="(min-width: 44rem) 21rem, 100vw" />
+  <Photo id="2026-05-02-fusion-jog" sizes="(min-width: 44rem) 21rem, 100vw" />
+</Gallery>
+
+The jog assembly didn't just give its measurements: it went into the deck. TriMixxx's jog wheel is a CDJ-1000MK3's, optical encoder and touch switch included.
+
+## The first chassis
+
+The first full chassis, drawn in Fusion 360, borrowed a CDJ-3000's envelope: **453 × 329 × 118 mm**. In mid-May a 3D printer arrived, a Bambu Lab H2D, and the parts started coming out in carbon-fibre PETG.
+
+<Gallery>
+  <Photo id="2026-04-14-fusion-v1-back" sizes="(min-width: 44rem) 21rem, 100vw" />
+  <Photo id="2026-05-02-fusion-v1-mainboard" sizes="(min-width: 44rem) 21rem, 100vw" />
+</Gallery>
+
+The first models still had the monolithic board in mind: in early May, the long green board was still drawn under the screen.
+
+Printing meant test fits, and test fits meant numbers that were wrong. The circle of screws holding the jog, measured at 226.3 mm, turned out 4.1 mm too large; it became 222.4 mm, keeping a little clearance. The jog-tension dial's position took several versions, one of which, in the notes' own words, adjusted 1.7 mm the wrong way. Parts that didn't quite fit the printer needed an overhang correction factor, logged with a plea to the gods of CAD.
+
+<Gallery>
+  <Figure
+    src={v1Front}
+    alt="The V1 chassis in Fusion 360: a grey box with the jog wheel, a tempo fader slot and an angled screen housing."
+    caption="Version 117 of the model, on 1 June."
+    zoom="v1"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+  <Figure
+    src={v1Back}
+    alt="The back of the V1 chassis, with openings for the sound card's outputs and inputs, power and network."
+    caption="Its back, with room for a USB sound card's outputs and inputs, power and LAN."
+    zoom="v1"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+</Gallery>
+
+<Gallery>
+  <Photo id="2026-05-17-img-8529" sizes="(min-width: 44rem) 21rem, 100vw" />
+  <Photo id="2026-05-18-img-8539" sizes="(min-width: 44rem) 21rem, 100vw" />
+</Gallery>
+
+The printer's bed is smaller than a deck, so the biggest panels were printed in pieces, joined on a zig-zag seam and welded with melted plastic. The first electronics went into the printed tub the day after the printer arrived: a Raspberry Pi 4, an audio board and a mains supply.
+
+<Gallery>
+  <Photo id="2026-06-03-img-8664" sizes="(min-width: 44rem) 21rem, 100vw" />
+  <Photo id="2026-05-18-first-electronics" sizes="(min-width: 44rem) 21rem, 100vw" />
+</Gallery>
+
+<Photo id="2026-06-02-img-8661" />
+
+By June 1st the model was at its 117th version, and it already held a decision that would outlive the monolithic board: the sound would come from a Behringer UCA222, an off-the-shelf USB sound card, rather than a DAC of TriMixxx's own.
+
+## Circuit boards in an afternoon
+
+Ordering boards from a factory takes a week or two. For the simple boards, the PLAY/CUE board and the loop board, which are only switches and LEDs, a faster loop was possible: make them in the workshop.
+
+The process: spray-paint copper-clad board, plot each copper layer from KiCad as a negative, let the laser burn the paint off wherever copper has to go, etch the bare copper away in ferric chloride, then drill the holes by hand. A small script, `make_bambu_ready.py`, turns KiCad's plots into files the laser understands.
+
+<Gallery>
+  <Figure
+    src={laserFront}
+    alt="The play/cue board's front copper as a laser file, in copper on black: every track and pad outlined around two switch footprints."
+    caption="The PLAY/CUE board's front copper, as the laser file draws it."
+    zoom="laser"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+  <Figure
+    src={laserBack}
+    alt="The same board's back copper as a laser file."
+    caption="And its back, which has to land exactly behind it."
+    zoom="laser"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+</Gallery>
+
+The first attempts didn't line up. The laser software ignores an SVG's `viewBox`, so the two sides of a board were offset from each other, and it took four attempts to find out why. On 9 June the fix went into the script, with a commit message that won't be quoted here; on 10 June both boards were lasered and etched.
+
+<Callout kind="note" title="Designing for a home etch">
+  Boards meant for the laser follow their own design rules: tracks and gaps of at least 0.4 mm to
+  absorb the etch's undercut, 0.4 mm between copper and holes for a hand drill's drift, and no
+  plated holes at all, since a via here is a wire soldered on both sides. These two boards have
+  none. The same boards were then prepared for JLCPCB too.
+</Callout>
+
+## The first controller of its own
+
+The monolithic board had planned an ATmega32U4 to read the controls. In late May that idea became a perfboard, then a board of its own: **midi-laser-pcb**, an Arduino Pro Micro and an MCP23017 I²C expander on 80 × 60 mm, with JST connectors for every group of controls.
+
+<Photo id="2026-05-22-img-8557" />
+
+<Figure
+  src={midiLaser}
+  alt="A 3D render of the midi-laser board: a Pro Micro footprint, a DIP-28 expander and a row of JST connectors."
+  caption="midi-laser-pcb: an Arduino Pro Micro and an MCP23017, dated 28 May on its silkscreen."
+  frame="dark"
+/>
+
+<Gallery>
+  <Photo id="2026-06-25-img-8790" sizes="(min-width: 44rem) 21rem, 100vw" />
+  <Photo id="2026-06-30-img-8809" sizes="(min-width: 44rem) 21rem, 100vw" />
+</Gallery>
+
+It came back from the fab on 25 June, and was brought up on 30 June with a test sketch, and the bring-up wrote its own to-do list for a second version: no pinouts on the silkscreen; a 5 V to 3.3 V divider on the receive line that belonged on the transmit line; the RELOOP button never wired to the expander; and the jog encoder on pins without interrupts, which "may slip at full scratch".
+
+<Photo id="2026-06-30-img-8808" />
+
+That second version was never ordered. The same day, a different board was drawn: one built around an ESP32-S3, with hardware made for counting a jog wheel, two cores, and UARTs to spare. That board, and the rings of tiny pad boards it drives, are the next part of the story.

@@ -1,0 +1,87 @@
+---
+title: A browser for a thumb
+description: Mixxx's library is built for a mouse. The deck got a CDJ-style browser driven by one encoder, tracks that start playing before they have arrived, and its first tempo and phase sync with a live CDJ.
+date: 2026-08-04
+period: 2 – 4 Aug 2026
+tags: [software, browser, sync]
+cover: ../../assets/screens/rekordbox-genre-tracks.webp
+coverAlt: The deck's browser listing the house tracks on a rekordbox stick, each with its cover, title, artist, BPM and Camelot key.
+---
+
+import Figure from "../../components/Figure.astro";
+import Callout from "../../components/mdx/Callout.astro";
+import Gallery from "../../components/mdx/Gallery.astro";
+import homeList from "../../assets/screens/after-only-the-stick.webp";
+import trackList from "../../assets/screens/rekordbox-genre-tracks.webp";
+import deckView from "../../assets/screens/autoplay-master.webp";
+import Clip from "../../components/mdx/Clip.astro";
+
+Mixxx's library is a tree on the left and a table on the right: perfect with a mouse, hopeless with a thumb on a small touchscreen in a dark booth. On 2 August a product spec for a different browser was written, and by the 4th the deck had one.
+
+## One encoder, one list
+
+The browser fills the screen with one list at a time, the way a CDJ's does. The encoder scrolls it, a press opens or loads, BACK goes up a level, and a long press on BACK returns to the deck and keeps your place for next time. Fingers work too: tap, long-press and swipe.
+
+The home list starts with what's plugged in, each stick by its own name with its count of tracks and playlists, and every stick on the other players on the link. Inside a stick: search, all tracks, playlists or folders, genre, artist then album, label, last played, date added, BPM in buckets one fader range wide, and key, with the keys that mix well with the playing one in green.
+
+<Gallery>
+  <Figure
+    src={homeList}
+    alt="The home list: a stick with its track and folder counts, then Autoplay, History, Record set, Diagnostics and Shut down."
+    caption="The home list, as it is today: sticks first, then everything else."
+    frame="screen"
+    zoom="browser"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+  <Figure
+    src={trackList}
+    alt="A list of house tracks with covers, artists, BPM and Camelot keys."
+    caption="A genre on a rekordbox stick."
+    frame="screen"
+    zoom="browser"
+    sizes="(min-width: 44rem) 21rem, 100vw"
+  />
+</Gallery>
+
+Underneath, the browser reads one table, written by one piece of code that ingests each stick's rekordbox database, with every view as SQL on top of it. Mixxx's menu bar went the same day: there was nothing on it a deck needed.
+
+## A pulled stick doesn't stop the music
+
+A stick yanked out mid-track used to stop the deck after about fifteen seconds, when the decoded audio Mixxx keeps in memory ran out. Now the deck never plays from the stick at all: it plays a copy, made in RAM first. Pulling the stick costs nothing but the stick.
+
+## Playing before it has arrived
+
+A track on a CDJ's stick has to cross the network before it plays, and at the speed a CDJ serves files, a 60 MB file would take about forty seconds. So the deck fetches the start of the file first, then its last 256 KB, where an M4A keeps its index, then the rest in chunks that follow the playhead, and the decoder starts as soon as the start is there.
+
+The hard part was an unexpected one: silence that reports success. A file being filled in the background reads back zeros, with no error, wherever the bytes haven't arrived yet, so a decoder that runs ahead of the download plays silence and thinks everything is fine. The deck's streaming file makes such a read wait until its bytes are there. From a CDJ, a track now starts about 0.56 seconds after the button, 0.13 of them spent fetching its analysis.
+
+## Waveforms, and the colour of a track
+
+rekordbox stores its own analysis on the stick: colour waveforms, beat grids, cues. The deck draws those rather than analysing anything again, and gained a small preview waveform in the track info, from rekordbox's preview data, with its own parser.
+
+One preview came out solid red, and looked like a bug. Three independent decodings of the same bytes agreed: the waveform was red because the track was. The music decides the colour.
+
+## Sync with a live CDJ
+
+On 3 and 4 August the deck met a CDJ on the tempo side of the protocol: who is master, and how a follower matches its tempo and phase.
+
+<Figure
+  src={deckView}
+  alt="The deck view with SYNC and MASTER buttons in the header, MASTER lit, above a three-band waveform and a tempo of 126.00."
+  caption="SYNC and MASTER sit in the header, beside the phase meter. (This is today's deck view, on an emulated deck.)"
+  frame="screen"
+  zoom="browser"
+/>
+
+<Clip id="2026-08-04-sync-tap" />
+
+With the deck as master and its pitch at −3.05 %, the CDJ followed it to 116.34 BPM, to the hundredth, and stayed in phase within a few milliseconds. Two bugs on the way said something about protocols in general:
+
+- **The phase meter had never worked.** Mixxx gives a control to whoever creates it first, and the skin had been creating the meter's control before the code that was meant to feed it.
+- **The CDJ couldn't take master back.** When the deck handed master over, it never named a successor in the status byte that says who should take it next. The deck had learned to read that byte from the CDJ, but not to write it.
+
+<Callout kind="quote" title="From the commit">
+  A protocol rule learned in one direction is worth checking in the other.
+</Callout>
+
+The same day, the pad that sorted the library got a second job: pressed over the deck rather than the browser, it became **KEY SYNC**, putting the track in the master's key. Two months later it would learn to pick any key, but that is the 1.0 story.

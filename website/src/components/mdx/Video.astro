@@ -1,0 +1,54 @@
+---
+// A silent looping clip, with a poster frame, for time-lapses.
+import type { ImageMetadata } from "astro";
+import { getImage } from "astro:assets";
+
+interface Props {
+  src: string;
+  poster: ImageMetadata;
+  caption: string;
+  label: string;
+}
+
+const { src, poster, caption, label } = Astro.props;
+const posterImage = await getImage({ src: poster, width: 1200, format: "webp" });
+---
+
+<figure class="video">
+  <video
+    src={src}
+    poster={posterImage.src}
+    width={poster.width}
+    height={poster.height}
+    aria-label={label}
+    muted
+    loop
+    playsinline
+    controls
+    preload="none"
+  >
+    <track kind="captions" />
+  </video>
+  <figcaption class="video__caption">{caption}</figcaption>
+</figure>
+
+<style>
+  .video {
+    display: grid;
+    gap: 0.75rem;
+    margin: 0;
+  }
+
+  .video video {
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: #000;
+  }
+
+  .video__caption {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+  }
+</style>
