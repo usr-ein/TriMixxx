@@ -523,6 +523,18 @@ pi-qemu deck ship --host trimixxx-pi-2   # the update onto a deck running a rele
 pi-qemu deck prepare --host trimixxx-pi-2 trimixxx2   # before a deck's first release card
 ```
 
+**Versions.** A release is X.Y.Z, tagged `pi/vX.Y.Z`. From 1.0.0 on, in
+Sam's words:
+
+> From then on, versioning will be following this scheme:
+> X.Y.Z . X is for "large" change, such as new feature etc. Y is for more minor new features and refactors, and Z is for bug fixes. It's subjective and I will decide.
+
+Each release's notes are [`docs/releases/X.Y.Z.md`](../docs/releases/),
+merged before it's tagged, and its GitHub release carries them; its cards
+and bundle stay in `archives/releases/`. The pi-qemu-release skill
+(`.claude/skills/pi-qemu-release/SKILL.md`) has the order a release is made
+in.
+
 The release container runs with 3 GB of Docker's memory at most, the file
 cache its images go through included, and mksquashfs with 1 GB of caches.
 

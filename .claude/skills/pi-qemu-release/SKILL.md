@@ -1,6 +1,6 @@
 ---
 name: pi-qemu-release
-description: Build TriMixxx's SD card images and releases with pi-qemu - a deck's dev card from stock Raspberry Pi OS (`pi-qemu image build`), the A/B release card and its RAUC update bundle from HEAD's pi/vX.Y.Z tag (`release build`), each deck's own card with its identity (`release card`), broken updates for the fault tests (`release faults`), an update shipped onto a deck (`deck ship`), and a real deck readied for its first release card (`deck prepare`, bootloader and boot watchdog included). Use when asked to make an image, a release, a deck's card, to ship or rehearse an update, or to prepare a deck; and to try a release on emulated decks before any real deck gets it.
+description: Build TriMixxx's SD card images and releases with pi-qemu - a deck's dev card from stock Raspberry Pi OS (`pi-qemu image build`), the A/B release card and its RAUC update bundle from HEAD's pi/vX.Y.Z tag (`release build`), each deck's own card with its identity (`release card`), broken updates for the fault tests (`release faults`), an update shipped onto a deck (`deck ship`), and a real deck readied for its first release card (`deck prepare`, bootloader and boot watchdog included). Use when asked to make an image, a release (its version, notes, tag and GitHub release), a deck's card, to ship or rehearse an update, or to prepare a deck; and to try a release on emulated decks before any real deck gets it.
 ---
 
 # pi-qemu: images, releases, cards
@@ -27,10 +27,12 @@ the runbook for putting real decks on release cards.
    path; never run `diskutil`, `dd` or anything else on a card or disk. A
    release's cards are `.img.xz`: Raspberry Pi Imager and balenaEtcher take
    them as they are, or `xz -dc CARD | sudo dd of=/dev/rdiskN bs=4m`.
-3. **Releases are tags.** A release's version is HEAD's `pi/vX.Y.Z` tag, and
-   `release build` refuses a dirty tree. Tags are signed, so they need a
-   message: `git tag -m "TriMixxx X.Y.Z" pi/vX.Y.Z`. The repo's other parts
-   tag `midi-s3/v…` and `prolinks-compat/v…`. Tagging is the person's call.
+3. **Releases are tags, and Sam picks the version.** A release's version is
+   HEAD's `pi/vX.Y.Z` tag, and `release build` refuses a dirty tree. Tags are
+   signed, so they need a message: `git tag -m "TriMixxx X.Y.Z" pi/vX.Y.Z`.
+   The repo's other parts tag `midi-s3/v…` and `prolinks-compat/v…`. Tagging
+   is the person's call, and so is the version: ask which part goes up
+   ("Versions", below), never work it out from the changes.
 4. **The golden pair is the person's call.** `image build trimixxx0` ends by
    remaking it (`deck golden`), and every new instance starts from it: build
    trimixxx0 only when asked. Try image builds on a scratch DECK name, and
@@ -67,7 +69,47 @@ pi-qemu image build onetest --no-window --rebuild-base
 - A scratch build's outputs to delete afterwards: `.cache/build/DECK.img`,
   `DECK.log`, and `.cache/base/DECK-*.img`.
 
+## Versions
+
+From 1.0.0 (2026-10-15) on, a release's version follows Sam's scheme, in
+his words:
+
+> From then on, versioning will be following this scheme:
+> X.Y.Z . X is for "large" change, such as new feature etc. Y is for more minor new features and refactors, and Z is for bug fixes. It's subjective and I will decide.
+
+So each version is his to give: ask him which part goes up (at night, the
+nightman asks him). 0.0.1, 0.1.0 and 0.1.1 came before the scheme.
+
 ## Releases
+
+A release is made in this order:
+
+1. **The version:** Sam's (above).
+2. **Its notes,** `docs/releases/X.Y.Z.md`: everything since the last
+   release's tag, from `git log pi/vA.B.C..`, the PRs merged since, and the
+   fork's and prolink's logs between the commits the two releases pin. What
+   changed for the DJ, in the deck's system and in the tooling; what
+   updating from the last release means; whether the S3's firmware changed
+   (`git log pi/vA.B.C.. -- firmwares/`), which a release doesn't carry.
+   They go through a PR like any change.
+3. **The tag,** on main's commit that has the notes:
+   `git tag -m "TriMixxx X.Y.Z" pi/vX.Y.Z SHA`, then
+   `git push origin pi/vX.Y.Z`, by Sam. A crew session can't push a tag. It
+   builds from a local one, `git -c tag.gpgSign=false tag pi/vX.Y.Z SHA`,
+   and the GitHub release (6) puts the same tag on GitHub: lightweight and
+   unsigned where Sam's are signed, and not on gitea, where `origin` pushes
+   too. Sam then pushes it on (`git push origin pi/vX.Y.Z`), or signs it
+   first (`git tag -f -m "TriMixxx X.Y.Z" pi/vX.Y.Z SHA`, then
+   `git push -f origin pi/vX.Y.Z`).
+4. **`release build`** from a checkout at that commit, clean (in a worktree,
+   `pi-qemu worktree prepare` first).
+5. **A rehearsal on emulated decks** (below): a deck on the last release
+   takes the new bundle and keeps it, and the new release's card boots.
+6. **The GitHub release,** once 5 has passed:
+   `crew gh -R usr-ein/TriMixxx release create pi/vX.Y.Z --target SHA --title "TriMixxx X.Y.Z" --notes-file docs/releases/X.Y.Z.md`.
+   The notes only: the cards and the bundle stay in `archives/releases/`
+   (Sam's call for 1.0.0; the repo is public).
+7. **Shipping** to the real decks: Sam's, or on his ask (rule 1).
 
 ```sh
 git tag -m "TriMixxx 1.2.0" pi/v1.2.0      # the person's call
@@ -79,17 +121,19 @@ pi-qemu release faults                     # releases/1.2.0-nonet, -nossh, -noin
 
 - `release build` builds the system (`image build trimixxx-release`), then
   seals it in the release container (`release/Dockerfile` running
-  `release/container.sh`): `trimixxx-X.Y.Z.img.xz` (every deck's card),
-  `trimixxx-X.Y.Z.raucb` (the update), `rootfs.squashfs`, `boot.vfat`,
-  `manifest.txt`. `--keep-system` seals the system card built last time;
-  `--rehearsal X.Y.Z` lets an untagged or dirty tree through, and says so in
-  the manifest.
+  `release/container.sh`): `trimixxx-X.Y.Z.img.xz` (the card each deck's own
+  is made from), `trimixxx-X.Y.Z.raucb` (the update), `rootfs.squashfs`,
+  `boot.vfat`, `manifest.txt`. `--keep-system` seals the system card built
+  last time; `--rehearsal X.Y.Z` lets an untagged or dirty tree through, and
+  says so in the manifest.
 - Releases always land in the main checkout's `archives/releases/`, also
   from a worktree. Nothing clears the archives. `--version X.Y.Z` names another release than HEAD's for
   `release card`, `release faults` and `deck ship`.
 - A deck's identity (its name, ssh host keys kept across reflashes, its
   hotspot, the home Wi-Fi) is in `archives/decks/DECK/`, made the first time
-  `release card` needs it.
+  `release card` needs it. The release's own card holds none: a deck started
+  from `trimixxx-X.Y.Z.img.xz` is `trimixxx`, with no Wi-Fi and no ssh (it
+  has no host keys). A deck is flashed with its own card.
 - `deck ship` streams the bundle into RAUC's state partition, installs it
   into the other slot and reboots into it as a trial; the deck's health check
   (network up and ssh answering) keeps it or rolls it back.
@@ -102,12 +146,17 @@ pi-qemu release card trimixxx0 --version 0.0.1            # the emulated deck's 
 pi-qemu deck up abtest --from archives/releases/0.0.1/trimixxx0-0.0.1.img.xz   # unpacked, sparse
 pi-qemu deck ship abtest --version 0.0.9                  # a trial of B, then its health check
 pi-qemu deck ssh abtest 'tail -3 /var/lib/rauc/trimixxx-health.log; rauc status'
+pi-qemu deck ssh abtest 'sudo rauc status mark-active other && sudo systemctl reboot'   # back to A as a trial
 ```
 
+The last line is what Diagnostics' RESTART INTO does, for a release from
+before it (0.1.1 and older).
+
 Afterwards, delete what the rehearsal made, and only that: `deck rm abtest`,
-and `archives/releases/0.0.9*` and `releases/0.0.1/trimixxx0-0.0.1.img.xz`.
-Keep the tagged releases and their decks' cards: an untagged release is never
-left in `archives/releases/`.
+`archives/releases/0.0.9*`, and the emulated deck's cards it made
+(`releases/0.0.1/trimixxx0-0.0.1.img.xz`; rehearsing a tagged release, its
+own `trimixxx0-X.Y.Z.img.xz` too). Keep the tagged releases and the real
+decks' cards: an untagged release is never left in `archives/releases/`.
 
 ## Readying a real deck (only when asked)
 
