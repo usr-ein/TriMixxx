@@ -121,7 +121,10 @@ void removeSub(const QString& sub) {
 }
 
 // This checkout's Mixxx build trees in Docker's cache, emptied: a throwaway
-// build mounts each by its id and deletes what is in it.
+// build mounts each by its id and deletes what is in it. With --no-cache,
+// BuildKit in fact gives that build a new, empty mount under the id, and drops
+// the old one with its disk (moby/moby#41715): checked on 2026-10-15, a 50 MB
+// mount's record was gone after such a build. Either way the tree goes.
 void dropBuilds() {
     proc::Options o;
     o.quiet = true;
