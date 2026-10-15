@@ -143,7 +143,7 @@ The pad:
 pitched to, +6 at the top and -5 at the bottom, each as its Camelot code, its
 name and its shift ("9A  Em  +2"). The track's own key says "original"; the
 key in force is drawn in the header's colour for it. It opens on the key in
-force, eight rows at a time. The encoder moves through it and its push picks;
+force, nine rows at a time. The encoder moves through it and its push picks;
 a finger flicks it and a tap picks. BACK, B6 again, a swipe right or a tap off
 the list closes it, changing nothing. It closes by itself when a track loads
 or the library opens, and does not open with no track on the deck. A track
