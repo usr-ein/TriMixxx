@@ -18,7 +18,8 @@ the rest: [cdj-emulator.md](cdj-emulator.md).
 - **The firmware:** Pioneer's updater for the CDJ-2000NXS, version 1.44,
   `C2KNXS.UPD`, which Pioneer gives the NXS's owners. It never goes into a
   repository, and neither does anything made from it, screenshots of the
-  CDJ's screen included.
+  CDJ's screen included. The website's are the one exception: shown with a
+  disclaimer, and kept in usr-ein/static-resources.
 - **Two free cores for each CDJ,** for as long as it runs.
 
 ## Once: set it up

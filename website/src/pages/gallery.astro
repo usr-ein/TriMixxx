@@ -58,7 +58,7 @@ interface Section {
   title: string;
   lede: string;
   items: readonly Item[];
-  paper?: boolean;
+  diagram?: boolean;
 }
 
 const photoTags = [
@@ -245,7 +245,7 @@ const sections: readonly Section[] = [
     id: "schematics",
     title: "Schematics",
     lede: "Previews. The full sheets, which zoom as far as you like, are on the hardware page.",
-    paper: true,
+    diagram: true,
     items: [
       {
         src: schS3,
@@ -328,7 +328,7 @@ const sections: readonly Section[] = [
     id: "figures",
     title: "Diagrams",
     lede: "The A/B update system, as drawn in its design notes.",
-    paper: true,
+    diagram: true,
     items: [
       { src: fig1, alt: "The release card's eight partitions.", caption: "The card." },
       { src: fig2, alt: "How the Pi boots slot A or B.", caption: "The boot." },
@@ -412,7 +412,7 @@ const rendered = await Promise.all(
         <h2>{section.title}</h2>
         {section.lede && <p class="muted">{section.lede}</p>}
       </div>
-      <ul class:list={["shots", { "shots--paper": section.paper }]}>
+      <ul class:list={["shots", { "shots--diagram": section.diagram }]}>
         {section.items.map((item) => (
           <li class="shots__item">
             <a
@@ -503,9 +503,9 @@ const rendered = await Promise.all(
     cursor: zoom-in;
   }
 
-  .shots--paper .shots__link {
+  .shots--diagram .shots__link {
     padding: 0.5rem;
-    background: var(--paper);
+    background: var(--diagram);
   }
 
   .shots__link :global(img) {

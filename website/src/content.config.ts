@@ -35,7 +35,7 @@ const photos = defineCollection({
       alt: z.string().min(1, "Every photo needs alt text"),
       caption: z.string().optional(),
       date: z.coerce.date(),
-      tags: z.array(z.enum(["build", "deck", "event", "boards", "detail"])).default([]),
+      tags: z.array(z.enum(["build", "deck", "event", "boards", "detail", "screen"])).default([]),
       credit: z.string().optional(),
       featured: z.boolean().default(false),
     }),
@@ -54,7 +54,7 @@ const clips = defineCollection({
       label: z.string().min(1, "Every clip needs a label for screen readers"),
       caption: z.string().optional(),
       date: z.coerce.date(),
-      tags: z.array(z.enum(["build", "deck", "event", "boards", "detail"])).default([]),
+      tags: z.array(z.enum(["build", "deck", "event", "boards", "detail", "screen"])).default([]),
       credit: z.string().optional(),
     }),
 });

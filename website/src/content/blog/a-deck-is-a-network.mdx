@@ -9,6 +9,7 @@ coverAlt: A 3D render of the midi_s3_mini board, a green PCB with headers for th
 coverPhoto: 2026-07-28-img-8937
 ---
 
+import BoardModel from "../../components/BoardModel.astro";
 import Figure from "../../components/Figure.astro";
 import Callout from "../../components/mdx/Callout.astro";
 import Gallery from "../../components/mdx/Gallery.astro";
@@ -45,12 +46,12 @@ At the centre sits **midi_s3_mini**, a carrier board for a LOLIN S3 Mini. The ES
 For the RGB pads, wiring each button and LED back to the S3 would have meant dozens of wires. Instead each pad is a **OneButton** node: a 20 mm board with a CH32V003, a 48 MHz RISC-V microcontroller that costs around ten cents, a switch and two RGB LEDs. Nodes daisy-chain into a ring over three-wire cables, and the ring has its own protocol, written up as a specification on 7 July.
 
 <Gallery>
-  <Figure
+  <BoardModel
+    board="one-button"
+    name="one_button"
     src={oneButton}
     alt="A 3D render of a OneButton node: a small square board with a switch in the middle, two LEDs and a QFN chip."
-    caption="A OneButton node, 20 × 20 mm."
-    frame="dark"
-    zoom="nodes"
+    caption="A OneButton node, 20 × 20 mm. Click it to turn it in 3D."
     sizes="(min-width: 44rem) 21rem, 100vw"
   />
   <Figure
@@ -101,7 +102,7 @@ The first S3 board, ordered on 3 July, was all through-hole. It worked, but IO14
   src={s3Schematic}
   alt="The midi_s3_mini schematic, with TVS diode arrays on every connector and notes written in its margins."
   caption="The v2 schematic, with its reasoning in the margins: which pins burnt out, which signals come back at 5 V, why a resistor changed."
-  frame="paper"
+  frame="diagram"
   zoom="s3"
 />
 

@@ -39,7 +39,7 @@ The system is a compressed, read-only SquashFS image, with a layer in RAM on top
   src={figBoot}
   alt="A diagram of the boot: the bootloader reads autoboot.txt on partition 1, starts boot A by default or boot B when the one-shot trial flag is set, each pointing at its own system partition, then Linux starts with a RAM layer over the read-only system."
   caption="How a deck boots slot A, or slot B once as a trial."
-  frame="paper"
+  frame="diagram"
   zoom="ab"
 />
 
@@ -53,7 +53,7 @@ It deliberately doesn't check Mixxx, the sound card or the controller. A release
   src={figStates}
   alt="A state diagram: running A, then B installed, then a trial start of B; if the check passes, running B with A kept; if the check fails, a hang, a panic or a power cut, back to running A."
   caption="An update's states. Every red path leads back to the release before."
-  frame="paper"
+  frame="diagram"
   zoom="ab"
 />
 
@@ -63,7 +63,7 @@ The update itself is a [RAUC](https://rauc.io) bundle, about 1.1 GB, streamed to
   src={figSequence}
   alt="A sequence diagram across six actors: the Mac, RAUC on the deck, the tryboot backend, autoboot.txt, the Pi firmware and the health check, from rauc install to the slot being marked good."
   caption="One update, step by step. Only the backend and the health check are TriMixxx's code."
-  frame="paper"
+  frame="diagram"
   zoom="ab"
 />
 
@@ -99,7 +99,7 @@ The same day, Diagnostics learned to show the release, its commit and date, whic
   src={figWorkflow}
   alt="A workflow diagram: commits become dev decks for quick deploys; tagged commits become a release build, which produces an update bundle and a card image; the bundle is rehearsed on an emulated A/B deck, then the bench Pi, then shipped to the decks."
   caption="How a release travels: tagged commit, sealed build, an emulated deck, the bench Pi, then the decks."
-  frame="paper"
+  frame="diagram"
   zoom="ab"
 />
 

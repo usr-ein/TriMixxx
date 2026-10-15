@@ -9,7 +9,8 @@
 #
 #   sh scripts/add-photos.sh [--tag TAG] [--crop L,T,R,B] [--rotate DEG] [--name ID] FILE...
 #
-# --tag is the gallery section: deck, event, build, boards or detail.
+# --tag is the gallery section: deck, event, build, boards or detail; screen
+# keeps a screenshot out of the gallery.
 # --crop keeps a rectangle given in percent of the upright photo, left, top,
 # right and bottom edges: --crop 0,32,100,74 keeps the middle band. --rotate
 # turns the result (90, -90, 180), for a photo taken sideways. --name replaces
@@ -97,7 +98,7 @@ image: ./$id.jpg
 alt: ""
 caption: ""
 date: $taken
-# One or more of: deck, event, build, boards, detail. The first is its gallery section.
+# One or more of: deck, event, build, boards, detail, screen. The first is its gallery section (none for screen).
 tags: [$tag]
 # credit: only when someone else took it
 featured: false

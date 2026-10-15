@@ -28,7 +28,7 @@
   --amber: #ffb000;
   --blue: #3b78ff;
   --phosphor: #bdffd6;
-  --paper: #f5f4ef;
+  --diagram: #0b0c0b;
   --font-sans:
     "Archivo Variable", "Archivo", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono:
@@ -47,6 +47,11 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* `hidden` hides, whatever display a component gives the element. */
+[hidden] {
+  display: none !important;
 }
 
 html {

@@ -1,0 +1,315 @@
+---
+// One dialog for the whole site: a board in 3D. A button with data-model
+// (BoardModel.astro) opens its GLB here; three.js and the model download only
+// then. Without JavaScript, the boards' renders stay pictures.
+---
+
+<dialog class="viewer" aria-labelledby="viewer-title" data-viewer>
+  <div class="viewer__bar">
+    <div class="viewer__heading">
+      <h2 class="viewer__title" id="viewer-title" data-viewer-title>
+        A board, in 3D
+      </h2>
+      <p class="viewer__hint">
+        <span class="viewer__hint-mouse">
+          Drag to turn · scroll to zoom · right-drag to move · arrow keys and + − too
+        </span>
+        <span class="viewer__hint-touch">Drag to turn · pinch to zoom · two fingers to move</span>
+      </p>
+    </div>
+    <div class="viewer__tools">
+      <button type="button" class="viewer__button" data-viewer-flip>
+        Flip
+      </button>
+      <button type="button" class="viewer__button" data-viewer-reset>
+        Reset
+      </button>
+      <button
+        type="button"
+        class="viewer__button viewer__button--round"
+        data-viewer-close
+        aria-label="Close"
+      >
+        ✕
+      </button>
+    </div>
+  </div>
+  <div class="viewer__stage" data-viewer-stage>
+    <div class="viewer__status" role="status" data-viewer-status>
+      <p data-viewer-message></p>
+      <progress max="1" data-viewer-progress></progress>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  import type { BoardViewer } from "../lib/board-viewer";
+
+  const dialog = document.querySelector<HTMLDialogElement>("[data-viewer]");
+  const title = dialog?.querySelector<HTMLElement>("[data-viewer-title]");
+  const stage = dialog?.querySelector<HTMLElement>("[data-viewer-stage]");
+  const status = dialog?.querySelector<HTMLElement>("[data-viewer-status]");
+  const message = dialog?.querySelector<HTMLElement>("[data-viewer-message]");
+  const progress = dialog?.querySelector<HTMLProgressElement>("[data-viewer-progress]");
+  const flip = dialog?.querySelector<HTMLButtonElement>("[data-viewer-flip]");
+  const reset = dialog?.querySelector<HTMLButtonElement>("[data-viewer-reset]");
+  const close = dialog?.querySelector<HTMLButtonElement>("[data-viewer-close]");
+
+  if (dialog && title && stage && status && message && progress && flip && reset && close) {
+    let viewer: BoardViewer | undefined;
+    let loading: AbortController | undefined;
+    const load = () => import("../lib/board-viewer");
+
+    // While there is no board to turn: a message, and a bar while it loads.
+    const wait = (text: string, busy: boolean): void => {
+      status.hidden = false;
+      message.textContent = text;
+      progress.hidden = !busy;
+      progress.removeAttribute("value");
+      flip.disabled = true;
+      reset.disabled = true;
+    };
+
+    const open = async (button: HTMLButtonElement): Promise<void> => {
+      const url = button.dataset["model"];
+      if (!url) return;
+      const name = button.dataset["name"] ?? "";
+      title.textContent = name;
+      wait("Loading the board…", true);
+      dialog.showModal();
+      const controller = new AbortController();
+      loading = controller;
+      try {
+        const { openBoard } = await load();
+        const opened = await openBoard(stage, url, {
+          side: button.dataset["side"] === "bottom" ? "bottom" : "top",
+          label: `${name}, in 3D`,
+          signal: controller.signal,
+          onProgress: (fraction) => {
+            if (fraction === undefined) progress.removeAttribute("value");
+            else progress.value = fraction;
+          },
+        });
+        if (controller.signal.aborted) {
+          opened.dispose();
+          return;
+        }
+        viewer = opened;
+        status.hidden = true;
+        flip.disabled = false;
+        reset.disabled = false;
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        wait(
+          error instanceof Error && error.name === "NoWebGL"
+            ? "This browser can't draw 3D here: WebGL is off or missing."
+            : "The model didn't load. Close this and try again.",
+          false,
+        );
+      }
+    };
+
+    document.addEventListener("click", (event) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const button = target.closest<HTMLButtonElement>("button[data-model]");
+      if (button) void open(button);
+    });
+    // Fetch three.js as soon as a pointer is over a board.
+    document.addEventListener("pointerover", (event) => {
+      if (event.target instanceof Element && event.target.closest("[data-model]")) {
+        load().catch(() => undefined);
+      }
+    });
+
+    flip.addEventListener("click", () => {
+      viewer?.flip();
+    });
+    reset.addEventListener("click", () => {
+      viewer?.reset();
+    });
+    close.addEventListener("click", () => {
+      dialog.close();
+    });
+
+    // The keys a mouse drag would do: arrows turn it (Shift for bigger
+    // steps), + and − zoom, Home resets.
+    dialog.addEventListener("keydown", (event) => {
+      const current = viewer;
+      if (!current) return;
+      const step = event.shiftKey ? 0.4 : 0.12;
+      const actions: Partial<Record<string, () => void>> = {
+        ArrowLeft: () => {
+          current.turn(step, 0);
+        },
+        ArrowRight: () => {
+          current.turn(-step, 0);
+        },
+        ArrowUp: () => {
+          current.turn(0, -step);
+        },
+        ArrowDown: () => {
+          current.turn(0, step);
+        },
+        "+": () => {
+          current.zoom(0.85);
+        },
+        "=": () => {
+          current.zoom(0.85);
+        },
+        "-": () => {
+          current.zoom(1 / 0.85);
+        },
+        Home: () => {
+          current.reset();
+        },
+      };
+      const action = actions[event.key];
+      if (!action) return;
+      event.preventDefault();
+      action();
+    });
+
+    dialog.addEventListener("close", () => {
+      loading?.abort();
+      viewer?.dispose();
+      viewer = undefined;
+    });
+  }
+</script>
+
+<style>
+  .viewer {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    margin: 0;
+    padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 1rem
+      calc(1rem + env(safe-area-inset-bottom, 0px));
+    border: 0;
+    background: radial-gradient(120% 90% at 50% 50%, #1d221d 0%, #070807 75%);
+    color: var(--text);
+  }
+
+  .viewer:modal {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .viewer::backdrop {
+    background: rgb(4 5 4 / 85%);
+  }
+
+  .viewer__bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1.5rem;
+  }
+
+  .viewer__heading {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .viewer__title {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 600;
+    font-stretch: 100%;
+    letter-spacing: 0;
+  }
+
+  .viewer__hint {
+    color: var(--text-muted);
+    font-size: 0.82rem;
+  }
+
+  .viewer__hint-touch {
+    display: none;
+  }
+
+  .viewer__tools {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .viewer__button {
+    min-width: 2.75rem;
+    height: 2.75rem;
+    padding: 0 1.1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: var(--panel);
+    color: var(--text);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .viewer__button--round {
+    padding: 0;
+  }
+
+  .viewer__button:focus-visible {
+    outline: 2px solid var(--lime);
+    outline-offset: 2px;
+  }
+
+  .viewer__button:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+
+  .viewer__button:hover:enabled {
+    border-color: var(--lime-line);
+  }
+
+  .viewer__stage {
+    position: relative;
+    min-height: 0;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+  }
+
+  .viewer__stage :global(.viewer__canvas) {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .viewer__stage :global(.viewer__canvas:active) {
+    cursor: grabbing;
+  }
+
+  .viewer__status {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-content: center;
+    justify-items: center;
+    gap: 0.75rem;
+    color: var(--text-muted);
+    text-align: center;
+  }
+
+  .viewer__status progress {
+    width: min(16rem, 60vw);
+    accent-color: var(--lime);
+  }
+
+  @media (pointer: coarse) {
+    .viewer__hint-mouse {
+      display: none;
+    }
+
+    .viewer__hint-touch {
+      display: inline;
+    }
+  }
+</style>

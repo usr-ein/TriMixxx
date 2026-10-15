@@ -72,9 +72,9 @@ Text in Markdown.
 What a post can use:
 
 - `Figure` (`src/components/Figure.astro`): a picture with a caption.
-  `frame` is `none`, `screen` (a black bezel, for screenshots), `paper` (for
-  light diagrams and schematics) or `dark` (for renders on transparent
-  backgrounds). `zoom` opens it in the lightbox; pictures with the same `zoom`
+  `frame` is `none`, `screen` (a black bezel, for screenshots), `diagram` (for
+  diagrams and schematics, drawn on the site's near-black, `--diagram`) or
+  `dark` (for renders on transparent backgrounds). `zoom` opens it in the lightbox; pictures with the same `zoom`
   value form a set the arrow keys step through.
 - `Gallery` (`mdx/Gallery.astro`): two or three figures side by side.
 - `Callout` (`mdx/Callout.astro`): an aside; `kind` is `note`, `verify` (for
@@ -82,12 +82,16 @@ What a post can use:
 - `Video` (`mdx/Video.astro`): a silent loop with a poster frame.
 - `Photo` (`mdx/Photo.astro`): a photograph from the media repository, by id.
 - `Clip` (`mdx/Clip.astro`): a short silent clip from the media repository, by id.
+- `BoardModel` (`src/components/BoardModel.astro`): a board's render that opens
+  the board in 3D, by its id on the hardware page (`board="one-button"`); with
+  a `caption`, framed for a post.
 - The diagrams in `src/components/diagrams/`.
 
 **What doesn't go on the site:** secrets, hostnames, IP or MAC addresses,
-serial numbers, ssh aliases, Wi-Fi names or passwords, and screenshots of a
-CDJ's screen (its firmware draws it). Say when something has only been shown
-on emulated decks.
+serial numbers, ssh aliases or Wi-Fi names or passwords. A screenshot of a
+CDJ's interface (its firmware, Pioneer's, draws it) only comes from the media
+repository, never this one, with a disclaimer in its caption. Say when
+something has only been shown on emulated decks.
 
 ## Photographs
 
@@ -115,8 +119,9 @@ git -C media add trimixxx && git -C media commit -m "trimixxx: …" && git -C me
 re-encodes it as a JPEG, and strips **all** of its metadata, the GPS position
 included, refusing any photo where GPS data survives. The YAML gets the capture
 date from the original. A photo's `tags` place it in the gallery (its first tag
-picks the section: `deck`, `event`, `build`, `boards` or `detail`); a post shows
-one with `<Photo id="…" />`, or uses one as its cover with `coverPhoto`.
+picks the section: `deck`, `event`, `build`, `boards` or `detail`; `screen` keeps
+a screenshot out of it); a post shows one with `<Photo id="…" />`, or uses one
+as its cover with `coverPhoto`.
 
 ### Clips
 
@@ -133,13 +138,28 @@ It cuts the clip, scales it to at most 1280 px wide, drops the sound unless
 filmed) and refuses the clip if a location survives. A post plays one, muted
 and looping, with `<Clip id="…" />`.
 
+### Board models
+
+Each board on the hardware page opens in 3D from its render: a GLB in
+`trimixxx/models/<board id>.glb`, beside the photos. `sh scripts/export-boards.sh
+models` makes them with KiCad's GLB export; `scripts/kicad-glb-colors.mjs` then
+decodes the colours KiCad writes as sRGB where glTF wants linear, and gltfpack
+compresses them (24 MB to 1.4 MB for the controller). Commit them to the media
+repository like photos. The viewer (`ModelViewer.astro`, `src/lib/board-viewer.ts`)
+is three.js, downloaded only when someone opens a board.
+
 ## Generated assets
 
 Made on a Mac, then committed:
 
-- `sh scripts/export-boards.sh`: each board's 3D render and its schematics,
-  from the KiCad sources in `../boards` (needs KiCad 10, `rsvg-convert`,
-  `cwebp`).
+- `sh scripts/export-boards.sh [renders] [schematics] [models]`: each board's
+  3D render, its schematics (in KiCad's Vampire theme, on the site's
+  near-black) and its model, from the KiCad sources in `../boards`; the
+  never-built main board's model from the last commit that had it (needs
+  KiCad 10, `rsvg-convert`, `cwebp`).
+- `node scripts/dark-figures.mjs`: the A/B diagrams in `src/assets/figures/`,
+  the SVGs of `pi-qemu/rauc-pi-4-report.html` in its dark palette (needs
+  `npm install --no-save puppeteer-core@25.12.0` and Chrome).
 - `node scripts/make-covers.mjs`: the build log's drawn covers and
   `public/og.png`, the picture shown when a link to the site is shared.
 

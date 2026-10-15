@@ -216,6 +216,7 @@ its firmware lights it: for Sam, not for an agent, which reads `cdj shot` and
   one link a deck and a CDJ can't share a name, so `BRANCH-b` is one or the
   other there.
 - **Never put its firmware or its screenshots in git:** both are Pioneer's.
+  The website's few, shown with a disclaimer, live in usr-ein/static-resources.
 
 ## Deploy your own code onto it
 

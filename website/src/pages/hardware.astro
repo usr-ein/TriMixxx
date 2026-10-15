@@ -1,6 +1,5 @@
 ---
 import type { ImageMetadata } from "astro";
-import { Picture } from "astro:assets";
 
 import loopRender from "../assets/boards/loop.webp";
 import midiLaserRender from "../assets/boards/midi-laser.webp";
@@ -14,6 +13,7 @@ import v1Back from "../assets/renders/deck-v1-back.webp";
 import v1Front from "../assets/renders/deck-v1-front.webp";
 import v2Model from "../assets/renders/deck-v2-model.webp";
 import v2Render from "../assets/renders/deck-v2-render.webp";
+import BoardModel from "../components/BoardModel.astro";
 import Figure from "../components/Figure.astro";
 import Photo from "../components/mdx/Photo.astro";
 import { site } from "../data/site";
@@ -31,6 +31,8 @@ interface Board {
   schematics: readonly { label: string; href: string }[];
   source: string;
   photo?: string;
+  /** The side its render shows. */
+  side?: "top" | "bottom";
 }
 
 const tree = `${site.repo}/tree/main`;
@@ -114,6 +116,7 @@ const boards: readonly Board[] = [
     ],
     schematics: [{ label: "Schematic", href: "/schematics/loop/loop_btn.svg" }],
     source: `${tree}/boards/loop_btn`,
+    side: "bottom",
   },
   {
     id: "midi-laser",
@@ -279,21 +282,21 @@ const parts = [
       <span class="kicker">The boards</span>
       <h2>Six boards, four in the deck.</h2>
       <p class="lede">
-        Rendered from their KiCad sources. Each schematic opens as a vector drawing you can zoom
-        into, notes in the margins included.
+        Rendered from their KiCad sources: click one to turn it in 3D. Each schematic opens as a
+        vector drawing you can zoom into, notes in the margins included.
       </p>
     </div>
     <div class="boards">
       {boards.map((board) => (
         <article class="board" id={board.id}>
           <div class:list={["board__media", { "board__media--photo": board.photo }]}>
-            <Picture
+            <BoardModel
+              board={board.id}
+              name={board.name}
               src={board.image}
               alt={board.imageAlt}
-              formats={["avif"]}
-              fallbackFormat="webp"
+              side={board.side}
               sizes="(min-width: 62rem) 30rem, 100vw"
-              loading="lazy"
             />
             {board.photo && (
               <Photo id={board.photo} zoom="boards" sizes="(min-width: 62rem) 30rem, 100vw" />
@@ -508,7 +511,7 @@ const parts = [
     grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
   }
 
-  .board__media :global(figure img) {
+  .board__media :global(.figure img) {
     aspect-ratio: 4 / 5;
     object-fit: cover;
   }

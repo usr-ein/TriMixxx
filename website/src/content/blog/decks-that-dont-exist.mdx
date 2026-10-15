@@ -10,6 +10,7 @@ coverAlt: "A terminal with four commands: an emulated deck brought up on a link 
 
 import Figure from "../../components/Figure.astro";
 import Callout from "../../components/mdx/Callout.astro";
+import Photo from "../../components/mdx/Photo.astro";
 import figEmulated from "../../assets/figures/ab-6-emulated-vs-real.webp";
 
 Testing a deck on a deck is slow. A real deck has to be on the desk, its card flashed, its screen watched, its buttons pressed by hand. And testing it against CDJs needs CDJs. From 4 October, TriMixxx stopped needing either for most of its testing.
@@ -26,7 +27,7 @@ The snapshot is the trick. A freshly built card is booted until Mixxx has its so
   src={figEmulated}
   alt="Two columns comparing a real deck and an emulated deck, layer by layer: the same card layout, the same boot rules and files, a different CPU and RAM, converging on the same software, and below, the hardware around each board."
   caption="A real deck and an emulated one: the same card and the same software, only the board under them differs."
-  frame="paper"
+  frame="diagram"
   zoom="emulation"
 />
 
@@ -37,11 +38,15 @@ The snapshot is the trick. A freshly built card is booted until Mixxx has its so
 - **USB sticks.** A folder on the Mac can be plugged into a deck as a FAT32 stick, built in memory and served file by file as the Pi reads it, without copying anything. A stick can be made as slow as a real one, and pi-qemu says what the deck read, file by file. This is how the gig's freeze was reproduced.
 - **The network.** Several decks can share a virtual network, with pi-qemu forwarding frames between them like a switch. Each deck claims its own Pro DJ Link player number; they browse each other's sticks and play each other's tracks.
 
+<Photo id="2026-10-15-emulated-deck" />
+
 It isn't a perfect copy, and doesn't pretend to be: the graphics are drawn in software, the cores are the Mac's, and the RAM is half a real deck's. It tests behaviour, not the GPU or timing.
 
 ## A CDJ-2000NXS, on its own firmware
 
 Decks talking to decks is half of Pro DJ Link. The other half is CDJs, and those weren't on the desk either. On 10 October they joined the emulated network through [cdj2000-emulator](https://github.com/cdj2k-revival/cdj2000-emulator), an emulator of the CDJ-2000 that boots the player's own firmware: its main processor on a QEMU machine built for it, its interface processor in a simulator, its DSP interpreted.
+
+<Photo id="2026-10-15-emulated-cdj" />
 
 The firmware is Pioneer's, supplied by the player's owner, and is never in any TriMixxx repository. What TriMixxx added is the plumbing to put an emulated NXS on a deck's network, and fixes to the emulator itself, offered back upstream:
 

@@ -12,7 +12,7 @@ interface Props {
   credit?: string | undefined;
   zoom?: string | boolean;
   sizes?: string | undefined;
-  frame?: "none" | "screen" | "paper" | "dark";
+  frame?: "none" | "screen" | "diagram" | "dark";
   priority?: boolean;
   class?: string;
 }
@@ -132,11 +132,14 @@ const zoomCaption = [caption, credit].filter(Boolean).join(" · ");
     border-radius: 0.2rem;
   }
 
-  .figure--paper .figure__zoom,
-  .figure--paper > :global(picture) {
+  /* Diagrams and schematics are drawn on --diagram, so the frame and the
+     picture are one surface. */
+  .figure--diagram .figure__zoom,
+  .figure--diagram > :global(picture) {
     padding: clamp(0.5rem, 1.5vw, 1rem);
+    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
-    background: var(--paper);
+    background: var(--diagram);
   }
 
   .figure--dark .figure__zoom,

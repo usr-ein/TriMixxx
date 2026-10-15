@@ -9,6 +9,7 @@ import { getImage } from "astro:assets";
 import Footer from "../components/Footer.astro";
 import Header from "../components/Header.astro";
 import Lightbox from "../components/Lightbox.astro";
+import ModelViewer from "../components/ModelViewer.astro";
 import { site } from "../data/site";
 
 interface Props {
@@ -76,5 +77,6 @@ const ogAlt = image ? (imageAlt ?? title ?? site.name) : "The TriMixxx deck, ren
     </main>
     <Footer />
     <Lightbox />
+    <ModelViewer />
   </body>
 </html>

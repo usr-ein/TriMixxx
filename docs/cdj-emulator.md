@@ -105,7 +105,9 @@ Without `--dsp-model` a loaded track does not play.
 ### The firmware
 
 Pioneer's, never in a repository, and nothing derived from it either: no
-extracted images, flash copies, screenshots or run directories. Sam
+extracted images, flash copies, screenshots or run directories. The one
+exception is the website's screenshots of the NXS's interface, which Sam
+allowed with a disclaimer; they live in usr-ein/static-resources. Sam
 downloads the NXS updater (`C2KNXS.UPD`, 1.44) himself;
 `pi-qemu cdj firmware` splits and extracts it:
 
