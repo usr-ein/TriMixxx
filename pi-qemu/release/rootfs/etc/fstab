@@ -2,6 +2,11 @@
 # with RAM on top -- is the initramfs's (overlayroot), and /boot/firmware the
 # command line's (systemd.mount-extra): both depend on the slot that started.
 # nofail: a damaged p7 or p8 never stops the deck from starting.
+# /data is never checked (pass 0): only a hand that unlocks it writes it, and
+# a check would, at every start: e2fsck -a rewrites even a clean ext4's
+# superblock (its last write time, lifetime writes and checksum). p8 is
+# checked: it's read-write, and its journal is replayed then (PLAN.md
+# invariant 15).
 proc                   /proc          proc  defaults            0 0
-LABEL=trimixxx-data    /data          ext4  ro,noatime,nofail   0 2
+LABEL=trimixxx-data    /data          ext4  ro,noatime,nofail   0 0
 LABEL=trimixxx-state   /var/lib/rauc  ext4  noatime,nofail      0 2
