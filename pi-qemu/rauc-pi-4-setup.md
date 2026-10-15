@@ -75,13 +75,13 @@ sha256("trimixxx"), set in `release/container.sh`), so `<id>` below is `5d0bc1ec
 
 | # | Label | FS | Size | Holds | Mounted | Written |
 |---|---|---|---|---|---|---|
-| p1 | bootsel | FAT32 | 64 MiB | `autoboot.txt` only, and never any `start*.elf`: then a missing, empty or garbled `autoboot.txt` starts p2 (measured, PLAN.md T6c and T7) | not mounted (the backend mounts it to commit) | at commit: one small file |
+| p1 | bootsel | FAT32 | 64 MiB | `autoboot.txt` only, and never any `start*.elf`: then a missing, empty or garbled `autoboot.txt` starts p2 (measured, PLAN.md T6c and T7) | not mounted, but while the backend reads `autoboot.txt` (read-only) or writes it (read-write, to commit) | at commit: one small file |
 | p2 | boot-A | FAT32 | 512 MiB | firmware, kernel, initramfs, DTBs, overlays, `config.txt`, `cmdline-a.txt`, `cmdline-b.txt` | the running slot read-only at `/boot/firmware` | by RAUC, idle slot only |
 | p3 | boot-B | FAT32 | 512 MiB | the same files | | |
 | p4 | (extended) | | | container for 5–8 | | |
 | p5 | rootfs-A | SquashFS (raw) | 4 GiB | the whole system, zstd-compressed (about 1–1.5 GB today, estimated) | `/`, underneath the RAM layer | by RAUC, idle slot only |
 | p6 | rootfs-B | SquashFS (raw) | 4 GiB | | | |
-| p7 | data | ext4 | 64 MiB | identity: deck name, Wi-Fi (NetworkManager keyfiles), ssh host keys | `/data`, read-only | when unlocked by hand (`mount -o remount,rw /data`) |
+| p7 | data | ext4 | 64 MiB | identity: deck name, Wi-Fi (NetworkManager keyfiles), ssh host keys | `/data`, read-only, and never checked (fstab pass 0) | when unlocked by hand (`mount -o remount,rw /data`) |
 | p8 | state | ext4 | 4 GiB: a bundle (about 1.1 GB) and RAUC's status. The card image ends here, at about 13 GiB, so it flashes in minutes; a bigger card's rest stays unused | RAUC's data directory, downloaded bundles, the health check's log, the browser's History (`trimixxx-history/`) | `/var/lib/rauc`, read-write | by RAUC, the health check, and Mixxx while a track plays |
 
 **Why each partition exists:**
@@ -269,8 +269,9 @@ what changed) is one manifest line, once RAUC ≥ 1.15.1 is in the image.
 
 **The backend, `/usr/lib/rauc/rpi-tryboot`**, starts from Rtone's script, with
 these changes:
-- `autoboot.txt` lives on p1, not on the boot slot. The script mounts p1 to
-  write it.
+- `autoboot.txt` lives on p1, not on the boot slot. The script mounts p1
+  read-only to read it, and read-write only to write it, one run at a time:
+  so a normal start writes nothing there (PLAN.md invariant 15).
 - It writes the whole file, as the rauc #1599 reviewers asked, then `fsync`,
   rename, and a sync of the directory. A copy goes first to the state
   partition, whose ext4 has a journal.

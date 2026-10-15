@@ -128,6 +128,14 @@ Everything built must keep these true. They are what makes updates safe.
     `tryboot_a_b`, reads `autoboot.txt` without its sections, and starts slot
     B (T0). Its EEPROM also sets the boot watchdog (Sam, 2026-10-08):
     `BOOT_WATCHDOG_TIMEOUT=45`, `BOOT_WATCHDOG_PARTITION=2`.
+15. **A normal start writes nothing outside p8** (no trial, nothing to
+    repair), and nor does play. BOOTSEL is mounted read-write only to write
+    `autoboot.txt` (a commit, a repair), and read-only to read it: a
+    read-write mount writes the FAT even when nothing changes (its dirty
+    flag, FSInfo, the file's access date). `/data` is never checked (fstab
+    pass 0): e2fsck rewrites even a clean ext4's superblock. So only a hand
+    that unlocks it writes it. 1.0.2's starts wrote p1 8 times and p7 twice,
+    each a write a power cut could tear.
 
 ### 1.4 The target, in one page
 
@@ -580,14 +588,14 @@ They go into the normal build, so the dev deck carries them too, inert.
 - **fstab entries**, in the release's own fstab (`release/rootfs/etc/fstab`,
   written by the seal), not the dev card's:
   ```
-  LABEL=trimixxx-data   /data          ext4  ro,noatime,nofail  0 2
+  LABEL=trimixxx-data   /data          ext4  ro,noatime,nofail  0 0
   LABEL=trimixxx-state  /var/lib/rauc  ext4  noatime,nofail     0 2
   ```
-  On a dev card, which has neither partition, a `nofail` line still leaves a
-  device job pending until its timeout, and a unit ordered after that mount
-  (the identity unit, before NetworkManager) would wait for it. So the seal
-  also enables the identity and health units; the system step installs them,
-  inert.
+  `/data` is never checked (invariant 15). On a dev card, which has neither
+  partition, a `nofail` line still leaves a device job pending until its
+  timeout, and a unit ordered after that mount (the identity unit, before
+  NetworkManager) would wait for it. So the seal also enables the identity
+  and health units; the system step installs them, inert.
 - **The identity unit** (`trimixxx-identity.service`). It runs early:
   `After=local-fs.target`, `Before=NetworkManager.service ssh.service`. It
   does nothing when `/data/trimixxx.conf` is missing (the dev card). Otherwise
@@ -806,8 +814,9 @@ card; `make release` enables them.
   `Rtone/raspberrypi-firmware-rauc-bootloader-backend` (LGPL-2.1). Keep its
   licence header and note where it came from. Its behaviour:
   - it implements the contract table in `rauc-pi-4-report.md` §5;
-  - to write `autoboot.txt`, it mounts p1 at `/run/rauc/bootsel` and unmounts
-    it afterwards;
+  - it mounts p1 at `/run/rauc/bootsel` only while it reads or writes
+    `autoboot.txt`, read-write only to write it (invariant 15), and one run
+    at a time (a lock);
   - it writes the file whole (invariant 2);
   - it arms the flag with `vcmailbox 0x00038064 4 0 1`;
   - it detects a trial from `/proc/device-tree/chosen/bootloader/{tryboot,partition}`;

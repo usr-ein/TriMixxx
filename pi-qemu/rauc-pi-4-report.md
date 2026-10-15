@@ -51,12 +51,12 @@ MBR, fixed disk signature 0x5d0bc1ec (<id> = 5d0bc1ec)
 
 | # | Holds | Mounted (slot A running) | Written |
 |---|---|---|---|
-| p1 bootsel | `autoboot.txt` | no | only at commit, by the backend |
+| p1 bootsel | `autoboot.txt` | no; the backend mounts it to read the file (read-only) or to commit (read-write) | only at commit, by the backend |
 | p2 boot-A | firmware, kernel, initramfs, DTBs, overlays, `config.txt`, `cmdline-a.txt`, `cmdline-b.txt` | `/boot/firmware`, read-only | **never** while A runs |
 | p3 boot-B | the same files | no | by RAUC (idle slot) |
 | p5 rootfs-A | the system, SquashFS | `/`, under the RAM layer | **never** while A runs |
 | p6 rootfs-B | the next system | no | by RAUC (idle slot) |
-| p7 data | deck name, Wi-Fi keyfiles, ssh host keys | `/data`, read-only | only when unlocked by hand |
+| p7 data | deck name, Wi-Fi keyfiles, ssh host keys | `/data`, read-only, never checked | only when unlocked by hand |
 | p8 state | RAUC's data directory, bundles | `/var/lib/rauc`, read-write | by RAUC |
 
 - The image ends at about 13 GiB, so it fits any card of 16 GB or more; the
