@@ -23,9 +23,10 @@ headless and silent. Several run side by side, one per agent. All of it goes
 through one tool, `pi-qemu` (`pi-qemu help`), whose every verb names its deck:
 an emulated deck's NAME, or `--host ALIAS` for a real one. There is no default
 deck. `trimixxx-pi`, `trimixxx-pi-2`, `trimixxx2` and the other ssh aliases on
-this Mac are **real decks**: never `--host` one unless asked. Images, release
-cards and updates: the `pi-qemu-release` skill. For people, the guide is
-`pi-qemu/README.md`.
+this Mac are **real decks**: never `--host` one unless asked. Asked, a deploy,
+ship or prepare goes over its cable, `--host trimixxx-pi-eth`: Wi-Fi is
+refused unless `--wifi`. Images, release cards and updates: the
+`pi-qemu-release` skill. For people, the guide is `pi-qemu/README.md`.
 
 ## Working in a git worktree
 

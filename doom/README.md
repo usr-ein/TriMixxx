@@ -162,8 +162,8 @@ is a one-shot, and cannot loop.
 
 ```sh
 ./fetch-wad.sh                                # downloads doom1.wad (shareware) into ./wad/
-pi-qemu deck deploy --host trimixxx-pi doom   # engine + WAD + launcher + configs, onto trimixxx-pi
-pi-qemu deck deploy NAME doom                 # onto an emulated deck instead
+pi-qemu deck deploy --host trimixxx-pi-eth doom   # engine + WAD + launcher + configs, onto trimixxx-pi, over its cable
+pi-qemu deck deploy NAME doom                     # onto an emulated deck instead
 ```
 
 Then, from anywhere:

@@ -1106,8 +1106,8 @@ still run those systems.
 **Tonight, for trimixxx1 (alias `trimixxx-pi`) and trimixxx2 (`trimixxx-pi-2`):**
 1. **Prepare each deck** on its current system, with the deck's ssh working:
    ```sh
-   pi-qemu deck prepare --host trimixxx-pi trimixxx1 --eeprom
-   pi-qemu deck prepare --host trimixxx-pi-2 trimixxx2 --eeprom
+   pi-qemu deck prepare --host trimixxx-pi-eth trimixxx1 --eeprom     # over its cable
+   pi-qemu deck prepare --host trimixxx-pi-2-eth trimixxx2 --eeprom
    ```
    - Read what it shows. A line under "its own config.txt lines" that isn't
      in the unit file yet goes there: a panel's `dtoverlay=` as
@@ -1132,7 +1132,7 @@ still run those systems.
 4. **Check each deck:** its panel shows the splash's `A` label; ssh by its
    alias answers without a host key warning; it joins the home Wi-Fi; Mixxx
    opens the UCA222 and the S3.
-5. **Ship it one release over the air** (`pi-qemu deck ship --host <alias>`,
+5. **Ship it one release over the air** (`pi-qemu deck ship --host <alias>-eth`,
    a release built after this one), and see the trial committed.
 
 **Done when** every deck has taken a release over the air.

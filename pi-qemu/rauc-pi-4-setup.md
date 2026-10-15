@@ -441,7 +441,8 @@ what trimixxx3 shows, not the other way round.
 ### 5.1 Once per deck: commissioning
 
 1. **Prepare it, on the system it runs today:**
-   `pi-qemu deck prepare --host <ssh alias> <deck> --eeprom` (PLAN.md §7).
+   `pi-qemu deck prepare --host <its -eth alias> <deck> --eeprom` (PLAN.md §7):
+   over its cable, as deploys and ships (Wi-Fi only with `--wifi`).
    - The bootloader must be from 2022-12 or later. `--eeprom` updates it to
      the newest image the deck's `rpi-eeprom` has, with the boot watchdog
      (`BOOT_WATCHDOG_TIMEOUT=45`, `BOOT_WATCHDOG_PARTITION=2`), and checks
@@ -493,13 +494,13 @@ what trimixxx3 shows, not the other way round.
 2. **Rehearse in QEMU:** §4.3, against the previous release's card.
 3. **Bench:** the same commands against trimixxx3, watching the bootloader on
    its serial line.
-4. **Ship:** the same commands against each deck. `pi-qemu deck ship --host
-   trimixxx2 --version 1.0.1` runs these:
+4. **Ship:** the same commands against each deck, over its cable.
+   `pi-qemu deck ship --host trimixxx2-eth --version 1.0.1` runs these:
    ```
-   ssh trimixxx2 'sudo sh -c "cat > /var/lib/rauc/trimixxx-1.0.1.raucb"' < out/1.0.1/trimixxx-1.0.1.raucb
-   ssh trimixxx2 sudo rauc install /var/lib/rauc/trimixxx-1.0.1.raucb   # then deletes the bundle
-   ssh trimixxx2 sudo reboot
-   ssh trimixxx2 rauc status          # once it's back: the new slot on trial, then committed
+   ssh trimixxx2-eth 'sudo sh -c "cat > /var/lib/rauc/trimixxx-1.0.1.raucb"' < out/1.0.1/trimixxx-1.0.1.raucb
+   ssh trimixxx2-eth sudo rauc install /var/lib/rauc/trimixxx-1.0.1.raucb   # then deletes the bundle
+   ssh trimixxx2-eth sudo reboot
+   ssh trimixxx2-eth rauc status      # once it's back: the new slot on trial, then committed
    ```
    The bundle goes straight to the state partition, through `sudo`: `/tmp`
    is RAM, and a bundle is over a gigabyte.

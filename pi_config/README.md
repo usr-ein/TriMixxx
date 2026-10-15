@@ -145,8 +145,8 @@ change here never has to go through the config step.
 
 ## Deploy
 ```sh
-pi-qemu deck deploy --host trimixxx-pi system   # a real deck, by its ssh alias
-pi-qemu deck deploy NAME system                 # an emulated deck
+pi-qemu deck deploy --host trimixxx-pi-eth system   # a real deck, over its cable (its -eth alias)
+pi-qemu deck deploy NAME system                     # an emulated deck
 ```
 
 The system step is `../pi-qemu/deploy/002_system.sh`. It installs everything

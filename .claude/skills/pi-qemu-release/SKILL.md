@@ -23,6 +23,12 @@ the runbook for putting real decks on release cards.
 1. **Real decks only when asked.** `--host trimixxx-pi`, `trimixxx-pi-2`,
    `trimixxx2`, ... are real decks: ship to one, or prepare one, only when the
    person asked for that deck. Try everything on emulated decks first.
+   - **Over its cable:** `deck ship` and `deck prepare` take a real deck only
+     over the Mac's cable, by its `-eth` alias (`--host trimixxx-pi-2-eth`;
+     `pi-qemu deck alias --host trimixxx-pi-2` writes it, the deck cabled).
+   - Over Wi-Fi they refuse, unless `--wifi`: the person's call, never yours.
+   - Commands handed to the person name the `-eth` alias; with `--wifi` only
+     if they asked for Wi-Fi.
 2. **The person flashes cards.** Build the image and give them the exact
    path; never run `diskutil`, `dd` or anything else on a card or disk. A
    release's cards are `.img.xz`: Raspberry Pi Imager and balenaEtcher take
@@ -109,13 +115,14 @@ A release is made in this order:
    `crew gh -R usr-ein/TriMixxx release create pi/vX.Y.Z --target SHA --title "TriMixxx X.Y.Z" --notes-file docs/releases/X.Y.Z.md`.
    The notes only: the cards and the bundle stay in `archives/releases/`
    (Sam's call for 1.0.0; the repo is public).
-7. **Shipping** to the real decks: Sam's, or on his ask (rule 1).
+7. **Shipping** to the real decks: Sam's, or on his ask (rule 1), each deck
+   over its cable (`--host trimixxx-pi-eth`, `--host trimixxx-pi-2-eth`).
 
 ```sh
 git tag -m "TriMixxx 1.2.0" pi/v1.2.0      # the person's call
 pi-qemu release build                      # -> archives/releases/1.2.0/
 pi-qemu release card trimixxx2             # -> releases/1.2.0/trimixxx2-1.2.0.img.xz, to flash
-pi-qemu deck ship --host trimixxx-pi-2     # the update, over the air (only when asked)
+pi-qemu deck ship --host trimixxx-pi-2-eth # the update, over its cable (only when asked)
 pi-qemu release faults                     # releases/1.2.0-nonet, -nossh, -noinitramfs, -panic, -hang
 ```
 
@@ -161,8 +168,8 @@ decks' cards: an untagged release is never left in `archives/releases/`.
 ## Readying a real deck (only when asked)
 
 ```sh
-pi-qemu deck prepare --host trimixxx-pi-2 trimixxx2            # reads it only
-pi-qemu deck prepare --host trimixxx-pi-2 trimixxx2 --eeprom   # bootloader + boot watchdog: reboots it
+pi-qemu deck prepare --host trimixxx-pi-2-eth trimixxx2            # reads it only
+pi-qemu deck prepare --host trimixxx-pi-2-eth trimixxx2 --eeprom   # bootloader + boot watchdog: reboots it
 ```
 
 It writes the board's serial into `mixxx_config/units/DECK.json` (commit it

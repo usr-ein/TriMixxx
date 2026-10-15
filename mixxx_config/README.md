@@ -68,7 +68,7 @@ own port, if that daemon is running).
 - Windows: `%USERPROFILE%\Mixxx\controllers\`
 
 On the deck itself, the config step does all of this:
-`pi-qemu deck deploy --host trimixxx-pi config`, or
+`pi-qemu deck deploy --host trimixxx-pi-eth config` (over its cable), or
 `pi-qemu deck deploy NAME config` on an emulated deck. Requires Mixxx **2.4+**
 (the deck runs [our 2.5.6 fork](../mixxx)). One deck = `[Channel1]`.
 
