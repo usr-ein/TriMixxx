@@ -36,7 +36,9 @@ A real deck on the Mac's switch is reached over Ethernet too, much faster
 than over Wi-Fi: `pi-qemu deck alias --host trimixxx-pi` writes
 `trimixxx-pi-eth` into `~/.ssh/config`, by its eth0's IPv6 link-local
 address through the Mac's wired interface, and `--host trimixxx-pi-eth`
-then takes that link.
+then takes that link. What sends to a real deck goes only over a cable:
+`deck deploy`, `deck ship` and `deck prepare` refuse Wi-Fi unless `--wifi`
+([Over a cable](#over-a-cable)).
 
 ## What is in here
 
@@ -498,6 +500,33 @@ number. `deploy/lib.sh` has their contract:
 Steps that build in Docker need ~6 GB free on its disk: `deploy` checks
 first, and leaves freeing space to you.
 
+## Over a cable
+
+`deck deploy`, `deck ship` and `deck prepare` send to a real deck only over a
+cable (an update is over a gigabyte). Before they send anything, they find the
+Mac's route to the deck as ssh would take it:
+
+- the alias's HostName as `ssh -G ALIAS` reads it, and its addresses as ssh
+  resolves them (a `.local` name may have several);
+- the Mac's interface to each address, from `route -n get`;
+- that interface's kind, from the kernel (`ifconfig -v`): `Ethernet` or
+  `USB Ethernet` is a cable (the dock's, an Ethernet adapter's, a bridge of
+  only those), `Wi-Fi` is not.
+
+Wi-Fi is refused, and the message names the interface and the way over the
+cable: `--host ALIAS-eth`, or `deck alias` to write it. A route pi-qemu cannot
+tell is refused too, saying why: a proxy (ProxyJump, ProxyCommand), an
+interface that is neither Ethernet nor Wi-Fi (a VPN's tunnel, IP over
+Thunderbolt), no route, a link-local address whose interface is gone (the dock
+unplugged), a name whose addresses go both ways. `--wifi` sends all the same,
+without looking. The Mac itself (an alias to 127.0.0.1) passes, and an
+emulated deck's NAME is never checked.
+
+An IPv4 link-local address (169.254.x.x) is no cable here: macOS routes
+169.254/16 through its primary interface (Wi-Fi on Sam's Mac, first in its
+service order), so it is refused. The `-eth` aliases name their interface
+(`fe80::…%en12`), and pass.
+
 ## Cards and releases
 
 `pi-qemu image build [DECK]` makes a deck's card from the stock image
@@ -519,8 +548,8 @@ come from such a build (PLAN.md Part 1, and [rauc-pi-4-setup.md](rauc-pi-4-setup
 ```sh
 pi-qemu release build                # HEAD's pi/vX.Y.Z tag -> archives/releases/X.Y.Z/: the card, the bundle
 pi-qemu release card trimixxx2       # trimixxx2's card: the release card with its identity on p7
-pi-qemu deck ship --host trimixxx-pi-2   # the update onto a deck running a release card
-pi-qemu deck prepare --host trimixxx-pi-2 trimixxx2   # before a deck's first release card
+pi-qemu deck ship --host trimixxx-pi-2-eth   # the update onto a deck running a release card, over its cable
+pi-qemu deck prepare --host trimixxx-pi-2-eth trimixxx2   # before a deck's first release card
 ```
 
 **Versions.** A release is X.Y.Z, tagged `pi/vX.Y.Z`. From 1.0.0 on, in
@@ -671,8 +700,8 @@ pi-qemu deck ssh mix 'sudo grep ^0: /proc/tty/driver/ttyAMA'   # rx: bytes the S
 ```
 
 `deploy mix system` (pi_config: systemd units, session, splash),
-`launcher` and `ttymidi` work the same way, on a real deck too
-(`--host ALIAS`).
+`launcher` and `ttymidi` work the same way, on a real deck too, over its
+cable (`--host trimixxx-pi-eth`).
 
 ### Play a track from a USB stick
 

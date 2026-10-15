@@ -3,6 +3,7 @@
 #include "cli/cli.h"
 #include "cli/commands/commands.h"
 
+#include "decks/cable.h"
 #include "decks/console.h"
 #include "decks/deck.h"
 #include "decks/emulateddeck.h"
@@ -29,6 +30,14 @@
 namespace {
 
 const cli::Option kHost{"host", "ALIAS", decks::hostOptionHelp()};
+const cli::Option kWifi{"wifi", {}, "a real deck over Wi-Fi all the same, or over a route pi-qemu cannot tell"};
+// deploy, ship and prepare: a real deck over a cable (decks/cable).
+const QString kCableHelp =
+    "\n\n"
+    "A real deck takes this over a cable: before anything is sent, the Mac's route to it,\n"
+    "as ssh takes it, must leave through an Ethernet interface (the dock's, an adapter's).\n"
+    "Wi-Fi is refused, and so is a route pi-qemu cannot tell (a VPN's, a proxy's), unless\n"
+    "--wifi. A deck's cable has an alias of its own, ALIAS-eth (deck alias --host ALIAS).";
 
 int up(cli::Args& a) {
     Instance i(a.take("NAME"));
@@ -216,6 +225,7 @@ int deploy(cli::Args& a) {
     auto d = decks::target(a);
     const QVector<steps::Step> all = steps::all(paths::piq() + "/deploy");
     const QVector<steps::Step> chosen = steps::select(all, a.takeAll());
+    cable::require(*d, "deck deploy", a.has("wifi"));
     steps::run(*d, chosen);
     return 0;
 }
@@ -223,7 +233,9 @@ int deploy(cli::Args& a) {
 int shipVerb(cli::Args& a) {
     auto d = decks::target(a);
     a.done();
-    ship::ship(*d, release::version(a.value("version")));
+    const QString version = release::version(a.value("version"));
+    cable::require(*d, "deck ship", a.has("wifi"));
+    ship::ship(*d, version);
     return 0;
 }
 
@@ -231,6 +243,7 @@ int prepareVerb(cli::Args& a) {
     auto d = decks::target(a);
     const QString deck = a.take("DECK");
     a.done();
+    cable::require(*d, "deck prepare", a.has("wifi"));
     return prepare::prepare(*d, deck, a.has("eeprom"));
 }
 
@@ -304,7 +317,8 @@ void addDeck(cli::Registry& r) {
                 "ALIAS's HostName (the host key ssh already knows), and ALIAS's User, Port and\n"
                 "IdentityFile. It writes only a marked block of its own at the end of the file, keeps\n"
                 "the previous file as config.pi-qemu.bak, and checks the alias before it is done.\n"
-                "Then every verb takes --host ALIAS-eth. Again when the Mac's interface changes.",
+                "Then every verb takes --host ALIAS-eth, and deploy, ship and prepare take a real deck\n"
+                "only over a cable like it (or --wifi). Again when the Mac's interface changes.",
         .options = {kHost}, .run = alias,
     });
     r.add({
@@ -371,8 +385,8 @@ void addDeck(cli::Registry& r) {
                 "boot flags has the deck reboot before the next one; the session restarts at the\n"
                 "end if a step needs it, and then this waits until Mixxx is ready. Steps that build\n"
                 "in Docker need ~6 GB free on its disk. In a git worktree, its submodules are\n"
-                "checked out first (worktree prepare).",
-        .options = {kHost}, .run = deploy,
+                "checked out first (worktree prepare)." + kCableHelp,
+        .options = {kHost, kWifi}, .run = deploy,
     });
 
     r.add({
@@ -382,8 +396,8 @@ void addDeck(cli::Registry& r) {
                 "default) is streamed into RAUC's state partition and installed into the other\n"
                 "slot; the deck reboots into it as a trial, and its health check keeps it or\n"
                 "drops it. Then what the deck says: its version, its slot, its health, RAUC's\n"
-                "status. An emulated deck runs a release card with: deck up NAME --from CARD.",
-        .options = {kHost, {"version", "X.Y.Z", "another release than HEAD's (a fault test's: X.Y.Z-panic)"}},
+                "status. An emulated deck runs a release card with: deck up NAME --from CARD." + kCableHelp,
+        .options = {kHost, kWifi, {"version", "X.Y.Z", "another release than HEAD's (a fault test's: X.Y.Z-panic)"}},
         .run = shipVerb,
     });
     r.add({
@@ -395,8 +409,8 @@ void addDeck(cli::Registry& r) {
                 "bootloader checked (2022-12-01 or newer knows tryboot_a_b), and a capture of\n"
                 "its files in archives/captures/. --eeprom updates the bootloader and\n"
                 "sets its boot watchdog, rebooting the deck to flash it: the person's call.\n"
-                "Then commit the unit files, tag, release build, release card.",
-        .options = {kHost, {"eeprom", {}, "update the bootloader, with its boot watchdog (reboots the deck)"}},
+                "Then commit the unit files, tag, release build, release card." + kCableHelp,
+        .options = {kHost, kWifi, {"eeprom", {}, "update the bootloader, with its boot watchdog (reboots the deck)"}},
         .run = prepareVerb,
     });
 
