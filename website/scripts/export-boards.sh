@@ -60,9 +60,10 @@ schematics() {
   "$KICAD_CLI" sch export svg --theme "$THEME" --exclude-drawing-sheet --no-background-color \
     --output "$out" "$2" >/dev/null 2>&1
   # A browser shows an SVG opened on its own on white: give every sheet the
-  # site's background.
+  # site's background, as a rectangle under the drawing and on the root
+  # element, whose background paints the whole window around the sheet.
   for svg in "$out"/*.svg; do
-    perl -0pi -e "s/(<svg\\b[^>]*>)/\$1\\n<rect width=\"100%\" height=\"100%\" fill=\"$BACKGROUND\"\\/>/" "$svg"
+    perl -0pi -e "s/<svg\\b([^>]*)>/<svg style=\"background-color: $BACKGROUND\"\$1>\\n<rect width=\"100%\" height=\"100%\" fill=\"$BACKGROUND\"\\/>/" "$svg"
   done
   rsvg-convert --width 2400 --background-color "$BACKGROUND" "$out/$3.svg" --output "$work/$1-sch.png"
   cwebp -quiet -q 85 "$work/$1-sch.png" -o "$site/src/assets/schematics/$1.webp"
