@@ -115,7 +115,11 @@ A release is made in this order:
 6. **The GitHub release,** once 5 has passed:
    `crew gh -R usr-ein/TriMixxx release create pi/vX.Y.Z --target SHA --title "TriMixxx X.Y.Z" --notes-file docs/releases/X.Y.Z.md`.
    The notes only: the cards and the bundle stay in `archives/releases/`
-   (Sam's call for 1.0.0; the repo is public).
+   (Sam's call for 1.0.0; the repo is public). Then
+   `git ls-remote origin refs/tags/pi/vX.Y.Z` must print SHA: that is
+   GitHub's tag itself, where a fetch would keep the local one whatever
+   GitHub's names. If it doesn't, stop and say so: Sam's push of the local
+   tag would be refused by GitHub and taken by gitea.
 7. **Shipping** to the real decks: Sam's, or on his ask (rule 1), each deck
    over its cable (`--host trimixxx-pi-eth`, `--host trimixxx-pi-2-eth`).
 
