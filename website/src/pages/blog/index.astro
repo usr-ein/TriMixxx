@@ -3,18 +3,22 @@ import { getCollection } from "astro:content";
 import { Picture } from "astro:assets";
 
 import Base from "../../layouts/Base.astro";
-import { coverOf } from "../../lib/photos";
+import { coverOf, photo } from "../../lib/photos";
 
 const posts = await Promise.all(
   (await getCollection("blog", ({ data }) => !data.draft))
     .sort((a, b) => a.data.date.valueOf() - b.data.date.valueOf())
     .map(async (post) => ({ ...post, cover: await coverOf(post) })),
 );
+
+const share = await photo("2026-10-09-img-9295");
 ---
 
 <Base
   title="Build log"
   description="How TriMixxx got here, phase by phase: a monolithic board that was never built, a deck taken apart into small boards, Mixxx on a Pi, Pro DJ Link, emulated decks and A/B releases."
+  image={share?.data.image}
+  imageAlt={share?.data.alt}
 >
   <section class="wrap section section--tight">
     <div class="section__head">

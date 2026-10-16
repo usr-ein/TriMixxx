@@ -117,8 +117,10 @@ const sevenSeg = (value, x, y, scale, color) => {
   let parts = "";
   for (const ch of value) {
     if (ch === ".") {
-      parts += `<rect x="${cx + 0.2 + H7 * 0.12}" y="${H7 - T}" width="${T}" height="${T}" fill="${color}"/>`;
-      cx += 4;
+      // A cell of its own, the point centred between the digits around it.
+      const DOT = 7;
+      parts += `<rect x="${cx + (DOT - 4) / 2 - T / 2}" y="${H7 - T}" width="${T}" height="${T}" fill="${color}"/>`;
+      cx += DOT;
       continue;
     }
     const lit = glyph[ch] ?? "";

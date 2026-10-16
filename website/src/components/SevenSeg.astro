@@ -14,7 +14,9 @@ const H = 22;
 const T = 2.6;
 const GAP = 0.55;
 const PITCH = W + 4;
-const DOT = 4;
+// The decimal point's cell: the point sits centred between the digit before
+// it (which ends PITCH - W before the cell) and the digit after.
+const DOT = 7;
 
 type Segment = "a" | "b" | "c" | "d" | "e" | "f" | "g";
 
@@ -90,12 +92,11 @@ const width = x + 4;
     {cells.map((cell) =>
       cell.kind === "dot" ? (
         <rect
-          x={cell.x + 0.2}
+          x={cell.x + (DOT - 4) / 2 - T / 2}
           y={H - T}
           width={T}
           height={T}
           class="seven-seg__on"
-          transform={`translate(${String(H * 0.12)},0)`}
         />
       ) : (
         <g transform={`translate(${String(cell.x)},0)`}>

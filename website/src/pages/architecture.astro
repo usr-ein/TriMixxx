@@ -8,6 +8,7 @@ import Figure from "../components/Figure.astro";
 import StackDiagram from "../components/StackDiagram.astro";
 import { site } from "../data/site";
 import Base from "../layouts/Base.astro";
+import { photo } from "../lib/photos";
 
 const tree = `${site.repo}/tree/main`;
 const blob = `${site.repo}/blob/main`;
@@ -135,11 +136,15 @@ const bootSteps = [
     text: "On a trial start only: if the network and ssh are up within 150 s the release is kept, otherwise the deck reboots into the one before.",
   },
 ];
+
+const share = await photo("2026-08-11-img-9013");
 ---
 
 <Base
   title="Architecture"
   description="How TriMixxx works, layer by layer: CH32V003 pad rings, an ESP32-S3 controller, MIDI over a UART, a Raspberry Pi with A/B updates, a Mixxx fork, and a Rust Pro DJ Link stack."
+  image={share?.data.image}
+  imageAlt={share?.data.alt}
 >
   <section class="wrap section section--tight">
     <div class="section__head">

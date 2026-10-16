@@ -163,9 +163,23 @@ Made on a Mac, then committed:
 - `node scripts/make-covers.mjs`: the build log's drawn covers and
   `public/og.png`, the picture shown when a link to the site is shared.
 
+## Link previews
+
+A shared link shows the page's title, its description and a picture, cut to
+1200 × 630 by `Base.astro`: a post's cover (its `coverPhoto` when the photos
+are there), the photo a page passes as `image`, or else `public/og.png`. A new
+page passes one with `image={share?.data.image} imageAlt={share?.data.alt}`,
+where `share` is a photo by id.
+
 ## Publishing
 
 Pushing to `main` runs the workflow: install, fetch the photos, lint, build,
 deploy. GitHub Pages' source is "GitHub Actions" and its custom domain is
 `trimixxx.e1n.sh`, whose DNS points at GitHub Pages. A pull request touching
 `website/` gets the same lint and build, without the deploy.
+
+Visits are counted by Google Analytics (`analytics` in `src/data/site.ts`),
+only once a visitor accepts it in the consent banner (`Consent.astro`,
+`src/lib/analytics.ts`), and only on `trimixxx.e1n.sh`: local builds and test
+runs are never counted. The choice is kept in the browser; the footer's
+"Analytics settings" asks again, and declining then deletes GA's cookies.

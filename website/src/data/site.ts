@@ -10,6 +10,8 @@ export const site = {
   email: "trimixxx@e1n.sh",
   repo: "https://github.com/usr-ein/TriMixxx",
   mixxx: "https://mixxx.org",
+  /** Google Analytics' measurement ID (Base.astro loads gtag.js with it). */
+  analytics: "G-BL1C2FDXBX",
 } as const;
 
 export interface NavItem {

@@ -63,6 +63,11 @@ const year = new Date().getFullYear();
         Link and Pioneer DJ are trademarks of AlphaTheta Corporation, named here only to say what
         TriMixxx works with.
       </p>
+      <p>
+        <button type="button" class="footer__consent" data-consent-open hidden>
+          Analytics settings
+        </button>
+      </p>
     </div>
   </div>
 </footer>
@@ -132,6 +137,22 @@ const year = new Date().getFullYear();
     color: var(--text-faint);
     font-size: 0.82rem;
     line-height: 1.6;
+  }
+
+  /* Shown by Consent.astro, on the published site only. */
+  .footer__consent {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text-muted);
+    font: inherit;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    cursor: pointer;
+  }
+
+  .footer__consent:hover {
+    color: var(--text);
   }
 
   @media (width <= 62rem) {

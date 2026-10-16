@@ -2,8 +2,8 @@
 import { getCollection } from "astro:content";
 
 import render from "../assets/renders/deck-v2-render.webp";
-import deckView from "../assets/screens/autoplay-master.webp";
-import trackList from "../assets/screens/rekordbox-genre-tracks.webp";
+import deckView from "../assets/screens/deck-build-and-drop.webp";
+import trackList from "../assets/screens/browser-bpm-covers.webp";
 import Figure from "../components/Figure.astro";
 import Clip from "../components/mdx/Clip.astro";
 import Photo from "../components/mdx/Photo.astro";
@@ -55,9 +55,19 @@ const features = [
     text: "Plug in a stick exported from rekordbox: playlists, beat grids, hot cues, colour waveforms and cover art, read straight off it. A stick of plain files works too, browsed by folder.",
   },
   {
+    tag: "Read-only",
+    title: "Pull it out mid-set",
+    text: "Sticks are mounted read-only, so pulling one out mid-set can't corrupt it, and the track keeps playing from the deck's own copy.",
+  },
+  {
     tag: "Pro DJ Link",
     title: "On the link with CDJs",
     text: "Browse and load from a CDJ's stick, serve your own to the CDJs, sync tempo and phase both ways, and hand master over the way two CDJs do.",
+  },
+  {
+    tag: "USB + SD",
+    title: "Two sticks, both on the link",
+    text: "Plug in two sticks and CDJs see both: the second shows up as the deck's SD card, a slot every CDJ already knows.",
   },
   {
     tag: "KEY SYNC",
@@ -219,16 +229,16 @@ const features = [
       <div class="grid grid--2">
         <Figure
           src={deckView}
-          alt="The deck view: a scrolling waveform in three stacked bands, blue bass outside, yellow mids and white highs at the centre, with white beat lines and red downbeats; the title, key and artist at the top, the MASTER button lit, the times, and a seven-segment tempo of 126.00."
-          caption="The deck view: rekordbox's beat grid with red downbeats over a three-band waveform, the whole track underneath, MASTER lit in the header, and the tempo in seven segments."
+          alt="The deck view of Birth4000 by Floating Points at 126.25 BPM: on the left a build-up in yellow mids and white highs with no bass, a beat of silence at the playhead, then the drop with blue bass under every kick; white beat lines, red downbeats, and the whole track's overview along the bottom."
+          caption="The deck view: a build with no bass, a beat of silence, then the drop, its kicks in blue. Lows are blue, mids yellow and highs white, under rekordbox's beat grid, with the whole track underneath."
           frame="screen"
           zoom="screens"
           sizes="(min-width: 62rem) 36rem, 100vw"
         />
         <Figure
           src={trackList}
-          alt="The deck's browser: a full-width list of house tracks from a rekordbox stick, each row with its cover, title, artist, BPM and Camelot key, the first row highlighted."
-          caption="The browser: a stick's genre, its tracks with BPM and Camelot key. The encoder scrolls, a press loads. (An emulated deck, whose accent is cyan.)"
+          alt="The deck's browser at USB 1, BPM, 126 – 142: eight tracks sorted by tempo, each with its own cover, title, artist, BPM and Camelot key, the first highlighted."
+          caption="The browser: a stick's tracks by tempo, each with its cover, BPM and Camelot key. The encoder scrolls, a press loads. (An emulated deck, whose accent is cyan.)"
           frame="screen"
           zoom="screens"
           sizes="(min-width: 62rem) 36rem, 100vw"
@@ -246,7 +256,7 @@ const features = [
           The basics a DJ expects, and some that no deck had to have until someone could add them.
         </p>
       </div>
-      <div class="grid grid--3">
+      <div class="grid grid--4">
         {features.map((feature) => (
           <article class="card feature">
             <span class="pill pill--lime">{feature.tag}</span>

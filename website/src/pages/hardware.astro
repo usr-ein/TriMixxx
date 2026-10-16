@@ -183,11 +183,15 @@ const parts = [
   ["Network", "RJ45 panel coupler", "eth0 for Pro DJ Link; Wi-Fi for everything else"],
   ["Chassis", "PETG-CF, printed", "V2: 423 × 329 × 85 mm"],
 ] as const;
+
+const share = await photo("2026-09-17-img-9211");
 ---
 
 <Base
   title="Hardware"
   description="TriMixxx's hardware: a 3D-printed chassis, an ESP32-S3 controller board, rings of CH32V003 pad nodes, play/cue and loop boards, a CDJ jog assembly and a Raspberry Pi 4. KiCad sources and schematics included."
+  image={share?.data.image}
+  imageAlt={share?.data.alt}
 >
   <section class="wrap section section--tight">
     <div class="section__head">

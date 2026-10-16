@@ -1,6 +1,7 @@
 ---
 import { repositories, site } from "../data/site";
 import Base from "../layouts/Base.astro";
+import { photo } from "../lib/photos";
 
 const credits = [
   {
@@ -44,11 +45,15 @@ const credits = [
     what: "Deep Symmetry's dysentery and the other published Pro DJ Link projects were the starting map. TriMixxx's own implementation was then written from captures of its own hardware, without their code.",
   },
 ] as const;
+
+const share = await photo("2026-10-02-img-9266");
 ---
 
 <Base
   title="About"
   description="Who makes TriMixxx, how to get in touch, the projects it builds on, and its repositories and licences."
+  image={share?.data.image}
+  imageAlt={share?.data.alt}
 >
   <section class="wrap section section--tight">
     <div class="about">
@@ -84,6 +89,40 @@ const credits = [
           .
         </p>
       </aside>
+    </div>
+  </section>
+
+  <section class="wrap section section--line" id="why">
+    <div class="section__head">
+      <span class="kicker">Why</span>
+      <h2>Why build a deck at all.</h2>
+    </div>
+    <div class="prose why">
+      <p>
+        Pioneer DJ's CDJs are the industry standard. Thousands of venues already have them set up,
+        and DJs expect to find them when they walk into a booth: players that read the rekordbox
+        stick they brought, with an interface they all know how to use.
+      </p>
+      <p>
+        That standard has made Pioneer a monopoly in all but name, and a monopoly holds back what
+        anyone else might invent. Its players are closed to the people who own them, too: there is
+        no upgrading the hardware and no adding to what it can do. I believe that whoever buys and
+        owns a piece of hardware should be free to do whatever they want with it, and never be
+        locked out of it.
+      </p>
+      <p>
+        I also wanted to learn, for myself, every skill it takes to put a finished product together:
+        mechanical design and 3D printing, PCB design, embedded electronics and firmware, C++, audio
+        processing, and the rest.
+      </p>
+      <p>
+        A CDJ is not much more complex than a very large iPod. It plays music files out of a socket;
+        the jog wheel, the buttons and the screen around it are interface. By building TriMixxx in
+        the open, I want to give everyone curious about it a known base to build on and to iterate
+        from, and to show the problems I ran into and how I solved them, so that building something
+        like it yourself looks a lot less daunting.
+      </p>
+      <p class="why__signature">{site.author}</p>
     </div>
   </section>
 
@@ -212,6 +251,20 @@ const credits = [
 
   .nowrap {
     white-space: nowrap;
+  }
+
+  .why {
+    font-size: 1.15rem;
+  }
+
+  .why__signature {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+  }
+
+  .why__signature::before {
+    content: "— ";
   }
 
   @media (width <= 62rem) {

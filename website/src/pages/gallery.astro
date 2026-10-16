@@ -33,7 +33,7 @@ import schS3 from "../assets/schematics/midi-s3-mini.webp";
 import schOneButton from "../assets/schematics/one-button.webp";
 import schPlayCue from "../assets/schematics/play-cue.webp";
 import autoplayGenres from "../assets/screens/autoplay-genres.webp";
-import deckView from "../assets/screens/autoplay-master.webp";
+import deckView from "../assets/screens/deck-build-and-drop.webp";
 import autoplayPlaying from "../assets/screens/autoplay-playing.webp";
 import endRecording from "../assets/screens/end-recording.webp";
 import history from "../assets/screens/history-plain-plays.webp";
@@ -41,10 +41,11 @@ import homeList from "../assets/screens/after-only-the-stick.webp";
 import firstSkin from "../assets/screens/playback.webp";
 import firstSkinLoop from "../assets/screens/loop.webp";
 import plainTags from "../assets/screens/plain-stick-tags.webp";
-import trackList from "../assets/screens/rekordbox-genre-tracks.webp";
+import trackList from "../assets/screens/browser-bpm-covers.webp";
 import silencePrompt from "../assets/screens/silence-prompt.webp";
 import Clip from "../components/mdx/Clip.astro";
 import Base from "../layouts/Base.astro";
+import { photo } from "../lib/photos";
 
 interface Item {
   src: ImageMetadata;
@@ -175,8 +176,8 @@ const sections: readonly Section[] = [
     items: [
       {
         src: deckView,
-        alt: "The deck view with a three-band waveform, MASTER lit and a tempo of 126.00.",
-        caption: "The deck view.",
+        alt: "The deck view of Birth4000 at 126.25 BPM: a build-up with no bass, a beat of silence, then the drop in all three bands.",
+        caption: "The deck view: a build, then the drop.",
         date: "Oct 2026",
       },
       {
@@ -187,8 +188,8 @@ const sections: readonly Section[] = [
       },
       {
         src: trackList,
-        alt: "A rekordbox stick's house tracks with BPM and Camelot keys.",
-        caption: "A genre on a rekordbox stick.",
+        alt: "A rekordbox stick's tracks between 126 and 142 BPM, each with its cover, BPM and Camelot key.",
+        caption: "A stick's tracks by tempo.",
         date: "Oct 2026",
       },
       {
@@ -362,11 +363,15 @@ const rendered = await Promise.all(
     ),
   })),
 );
+
+const share = await photo("2026-10-04-img-9281");
 ---
 
 <Base
   title="Gallery"
   description="TriMixxx in pictures: the decks, the boards rendered from KiCad, the screens, the schematics, the chassis renders and the main board that was never built."
+  image={share?.data.image}
+  imageAlt={share?.data.alt}
 >
   <section class="wrap section section--tight">
     <div class="section__head">

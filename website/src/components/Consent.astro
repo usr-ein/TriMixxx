@@ -1,0 +1,114 @@
+---
+// The analytics consent banner: shown on the published site to a visitor who
+// hasn't chosen yet, and again from the footer's "Analytics settings". Google
+// Analytics loads only once they accept (src/lib/analytics.ts).
+import { site } from "../data/site";
+---
+
+<aside
+  class="consent"
+  aria-label="Analytics consent"
+  data-consent
+  data-id={site.analytics}
+  data-host={new URL(site.url).hostname}
+  hidden
+>
+  <p class="consent__text">
+    May this site count your visit? It uses Google Analytics, which sets cookies. Nothing is sent
+    unless you accept.
+  </p>
+  <div class="consent__buttons">
+    <button type="button" class="consent__button consent__button--yes" data-consent-accept>
+      Accept
+    </button>
+    <button type="button" class="consent__button" data-consent-decline>
+      Decline
+    </button>
+  </div>
+</aside>
+
+<script>
+  import { start, stop, store, storedChoice } from "../lib/analytics";
+
+  const banner = document.querySelector<HTMLElement>("[data-consent]");
+  const accept = banner?.querySelector<HTMLButtonElement>("[data-consent-accept]");
+  const decline = banner?.querySelector<HTMLButtonElement>("[data-consent-decline]");
+  const id = banner?.dataset["id"];
+
+  // Only where analytics would run at all: not on a local build or preview.
+  if (banner && accept && decline && id && location.hostname === banner.dataset["host"]) {
+    const choice = storedChoice();
+    if (choice === "granted") start(id);
+    banner.hidden = choice !== undefined;
+
+    accept.addEventListener("click", () => {
+      store("granted");
+      banner.hidden = true;
+      start(id);
+    });
+    decline.addEventListener("click", () => {
+      store("denied");
+      banner.hidden = true;
+      stop(id);
+    });
+    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-consent-open]")) {
+      button.hidden = false;
+      button.addEventListener("click", () => {
+        banner.hidden = false;
+        accept.focus();
+      });
+    }
+  }
+</script>
+
+<style>
+  .consent {
+    position: fixed;
+    right: 1rem;
+    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    z-index: 50;
+    display: grid;
+    gap: 0.75rem;
+    max-width: min(26rem, calc(100vw - 2rem));
+    padding: 1rem 1.1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    box-shadow: var(--shadow);
+  }
+
+  .consent__text {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    line-height: 1.5;
+  }
+
+  .consent__buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .consent__button {
+    min-height: 2.5rem;
+    padding: 0 1.1rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .consent__button--yes {
+    border-color: var(--lime);
+    background: var(--lime);
+    color: #0b0c0b;
+    font-weight: 600;
+  }
+
+  .consent__button:focus-visible {
+    outline: 2px solid var(--lime);
+    outline-offset: 2px;
+  }
+</style>
