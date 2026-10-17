@@ -71,9 +71,14 @@ QString attemptFile(const QString& deck);
 QString logFile(const QString& deck);     // .cache/build/DECK.log
 int stuckAfter(); // minutes: $PI_QEMU_STUCK_AFTER_MIN (a test's), else 60
 
-// A build of `deck` that looks stuck stopped: its process (pi-qemu, nothing
-// else: `program`, a test's stand-in), then its machine; its attempt says it
-// failed, and why. Fails if none runs, or it doesn't look stuck.
+// A build of `deck` that looks stuck stopped: past its time, and its log
+// quiet for 10 min (slow is not stuck). Its process (pi-qemu, nothing else:
+// `program`, a test's stand-in) and, when it leads its process group (a
+// remake has a session of its own), the step it is in with it -- a deploy
+// step's bash, docker, ssh or scp, which would otherwise go on and could
+// reach the next remake's machine through the same build-DECK alias -- then
+// its machine. Its attempt then says it failed, and why. Fails, stopping
+// nothing, if none runs or it doesn't look stuck.
 void stop(const QString& deck, const QString& why, const QString& program = {});
 
 } // namespace imagebuild

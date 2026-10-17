@@ -9,7 +9,9 @@
 #                origin/main move on to a new deck change, so its card says
 #                the checkout changed
 #   fail         a failed build
-#   hang:AGE:MAX building since AGE seconds ago, allowed MAX minutes, until killed
+#   hang:AGE:MAX building since AGE seconds ago, allowed MAX minutes, until killed;
+#                with a child in its process group, as a deploy step is (its pid
+#                in CACHE/build/trimixxx0.child.pid)
 import datetime
 import fcntl
 import json
@@ -48,6 +50,9 @@ attempt = {"state": "building", "pid": os.getpid(), "started": stamp(), "source"
 if mode.startswith("hang:"):
     _, age, most = mode.split(":")
     attempt.update(started=stamp(int(age)), stuck_after_min=int(most))
+    step = subprocess.Popen(["sleep", "600"])
+    with open(os.path.join(cache, "build", "trimixxx0.child.pid"), "w") as f:
+        f.write(str(step.pid))
     write(attempt_file, attempt)
     time.sleep(600)
     sys.exit(0)

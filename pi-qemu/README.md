@@ -740,8 +740,10 @@ pi-qemu image golden --clear       # stops a remake that looks stuck (the nightm
   `PI_QEMU_STUCK_AFTER_MIN` for a test's). Past that it looks stuck: nobody
   waits for it, decks start from the last golden with a line saying so, and
   `crew resources` holds no build for it. It is left running, for a look,
-  until `image golden --clear` stops it (the nightman's or a person's: its
-  process, then its machine); that main then counts as failed.
+  until `image golden --clear` stops it (the nightman's or a person's): only
+  once its log has been quiet 10 min too (slow is not stuck), and then its
+  whole process group, the build and the step it is in, then its machine.
+  That main then counts as failed.
 - **One build of a deck at a time.** A build holds `.cache/build/DECK.lock`
   while it runs, and keeps its attempt in `DECK.build.json`: building, built,
   failed, unready or interrupted, with its process and times (what `crew

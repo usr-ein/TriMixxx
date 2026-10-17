@@ -22,7 +22,8 @@
 //    one whose build could not start (Docker, the key, QEMU) is;
 //  - a remake running past the time it may take (imagebuild::stuckAfter)
 //    looks stuck: nobody waits for it, and decks start from the last golden
-//    until the nightman or a person stops it (`image golden --clear`);
+//    until the nightman or a person stops it (`image golden --clear`, once
+//    its log has been quiet 10 min: imagebuild::stop);
 //  - only main's code, so anyone may start one: `deck golden CARD` and
 //    `image build trimixxx0` by hand stay the person's call, and a golden
 //    they make from other code is made again at the next check.

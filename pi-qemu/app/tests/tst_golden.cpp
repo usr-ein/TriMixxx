@@ -11,6 +11,7 @@
 #include "util/files.h"
 #include "util/process.h"
 
+#include <QDateTime>
 #include <QDir>
 #include <QElapsedTimer>
 #include <QFile>
@@ -54,6 +55,8 @@ class TestGolden : public QObject {
         p.setProgram("python3");
         p.setArguments({PI_QEMU_TEST_DATA "/fakebuild.py", cache, repo, mode});
         p.setStandardOutputFile(QProcess::nullDevice());
+        // A session of its own, leading its process group, as a remake does (golden's detach()).
+        p.setUnixProcessParameters(QProcess::UnixProcessFlag::CreateNewSession);
         qint64 pid = 0;
         if (!p.startDetached(&pid)) qFatal("cannot start python3");
         return pid;
@@ -81,9 +84,22 @@ class TestGolden : public QObject {
         QVERIFY(imagebuild::running("trimixxx0"));
     }
     void endHangers() {
-        for (const qint64 pid : hangers) ::kill(pid_t(pid), SIGKILL);
+        for (const qint64 pid : hangers) ::kill(-pid_t(pid), SIGKILL); // its group: it and its step
         for (int i = 0; i < 50 && imagebuild::running("trimixxx0"); i++) QTest::qWait(100);
         hangers.clear();
+    }
+    // The stand-in's step, a child in its process group.
+    qint64 step() { return QString::fromLatin1(files::read(cache + "/build/trimixxx0.child.pid")).toLongLong(); }
+    static bool alive(qint64 pid) { return ::kill(pid_t(pid), 0) == 0; }
+    static bool gone(qint64 pid) {
+        for (int i = 0; i < 50 && alive(pid); i++) QTest::qWait(100);
+        return !alive(pid);
+    }
+    // The build's log, last written `ago` seconds ago.
+    void logWritten(int ago) {
+        QFile f(imagebuild::logFile("trimixxx0"));
+        QVERIFY(f.open(QIODevice::Append));
+        QVERIFY(f.setFileTime(QDateTime::currentDateTime().addSecs(-ago), QFileDevice::FileModificationTime));
     }
 
 private slots:
@@ -205,13 +221,46 @@ private slots:
         QVERIFY(imagebuild::running("trimixxx0"));
     }
 
-    void aStuckRemakeIsStoppedAndCountsAsFailed() {
+    // Review round 2: what a stop by the pid alone leaves behind.
+    void aStepOutlivesItsBuildStoppedAlone() {
+        hanging(180, 1);
+        const qint64 build = imagebuild::attempt("trimixxx0").pid, child = step();
+        QVERIFY(alive(child));
+        ::kill(pid_t(build), SIGTERM);
+        QVERIFY(gone(build));
+        QVERIFY2(alive(child), "the step went with its build: the test shows nothing");
+        ::kill(pid_t(child), SIGKILL);
+        QVERIFY(gone(child));
+    }
+
+    // Review round 2: slow is not stuck.
+    void aBuildStillWritingItsLogIsNotStopped() {
+        hanging(180, 1);
+        const qint64 build = imagebuild::attempt("trimixxx0").pid;
+        logWritten(60); // a minute ago
+        try {
+            imagebuild::stop("trimixxx0", "test", proc::name(build));
+            QFAIL("stopped a build still writing its log");
+        } catch (const Failure& f) {
+            QVERIFY2(f.message.contains("it still writes its log") && f.message.contains("slow, not stuck"),
+                     qPrintable(f.message));
+        }
+        QVERIFY(alive(build));
+        QVERIFY(alive(step()));
+        QFile::remove(imagebuild::logFile("trimixxx0"));
+    }
+
+    void aStuckRemakeIsStoppedWithItsStepAndCountsAsFailed() {
         goldenAt(git(repo, {"rev-parse", "HEAD"}));
         merge("pi_config/a.service", "stuck again\n");
         hanging(180, 1);
-        const qint64 pid = imagebuild::attempt("trimixxx0").pid;
+        const qint64 pid = imagebuild::attempt("trimixxx0").pid, child = step();
+        logWritten(1200); // quiet for 20 min
         imagebuild::stop("trimixxx0", "stopped: it looked stuck", proc::name(pid)); // the stand-in's own name
         QVERIFY(!imagebuild::running("trimixxx0"));
+        QVERIFY(gone(pid));
+        QVERIFY2(gone(child), "the step it was in outlived the stop");
+        QFile::remove(imagebuild::logFile("trimixxx0"));
         const imagebuild::Attempt a = imagebuild::attempt("trimixxx0");
         QCOMPARE(a.state, QString("failed"));
         QCOMPARE(a.why, QString("stopped: it looked stuck"));

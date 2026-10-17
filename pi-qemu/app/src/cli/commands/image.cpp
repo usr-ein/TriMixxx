@@ -91,14 +91,15 @@ void addImage(cli::Registry& r) {
                 "golden stays as it is and this says why. And only by main's pi-qemu, the one on PATH.\n"
                 "A main whose build failed is not tried again by itself: --retry. A remake running past\n"
                 "the time it may take (60 min) looks stuck: nobody waits for it, and decks start from\n"
-                "the last golden until --clear stops it (the nightman's or a person's).\n"
+                "the last golden until --clear stops it (the nightman's or a person's), once its log has\n"
+                "been quiet 10 min: its process group, then its build machine.\n"
                 "\n"
                 "Exit status: 0 main's latest, or being made (--background, --check); 3 to be made\n"
                 "again (--check); 1 it can't be now (failed, stuck, the main checkout).",
         .options = {
             {"background", {}, "leave it to a keeper, which goes on until the golden is main's latest; return"},
             {"check", {}, "only say: main's latest, being made, failed, stuck, or to be made again"},
-            {"clear", {}, "stop a remake that looks stuck (the nightman's or a person's call)"},
+            {"clear", {}, "stop a remake that looks stuck, its log quiet 10 min (the nightman's or a person's call)"},
             {"retry", {}, "a main whose build failed: try it again"},
             {"keeper", {}, "what --background runs: the same as no option, one keeper at a time"},
         },

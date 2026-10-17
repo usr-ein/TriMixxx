@@ -27,8 +27,10 @@
 #include <QTemporaryDir>
 #include <QTextStream>
 
+#include <cerrno>
 #include <csignal>
 #include <cstdio>
+#include <unistd.h>
 
 namespace imagebuild {
 
@@ -239,13 +241,30 @@ void stop(const QString& deck, const QString& why, const QString& program) {
     if (!a.stuck())
         fail(QString("the build of %1 has run %2 min, not past the %3 it may: it doesn't look stuck")
                  .arg(deck).arg(a.minutes()).arg(a.stuckAfter > 0 ? a.stuckAfter : 60));
+    // Slow is not stuck: a Mixxx build that missed the compiler cache, or
+    // waits on another's, still writes its log.
+    const QFileInfo log(logFile(deck));
+    if (log.exists() && log.lastModified().secsTo(QDateTime::currentDateTime()) < 600)
+        fail(QString("the build of %1 has run %2 min, but it still writes its log (%3 min ago, %4): slow, not "
+                     "stuck. Stopped once its log has been quiet 10 min")
+                 .arg(deck).arg(a.minutes()).arg(log.lastModified().secsTo(QDateTime::currentDateTime()) / 60)
+                 .arg(log.filePath()));
     if (proc::name(a.pid) != name) fail(QString("pid %1 is not %2: left alone").arg(a.pid).arg(name));
-    print() << "stopping the build of " << deck << " (pid " << a.pid << ", " << a.minutes() << " min)\n";
-    ::kill(pid_t(a.pid), SIGTERM); // it winds up, its machine off, if it can
-    for (int i = 0; i < 80 && proc::name(a.pid) == name; i++) proc::sleep(250);
-    if (proc::name(a.pid) == name) ::kill(pid_t(a.pid), SIGKILL);
-    for (int i = 0; i < 20 && proc::name(a.pid) == name; i++) proc::sleep(250);
-    if (proc::name(a.pid) == name) fail(QString("pid %1 would not stop").arg(a.pid));
+    // The build and the step it is in, when it leads its group: never the
+    // group of whatever started it otherwise.
+    const pid_t pid = pid_t(a.pid);
+    const bool group = ::getpgid(pid) == pid;
+    const auto signal = [&](int sig) { ::kill(group ? -pid : pid, sig); };
+    const auto alive = [&] {
+        return group ? ::kill(-pid, 0) == 0 || errno == EPERM : proc::name(pid) == name;
+    };
+    print() << "stopping the build of " << deck << " (pid " << pid << (group ? " and its process group" : "") << ", "
+            << a.minutes() << " min)\n";
+    signal(SIGTERM); // it winds up, its machine off, if it can
+    for (int i = 0; i < 80 && alive(); i++) proc::sleep(250);
+    if (alive()) signal(SIGKILL);
+    for (int i = 0; i < 20 && alive(); i++) proc::sleep(250);
+    if (alive()) fail(QString("pid %1%2 would not stop").arg(pid).arg(group ? "'s process group" : ""));
     Instance vm("build-" + deck);
     if (vm.exists()) vm.kill();
     // Written under the deck's lock: a build started meanwhile keeps its own.
