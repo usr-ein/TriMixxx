@@ -790,7 +790,7 @@ changed.
 pi-qemu deck deploy mix config        # mapping, skin, fonts, mixxx.cfg; ~10 s with the restart
 pi-qemu deck press mix hotcue1
 pi-qemu deck leds mix
-pi-qemu deck ssh mix 'sudo grep ^0: /proc/tty/driver/ttyAMA'   # rx: bytes the S3 sent
+pi-qemu deck ssh mix 'sudo grep ^3: /proc/tty/driver/ttyAMA'   # rx: bytes the S3 sent (on UART3)
 ```
 
 `deploy mix system` (pi_config: systemd units, session, splash),

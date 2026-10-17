@@ -127,16 +127,24 @@ dtoverlay=vc4-kms-v3d     ->  dtoverlay=vc4-kms-v3d,noaudio
 camera_auto_detect=1      ->  camera_auto_detect=0     (§1.4, boot speed)
 
 [all]
-enable_uart=1
-dtoverlay=disable-bt
+dtoverlay=uart3
 dtoverlay=vc4-kms-dsi-waveshare-panel,10_1_inch
 disable_splash=1
 ```
 
 and in `cmdline.txt`, `console=serial0,115200 ` removed (it stays one line).
-- [x] **UART for ttymidi:** `enable_uart=1` + `dtoverlay=disable-bt`, so
-      `/dev/serial0` is the full PL011 (`ttyAMA0`) on GPIO14/15, whose baud does
-      not drift with the core clock. Bluetooth goes; the deck has no use for it.
+- [x] **UART for ttymidi:** `dtoverlay=uart3`: the S3 is on UART3, one of the
+      BCM2711's extra full PL011s, on GPIO 4/5 (header pins 7 and 29), as
+      `/dev/ttyAMA3` (its device tree alias is `serial3`). A PL011's baud does
+      not drift with the core clock, and UART0 stays Bluetooth's, as on a
+      stock Pi, for the Bluetooth receiver. Wiring: the Pi's TX (pin 7) to the
+      S3's RX (IO44), the Pi's RX (pin 29) to the S3's TX (IO43), GND as
+      before. Until 2026-10 the S3 was on GPIO 14/15 with `enable_uart=1` +
+      `dtoverlay=disable-bt` (the PL011 as `/dev/serial0`, Bluetooth off); a
+      deck keeps pins 8/10 wired as well (a Y) until both of its slots run a
+      release with UART3, so either release reaches its S3. While both are
+      wired, never `enable_uart=1`: the mini UART would drive GPIO 14 against
+      UART3's TX.
 - [x] **Serial console off:** `console=serial0,115200` removed from
       `cmdline.txt`, which would otherwise fight ttymidi for the port.
 - [x] **One sound card:** `dtparam=audio=off` and `dtoverlay=vc4-kms-v3d,noaudio`
@@ -151,7 +159,8 @@ and in `cmdline.txt`, `console=serial0,115200 ` removed (it stays one line).
       Display's I2C address, and auto-detect would load the wrong overlay on top.
 - [x] `disable_splash=1` — no rainbow square; the deck's own splash follows.
 - [x] Console blanking: `consoleblank` is already 0 on this kernel. Nothing to add.
-- [x] Verified on the first boot with the panel: `/dev/serial0` → `ttyAMA0`;
+- [x] Verified on the first boot with the panel: `/dev/serial0` → `ttyAMA0`
+      (before UART3);
       `aplay -l` lists only `CODEC`, as card 0; `DSI-1` connected, HDMI not;
       `/dev/fb0` 1280×800, 16 bpp, stride 2560; backlight `10-0045` at 255/255;
       `Goodix-TS 10-0014: ID 9271` registered as an input device.

@@ -156,7 +156,8 @@ pi-qemu deck where NAME                   # the pointer's position
   and push until it loads, with a screenshot between steps. With no track
   loaded, most presses change nothing visible.
 - **Check that bytes reached the Pi:**
-  `pi-qemu deck ssh NAME 'sudo grep ^0: /proc/tty/driver/ttyAMA'`.
+  `pi-qemu deck ssh NAME 'sudo grep ^3: /proc/tty/driver/ttyAMA'`: the S3
+  is on UART3 (`^0:`, the PL011, on a card from before the move).
   - `rx:` counts what the S3 sent. It grows by 6 per `press` (note on and
     note off), 3 per `down`, `up`, `touch` or `browse` step, 6 per `tempo`,
     and 3 per 63 ticks of `jog`.

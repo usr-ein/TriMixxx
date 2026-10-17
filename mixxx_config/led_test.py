@@ -7,8 +7,8 @@ the firmware's LED handling (onMidiFromMixxx) in isolation, with no Mixxx, no
 ttymidi and no MIDI stack in the way. If an LED lights here, the return path is
 good and any missing feedback in Mixxx is a Mixxx-output problem.
 
-    uv run led_test.py --port /dev/serial0            # blink the PLAY LED
-    uv run led_test.py --port /dev/serial0 --all      # sweep every LED
+    uv run led_test.py --port /dev/ttyAMA3            # blink the PLAY LED
+    uv run led_test.py --port /dev/ttyAMA3 --all      # sweep every LED
 
 DECK_DEBUG must be 0 in the firmware (normal deck operation).
 """
@@ -78,7 +78,7 @@ def sweep(ser: serial.Serial) -> None:
 
 def find_port() -> str | None:
     """Return an auto-detected serial device, or None if none is found."""
-    for pattern in ("cu.usbserial*", "ttyUSB*", "serial0"):
+    for pattern in ("cu.usbserial*", "ttyUSB*", "ttyAMA3", "serial0"):
         ports = sorted(str(p) for p in Path("/dev").glob(pattern))
         if ports:
             return ports[0]
@@ -88,7 +88,7 @@ def find_port() -> str | None:
 def parse_args() -> argparse.Namespace:
     """Parse the command-line options."""
     ap = argparse.ArgumentParser(description="LED-feedback test (TriMixxx).")
-    ap.add_argument("--port", help="serial device (auto; /dev/serial0 on a Pi)")
+    ap.add_argument("--port", help="serial device (auto; /dev/ttyAMA3 on a Pi)")
     ap.add_argument("--baud", type=int, default=115200, help="must match PiLink baud")
     ap.add_argument("--all", action="store_true", help="sweep every LED, not just PLAY")
     return ap.parse_args()
@@ -99,7 +99,7 @@ def main() -> None:
     args = parse_args()
     port = args.port or find_port()
     if not port:
-        sys.exit("No serial port found. Pass --port (e.g. /dev/serial0 on a Pi).")
+        sys.exit("No serial port found. Pass --port (e.g. /dev/ttyAMA3 on a Pi).")
     with serial.Serial(port, args.baud) as ser:
         time.sleep(0.2)  # let the line settle before the first byte
         if args.all:

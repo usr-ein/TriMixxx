@@ -11,7 +11,7 @@ ttymidi consumes on the Pi). Two modes:
   anywhere with no native build -- handy for a quick check over SSH on the Pi.
 
     uv run serial_midi_bridge.py --debug                          # bridge (Mac)
-    python3 serial_midi_bridge.py --monitor --port /dev/serial0   # monitor (Pi)
+    python3 serial_midi_bridge.py --monitor --port /dev/ttyAMA3   # monitor (Pi)
 
 In Mixxx: Preferences -> Controllers -> "TriMixxx" -> load TriMixxx.midi.xml.
 """
@@ -150,7 +150,7 @@ def find_port() -> str | None:
 
     Tries a USB-serial adapter (macOS / Linux) then the Pi's GPIO UART.
     """
-    for pattern in ("cu.usbserial*", "ttyUSB*", "serial0"):
+    for pattern in ("cu.usbserial*", "ttyUSB*", "ttyAMA3", "serial0"):
         ports = sorted(str(p) for p in Path("/dev").glob(pattern))
         if ports:
             return ports[0]
@@ -160,7 +160,7 @@ def find_port() -> str | None:
 def parse_args() -> argparse.Namespace:
     """Parse the command-line options."""
     ap = argparse.ArgumentParser(description="Serial<->MIDI bridge (TriMixxx).")
-    ap.add_argument("--port", help="serial device (auto; /dev/serial0 on a Pi)")
+    ap.add_argument("--port", help="serial device (auto; /dev/ttyAMA3 on a Pi)")
     ap.add_argument("--baud", type=int, default=115200, help="must match PiLink baud")
     ap.add_argument("--name", default="TriMixxx", help="virtual MIDI port name")
     ap.add_argument("--debug", action="store_true", help="print each bridged message")
@@ -202,7 +202,7 @@ def main() -> None:
     args = parse_args()
     port = args.port or find_port()
     if not port:
-        sys.exit("No serial port found. Pass --port (e.g. /dev/serial0 on a Pi).")
+        sys.exit("No serial port found. Pass --port (e.g. /dev/ttyAMA3 on a Pi).")
     ser = serial.Serial(port, args.baud, timeout=0.05)
     try:
         if args.monitor:

@@ -8,16 +8,18 @@ After=sound.target
 [Service]
 Type=exec
 User=sam1902
-# /dev/serial0 needs the 'dialout' group; the ALSA sequencer needs 'audio'.
+# The S3's UART needs the 'dialout' group; the ALSA sequencer needs 'audio'.
 SupplementaryGroups=dialout audio
 
-# The Pi's UART node appears early, but wait for it (max ~10s) to be safe.
-ExecStartPre=/bin/sh -c 'for i in $(seq 1 50); do [ -e /dev/serial0 ] && exit 0; sleep 0.2; done'
+# The S3 is on UART3, GPIO 4/5 (dtoverlay=uart3; pi_config/fresh-install.md
+# 1.3), ttyAMA3 after its device tree alias, serial3. Its node appears early,
+# but wait for it (max ~10s) to be safe.
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 50); do [ -e /dev/ttyAMA3 ] && exit 0; sleep 0.2; done'
 
 # ttymidi binary from the mixxx_config/ttymidi submodule (`make install` ->
 # /usr/local/bin). -n names the ALSA client "TriMixxx" so Mixxx -- and the
 # readiness gate below -- find the port.
-ExecStart=/usr/local/bin/ttymidi -s /dev/serial0 -b 115200 -n TriMixxx
+ExecStart=/usr/local/bin/ttymidi -s /dev/ttyAMA3 -b 115200 -n TriMixxx
 
 # Do not report the service "started" (which is what releases getty@tty1, hence
 # Mixxx) until the TriMixxx ALSA port is actually present -- otherwise Mixxx can

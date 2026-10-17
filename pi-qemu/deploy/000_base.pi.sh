@@ -5,8 +5,9 @@
 # autologin -- and what a release card's read-only root needs.
 #
 # Safe on a deck that is set up already: every change checks first, nothing a
-# deck may rely on is removed, and nothing reboots here. If config.txt or
-# cmdline.txt changed it exits 10, and the deck reboots before the next step.
+# deck may rely on is removed (but the two UART lines the S3's move to UART3
+# undid), and nothing reboots here. If config.txt or cmdline.txt changed it
+# exits 10, and the deck reboots before the next step.
 #
 #   PANEL_OVERLAY   the deck's display overlay line, from its unit file
 #                   ("panelOverlay"); empty leaves the panel config alone.
@@ -30,8 +31,11 @@ sed -i -e 's/^dtparam=audio=on$/dtparam=audio=off/' \
        -e 's/^display_auto_detect=1$/display_auto_detect=0/' \
        -e 's/^dtoverlay=vc4-kms-v3d$/dtoverlay=vc4-kms-v3d,noaudio/' \
        -e 's/^camera_auto_detect=1$/camera_auto_detect=0/' config.txt
+# Lines a deck set up before had under [all], which the S3's move to UART3
+# undoes: the S3 was on the PL011, and Bluetooth with it was off.
+sed -i -e '/^enable_uart=1$/d' -e '/^dtoverlay=disable-bt$/d' config.txt
 # Lines the deck adds under [all], each only if it is not there already.
-want=(enable_uart=1 dtoverlay=disable-bt disable_splash=1)
+want=(dtoverlay=uart3 disable_splash=1)
 [ -n "$PANEL_OVERLAY" ] && want+=("dtoverlay=$PANEL_OVERLAY")
 missing=()
 for line in "${want[@]}"; do grep -qxF "$line" config.txt || missing+=("$line"); done
