@@ -6,6 +6,7 @@ on throwaway repositories (a parent with a submodule, as TriMixxx and the Mixxx 
 
 import argparse
 import contextlib
+import datetime as dt
 import fcntl
 import importlib.machinery
 import importlib.util
@@ -175,6 +176,18 @@ class GuardTest(Sandbox):
         self.assertFalse(self.denied(self.bitch, "pi-qemu deck shot feat /tmp/x.png"))
         self.assertTrue(self.denied(self.nightman, "pi-qemu deck up x"))
         self.assertFalse(self.denied(self.nightman, "pi-qemu deck stop feat"))
+
+    def test_the_golden_follows_main_and_a_stuck_remake_is_the_nightmans(self):
+        """`image golden` only builds main's code: anyone may. Stopping a stuck remake is the nightman's (or Sam's,
+        whom nothing guards); by its path too."""
+        for cmd in ("pi-qemu image golden", "pi-qemu image golden --check", "pi-qemu image golden --background --retry"):
+            self.assertFalse(self.denied(self.minion, cmd), cmd)
+        for reg in (self.minion, self.day_minion, self.bitch):
+            self.assertTrue(self.denied(reg, "pi-qemu image golden --clear"))
+            self.assertTrue(self.denied(reg, "pi-qemu/app/build/pi-qemu image golden --clear"))
+        self.assertFalse(self.denied(self.nightman, "pi-qemu image golden --clear"))
+        self.assertTrue(self.denied(self.minion, "pi-qemu image build trimixxx0"))  # by hand: Sam's
+        self.assertTrue(self.denied(self.minion, "pi-qemu deck golden"))
 
     def test_sessions_and_merges(self):
         self.assertTrue(self.denied(self.minion, "claude --bg -n x hi"))
@@ -367,6 +380,18 @@ class VerdictTest(unittest.TestCase):
         self.assertIn("building: image build scratch", crew.describe(snapshot(image_builds=other), self.LIM))
         self.assertNotIn("building", crew.describe(snapshot(), self.LIM))
 
+    def test_a_stuck_image_build_holds_nothing(self):
+        """Review round 1 of #48: a remake that never ends must not hold every build all night. Past the time it may
+        take it holds nothing, and says so, for the nightman to report or stop."""
+        stuck = [{"deck": "trimixxx0", "pid": 4242, "started": "2026-10-17T09:00:00Z", "commit": "5f0b01a",
+                  "minutes": 190, "stuck_after": 60, "stuck": True}]
+        self.assertEqual([self.verdict(p, image_builds=stuck) for p in self.PURPOSES], ["ok", "ok", "ok", "ok"])
+        text = crew.describe(snapshot(image_builds=stuck), self.LIM)
+        self.assertIn("which looks stuck (190 min, past its 60; it holds nothing: `pi-qemu image golden --clear` stops "
+                      "it, the nightman's or Sam's)", text)
+        live = [dict(stuck[0], deck="scratch", minutes=3, stuck=False)]
+        self.assertEqual(self.verdict("build", image_builds=stuck + live), "hold")  # the one alive still holds
+
 
 class ResourcesTest(Sandbox):
     def test_an_ended_session_is_no_minion(self):
@@ -392,8 +417,12 @@ class ImageBuildsTest(Sandbox):
         build = crew.MAIN / ".cache" / "build"
         build.mkdir(parents=True)
         self.assertEqual(crew.image_builds(), [])
+
+        def ago(minutes):
+            return (dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        three_hours = ago(180)
         (build / "trimixxx0.build.json").write_text(json.dumps({
-            "state": "building", "pid": 4242, "started": "2026-10-17T11:40:00Z",
+            "state": "building", "pid": 4242, "started": three_hours,
             "source": {"commit": "5f0b01a2c0ffee", "clean": True}}))
         lock = build / "trimixxx0.lock"
         lock.write_text("")
@@ -401,8 +430,13 @@ class ImageBuildsTest(Sandbox):
         fd = os.open(lock, os.O_RDWR)
         try:
             fcntl.flock(fd, fcntl.LOCK_EX)
-            self.assertEqual(crew.image_builds(), [{"deck": "trimixxx0", "pid": 4242, "started": "2026-10-17T11:40:00Z",
-                                                    "commit": "5f0b01a"}])
+            [b] = crew.image_builds()
+            self.assertEqual(b, {"deck": "trimixxx0", "pid": 4242, "started": three_hours, "commit": "5f0b01a",
+                                 "minutes": 180, "stuck_after": 60, "stuck": True})  # past the 60 min by default
+            (build / "trimixxx0.build.json").write_text(json.dumps({
+                "state": "building", "pid": 4242, "started": ago(0), "stuck_after_min": 30, "source": {}}))
+            [b] = crew.image_builds()
+            self.assertEqual((b["minutes"], b["stuck_after"], b["stuck"]), (0, 30, False))
         finally:
             os.close(fd)
         self.assertEqual(crew.image_builds(), [])

@@ -261,6 +261,10 @@ Every 20 minutes, or whenever you wonder:
    - Tell the minions when they may build again.
 5. A minion busy for over two hours with the same Status line: ask it for a
    one-line status.
+   - The golden's remake that `crew resources` says looks stuck (past the
+     time it may take): it holds nothing, decks start from the last golden,
+     and it goes in the morning report. `pi-qemu image golden --clear` stops
+     it: yours to run, the one way to end it (still never kill processes).
 6. A real deck held (`crew status` lists the locks) by a minion that is done,
    parked, stuck or silent: ask it where the deck stands. Never free a deck
    mid-check yourself.

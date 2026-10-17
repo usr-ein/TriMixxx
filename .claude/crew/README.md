@@ -160,7 +160,9 @@ dispatch and every 20 minutes, and minions check before starting a deck
   1.5 × (15-minute)
 - image builds: while one runs (the golden's remake, or `pi-qemu image
   build`), no new build starts (`--for build` holds); its build machine,
-  `build-DECK`, counts among the decks
+  `build-DECK`, counts among the decks. One running past the time it may
+  take (60 min) looks stuck and holds nothing; `pi-qemu image golden --clear`
+  stops it, the nightman's or yours
 - memory pressure
 - free disk: 40 GB to dispatch; shed below 20
 - free disk in Docker's VM, where Mixxx builds and their cache live: 8 GB to
@@ -256,11 +258,13 @@ the `pi-qemu` on PATH (`pi-qemu/build.sh app`). It only reports a change to
 QEMU's patches: `build.sh qemu` waits until no deck runs.
 
 Emulated decks start from the golden, which is main's latest: after a merge,
-`crew merge` runs `pi-qemu image golden --background`, which starts the
+`crew merge` runs `pi-qemu image golden --background`, which leaves the
 golden's remake (an image build of trimixxx0 in the main checkout, a few
-minutes) when the merge changed what goes onto a deck, and returns. Not while
-`crew resources` says shed: the next `deck up` makes it then, and waits for
-it. Nothing about it can fail the merge.
+minutes) to a keeper when the merge changed what goes onto a deck, and
+returns. The keeper goes on until the golden is main's latest, so two merges
+back to back end with the second's. Not while `crew resources` says shed: the
+next `deck up` makes it then, and waits for it. Nothing about it can fail the
+merge.
 
 A minion's branch starts from origin/main, and is measured against it: by
 its drift checks, by its bitch, and by `crew merge`. The local main can lag

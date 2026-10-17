@@ -386,7 +386,9 @@ def cdjs() -> list[tuple[str, str]]:
 def image_builds() -> list[dict]:
     """The image builds running now: `pi-qemu image build`, or the golden's remake that `pi-qemu image golden`, `deck
     up` or crew merge started (an image build of trimixxx0 in the main checkout: minutes of a build VM and Docker
-    builds). A build holds .cache/build/DECK.lock while it runs, and says what it builds in DECK.build.json."""
+    builds). A build holds .cache/build/DECK.lock while it runs, and says in DECK.build.json what it builds, since
+    when, and how long it may run (stuck_after_min, 60 by default): past that it looks stuck, holds nothing, and is
+    the nightman's or Sam's to stop (`pi-qemu image golden --clear`)."""
     found = []
     for lock in sorted((MAIN / ".cache" / "build").glob("*.lock")):
         try:
@@ -406,8 +408,15 @@ def image_builds() -> list[dict]:
         except (OSError, ValueError):
             a = {}
         src = a.get("source") if isinstance(a.get("source"), dict) else {}
+        try:
+            started = dt.datetime.fromisoformat(str(a.get("started")).replace("Z", "+00:00"))
+            minutes = int((dt.datetime.now(dt.timezone.utc) - started).total_seconds() // 60)
+        except ValueError:
+            minutes = None  # between its lock and its attempt: a build just starting
+        most = a.get("stuck_after_min") if isinstance(a.get("stuck_after_min"), int) and a["stuck_after_min"] > 0 else 60
         found.append({"deck": deck, "pid": a.get("pid"), "started": a.get("started"),
-                      "commit": str(src.get("commit") or "")[:7]})
+                      "commit": str(src.get("commit") or "")[:7], "minutes": minutes, "stuck_after": most,
+                      "stuck": a.get("state") == "building" and minutes is not None and minutes >= most})
     return found
 
 
@@ -512,8 +521,9 @@ def verdict(snap: dict, lim: dict, purpose: str) -> tuple[str, list[str]]:
         hold.append(f"{docker:.1f} GB free in Docker's VM < {lim.get('DOCKER_MIN_GB', 8):.0f}: no new builds")
     if l15 > lim["LOAD_SHED"] * n:
         shed.append(f"15-min load {l15:.1f} > {lim['LOAD_SHED'] * n:.0f}")
-    if purpose == "build" and snap.get("image_builds"):
-        hold.append(f"{image_builds_text(snap['image_builds'])} runs: no new build on top of it")
+    live = [b for b in snap.get("image_builds", []) if not b.get("stuck")]
+    if purpose == "build" and live:
+        hold.append(f"{image_builds_text(live)} runs: no new build on top of it")
     if l5 > lim["LOAD_MAX"] * n:
         hold.append(f"5-min load {l5:.1f} > {lim['LOAD_MAX'] * n:.0f}")
     if purpose == "minion":
@@ -541,7 +551,11 @@ def image_builds_text(builds: list[dict]) -> str:
         except ValueError:
             pass
         what = f"image build {b['deck']}" + (f", from {b['commit']}" if b.get("commit") else "") + since
-        return f"the golden's remake ({what})" if b["deck"] == "trimixxx0" else what
+        what = f"the golden's remake ({what})" if b["deck"] == "trimixxx0" else what
+        if b.get("stuck"):
+            what += (f", which looks stuck ({b['minutes']} min, past its {b['stuck_after']}; it holds nothing: "
+                     "`pi-qemu image golden --clear` stops it, the nightman's or Sam's)")
+        return what
     return " and ".join(one(b) for b in builds)
 
 
@@ -1189,9 +1203,10 @@ def rebuild_pi_qemu(was: str | None, now: str | None):
 
 def remake_golden():
     """Emulated decks start from the golden, which is main's latest (Sam, 2026-10-16): after a merge, `pi-qemu image
-    golden --background` starts its remake when main's change reaches a deck (an image build of trimixxx0 in the
-    main checkout, a few minutes), and returns. Not while the Mac sheds load (the nightman, 2026-10-17): the next `deck
-    up` makes it then, waiting for it. Nothing here can fail the merge."""
+    golden --background` leaves its remake to a keeper when main's change reaches a deck (an image build of trimixxx0
+    in the main checkout, a few minutes), and returns; the keeper goes on until the golden is main's latest, a merge
+    meanwhile included. Not while the Mac sheds load (the nightman, 2026-10-17): the next `deck up` makes it then,
+    waiting for it. Nothing here can fail the merge."""
     try:
         v, why = verdict(snapshot(), limits(), "build")
         if v == "shed":
@@ -1948,6 +1963,9 @@ def bash_reason(cmd: str, reg: dict, cwd: str) -> str | None:
         if prog == "pi-qemu":
             if args[:2] in (["deck", "golden"], ["image", "build"]):
                 return "that rebuilds the golden card everyone's decks start from: Sam's call"
+            if args[:2] == ["image", "golden"] and "--clear" in args and role != "nightman":
+                return ("stopping a stuck remake of the golden is the nightman's or Sam's: report it (pi-qemu image "
+                        "golden --clear)")
             why = cache_reason(args, here)
             if why:
                 return why
