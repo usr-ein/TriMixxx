@@ -44,6 +44,22 @@ if [ -z "${DISPLAY:-}" ] && [ -z "${TRIMIXXX_RESCUE:-}" ] && [ "$(tty)" = "/dev/
         printf 'mixxx\n' > /run/trimixxx/mode 2>/dev/null || true
     fi
 
+    # X gets the display from logind, which hands it only to the session in
+    # front. The boot splash keeps vt7 in front for its last seconds
+    # (trimixxx-splash.sh), and a session starting inside them gets paused
+    # devices: X falls back, aborts, and on its way out puts vt7 back in front,
+    # so every retry fails alike until getty gives up, the screen black
+    # (trimixxx2, 2026-10-17: a boot that got here at 13 s, the splash letting
+    # go at 15). So tty1 first, which this shell may bring forward as its own,
+    # and logind seeing it; the splash just ends early.
+    chvt 1 2>/dev/null || true
+    i=0
+    while [ "$(loginctl show-session "${XDG_SESSION_ID:-self}" -p Active --value 2>/dev/null)" != yes ] &&
+        [ "$i" -lt 20 ]; do
+        sleep 0.1
+        i=$((i + 1))
+    done
+
     # `--` separates client args from X server args; nothing after it today,
     # but it is where -nocursor and friends go, so it is kept.
     exec startx -- #-nocursor
