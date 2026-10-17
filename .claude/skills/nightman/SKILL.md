@@ -256,20 +256,31 @@ Every 20 minutes, or whenever you wonder:
    - Still `shed` at the next heartbeat: stop the minion started last that is
      not mid-review (`claude stop ID`: its conversation is kept), mark it
      queued, and `crew resume BRANCH` when it is `ok` again.
-   - Never prune Docker, never kill processes, never stop Sam's own sessions,
-     decks or CDJs.
+   - Never prune Docker, never kill processes (but a stuck remake, step 6),
+     never stop Sam's own sessions, decks or CDJs.
    - Tell the minions when they may build again.
 5. A minion busy for over two hours with the same Status line: ask it for a
    one-line status.
-   - The golden's remake that `crew resources` says looks stuck (past the
-     time it may take): it holds nothing, decks start from the last golden,
-     and it goes in the morning report. `pi-qemu image golden --clear` stops
-     it: yours to run, the one way to end it (still never kill processes).
-6. A real deck held (`crew status` lists the locks) by a minion that is done,
+6. The golden's remake that `crew resources` says looks stuck. Decks start
+   from the last golden meanwhile, and no later merge's golden can be made
+   while it holds its lock. Your call (2026-10-17): the one exception to
+   "never kill processes", and a narrow one.
+   - When: past the time it may take (its bound, 60 min), with its log quiet
+     for 10 min. `--clear` checks both, and refuses a remake still writing
+     its log: slow, not stuck.
+   - How: `pi-qemu image golden --clear`. It stops the remake's own process
+     group (the build and the step it is in), then its build machine;
+     nothing else.
+   - What follows: that main counts as failed, `deck up` goes on from the
+     last golden, and the next merge's keeper makes the newer main's golden
+     (or `pi-qemu image golden --retry`, on Sam's word).
+   - Log every clear in plan.md, and put it in the morning report with the
+     remake's log (`.cache/build/trimixxx0.log`).
+7. A real deck held (`crew status` lists the locks) by a minion that is done,
    parked, stuck or silent: ask it where the deck stands. Never free a deck
    mid-check yourself.
-7. Log what you did in plan.md, a line per event.
-8. Everything merged, parked, stuck or waiting for Sam, and nothing running:
+8. Log what you did in plan.md, a line per event.
+9. Everything merged, parked, stuck or waiting for Sam, and nothing running:
    write the morning report, CronDelete the heartbeat, end.
 
 ## The morning report

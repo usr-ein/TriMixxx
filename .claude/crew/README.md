@@ -162,7 +162,8 @@ dispatch and every 20 minutes, and minions check before starting a deck
   build`), no new build starts (`--for build` holds); its build machine,
   `build-DECK`, counts among the decks. One running past the time it may
   take (60 min) looks stuck and holds nothing; `pi-qemu image golden --clear`
-  stops it, the nightman's or yours
+  stops it once its log has been quiet 10 min, the nightman's or yours (his
+  heartbeat, step 6)
 - memory pressure
 - free disk: 40 GB to dispatch; shed below 20
 - free disk in Docker's VM, where Mixxx builds and their cache live: 8 GB to
