@@ -3,10 +3,10 @@
 bluez-standin.py. A phone's cover comes over Bluetooth through obexd's BIP
 client, which needs a radio; this plays that client on the deck user's session
 bus, enough for the receiver's cover fetch and for mpris-proxy's: sessions to
-the stand-in's phone, and the image `s Cover` staged, for its handle. Like the
-phone it stands for, it serves one client at all (Android's cover server
-does): a second CreateSession is refused while a session is open. A test
-tool, never installed on a deck by any deploy step.
+the stand-in's phones, and the image `s Cover` staged, for its handle. Like
+the phones it stands for, each serves one client at all (Android's cover
+server does): a second CreateSession to a phone is refused while a session to
+it is open. A test tool, never installed on a deck by any deploy step.
 
 As the deck user, with bluez-standin.py up:
 
@@ -166,7 +166,8 @@ def on_method(conn, sender, path, interface, method, params, invocation):
         destination, options = args
         if options.get("Target", "").lower() != "bip-avrcp":
             return fail(invocation, "the stand-in serves covers only (Target bip-avrcp)")
-        if owners:
+        if any(objects[open_]["org.bluez.obex.Session1"]["Destination"].unpack() == destination
+               for open_ in owners):
             # One client at all, as Android's cover server: the phone refuses.
             return fail(invocation, "Connection refused (111)")
         counter += 1

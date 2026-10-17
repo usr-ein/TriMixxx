@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """bluetoothd's stand-in, for an emulated deck: QEMU has no radio, so there is
 no adapter, no phone and no BlueZ to show the Bluetooth receiver's page. This
-plays enough of org.bluez for it -- an adapter, and a phone that pairs with a
-code, connects, plays and pauses -- driven from a shell. A test tool, never
+plays enough of org.bluez for it -- an adapter, and phones that pair with a
+code, connect, play and pause -- driven from a shell. A test tool, never
 installed on a deck by any deploy step.
 
     sudo systemctl stop trimixxx-bluetoothd    # the menu open, bluetoothd up
@@ -12,15 +12,17 @@ then, from any shell on the deck:
 
     s() { busctl call org.bluez /org/bluez org.trimixxx.StandIn "$@"; }
     s Pair s "Pixel 9"              # a phone asks to pair (Pair pressed first)
-    s Connect s "Pixel 9"           # a paired phone connects
+    s Connect s "Pixel 9"           # a paired phone tries to connect by itself
     s Play sssuu "Title" "Artist" "Album" 245000 61000   # ms: duration, position
     s Cover s /tmp/cover.png        # the phone offers this picture as the cover
     s Pause
-    s Disconnect
+    s Disconnect                    # the phone playing goes
 
-It answers the deck's own calls as BlueZ would: the agent's registration, a
-phone's Connect (refused: no radio), Discoverable/Pairable/Trusted set, the
-Pair window closing after DiscoverableTimeout. The covers themselves come
+A phone connecting by itself gets in as with BlueZ: at once if trusted, else
+the deck's agent is asked (AuthorizeService), which may refuse it. The deck's
+own calls are answered as BlueZ would: the agent's registration, a paired
+device's Connect and Disconnect, RemoveDevice, Discoverable/Pairable/Trusted
+set, the Pair window closing after DiscoverableTimeout. The covers come
 through obexd, which obexd-standin.py stands in for: `Cover` stages the
 picture for it, under the handle the track then carries.
 """
@@ -35,6 +37,7 @@ ADAPTER = "/org/bluez/hci0"
 DISCOVERABLE_TIMEOUT_S = 120
 PASSKEY = 123456
 COVER_PSM = 4103                # where a phone's cover server listens: any but 0
+AUDIO_SINK_UUID = "0000110b-0000-1000-8000-00805f9b34fb"  # what a phone connects to
 STAGED = "/tmp/standin-covers"  # obexd-standin.py serves these, by handle
 
 INTROSPECTION = """
@@ -69,6 +72,7 @@ INTROSPECTION = """
     <property name="Discoverable" type="b" access="readwrite"/>
     <property name="Pairable" type="b" access="readwrite"/>
     <property name="DiscoverableTimeout" type="u" access="readwrite"/>
+    <method name="RemoveDevice"><arg type="o" direction="in"/></method>
   </interface>
   <interface name="org.bluez.Device1">
     <method name="Connect"/>
@@ -181,6 +185,37 @@ def fail(invocation, what):
     invocation.return_dbus_error("org.bluez.Error.Failed", what)
 
 
+def paired(path):
+    return objects.get(path, {}).get("org.bluez.Device1", {}).get(
+        "Paired", GLib.Variant("b", False)).unpack()
+
+
+def connect(path):
+    """A paired device in: its player and its audio transport, as BlueZ adds them."""
+    global phone, track
+    phone = path
+    remove(path + "/player0")  # connected already: anew
+    remove(path + "/sep1/fd0")
+    changed(path, "org.bluez.Device1", Connected=True)
+    track = {}
+    add(path + "/player0", {"org.bluez.MediaPlayer1": player_props(path)})
+    add(path + "/sep1/fd0", {"org.bluez.MediaTransport1": {"State": "idle", "Device": path}})
+    print(f"connected {path}", flush=True)
+
+
+def disconnect(path):
+    global phone
+    if not objects.get(path, {}).get("org.bluez.Device1", {}).get(
+            "Connected", GLib.Variant("b", False)).unpack():
+        return
+    remove(path + "/player0")
+    remove(path + "/sep1/fd0")
+    changed(path, "org.bluez.Device1", Connected=False)
+    if phone == path:
+        phone = None
+    print(f"disconnected {path}", flush=True)
+
+
 def on_method(conn, sender, path, interface, method, params, invocation):
     global agent, phone, track, covers
     args = params.unpack()
@@ -194,21 +229,46 @@ def on_method(conn, sender, path, interface, method, params, invocation):
             agent = None
         invocation.return_value(None)
     elif interface == "org.bluez.Device1":
-        fail(invocation, "no radio: this is the stand-in")
+        # The deck's own: connect a paired device, or let one go.
+        if not paired(path):
+            return fail(invocation, "not paired")
+        if method == "Connect":
+            connect(path)
+        else:
+            disconnect(path)
+        invocation.return_value(None)
+    elif interface == "org.bluez.Adapter1" and method == "RemoveDevice":
+        device = args[0]
+        if device not in objects:
+            return invocation.return_dbus_error("org.bluez.Error.DoesNotExist", "no such device")
+        disconnect(device)
+        remove(device)
+        print(f"forgot {device}", flush=True)
+        invocation.return_value(None)
     elif method == "Pair":
         pair(args[0], invocation)
     elif method == "Connect":
+        # The phone, by itself: trusted gets in, else the deck is asked.
         path = device_path(args[0])
-        if not objects.get(path, {}).get("org.bluez.Device1", {}).get("Paired", GLib.Variant("b", False)).unpack():
+        if not paired(path):
             return fail(invocation, f"{args[0]} is not paired")
-        phone = path
-        remove(path + "/player0")  # connected already: anew
-        remove(path + "/sep1/fd0")
-        changed(path, "org.bluez.Device1", Connected=True)
-        track = {}
-        add(path + "/player0", {"org.bluez.MediaPlayer1": player_props(path)})
-        add(path + "/sep1/fd0", {"org.bluez.MediaTransport1": {"State": "idle", "Device": path}})
-        invocation.return_value(None)
+        if objects[path]["org.bluez.Device1"]["Trusted"].unpack():
+            connect(path)
+            return invocation.return_value(None)
+        if not agent:
+            return fail(invocation, "not trusted, and no agent to ask")
+
+        def answered(conn, result):
+            try:
+                conn.call_finish(result)
+            except GLib.Error as e:
+                print(f"{args[0]} refused by the deck: {e.message}", flush=True)
+                return fail(invocation, f"refused by the deck: {e.message}")
+            connect(path)
+            invocation.return_value(None)
+        bus.call(agent[0], agent[1], "org.bluez.Agent1", "AuthorizeService",
+                 GLib.Variant("(os)", (path, AUDIO_SINK_UUID)), None, Gio.DBusCallFlags.NONE,
+                 60000, None, answered)
     elif method == "Play":
         if not phone:
             return fail(invocation, "no phone connected")
@@ -248,10 +308,7 @@ def on_method(conn, sender, path, interface, method, params, invocation):
         invocation.return_value(None)
     elif method == "Disconnect":
         if phone:
-            remove(phone + "/player0")
-            remove(phone + "/sep1/fd0")
-            changed(phone, "org.bluez.Device1", Connected=False)
-            phone = None
+            disconnect(phone)
         invocation.return_value(None)
 
 
@@ -262,7 +319,8 @@ def pair(name, invocation):
         return fail(invocation, "the deck registered no agent")
     path = device_path(name)
     if path not in objects:
-        add(path, {"org.bluez.Device1": {"Address": "AA:BB:CC:DD:EE:FF", "Alias": name,
+        tail = ":".join(f"{b:02X}" for b in name.encode()[-3:].rjust(3, b"\0"))
+        add(path, {"org.bluez.Device1": {"Address": "AA:BB:CC:" + tail, "Alias": name,
                                          "Paired": False, "Trusted": False,
                                          "Connected": False, "Adapter": ADAPTER}})
 

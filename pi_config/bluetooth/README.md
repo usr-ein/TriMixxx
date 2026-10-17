@@ -55,19 +55,28 @@ packages come with the base step: `bluez` (on Raspberry Pi OS already),
 `bluez-alsa-utils`, and `bluez-obexd` for covers (with what it pulls in,
 evolution-data-server's libraries mostly, ~21 MB installed).
 
-## Pairing, and the phones it remembers
+## Pairing, picking, and the phones it remembers
 
 The deck is visible only after Pair, for `DiscoverableTimeout` (120 s), or
 until a phone has paired. Mixxx is BlueZ's agent (`BluetoothAgent`,
 DisplayYesNo): a phone pairing shows six digits, the deck shows the same with
-Confirm / Cancel, and both are confirmed. A paired phone is trusted, and phones
-it knows are asked to connect each time the menu opens.
+Confirm / Cancel, and both are confirmed.
+
+The page lists the paired phones, and **nothing connects until the DJ picks
+one**, on every opening (Sam: "I don't want it jumping clients without being
+told"). The phone picked is the only one BlueZ trusts: any other paired phone
+trying to connect or take over goes to the agent, which refuses it until it
+is picked. Picking another switches at once, the one playing disconnected. A
+phone just paired is picked. Closing the page leaves every phone untrusted,
+so the next opening starts with none let in. Forget (or a long press on a
+row) asks to confirm, then unpairs it: BlueZ deletes its keys.
 
 BlueZ keeps them in `/var/lib/bluetooth`. A release card's root is read-only
 (RAM over squashfs) and would forget them at every start, so
 `trimixxx-bluetoothd` binds `/var/lib/rauc/trimixxx-bluetooth`, on the state
 partition (p8), over it, and `up` makes that folder the first time. It is
-written when a phone pairs, never at a normal start. On a dev card there is no
+written when a phone pairs, is picked (its trust) or forgotten, never at a
+normal start. On a dev card there is no
 p8, and `/var/lib/bluetooth` on the root keeps them.
 
 ## The radio
