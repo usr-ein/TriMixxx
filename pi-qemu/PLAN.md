@@ -77,7 +77,7 @@ They come from the repo's `CLAUDE.md` and the `trimixxx0` skill:
 | Flashing an SD card | Needs `sudo` (or Raspberry Pi Imager) and Sam's hands. Name the disk with `diskutil list external` and have Sam confirm it; never guess |
 | Any hands-on step | Inserting a card, cabling, power-cycling trimixxx3 |
 | Changing a board's EEPROM (`rpi-eeprom-update`, `rpi-eeprom-config --apply`) | Persistent hardware state |
-| Replacing the shared golden snapshot (`pi-qemu deck golden`), or rebuilding `.cache/build/trimixxx0.img` (`pi-qemu image build trimixxx0`) | Every agent's emulated deck starts from them |
+| Replacing the shared golden snapshot by hand (`pi-qemu deck golden`), or rebuilding `.cache/build/trimixxx0.img` from a checkout of your own (`pi-qemu image build trimixxx0`) | Every agent's emulated deck starts from them. Making it main's latest (`pi-qemu image golden`, which `deck up` and crew merge run) is no stop point: it only builds main's code |
 | A hang test on the **committed** slot (phase 1, T9) | It can loop the Pi until the card is fixed on the Mac |
 | Anything on a real deck, and phase 6 as a whole | Gig equipment |
 | Pushing | Each phase once it's done, then go on (Sam, 2026-10-08) |

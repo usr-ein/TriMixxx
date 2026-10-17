@@ -40,9 +40,13 @@ the runbook for putting real decks on release cards.
    The repo's other parts tag `midi-s3/v…` and `prolinks-compat/v…`. Tagging
    is the person's call, and so is the version: ask which part goes up
    ("Versions", below), never work it out from the changes.
-4. **The golden pair is the person's call.** `image build trimixxx0` ends by
-   remaking it (`deck golden`), and every new instance starts from it: build
-   trimixxx0 only when asked. Try image builds on a scratch DECK name, and
+4. **The golden pair follows main; by hand, it is the person's call.** Every
+   new instance starts from it, and it is main's latest by itself: `deck up`
+   and crew merge have it made again from the main checkout whenever main
+   changes what goes onto a deck (`image golden`, which anyone may run: it
+   only builds main's code; pi-qemu/README.md, "The golden: main's latest").
+   `image build trimixxx0` and `deck golden CARD` by hand replace it with
+   other code: only when asked. Try image builds on a scratch DECK name, and
    delete its outputs afterwards (below).
 5. **The bootloader is the person's call.** `deck prepare --eeprom` flashes a
    real deck's EEPROM and reboots it.
@@ -74,7 +78,11 @@ pi-qemu image build onetest --no-window --rebuild-base
 - `.cache/` and `archives/` are at the main checkout's root, git-ignored, the
   same for every worktree (`pi-qemu/README.md`, "Caches and archives").
 - A scratch build's outputs to delete afterwards: `.cache/build/DECK.img`,
-  `DECK.log`, and `.cache/base/DECK-*.img`.
+  `DECK.json`, `DECK.log`, `DECK.build.json`, `DECK.lock`, and
+  `.cache/base/DECK-*.img`.
+- Each card has what it was built from beside it (`DECK.json`: the commit,
+  and whether the checkout held exactly that commit's code). One build of a
+  deck runs at a time: a second refuses, saying which runs.
 
 ## Versions
 

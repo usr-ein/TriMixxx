@@ -260,7 +260,15 @@ void addDeck(cli::Registry& r) {
         .summary = "an emulated deck: restored from the golden snapshot in seconds, or resumed",
         .help = "A new NAME gets clones of the golden card and its saved machine, and wakes up\n"
                 "booted with Mixxx running. A stopped NAME resumes; one that is running is only\n"
-                "reported, so call it freely. Headless and silent unless --window; RUN_ARGS go\n"
+                "reported, so call it freely.\n"
+                "\n"
+                "The golden is main's latest: up fetches origin/main first, and when main has moved\n"
+                "on in what goes onto a deck, has the golden made again (image golden: a few minutes)\n"
+                "and waits for it, or for the remake already running. A stopped NAME whose card came\n"
+                "from an older golden starts fresh from the new one, saying first what that loses (its\n"
+                "deploys, its files, its saved machine); a card of its own (--from) never does.\n"
+                "\n"
+                "Headless and silent unless --window; RUN_ARGS go\n"
                 "to `run` as they are, e.g. -- --audio wav:/abs/out.wav (never --audio\n"
                 "speakers unless the person at the laptop asked for sound).\n"
                 "\n"
@@ -288,10 +296,12 @@ void addDeck(cli::Registry& r) {
     r.add({.group = "deck", .name = "rm", .synopsis = "NAME", .summary = "pull the plug and delete it", .run = lifecycle<&Instance::remove>});
     r.add({
         .group = "deck", .name = "golden", .synopsis = "[CARD]",
-        .summary = "remake the golden pair every new instance starts from (the person's call)",
+        .summary = "remake the golden pair every new instance starts from, from a card (the person's call)",
         .help = "CARD (default .cache/build/trimixxx0.img, image build's) is booted headless\n"
                 "until Mixxx plays, then saved with its machine into .cache/golden/trimixxx0.img\n"
-                "and .state. Running instances keep theirs.",
+                "and .state, with the card's record of what code it holds (.json). Running\n"
+                "instances keep theirs. A golden that is not main's latest is made again from\n"
+                "main by the next deck up: image golden makes it from main.",
         .run = golden,
     });
 

@@ -69,8 +69,8 @@ the decks' cards are APFS clones of each other, and share most of their blocks.
 | `.cache/` | what pi-qemu makes again: clearing it is fine, `pi-qemu cache prune KIND...` (or `--all`) |
 | `.cache/stock/` | the stock Raspberry Pi OS card, downloaded and unpacked (`image build`) |
 | `.cache/base/` | image build's first boot and base step, per deck |
-| `.cache/build/` | image build's cards (`DECK.img`), and the builds' logs |
-| `.cache/golden/` | `trimixxx0.img` + `.state`: what every emulated deck starts from (`deck golden`) |
+| `.cache/build/` | image build's cards (`DECK.img`), what each was built from (`DECK.json`), the builds' logs and attempts |
+| `.cache/golden/` | `trimixxx0.img` + `.state`: what every emulated deck starts from, main's latest (`image golden`); `.json`, what code it holds |
 | `.cache/qemu/` | the decks' QEMU, patched: its source and build (`build.sh qemu`) |
 | `.cache/cdj-qemu/` | the CDJ emulator's QEMU source, at its pin (`cdj build`) |
 | `.cache/instances`, `cdj`, `links` | links to `~/.pi-qemu/`: the emulated decks' and CDJs' own state, kept there because macOS caps a Unix socket's path at 104 bytes |
@@ -88,9 +88,9 @@ pi-qemu cache prune base build   # those kinds of the cache; --all for all of th
 
 - **`prune` takes nothing in use.** It refuses, clearing nothing, a kind that
   something uses: a running deck's QEMU, an image or release build,
-  `deck golden`, `deck up`, `cdj build`, `build.sh`. The golden comes back with
-  `deck golden` (from `.cache/build/trimixxx0.img`) or `image build trimixxx0`;
-  QEMU with `build.sh qemu` (~10 min).
+  `deck golden`, `deck up`, `cdj build`, `build.sh`. The golden comes back by
+  itself at the next `deck up`, or with `image golden`; QEMU with
+  `build.sh qemu` (~10 min).
 - **Docker's caches stay in its VM,** listed only: Mixxx's build trees (a
   checkout's each), the ccache, the cargo registry, the layers, the images.
   They are read while the VM runs, since asking Docker anything wakes a VM
@@ -133,12 +133,15 @@ builds) and the ssh key the cards trust: `~/.ssh/no_pass/rsa_sam`, else
 `~/.ssh/with_pass/rsa_sam` (in the agent: `ssh-add`), or `SSH_KEY=` pointing
 at another one. Its public half goes onto the card at build time.
 
-Then build the card. Most of the time goes to apt and the Docker builds of
-the deck's binaries; the base stage is cached for later runs:
+Then make the golden every emulated deck starts from, main's latest, from
+the main checkout. Most of the time goes to apt and the Docker builds of the
+deck's binaries; the base stage is cached for later runs:
 
 ```sh
-pi-qemu image build              # -> .cache/build/trimixxx0.img (+ the golden snapshot)
+pi-qemu image golden             # image build trimixxx0 -> .cache/build/trimixxx0.img, then the golden snapshot
 ```
+
+The first `deck up` does the same if there is none.
 
 A window shows the build as it goes: its steps, a progress bar and the log
 (`pi-qemu build-log .cache/build/trimixxx0.log`, the log it writes).
@@ -260,7 +263,7 @@ its own copy of the card, ssh port, ssh alias and control socket. They are
 headless and silent unless asked.
 
 ```sh
-pi-qemu deck up mine                 # restored from the golden snapshot in ~3 s
+pi-qemu deck up mine                 # restored from the golden snapshot in ~3 s: main's latest
 pi-qemu deck ssh mine 'pgrep -a mixxx'
 pi-qemu deck deploy mine config      # this checkout's code onto it; waits for the new Mixxx
 pi-qemu deck ready mine              # wait until Mixxx runs, its sound and controller open
@@ -271,7 +274,10 @@ pi-qemu deck list
 
 `up --window` shows its screen and panel. `up --boot` boots it instead of
 restoring it (~7 s to ssh). `up --fresh` starts again from the golden
-snapshot, and `up --from CARD` boots a card of your own, of any size: the
+snapshot. The golden is main's latest: when main has moved on, the next `up`
+waits for it to be made again, and a stopped deck from an older golden starts
+fresh ([The golden: main's latest](#the-golden-mains-latest)). `up --from CARD`
+boots a card of your own, of any size, which is never replaced: the
 instance's copy is rounded up to the power of two QEMU's SD card needs, and
 stays sparse. `down` powers it off cleanly, `kill` pulls the plug (its QEMU
 too, even if pi-qemu was killed outright).
@@ -540,8 +546,8 @@ service order), so it is refused. The `-eth` aliases name their interface
 2. boots it as an emulated deck of its own, `build-DECK` (`deck ssh build-DECK`
    reaches it while it builds);
 3. runs every deploy step over it;
-4. seals it into `.cache/build/DECK.img`, and for trimixxx0 refreshes the
-   golden snapshot.
+4. seals it into `.cache/build/DECK.img`, with what it was built from beside
+   it (`DECK.json`), and for trimixxx0 refreshes the golden snapshot.
 
 Everything up to and including `000_base` is cached in `.cache/base/` while
 its inputs stay the same (`--rebuild-base` forces it).
@@ -674,8 +680,64 @@ that machine back in about 3 seconds, Mixxx already running. Rules:
 
 The **golden snapshot** (`.cache/golden/trimixxx0.img` + `.state`) is the
 built card, booted until Mixxx has its sound device open, then saved. Every
-new emulated deck starts from it. `image build trimixxx0` refreshes it at the
-end of the build; `deck golden [CARD]` makes it from any card.
+new emulated deck starts from it, and it is main's latest (below). `image
+build trimixxx0` remakes it at the end of the build; `deck golden [CARD]`
+makes it from any card.
+
+### The golden: main's latest
+
+Emulated decks run what main has now, not a snapshot of an old deck. The
+golden says what code it holds, in `.cache/golden/trimixxx0.json`: the commit
+its card was built from, and whether the checkout held exactly that commit's
+code. Whenever origin/main has moved on in what goes onto a deck
+(`pi-qemu/deploy`, `pi-qemu/image`, `pi_config`, `mixxx`, `mixxx_config`,
+`trimixxx-launcher`, `doom`; not `website/` or `docs/`), the golden is made
+again: `image build trimixxx0` in the main checkout, then the golden from its
+card. Its base is cached, so that takes a few minutes (2-4 measured), more
+when the base or most of Mixxx is built again.
+
+```sh
+pi-qemu image golden --check       # main's latest, being made again, failed, or to be made again
+pi-qemu image golden               # made main's latest now, if it isn't; waits for it
+pi-qemu image golden --background  # the same, without waiting (crew merge runs this after a merge)
+```
+
+- **`deck up` sees to it.** Before a deck starts from the golden, `up`
+  fetches origin/main. If main has moved on, it has the golden made again and
+  waits, or waits for the remake already running. A shell that gives up
+  waiting (an agent's 10-minute limit) can run `up` again: it waits for the
+  same remake. `up` ends by saying where the deck's card came from:
+  `(restored in 2 s, from 5f0b01a of 2026-10-16 15:20: main's latest)`.
+- **Only main's code, from the main checkout.** The remake builds the main
+  checkout itself, and only while it holds main's code for the deck: those
+  paths, untracked files included, and its submodules (`mixxx`, its
+  `lib/prolink`, `mixxx_config/ttymidi`), exactly as origin/main has them.
+  Its branch doesn't matter. Otherwise the golden stays as it is, and every
+  check says what differs (`mixxx is at 1a2b3c4, not 9fa9117`). A build whose
+  checkout changed while it ran makes a golden that says so, which the next
+  check makes again. And by main's pi-qemu, the one on PATH: a worktree's
+  build of it, run by its path, makes only a scratch golden
+  (`PI_QEMU_CACHE=/some/dir`), never everyone's.
+- **A deck from an older golden starts fresh.** A stopped deck whose card came
+  from an older golden is started from the new one by its next `up`. Before
+  replacing its card, `up` says what that loses: what was deployed onto it,
+  its settings and files, its saved machine. A running deck goes on as it is,
+  and `up` only says it is behind. A deck started from a card of its own
+  (`up --from`) is never replaced. Each deck keeps where its card came from
+  in `~/.pi-qemu/instances/NAME/origin.json`.
+- **A main that doesn't build stays failed.** The last good golden is kept,
+  every check says so, and that main is not tried again by itself: when main
+  moves on it is, or now with `image golden --retry`. A build that could not
+  start (Docker not running, the key not in the agent) is tried again at the
+  next check.
+- **One build of a deck at a time.** A build holds `.cache/build/DECK.lock`
+  while it runs, and keeps its attempt in `DECK.build.json`: building, built,
+  failed, unready or interrupted, with its process and times (what `crew
+  resources` reads). A second build of the same deck refuses. The card's
+  record goes beside it, `DECK.json`.
+- **By hand.** `image build trimixxx0` and `deck golden CARD` stay the
+  person's call. A golden made from code that isn't main's latest is made
+  again from main by the next check.
 
 Making QEMU's `raspi4b` savable took patches 8–13 in
 `qemu/trimixxx-patches.py`. The USB sound card and USB network adapter had no
@@ -894,13 +956,16 @@ If ssh hangs as soon as QEMU starts, a Mac firewall (Little Snitch, or macOS's
 own with stealth mode) may be holding QEMU's network sockets. Allow
 `qemu-system-aarch64`.
 
-### Rebuild the card after changing the deck's setup
+### After main changes the deck's setup
 
-```sh
-pi-qemu image build                   # reuses the cached base; refreshes the golden snapshot
-```
+Nothing to do: the golden follows main ([The golden: main's latest](#the-golden-mains-latest)).
+crew merge starts the remake; otherwise the next `deck up` does, and waits.
+Running decks keep their own cards; a stopped one starts fresh at its next
+`up`, and `deck up NAME --fresh` takes the new golden at once.
 
-Running decks keep their own cards; `deck up NAME --fresh` takes the new one.
+A branch's whole card, to try a change to the base or a deploy step from
+stock: `pi-qemu image build SCRATCH` on a deck name of your own (then delete
+`.cache/build/SCRATCH.*` and `.cache/base/SCRATCH-*.img`).
 
 ## Troubleshooting
 

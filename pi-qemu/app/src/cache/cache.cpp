@@ -36,8 +36,8 @@ QVector<Kind> kinds() {
          "image build (a 0.5 GB download)"},
         {"base", Shelf::Cache, c + "/base", "image build's first boot and base step, per deck", "image build"},
         {"build", Shelf::Cache, c + "/build", "image build's cards, and the builds' logs", "image build"},
-        {"golden", Shelf::Cache, c + "/golden", "trimixxx0.img + .state: every deck starts there",
-         "deck golden, or image build trimixxx0"},
+        {"golden", Shelf::Cache, c + "/golden", "trimixxx0.img + .state: every deck starts there, main's latest",
+         "image golden, or the next deck up"},
         {"qemu", Shelf::Cache, c + "/qemu", "the decks' QEMU, patched: its source and build",
          "pi-qemu/build.sh qemu (~10 min)"},
         {"cdj-qemu", Shelf::Cache, c + "/cdj-qemu", "the CDJ emulator's QEMU source, at its pin",
@@ -74,7 +74,8 @@ QStringList cacheKinds() {
 // What a pi-qemu command needs from the cache, by its first words.
 QStringList needs(const QStringList& words) {
     const QString verb = words.mid(0, 2).join(' ');
-    if (verb == "image build" || verb == "release build") return {"stock", "base", "build", "golden", "qemu"};
+    if (verb == "image build" || verb == "image golden" || verb == "release build")
+        return {"stock", "base", "build", "golden", "qemu"};
     if (verb == "deck golden") return {"build", "golden", "qemu"};
     if (verb == "deck up") return {"golden", "qemu"};
     if (words.value(0) == "run") return {"qemu"};

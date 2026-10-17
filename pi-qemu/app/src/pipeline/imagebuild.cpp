@@ -268,6 +268,7 @@ QString make(const QString& deck, const Options& o, bool& booted) {
 
     Instance::Up up;
     up.deck = deck;
+    up.ownCard = true; // the build's own, never one from the golden
     if (QFileInfo::exists(base) && !o.rebuildBase) {
         buildlog::say("deploy 000_base: cached, " + QDir(paths::mainCheckout()).relativeFilePath(base));
         files::clone(base, vm.card());

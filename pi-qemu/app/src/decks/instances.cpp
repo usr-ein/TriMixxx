@@ -3,6 +3,7 @@
 #include "board/link.h"
 #include "decks/controlclient.h"
 #include "decks/readiness.h"
+#include "pipeline/golden.h"
 #include "util/fail.h"
 #include "util/files.h"
 #include "util/paths.h"
@@ -15,6 +16,8 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QProcess>
 #include <QRegularExpression>
 #include <QScopeGuard>
@@ -103,6 +106,48 @@ qint64 Instance::pid() const {
 
 int Instance::sshPort() const { return int(readPid(runDir() + "/ssh.port")); }
 
+Instance::Origin Instance::origin() const {
+    QFile f(originFile());
+    if (!f.open(QIODevice::ReadOnly)) return {};
+    const QJsonObject o = QJsonDocument::fromJson(f.readAll()).object();
+    return {o.value("from").toString(), source::Record::fromJson(o.value("golden").toObject()), o.value("card").toString()};
+}
+
+void Instance::setOrigin(const Origin& o) {
+    QJsonObject j{{"from", o.from}};
+    if (o.from == "golden") j["golden"] = o.golden.json();
+    if (!o.card.isEmpty()) j["card"] = o.card;
+    files::write(originFile(), QJsonDocument(j).toJson());
+}
+
+bool Instance::behind(const source::Record& golden) const {
+    const Origin o = origin();
+    if (o.from == "card") return false;
+    // A deck from before origins were recorded is older than any golden that has a record.
+    if (o.from.isEmpty()) return !golden.empty();
+    return !source::sameGolden(paths::mainCheckout(), o.golden, golden);
+}
+
+namespace {
+
+// Where a deck's card came from, as the lines below say it.
+QString cameFrom(const Instance::Origin& o) {
+    if (o.from == "card") return "its own card, " + o.card;
+    if (o.from.isEmpty()) return "a golden from before pi-qemu recorded them";
+    return "an older golden, " + (o.golden.empty() ? QString("one with no record") : o.golden.describe());
+}
+
+} // namespace
+
+void Instance::fromGolden(const source::Record& golden) {
+    const QString g = paths::golden();
+    if (!QFileInfo::exists(g + ".img")) fail("no golden card (" + g + ".img): " + tool("image golden"));
+    QFile::remove(state());
+    files::clone(g + ".img", card());
+    if (QFileInfo::exists(g + ".state")) files::clone(g + ".state", state());
+    setOrigin({"golden", golden, {}});
+}
+
 void Instance::requireRunning() const {
     if (!exists()) fail("no instance " + m_name + ": " + tool("deck up " + m_name));
     if (!running()) fail(m_name + " is not running: " + tool("deck up " + m_name));
@@ -175,6 +220,11 @@ void Instance::up(const Up& o) {
         print() << m_name << " is already up: ssh port " << sshPort() << ", pid " << pid() << "\n"
               << "  " << tool("deck ssh " + m_name) << "\n"
               << "  when done: " << tool("deck rm " + m_name) << "   (or deck stop " << m_name << " to keep it, suspended)\n";
+        // Running, it goes on as it is: told, never wiped mid-test.
+        const source::Record g = golden::record();
+        if (behind(g))
+            print() << m_name << ": its card came from " << cameFrom(origin()) << "; the golden is " << g.describe()
+                    << " now, and " << m_name << " starts fresh from it when it next starts\n";
         return;
     }
     if (!QFileInfo::exists(paths::tools() + "/qemu-system-aarch64"))
@@ -183,7 +233,8 @@ void Instance::up(const Up& o) {
         fail("a link's name is letters, digits, - and _: not " + o.link, 2);
     requireUsableKey(paths::sshKey());
     QDir().mkpath(m_dir);
-    const QString golden = paths::golden();
+    // Where its card came from, for the last line: the golden (main's latest?), or a card of its own.
+    QString from;
     if (!o.from.isEmpty()) { // a card of its own: booted, no saved machine
         if (!QFileInfo::exists(o.from)) fail("no card at " + o.from);
         QFile::remove(state());
@@ -196,12 +247,32 @@ void Instance::up(const Up& o) {
         qint64 p2 = 1;
         while (p2 < size) p2 *= 2;
         if (p2 != size && !QFile::resize(card(), p2)) fail("cannot grow " + card() + " to a power of two");
-    } else if (o.fresh || !QFileInfo::exists(card())) {
-        if (!QFileInfo::exists(golden + ".img")) fail("no golden card (" + golden + ".img): " + tool("deck golden [CARD]"));
-        QFile::remove(state());
-        files::clone(golden + ".img", card());
-        if (QFileInfo::exists(golden + ".state")) files::clone(golden + ".state", state());
+        setOrigin({"card", {}, o.from});
+    } else if (o.ownCard) {
+        setOrigin({"card", {}, card()});
+    } else if (origin().from == "card" && !o.fresh && QFileInfo::exists(card())) {
+        // Its own card, as it was: never replaced from the golden.
+    } else {
+        // Main's latest first: the golden made again if main has moved on.
+        const golden::Outcome now = golden::ensure({.quiet = true});
+        golden::Hold reading(golden::Hold::Read);
+        const source::Record g = golden::record();
+        bool fresh = o.fresh || !QFileInfo::exists(card());
+        if (!fresh && behind(g)) {
+            eprint() << m_name << ": its card came from " << cameFrom(origin()) << ": it starts FRESH from the golden, "
+                     << g.describe() << ". LOST with its old card: what was deployed onto it, its settings and files, "
+                     << "its saved machine. (Emulated decks run main's latest; to keep a card of your own: "
+                     << tool("deck up NAME --from CARD") << ".)\n";
+            fresh = true;
+        }
+        if (fresh) fromGolden(g);
+        const source::Record was = origin().golden;
+        const bool latest = now.state == golden::State::Current && was.known() && g.known() &&
+                            source::same(paths::mainCheckout(), was.commit, g.commit);
+        from = (was.empty() ? QString("a golden with no record") : was.describe()) +
+               (latest ? ": main's latest" : ": NOT main's latest");
     }
+    if (from.isEmpty()) from = cameFrom(origin());
 
     // The link is the deck's cable: it stays where it was put, through stops
     // and resumes, until another --link moves it.
@@ -255,7 +326,7 @@ void Instance::up(const Up& o) {
         }
     }
     print() << m_name << " is up (" << (restoring.isEmpty() ? "booted" : "restored") << " in " << t.elapsed() / 1000
-          << " s): ssh port " << sshPort() << ", pid " << pid() << (o.window ? ", with windows" : "")
+          << " s, from " << from << "): ssh port " << sshPort() << ", pid " << pid() << (o.window ? ", with windows" : "")
           << (net.isEmpty() ? QString() : ", eth0 on link " + net) << "\n"
           << "  " << tool("deck ssh " + m_name) << "\n"
           << "  " << tool("deck status " + m_name) << "\n"
@@ -418,6 +489,7 @@ void Instance::golden(QString card) {
     if (!QFileInfo::exists(card)) fail("no card at " + card);
     if (files::inUse(card)) fail(card + " is in use (a running deck?): power it off first");
     requireUsableKey(paths::sshKey());
+    golden::Hold making(golden::Hold::Make); // one at a time: they share .golden
     Instance g("golden-make", paths::instances() + "/.golden");
     g.pullPlug();
     QDir(g.m_dir).removeRecursively();
@@ -445,11 +517,23 @@ void Instance::golden(QString card) {
         QFile::remove(to + ".new");
         if (!QFile::rename(from, to + ".new")) fail("cannot move " + from);
     }
-    for (const QString& to : {golden + ".state", golden + ".img"}) {
-        QFile::remove(to);
-        if (!QFile::rename(to + ".new", to)) fail("cannot move " + to + ".new");
+    // What it holds: the card's record (an image build's), or only the card.
+    source::Record r = source::read(source::beside(card));
+    r.card = card;
+    r.made = QDateTime::currentDateTimeUtc().toString(Qt::ISODate);
+    {
+        // The pair and its record change together, never under a deck cloning them.
+        golden::Hold swapping(golden::Hold::Swap);
+        for (const QString& to : {golden + ".state", golden + ".img"}) {
+            QFile::remove(to);
+            if (!QFile::rename(to + ".new", to)) fail("cannot move " + to + ".new");
+        }
+        source::write(golden::recordFile(), r);
     }
     QDir(g.m_dir).removeRecursively();
     print() << "golden: " << golden << ".img + .state ("
-          << QFileInfo(golden + ".state").size() / (1024 * 1024) << " MB of machine)\n";
+          << QFileInfo(golden + ".state").size() / (1024 * 1024) << " MB of machine), from " << r.describe() << "\n";
+    if (!r.known())
+        print() << "golden: that is no commit's code as it is, so the next deck up makes it again from main ("
+                << tool("image golden") << ")\n";
 }

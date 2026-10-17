@@ -1,7 +1,10 @@
-// pipeline/source: what code a checkout holds for a deck, by content, on a
-// scratch repository with the deck's paths, a submodule and files that are
-// not the deck's; the records; and one build of a deck at a time.
+// pipeline/source, and what decides from it: what code a checkout holds for a
+// deck, by content, on a scratch repository with the deck's paths, a
+// submodule and files that are not the deck's; the golden's records; one
+// build of a deck at a time; whether an emulated deck came from an older
+// golden.
 
+#include "decks/instances.h"
 #include "pipeline/imagebuild.h"
 #include "pipeline/source.h"
 #include "util/fail.h"
@@ -204,6 +207,28 @@ private slots:
             QVERIFY(!FileLock::tryTake(f, FileLock::Shared).held());
         }
         QVERIFY(!lockedNow(f));
+    }
+
+    void aDeckFromAnOlderGoldenStartsFresh() {
+        Instance i("scratch-deck");
+        QDir().mkpath(i.dir());
+        source::Record g;
+        g.card = "/c/build/trimixxx0.img";
+        g.made = "2026-10-17T12:00:00Z";
+        // From before origins were kept: older than any golden with a record.
+        QVERIFY(i.origin().from.isEmpty());
+        QVERIFY(i.behind(g));
+        QVERIFY(!i.behind({}));
+        // A card of its own never is.
+        files::write(i.originFile(), R"({"from": "card", "card": "/x/release.img"})");
+        QCOMPARE(i.origin().from, QString("card"));
+        QCOMPARE(i.origin().card, QString("/x/release.img"));
+        QVERIFY(!i.behind(g));
+        // From the golden: the same making, then another.
+        files::write(i.originFile(), R"({"from": "golden", "golden": {"card": "/c/build/trimixxx0.img", "made": "2026-10-17T12:00:00Z"}})");
+        QVERIFY(!i.behind(g));
+        g.made = "2026-10-17T13:00:00Z";
+        QVERIFY(i.behind(g));
     }
 };
 

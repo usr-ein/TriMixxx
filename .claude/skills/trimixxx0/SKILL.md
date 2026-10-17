@@ -1,6 +1,6 @@
 ---
 name: trimixxx0
-description: Run your own emulated TriMixxx deck (trimixxx0, a Raspberry Pi 4 under QEMU) with `pi-qemu deck` to test deck software without the hardware - up in ~3 s from a snapshot, screenshots of its screen (headless), buttons/jog/encoder/fader over the virtual S3, touches, LEDs, Mixxx's recorder, ssh, Mixxx's logs, and deploying your own Mixxx build, Mixxx config/skin/mapping, pi_config or launcher changes onto it with the numbered deploy steps. Use whenever a change to mixxx/, mixxx_config/, pi_config/, trimixxx-launcher/, ttymidi, pi-qemu/deploy/ or the S3 MIDI contract should be checked on a running deck. Many agents can each run their own at once.
+description: Run your own emulated TriMixxx deck (trimixxx0, a Raspberry Pi 4 under QEMU) with `pi-qemu deck` to test deck software without the hardware - up in ~3 s from a snapshot of main's latest, screenshots of its screen (headless), buttons/jog/encoder/fader over the virtual S3, touches, LEDs, Mixxx's recorder, ssh, Mixxx's logs, and deploying your own Mixxx build, Mixxx config/skin/mapping, pi_config or launcher changes onto it with the numbered deploy steps. Use whenever a change to mixxx/, mixxx_config/, pi_config/, trimixxx-launcher/, ttymidi, pi-qemu/deploy/ or the S3 MIDI contract should be checked on a running deck. Many agents can each run their own at once.
 ---
 
 # trimixxx0: your own emulated deck
@@ -8,9 +8,11 @@ description: Run your own emulated TriMixxx deck (trimixxx0, a Raspberry Pi 4 un
 `pi-qemu deck` gives you a deck of your own: its own copy of the card, ssh
 port, ssh alias and control socket. It is headless and silent. **It starts in
 about 3 s** from a snapshot, already booted with Mixxx running; a cold boot
-takes about 7 s. Other agents may be running theirs at the same time, and the
-person at the laptop may be running their own (with windows). Yours touches
-none of them.
+takes about 7 s. That snapshot, the golden, is **main's latest**: it is made
+again whenever main changes what goes onto a deck, so a new deck runs what
+main has now, and your own changes are what you deploy on top. Other agents
+may be running theirs at the same time, and the person at the laptop may be
+running their own (with windows). Yours touches none of them.
 
 `pi-qemu` is the one tool for decks (`pi-qemu help`, `pi-qemu deck`,
 `pi-qemu deck VERB --help`). Every verb names its deck: your instance's NAME,
@@ -30,7 +32,8 @@ below first.
    - Never `pkill` qemu, pi-qemu or docker.
    - Never `deck rm|kill|stop|down` a NAME you did not create.
    - Never `deck golden` or `image build trimixxx0` unless asked: they
-     replace the golden pair everyone's instances start from.
+     replace the golden pair everyone's instances start from. `image golden`
+     is fine: it only ever makes it from main's code.
 2. **Never `--host` a real deck** (`trimixxx-pi`, `trimixxx-pi-2`,
    `trimixxx2`, ...) unless the person asked you to, for that deck.
 3. **No sound on the Mac, ever.** Never pass `--audio speakers`. To check
@@ -51,6 +54,19 @@ pi-qemu deck up NAME                 # ~3 s from the golden snapshot; reports it
 The instance lives in `~/.pi-qemu/instances/NAME/`. Each one needs 2 GB of
 RAM; if `list` already shows about 4 running, ask before starting another.
 
+- **Main's latest first.** `up` ends by saying where its card came from
+  (`from 5f0b01a of 2026-10-16 15:20: main's latest`). When main has just
+  moved on, `up` first waits for the golden to be made again: a few minutes,
+  more when much of Mixxx is rebuilt, with its steps as they go. Give it a
+  long timeout (10 min, or run it in the background); if your shell gives up
+  first, run `up` again: it waits for the same remake. When the golden can't
+  be made (main doesn't build, the main checkout isn't at main), `up` says so
+  and starts from the last golden: say so in your results.
+- **A stopped deck may start fresh.** If main moved on while your deck was
+  stopped, its next `up` starts it from the new golden, saying first what it
+  loses: what you deployed, files you put on it, its saved state. Deploy your
+  changes again then. A running deck is never replaced (`up` only says it is
+  behind); a deck from `up --from CARD` never is.
 - `up NAME --fresh`: start again from the golden snapshot; your card's
   changes are lost.
 - `up NAME --boot`: boot instead of restoring (~7 s), e.g. to test the boot
@@ -58,7 +74,8 @@ RAM; if `list` already shows about 4 running, ask before starting another.
 - `up NAME --from CARD`: boot a card of your own (a clone of it), e.g. a
   release card.
 - `stop NAME`: suspend (~5 s; leaves a ~1 GB snapshot until the next `up`,
-  which resumes it in ~3 s, on a new ssh port that `deck ssh` follows).
+  which resumes it in ~3 s, on a new ssh port that `deck ssh` follows;
+  unless main moved on meanwhile: then it starts fresh, as above).
 - `up NAME --window`: also shows its screen and panel on the Mac, but only
   when the person wants to watch.
 
@@ -285,7 +302,11 @@ whole workflow). For the deck:
    **or pi-qemu itself:** the virtual S3 is compiled into pi-qemu, so build
    your own, `pi-qemu/build.sh app`, and run it by its path,
    `pi-qemu/app/build/pi-qemu deck ...`, for every call that should use it.
-   Then `deck rm` and `deck up` your deck so it runs on it.
+   Then `deck rm` and `deck up` your deck so it runs on it. Your build never
+   makes everyone's golden again (main's does, on PATH): to try a change to
+   how it is made, give it a scratch one, `PI_QEMU_CACHE=/tmp/x
+   PI_QEMU_INSTANCES=/tmp/x/i`, seeded with clones of `.cache/stock` and
+   `.cache/base` (`cp -c`).
 
 ## When ssh does not answer
 

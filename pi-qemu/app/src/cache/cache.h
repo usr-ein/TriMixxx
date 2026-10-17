@@ -5,8 +5,9 @@
 //   .cache/        what pi-qemu makes again: clearing it is fine (prune)
 //     stock/         Raspberry Pi OS Lite, downloaded and unpacked (image build)
 //     base/          image build's first boot and base step, per deck
-//     build/         image build's cards, and the builds' logs
-//     golden/        trimixxx0.img + .state: every emulated deck starts from them
+//     build/         image build's cards, what each was built from, the builds' logs and attempts
+//     golden/        trimixxx0.img + .state: every emulated deck starts from them, main's
+//                    latest (pipeline/golden); .json, what code they hold
 //     qemu/          the decks' QEMU, patched: its source and build (build.sh qemu)
 //     cdj-qemu/      the CDJ emulator's QEMU source, pinned (cdj build)
 //     docker.json    the last reading of Docker's caches, for while its VM sleeps
