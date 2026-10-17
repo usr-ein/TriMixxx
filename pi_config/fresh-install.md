@@ -144,7 +144,11 @@ and in `cmdline.txt`, `console=serial0,115200 ` removed (it stays one line).
       deck keeps pins 8/10 wired as well (a Y) until both of its slots run a
       release with UART3, so either release reaches its S3. While both are
       wired, never `enable_uart=1`: the mini UART would drive GPIO 14 against
-      UART3's TX.
+      UART3's TX. The Y is safe only if a UART3 release leaves GPIO 14/15 as
+      inputs: on a deck's first UART3 start, before anything relies on the Y,
+      `pinctrl get 4,5,14,15` must show 4/5 as TXD3/RXD3 and 14/15 as inputs.
+      An emulated deck on 1.0.2-bt1 shows exactly that, but only for the
+      kernel: what the firmware does with the pins is seen on a Pi alone.
 - [x] **Serial console off:** `console=serial0,115200` removed from
       `cmdline.txt`, which would otherwise fight ttymidi for the port.
 - [x] **One sound card:** `dtparam=audio=off` and `dtoverlay=vc4-kms-v3d,noaudio`
