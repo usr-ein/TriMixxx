@@ -85,8 +85,8 @@ bool Machine::powerOn(QString* error) {
         a << "-global" << QString("bcm2835-powermgt.boot-watchdog=%1").arg(p.bootWatchdog);
     if (!p.initramfs.isEmpty()) a << "-initrd" << p.initramfs;
 
-    // QEMU's first -serial is the PL011, the second the mini UART. The S3 is
-    // wired to GPIO 14/15: whichever of them config.txt made serial0.
+    // QEMU's -serials, in order: the PL011 (UART0), the mini UART, then UART2-5
+    // (QEMU patch 22). The S3 is on the one the firmware step found it wired to.
     a << "-chardev" << (m_o.serialLog.isEmpty()
                             ? "socket,id=s3,path=" + s3Socket() + ",server=on,wait=off"
                             : "file,id=s3,path=" + m_o.serialLog);
@@ -100,8 +100,17 @@ bool Machine::powerOn(QString* error) {
                                ",logfile=" + QDir(run).filePath("console.log");
         other = "chardev:console";
     }
-    if (p.s3OnPL011) a << "-serial" << "chardev:s3" << "-serial" << other;
-    else a << "-serial" << "null" << "-serial" << "chardev:s3";
+    using S3Uart = BootPlan::S3Uart;
+    a << "-serial" << (p.s3Uart == S3Uart::Pl011 ? "chardev:s3" : "null")
+      << "-serial" << (p.s3Uart == S3Uart::Mini ? "chardev:s3" : other);
+    if (p.s3Uart == S3Uart::Uart3) {
+        // A QEMU from before patch 22 has no UART3: the S3 would reach nothing.
+        if (!m_o.qemuCurrent) {
+            *error = "this card puts the S3 on UART3, which this QEMU lacks: pi-qemu/build.sh qemu";
+            return false;
+        }
+        a << "-serial" << "null" << "-serial" << "chardev:s3";
+    }
 
     if (m_o.audio == "speakers") a << "-audiodev" << "coreaudio,id=snd,in.voices=0";
     else if (m_o.audio.startsWith("wav:")) a << "-audiodev" << "wav,id=snd,path=" + m_o.audio.mid(4);

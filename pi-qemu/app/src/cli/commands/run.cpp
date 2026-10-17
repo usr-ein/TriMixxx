@@ -8,6 +8,7 @@
 #include "board/link.h"
 #include "board/machine.h"
 #include "board/sticks.h"
+#include "pipeline/imagebuild.h"
 #include "s3/virtuals3.h"
 #include "s3/wiring.h"
 #include "ui/buildwindow.h"
@@ -64,6 +65,7 @@ int run(cli::Args& a) {
     const QString tools = a.value("tools", paths::tools());
     o.qemu = tools + "/qemu-system-aarch64";
     o.dtmerge = tools + "/dtmerge";
+    o.qemuCurrent = imagebuild::qemuCurrent(o.qemu);
     o.display = a.value("display", "window");
     o.audio = a.value("audio", "none");
     o.mac = a.value("mac", o.mac);

@@ -23,9 +23,18 @@ struct BootPlan {
     QString     kernel, initramfs, dtb, cmdline; // files in the run directory
     QStringList skipped;     // overlays for hardware nothing here emulates
     QStringList notes;       // what the firmware would log on the way
-    bool        s3OnPL011 = true; // serial0 (GPIO 14/15, the S3) is the PL011
+    // The UART the S3 is on: whichever the card's config.txt gives the pins
+    // it is wired to (s3UartOf).
+    enum class S3Uart { Pl011, Mini, Uart3 };
+    S3Uart      s3Uart = S3Uart::Pl011;
     bool        debugConsole = false; // a console on the mini UART (run/console.sock)
     int         bootWatchdog = 0; // kernel_watchdog_timeout: left running at power-on, seconds
 };
 
 bool prepareBoot(Card& card, const FirmwareOptions& o, BootPlan* plan, QString* error);
+
+// Which UART a board's device tree, config.txt applied, puts the S3 on. The S3
+// is wired to GPIO 14/15, and on a deck moved to UART3 (pi_config/
+// fresh-install.md 1.3) to GPIO 4/5 as well: UART3 when the tree enables it,
+// else serial0's UART, the PL011 or the mini UART.
+BootPlan::S3Uart s3UartOf(const QString& dtb);

@@ -19,8 +19,9 @@ Raspberry Pi OS trixie card on raspi4b (see ../PLAN.md, section 2):
   4. The second GiB of RAM is described to the kernel (it saw ~1 GiB).
   5. The device tree's serial aliases are left as the card's config makes them
      (rpi-qemu forces serial0 onto the PL011; with dtoverlay=disable-bt, as on
-     the decks, it already is, and without it the firmware leaves it on the
-     mini UART). pi-qemu wires the S3 to whichever UART serial0 names.
+     the decks before their S3 moved to UART3, it already is, and without it
+     the firmware leaves it on the mini UART). pi-qemu wires the S3 to UART3
+     when the card enables it (22), else to whichever UART serial0 names.
   6. HVF dirty tracking marks the host page that holds a write, inside the
      region. It used to mark a whole host page (16 KiB on Apple Silicon) from
      the faulting offset, unaligned and unclamped: the Pi's framebuffer is the
@@ -1299,5 +1300,92 @@ edit("block/file-posix.c",
      * all-zero afterwards, just write zeroes without unmapping */
     return handle_aiocb_write_zeroes(aiocb);
 }""")
+
+# ---- 22. the BCM2711's other UARTs ------------------------------------------------
+# The BCM2711 has four more PL011s than QEMU models, UART2-5, 0x200 apart after
+# UART0 and all on UART0's interrupt (GIC SPI 121 in the device tree). The deck's
+# S3 is on UART3 (dtoverlay=uart3, GPIO 4/5), which leaves UART0 to Bluetooth as
+# on a stock Pi; pi-qemu wires the S3 to it as the fourth -serial (serial_hd(2..5)
+# are UART2-5). Each PL011 answers for 4 KiB, its ID registers at the top, where
+# the chip gives a UART 0x200: so they are mapped through 0x200 windows above
+# UART0's region (the kernel takes their IDs from the device tree). Made after
+# every other device, so a snapshot from before keeps each device's place; a
+# card that loads no uart overlay never probes them.
+edit("include/hw/arm/bcm2838_peripherals.h",
+     """    OrIRQState dma_9_10_irq_orgate;
+""",
+     """    OrIRQState dma_9_10_irq_orgate;
+
+    /* UART2-5, and the interrupt they share with UART0 */
+    PL011State uarts[4];
+    MemoryRegion uart_windows[4];
+    OrIRQState uart_irq_orgate;
+""")
+edit("hw/arm/bcm2838_peripherals.c",
+     '#include "hw/arm/bcm2838_peripherals.h"\n',
+     '#include "hw/arm/bcm2838_peripherals.h"\n#include "system/system.h"\n')
+edit("hw/arm/bcm2838_peripherals.c",
+     """    object_property_set_int(OBJECT(&s->dma_9_10_irq_orgate), "num-lines", 2,
+                            &error_abort);
+}""",
+     """    object_property_set_int(OBJECT(&s->dma_9_10_irq_orgate), "num-lines", 2,
+                            &error_abort);
+
+    for (int i = 0; i < ARRAY_SIZE(s->uarts); i++) {
+        g_autofree char *name = g_strdup_printf("uart%d", 2 + i);
+        object_initialize_child(obj, name, &s->uarts[i], TYPE_PL011);
+    }
+    object_initialize_child(obj, "uart_irq_orgate", &s->uart_irq_orgate,
+                            TYPE_OR_IRQ);
+    object_property_set_int(OBJECT(&s->uart_irq_orgate), "num-lines",
+                            1 + ARRAY_SIZE(s->uarts), &error_abort);
+}""")
+edit("hw/arm/bcm2838_peripherals.c",
+     """    /* BCM2838 RPiVid ASB must be mapped to prevent kernel crash */
+    create_unimp(s_base, &s->asb, "bcm2838-asb", BRDG_OFFSET, 0x24);
+}""",
+     """    /* BCM2838 RPiVid ASB must be mapped to prevent kernel crash */
+    create_unimp(s_base, &s->asb, "bcm2838-asb", BRDG_OFFSET, 0x24);
+
+    /* UART2-5: last, so every device before keeps its place in a snapshot */
+    for (int i = 0; i < ARRAY_SIZE(s->uarts); i++) {
+        DeviceState *uart = DEVICE(&s->uarts[i]);
+        g_autofree char *name = g_strdup_printf("uart%d", 2 + i);
+
+        qdev_connect_clock_in(uart, "clk",
+                              qdev_get_clock_out(DEVICE(&s_base->cprman),
+                                                 "uart-out"));
+        qdev_prop_set_chr(uart, "chardev", serial_hd(2 + i));
+        if (!sysbus_realize(SYS_BUS_DEVICE(uart), errp)) {
+            return;
+        }
+        memory_region_init_alias(&s->uart_windows[i], OBJECT(s), name,
+                                 sysbus_mmio_get_region(SYS_BUS_DEVICE(uart), 0),
+                                 0, 0x200);
+        memory_region_add_subregion_overlap(&s_base->peri_mr,
+                                            UART0_OFFSET + 0x400 + i * 0x200,
+                                            &s->uart_windows[i], 1);
+    }
+    if (!qdev_realize(DEVICE(&s->uart_irq_orgate), NULL, errp)) {
+        return;
+    }
+}""")
+edit("hw/arm/bcm2838.c",
+     """    /* Connect UART0 to the interrupt controller */
+    sysbus_connect_irq(SYS_BUS_DEVICE(&ps_base->uart0), 0,
+                       qdev_get_gpio_in(gicdev, GIC_SPI_INTERRUPT_UART0));
+""",
+     """    /* Connect UART0, and UART2-5 beside it, to the interrupt controller:
+     * one line for the five, as on the chip */
+    sysbus_connect_irq(SYS_BUS_DEVICE(&ps_base->uart0), 0,
+                       qdev_get_gpio_in(DEVICE(&ps->uart_irq_orgate), 0));
+    for (int i = 0; i < ARRAY_SIZE(ps->uarts); i++) {
+        sysbus_connect_irq(SYS_BUS_DEVICE(&ps->uarts[i]), 0,
+                           qdev_get_gpio_in(DEVICE(&ps->uart_irq_orgate),
+                                            1 + i));
+    }
+    qdev_connect_gpio_out(DEVICE(&ps->uart_irq_orgate), 0,
+                          qdev_get_gpio_in(gicdev, GIC_SPI_INTERRUPT_UART0));
+""")
 
 print("trimixxx-patches: applied")

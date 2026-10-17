@@ -90,7 +90,18 @@ QString fdtget(const QString& dtb, const QString& node, const QString& prop) {
     return QString::fromUtf8(out).trimmed();
 }
 
+// The BCM2711's UARTs, by their nodes in the device tree.
+const QString kPl011 = "/soc/serial@7e201000";    // UART0: Bluetooth on a stock Pi
+const QString kMiniUart = "/soc/serial@7e215040"; // UART1
+const QString kUart3 = "/soc/serial@7e201600";
+
 } // namespace
+
+BootPlan::S3Uart s3UartOf(const QString& dtb) {
+    if (fdtget(dtb, kUart3, "status") == "okay") return BootPlan::S3Uart::Uart3;
+    return fdtget(dtb, "/aliases", "serial0").contains("7e201000") ? BootPlan::S3Uart::Pl011
+                                                                    : BootPlan::S3Uart::Mini;
+}
 
 // The boot partition, as a Pi 4's bootloader picks it. Measured on trimixxx3
 // with bootloader 2026-05-17 (pi-qemu/PLAN.md, phase 1):
@@ -259,18 +270,19 @@ bool prepareBoot(Card& card, const FirmwareOptions& o, BootPlan* plan, QString* 
     for (QString n : {"0", "1"}) {
         bool pl011 = fdtget(plan->dtb, "/aliases", "serial" + n).contains("7e201000");
         line.replace("console=serial" + n, pl011 ? "console=ttyAMA0" : "console=ttyS0");
-        if (n == "0") plan->s3OnPL011 = pl011;
     }
-    // The emulator's own way in: a console on the UART the S3 leaves free (the
-    // mini UART, which the deck's config.txt switches off), ahead of the card's
+    plan->s3Uart = s3UartOf(plan->dtb);
+    // No Bluetooth chip here: the PL011 it hangs off has nothing on its far
+    // end, and the kernel would wait for one at every boot.
+    if (fdtget(plan->dtb, kPl011 + "/bluetooth", "status") == "okay")
+        tool("fdtput", {"-t", "s", plan->dtb, kPl011 + "/bluetooth", "status", "disabled"}, nullptr);
+    // The emulator's own way in: a console on the mini UART when the S3 leaves
+    // it free (the deck's config.txt switches it off), ahead of the card's
     // console= so tty1 stays /dev/console. A real deck never gets this.
-    if (plan->s3OnPL011) {
-        QString mini = fdtget(plan->dtb, "/aliases", "serial1");
-        if (mini.contains("7e215040") &&
-            tool("fdtput", {"-t", "s", plan->dtb, mini, "status", "okay"}, nullptr)) {
-            line.prepend("console=ttyS0,115200 ");
-            plan->debugConsole = true;
-        }
+    if (plan->s3Uart != BootPlan::S3Uart::Mini &&
+        tool("fdtput", {"-t", "s", plan->dtb, kMiniUart, "status", "okay"}, nullptr)) {
+        line.prepend("console=ttyS0,115200 ");
+        plan->debugConsole = true;
     }
     plan->cmdline = line.simplified();
     return true;

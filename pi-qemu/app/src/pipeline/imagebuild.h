@@ -38,6 +38,10 @@ struct Options {
 };
 
 QString card(const QString& deck);      // .cache/build/DECK.img
+// Whether a qemu-system-aarch64 was built from this checkout's QEMU patches
+// (qemu/trimixxx-patches.py): its source tree keeps their hash in .patched,
+// beside the build the binary links to.
+bool qemuCurrent(const QString& qemu);
 QStringList plan(const QString& deck);  // the steps, for the build window
 // The card's path. The caller holds the deck's Lock, from before its log is emptied.
 QString build(const QString& deck, const Options& o);

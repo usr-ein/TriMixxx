@@ -157,23 +157,12 @@ void managementNic(Instance& vm) {
     if (!r.text().split('\n').contains("pi-qemu-home:usb0")) fail("the management NIC did not get its own profile");
 }
 
-// Whether the QEMU pi-qemu runs was built from this checkout's patches
-// (qemu/trimixxx-patches.py): its source tree keeps their hash in .patched,
-// beside the build its qemu-system-aarch64 links to.
-bool qemuCurrent() {
-    const QString qemu = QFileInfo(paths::tools() + "/qemu-system-aarch64").symLinkTarget();
-    if (qemu.isEmpty()) return false;
-    QFile stamp(QFileInfo(qemu).absolutePath() + "/../.patched");
-    if (!stamp.open(QIODevice::ReadOnly)) return false;
-    return QString::fromLatin1(stamp.readAll()).trimmed() == sha256(paths::piq() + "/qemu/trimixxx-patches.py");
-}
-
 // The card's free space given back to the Mac before it is kept: the guest
 // trims it, which QEMU, as patched (patch 21, discard=unmap), makes holes in
 // the card. A QEMU from before that writes zeroes over all of it instead, the
 // card's whole size on disk: then it is left alone, with a word.
 void trim(Instance& vm) {
-    if (!qemuCurrent()) {
+    if (!qemuCurrent(paths::tools() + "/qemu-system-aarch64")) {
         print() << "not trimmed: QEMU is older than this checkout's patches (pi-qemu/build.sh qemu)" << Qt::endl;
         return;
     }
@@ -183,6 +172,15 @@ void trim(Instance& vm) {
 } // namespace
 
 QString card(const QString& deck) { return cacheDir() + "/build/" + deck + ".img"; }
+
+bool qemuCurrent(const QString& qemu) {
+    const QString built = QFileInfo(qemu).symLinkTarget();
+    if (built.isEmpty()) return false;
+    QFile stamp(QFileInfo(built).absolutePath() + "/../.patched");
+    if (!stamp.open(QIODevice::ReadOnly)) return false;
+    return QString::fromLatin1(stamp.readAll()).trimmed() == sha256(paths::piq() + "/qemu/trimixxx-patches.py");
+}
+
 QString lockFile(const QString& deck) { return cacheDir() + "/build/" + deck + ".lock"; }
 QString attemptFile(const QString& deck) { return cacheDir() + "/build/" + deck + ".build.json"; }
 QString logFile(const QString& deck) { return cacheDir() + "/build/" + deck + ".log"; }
@@ -352,7 +350,7 @@ QString make(const QString& deck, const Options& o, bool& booted) {
         vm.ssh().run("cloud-init status --wait >/dev/null 2>&1 || true; hostname; uname -r");
         managementNic(vm);
         steps::run(target, {all.first()}, {.rebootBetween = false, .waitReady = false});
-        // The boot flags just changed (the PL011 for the S3, no serial console):
+        // The boot flags just changed (UART3 for the S3, no serial console):
         // they apply from the next boot, as on a deck. Powered off rather than
         // rebooted, to keep the card as it is now as the base card.
         buildlog::say("booting into the deck's boot flags (the base card kept)");
@@ -366,7 +364,7 @@ QString make(const QString& deck, const Options& o, bool& booted) {
         vm.up(up);
         setClock(vm);
     }
-    vm.ssh().run("echo \"serial0 -> $(readlink -f /dev/serial0)\"");
+    vm.ssh().run("echo \"the S3's UART: $(ls /dev/ttyAMA3 2>&1)\"");
 
     // ---- the deck: every other step, as against any deck ----
     steps::run(target, all.mid(1));
