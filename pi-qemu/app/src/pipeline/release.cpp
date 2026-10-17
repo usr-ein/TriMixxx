@@ -86,7 +86,8 @@ int build(const BuildOptions& o) {
         v = version({});
         if (!git::clean(repo)) fail("the tree has changes: commit them (or --rehearsal VERSION)");
     }
-    return buildlog::run(paths::cache() + "/build/" + kSystem + ".log", o.window, plan(o), [&] {
+    const imagebuild::Lock lock(kSystem); // before its log is emptied: one build of the system at a time
+    return buildlog::run(imagebuild::logFile(kSystem), o.window, plan(o), [&] {
         if (!o.keepSystem) imagebuild::build(kSystem, {});
         if (!QFileInfo::exists(imagebuild::card(kSystem))) fail("no " + QString(kSystem) + " card in " + paths::cache() + "/build");
         container("seal", {"--privileged", "-e", "VERSION=" + v, "-e", "COMMIT=" + commit, "-e", "HASH=" + hash,

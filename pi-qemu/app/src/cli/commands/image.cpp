@@ -14,7 +14,8 @@ int build(cli::Args& a) {
     a.done();
     imagebuild::Options o;
     o.rebuildBase = a.has("rebuild-base");
-    return buildlog::run(paths::cache() + "/build/" + deck + ".log", !a.has("no-window"), imagebuild::plan(deck),
+    const imagebuild::Lock lock(deck); // before its log is emptied: one build of a deck at a time
+    return buildlog::run(imagebuild::logFile(deck), !a.has("no-window"), imagebuild::plan(deck),
                          [&] { imagebuild::build(deck, o); });
 }
 
@@ -32,7 +33,8 @@ void addImage(cli::Registry& r) {
                 "the card lands in the main checkout's .cache/build/DECK.img, with its log beside\n"
                 "it, DECK.log, which a window follows. The first boot and the base step are cached\n"
                 "in .cache/base/ while their inputs are unchanged. trimixxx0's build ends by\n"
-                "remaking the golden pair agents' instances start from: the person's call.\n"
+                "remaking the golden pair agents' instances start from: the person's call. One\n"
+                "build of a deck runs at a time.\n"
                 "Needs QEMU (pi-qemu/build.sh), Docker with ~6 GB free, mtools, and the key the\n"
                 "cards trust (SSH_KEY).",
         .options = {

@@ -15,6 +15,7 @@
 #include "util/tool.h"
 #include "util/print.h"
 
+#include <QCoreApplication>
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
@@ -25,6 +26,8 @@
 #include <QScopeGuard>
 #include <QTemporaryDir>
 #include <QTextStream>
+
+#include <cstdio>
 
 namespace imagebuild {
 
@@ -177,6 +180,51 @@ void trim(Instance& vm) {
 } // namespace
 
 QString card(const QString& deck) { return cacheDir() + "/build/" + deck + ".img"; }
+QString lockFile(const QString& deck) { return cacheDir() + "/build/" + deck + ".lock"; }
+QString attemptFile(const QString& deck) { return cacheDir() + "/build/" + deck + ".build.json"; }
+QString logFile(const QString& deck) { return cacheDir() + "/build/" + deck + ".log"; }
+
+namespace {
+
+QString now() { return QDateTime::currentDateTimeUtc().toString(Qt::ISODate); }
+
+void write(const QString& deck, const Attempt& a) {
+    QJsonObject o{{"state", a.state}, {"pid", a.pid}, {"started", a.started}, {"source", a.source.json()}};
+    if (!a.ended.isEmpty()) o["ended"] = a.ended;
+    if (!a.why.isEmpty()) o["why"] = a.why;
+    const QString file = attemptFile(deck), next = file + ".new";
+    QDir().mkpath(QFileInfo(file).absolutePath());
+    files::write(next, QJsonDocument(o).toJson());
+    if (std::rename(QFile::encodeName(next).constData(), QFile::encodeName(file).constData()) != 0)
+        fail("cannot move " + next + " to " + file);
+}
+
+} // namespace
+
+Attempt attempt(const QString& deck) {
+    QFile f(attemptFile(deck));
+    if (!f.open(QIODevice::ReadOnly)) return {};
+    const QJsonObject o = QJsonDocument::fromJson(f.readAll()).object();
+    Attempt a;
+    a.state = o.value("state").toString();
+    a.pid = o.value("pid").toInteger();
+    a.started = o.value("started").toString();
+    a.ended = o.value("ended").toString();
+    a.why = o.value("why").toString();
+    a.source = source::Record::fromJson(o.value("source").toObject());
+    return a;
+}
+
+bool running(const QString& deck) { return lockedNow(lockFile(deck)); }
+
+Lock::Lock(const QString& deck) : m_lock(FileLock::tryTake(lockFile(deck), FileLock::Exclusive)) {
+    if (m_lock.held()) return;
+    const Attempt a = attempt(deck);
+    const QDateTime since = QDateTime::fromString(a.started, Qt::ISODate).toLocalTime();
+    fail(QString("a build of %1 is running (%2its log: %3): one at a time, as both would use build-%1")
+             .arg(deck, a.state == "building" ? QString("pid %1, since %2; ").arg(a.pid).arg(since.toString("HH:mm")) : QString(),
+                  logFile(deck)));
+}
 
 QStringList plan(const QString& deck) {
     QStringList p{"the stock Raspberry Pi OS card", "seeding cloud-init", "first boot of the stock card", "deploy 000_base",
@@ -188,7 +236,11 @@ QStringList plan(const QString& deck) {
     return p;
 }
 
-QString build(const QString& deck, const Options& o) {
+namespace {
+
+// The build itself; `booted` is set once its machine first starts, the end of
+// its preflight.
+QString make(const QString& deck, const Options& o, bool& booted) {
     // ---- preflight: everything the build needs, before its long first boot ----
     if (!QFileInfo::exists(paths::tools() + "/qemu-system-aarch64")) fail("no QEMU in " + paths::tools() + ": run pi-qemu/build.sh");
     requireUsableKey(paths::sshKey());
@@ -198,7 +250,7 @@ QString build(const QString& deck, const Options& o) {
     if (all.isEmpty() || all.first().number != 0) fail("no 000 deploy step to build the base card with");
 
     Instance vm("build-" + deck);
-    if (vm.exists()) vm.remove(); // a build left behind
+    if (vm.exists()) vm.remove(); // a build left behind: this one holds the deck's lock
     QDir().mkpath(vm.dir());
     // A build that fails leaves its machine off, its card where it is to look at.
     auto off = qScopeGuard([&] {
@@ -220,6 +272,7 @@ QString build(const QString& deck, const Options& o) {
         buildlog::say("deploy 000_base: cached, " + QDir(paths::mainCheckout()).relativeFilePath(base));
         files::clone(base, vm.card());
         buildlog::say("booting into the deck's boot flags");
+        booted = true;
         vm.up(up);
         setClock(vm);
     } else {
@@ -230,6 +283,7 @@ QString build(const QString& deck, const Options& o) {
         seed(vm.card(), deck);
         buildlog::say("first boot of the stock card (silent, no window): resize, a reboot, cloud-init");
         up.sshWait = 600;
+        booted = true;
         vm.up(up);
         setClock(vm);
         vm.ssh().run("cloud-init status --wait >/dev/null 2>&1 || true; hostname; uname -r");
@@ -265,12 +319,46 @@ QString build(const QString& deck, const Options& o) {
     files::clone(vm.card(), card(deck));
     off.dismiss();
     vm.remove();
+    return card(deck);
+}
 
-    // ---- the golden pair: every agent's instance starts from it ----
-    if (deck == "trimixxx0") {
-        buildlog::say("golden snapshot: the deck agents' instances start from");
-        Instance::golden(card(deck));
+} // namespace
+
+QString build(const QString& deck, const Options& o) {
+    const QString checkout = paths::checkout();
+    Attempt a{"building", QCoreApplication::applicationPid(), now(), {}, {}, source::of(checkout)};
+    write(deck, a);
+    bool booted = false;
+    try {
+        make(deck, o, booted);
+        // What the card holds: the checkout's code when the build started,
+        // unless it changed while the steps read it.
+        source::Record r = a.source;
+        const source::Record after = source::of(checkout);
+        if (r.clean && (!after.clean || !source::same(checkout, r.commit, after.commit))) {
+            r.clean = false;
+            r.why = "the checkout changed during the build: " +
+                    (after.clean ? "it is at " + after.commit.left(7) + " now" : after.why);
+        }
+        r.built = now();
+        source::write(source::beside(card(deck)), r);
+        print() << "built from " << r.describe() << " (" << checkout << ")" << Qt::endl;
+
+        // ---- the golden pair: every agent's instance starts from it ----
+        if (deck == "trimixxx0") {
+            buildlog::say("golden snapshot: the deck agents' instances start from");
+            Instance::golden(card(deck));
+        }
+        a.state = "built";
+    } catch (const Failure& f) {
+        a.state = f.status == 130 ? "interrupted" : booted ? "failed" : "unready";
+        a.why = f.message;
+        a.ended = now();
+        write(deck, a);
+        throw;
     }
+    a.ended = now();
+    write(deck, a);
     buildlog::say("done: " + card(deck));
     return card(deck);
 }
