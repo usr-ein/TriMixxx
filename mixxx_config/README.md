@@ -225,9 +225,13 @@ follow, at the note `lights` maps them to on this deck, and the buttons that
 set one control each (CUE, LOOP IN/OUT, RELOOP, A3–A6) go through
 `TriMixxx.button()` rather than straight to their controls. Both so that the
 Bluetooth receiver can have them: while its menu is open
-(`[Bluetooth],active`) the deck's own controls do nothing (it plays a phone,
-and Mixxx has let go of the sound card), the encoder and BACK still move
-through the menus, and the tempo fader is still followed; with its screen off
+(`[Bluetooth],active`) the deck's own controls do nothing to the deck (it plays
+a device, a phone or a Mac, and Mixxx has let go of the sound card), but three
+drive the device instead: PLAY plays or pauses it (`[Bluetooth],play_pause`),
+loop halve (A6) goes to its previous track (`previous`) and loop double (A5)
+to its next (`next`), and PLAY's light shows whether the device plays
+(`[Bluetooth],playing`). The encoder and BACK still move through the menus, and
+the tempo fader is still followed; with its screen off
 (`[Bluetooth],screen_off`) every light is out, and any control wakes the screen
 and the lights and does nothing else. Every control sets `[Bluetooth],wake`,
 which keeps the screen on for three more minutes (`TriMixxx.btTakes()`;
