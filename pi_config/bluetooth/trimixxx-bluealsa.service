@@ -1,0 +1,48 @@
+[Unit]
+Description=BlueALSA for the Bluetooth receiver menu: the phone's audio (A2DP sink)
+Documentation=man:bluealsa(8)
+# bluez-alsa's bluealsa.service, masked by the base step for the same reason as
+# bluetooth.service; this one plays sink only. With trimixxx-bluetooth.target.
+Requisite=dbus.service
+After=trimixxx-bluetoothd.service
+BindsTo=trimixxx-bluetoothd.service
+PartOf=trimixxx-bluetooth.target
+
+[Service]
+Type=dbus
+BusName=org.bluealsa
+User=root
+ExecStart=/usr/bin/bluealsa -S -p a2dp-sink
+Restart=on-failure
+
+# Sandboxing, as bluez-alsa's own unit has it
+AmbientCapabilities=CAP_NET_RAW
+CapabilityBoundingSet=CAP_NET_RAW
+IPAddressDeny=any
+LockPersonality=true
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
+PrivateDevices=true
+PrivateTmp=true
+PrivateUsers=false
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectProc=invisible
+ProtectSystem=strict
+RemoveIPC=true
+RestrictAddressFamilies=AF_UNIX AF_BLUETOOTH
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+SystemCallFilter=~@resources @privileged
+UMask=0077
+ReadWritePaths=/var/lib/bluealsa
+StateDirectory=bluealsa

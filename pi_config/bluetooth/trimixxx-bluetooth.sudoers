@@ -1,0 +1,6 @@
+# The Bluetooth receiver: Mixxx, as the deck's user, brings the radio up when
+# its menu opens and down when it closes (pi_config/bluetooth/README.md). That
+# command as root, and nothing else, without a password: Mixxx asks with
+# `sudo -n`, which fails rather than wait for one. Installed as
+# /etc/sudoers.d/trimixxx-bluetooth.
+sam1902 ALL=(root) NOPASSWD: /usr/local/sbin/trimixxx-bluetooth up *, /usr/local/sbin/trimixxx-bluetooth down

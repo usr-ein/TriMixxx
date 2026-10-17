@@ -1,0 +1,48 @@
+[Unit]
+Description=The phone's stream to the DAC, for the Bluetooth receiver menu
+Documentation=man:bluealsa-aplay(1)
+# Mixxx lets go of the sound card before this starts and takes it back after
+# it stops (the BluetoothReceiver). With trimixxx-bluetooth.target.
+Requisite=dbus.service
+After=trimixxx-bluealsa.service
+BindsTo=trimixxx-bluealsa.service
+PartOf=trimixxx-bluetooth.target
+
+[Service]
+Type=simple
+User=root
+Group=audio
+# The UCA222, by name, as Mixxx opens it; through plug, which converts a
+# phone's 48 kHz to what the card takes. One phone plays at a time.
+ExecStart=/usr/bin/bluealsa-aplay -S --single-audio --pcm=plughw:CARD=CODEC,DEV=0
+Restart=on-failure
+
+# Sandboxing, as bluez-alsa's own unit has it
+CapabilityBoundingSet=
+DeviceAllow=char-alsa rw
+DevicePolicy=closed
+IPAddressDeny=any
+LockPersonality=true
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateUsers=true
+ProtectClock=true
+ProtectControlGroups=true
+ProtectHome=true
+ProtectHostname=true
+ProtectKernelLogs=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectProc=invisible
+ProtectSystem=strict
+RemoveIPC=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
+SystemCallErrorNumber=EPERM
+SystemCallFilter=@system-service
+SystemCallFilter=~@resources @privileged
+UMask=0077

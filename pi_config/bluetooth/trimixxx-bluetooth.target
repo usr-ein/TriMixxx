@@ -1,0 +1,5 @@
+[Unit]
+Description=The Bluetooth receiver: the radio, BlueALSA and the player
+# Started by `trimixxx-bluetooth up`, when the Bluetooth receiver menu opens,
+# and stopped by `down`. No [Install]: nothing starts it at boot.
+Wants=trimixxx-bluetoothd.service trimixxx-bluealsa.service trimixxx-bluealsa-aplay.service

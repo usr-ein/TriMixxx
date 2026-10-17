@@ -60,17 +60,23 @@ fi
 
 # ---- 1.4 background load ---------------------------------------------------------
 # Masked rather than disabled: a first boot's systemd presets cannot bring
-# them back.
-systemctl mask --quiet bluetooth.service apt-daily.timer apt-daily-upgrade.timer man-db.timer
+# them back. Bluetooth's own units included: the radio is up only in the
+# Bluetooth receiver menu, which starts units of the deck's own
+# (trimixxx-bluetooth.target, the system step), and nothing else may -- not
+# the packages' presets, nor a D-Bus call activating org.bluez.
+systemctl mask --quiet bluetooth.service bluealsa.service bluealsa-aplay.service \
+    apt-daily.timer apt-daily-upgrade.timer man-db.timer
 mkdir -p /etc/NetworkManager/conf.d
 printf '[connection]\nwifi.powersave = 2\n' > /etc/NetworkManager/conf.d/wifi-powersave-off.conf
 
 # ---- 1.5 card wear + 2 display, touch, X ---------------------------------------
 # As trimixxx2 got them, recommends included; installed ones are left as they
-# are. sqlite3 is for the library-directory step, alsa-utils for aplay.
+# are. sqlite3 is for the library-directory step, alsa-utils for aplay. The
+# Bluetooth receiver: bluez-alsa-utils plays a phone's stream to the DAC
+# (bluealsad, bluealsa-aplay), bluez-obexd fetches its covers (AVRCP's BIP).
 pkgs=(log2ram xserver-xorg xinit x11-xserver-utils xinput libgl1-mesa-dri mesa-utils
       unclutter picom matchbox-window-manager scrot xdotool evtest libinput-tools
-      mixxx sqlite3 alsa-utils)
+      mixxx sqlite3 alsa-utils bluez-alsa-utils bluez-obexd)
 missing_pkgs=()
 for p in "${pkgs[@]}"; do
     dpkg-query -W -f='${Status}' "$p" 2>/dev/null | grep -q '^install ok installed$' || missing_pkgs+=("$p")

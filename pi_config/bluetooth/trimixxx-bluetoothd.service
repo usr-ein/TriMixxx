@@ -1,0 +1,38 @@
+[Unit]
+Description=Bluetooth for the Bluetooth receiver menu (bluetoothd)
+Documentation=man:bluetoothd(8)
+# bluez's bluetooth.service, which the base step masks so that nothing but the
+# menu starts it: a preset at a first start, or a D-Bus call activating
+# org.bluez. Started and stopped with trimixxx-bluetooth.target; no [Install].
+PartOf=trimixxx-bluetooth.target
+
+[Service]
+Type=dbus
+BusName=org.bluez
+# The deck's own settings (main.conf beside this file): an audio device to a
+# phone, discoverable only for the Pair window.
+ExecStart=/usr/libexec/bluetooth/bluetoothd -f /usr/local/share/trimixxx/bluetooth-main.conf
+NotifyAccess=main
+Restart=on-failure
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+LimitNPROC=1
+
+# Filesystem lockdown, as bluez's own unit has it
+ProtectHome=true
+ProtectSystem=strict
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+StateDirectory=bluetooth
+StateDirectoryMode=0700
+ConfigurationDirectory=bluetooth
+ConfigurationDirectoryMode=0555
+# The phones it has paired with, kept on a release card's state partition,
+# where trimixxx-bluetooth up makes the folder; written only when a phone
+# pairs. On a dev card there is none, and /var/lib/bluetooth on the root is
+# used as it is.
+BindPaths=-/var/lib/rauc/trimixxx-bluetooth:/var/lib/bluetooth
+
+MemoryDenyWriteExecute=true
+NoNewPrivileges=true
+RestrictRealtime=true

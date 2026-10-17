@@ -18,6 +18,7 @@
 #   eth0                        IPv4 link-local, for the CDJs' network
 #   the Wi-Fi fallback          the deck's own hotspot when it finds no Wi-Fi
 #   dj-usb                      USB sticks mounted as DJ_USB_1/2; a recorded set written to one
+#   bluetooth/                  the Bluetooth receiver's radio, up only while its menu is open
 #
 # The session restarts at the end of the run (exit 11): the bridge restarted
 # here, and the session files take effect from the next session.
@@ -238,6 +239,35 @@ ssh deck '
     rm -f /tmp/trimixxx-history.service
     sudo systemctl daemon-reload
     sudo systemctl enable --now trimixxx-history.service
+'
+
+# ---- the Bluetooth receiver -----------------------------------------------------------
+# The radio, BlueALSA and the player that sends a phone's stream to the DAC,
+# up only while the Bluetooth receiver menu is open: Mixxx runs
+# `trimixxx-bluetooth up` and `down` through sudo -n (bluetooth/README.md).
+# Units of the deck's own, with no [Install], so nothing starts them at boot;
+# the packages' are masked by the base step. Nothing is started or stopped
+# here: a deploy leaves a menu that is open as it is.
+scp $P/bluetooth/trimixxx-bluetooth $P/bluetooth/trimixxx-bluetooth.sudoers \
+    $P/bluetooth/trimixxx-bluetooth.target $P/bluetooth/trimixxx-bluetoothd.service \
+    $P/bluetooth/trimixxx-bluealsa.service $P/bluetooth/trimixxx-bluealsa-aplay.service \
+    $P/bluetooth/bluetooth-main.conf deck:/tmp/
+ssh deck '
+    set -eux
+    sudo visudo -cf /tmp/trimixxx-bluetooth.sudoers
+    sudo install -m 0755 /tmp/trimixxx-bluetooth /usr/local/sbin/trimixxx-bluetooth
+    sudo install -m 0440 /tmp/trimixxx-bluetooth.sudoers /etc/sudoers.d/trimixxx-bluetooth
+    sudo install -d -m 0755 /usr/local/share/trimixxx
+    sudo install -m 0644 /tmp/bluetooth-main.conf /usr/local/share/trimixxx/bluetooth-main.conf
+    for u in trimixxx-bluetooth.target trimixxx-bluetoothd.service trimixxx-bluealsa.service \
+             trimixxx-bluealsa-aplay.service; do
+        sudo install -m 0644 "/tmp/$u" "/etc/systemd/system/$u"
+    done
+    rm -f /tmp/trimixxx-bluetooth /tmp/trimixxx-bluetooth.sudoers /tmp/trimixxx-bluetooth.target \
+        /tmp/trimixxx-bluetoothd.service /tmp/trimixxx-bluealsa.service \
+        /tmp/trimixxx-bluealsa-aplay.service /tmp/bluetooth-main.conf
+    sudo systemctl daemon-reload
+    sudo /usr/local/sbin/trimixxx-bluetooth status
 '
 
 # ---- the set recording's directory ------------------------------------------------------

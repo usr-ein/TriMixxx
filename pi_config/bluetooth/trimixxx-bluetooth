@@ -1,0 +1,67 @@
+#!/bin/bash
+# The Bluetooth receiver's radio, up while its menu is open and down otherwise
+# (Mixxx's BluetoothReceiver runs this as root, through sudo -n:
+# trimixxx-bluetooth.sudoers). README.md beside it has the whole picture.
+#
+#   trimixxx-bluetooth up PID    the radio on, the phone's stream to the DAC;
+#                                PID is the Mixxx asking: if it dies (a crash),
+#                                everything here goes down with it
+#   trimixxx-bluetooth down      all of it off, the radio blocked, the DAC free
+#   trimixxx-bluetooth status    up or down
+#
+# Nothing here starts at boot: the units have no [Install], and the packages'
+# own (bluetooth, bluealsa, bluealsa-aplay) are masked by the base step.
+set -euo pipefail
+
+SELF=/usr/local/sbin/trimixxx-bluetooth
+GUARD=trimixxx-bluetooth-guard.service
+# The phones the deck has paired with, on a release card's state partition
+# (p8, /var/lib/rauc): its root is read-only, RAM over squashfs, and would
+# forget them at every start. trimixxx-bluetoothd.service binds it over
+# /var/lib/bluetooth. On a dev card there is no p8, and /var/lib/bluetooth on
+# the root keeps them.
+PAIRINGS=/var/lib/rauc/trimixxx-bluetooth
+
+usage() { sed -n '/^#   /s/^#   //p' "$0" >&2; exit 2; }
+
+is_mixxx() { [ "$(cat "/proc/$1/comm" 2>/dev/null)" = mixxx ]; }
+
+down() {
+    # The guard is the one that called this when Mixxx died: it is left to
+    # end by itself.
+    [ "${1:-}" = --from-guard ] || systemctl stop "$GUARD" 2>/dev/null || true
+    # The player first: it holds the DAC, which Mixxx takes back next.
+    systemctl stop trimixxx-bluealsa-aplay.service trimixxx-bluealsa.service \
+        trimixxx-bluetoothd.service trimixxx-bluetooth.target
+    rfkill block bluetooth 2>/dev/null || true
+}
+
+case "${1:-}" in
+up)
+    pid="${2:-}"
+    [[ "$pid" =~ ^[0-9]+$ ]] && is_mixxx "$pid" || { echo "trimixxx-bluetooth: not Mixxx: ${pid:-no PID}" >&2; exit 2; }
+    if mountpoint -q /var/lib/rauc; then install -d -m 0700 "$PAIRINGS"; fi
+    rfkill unblock bluetooth 2>/dev/null || true
+    systemctl start trimixxx-bluetooth.target
+    systemctl stop "$GUARD" 2>/dev/null || true
+    systemd-run --quiet --unit="$GUARD" --collect "$SELF" guard "$pid"
+    ;;
+down)
+    down
+    ;;
+guard)
+    # Mixxx's watch: one look a second, then everything down the moment it
+    # is gone -- before the session's restart loop starts the next Mixxx,
+    # which wants the DAC back (pi_config/xinitrc waits 2 s).
+    pid="${2:-}"
+    [[ "$pid" =~ ^[0-9]+$ ]] || usage
+    while is_mixxx "$pid"; do sleep 1; done
+    down --from-guard
+    ;;
+status)
+    if systemctl is-active --quiet trimixxx-bluetoothd.service; then echo up; else echo down; fi
+    ;;
+*)
+    usage
+    ;;
+esac

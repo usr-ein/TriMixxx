@@ -173,7 +173,10 @@ and in `cmdline.txt`, `console=serial0,115200 ` removed (it stays one line).
       Wifi is unaffected: the connections live in `/etc/netplan` (NetworkManager's
       own `90-NM-*.yaml`). `cloud-init status` → `disabled`; ssh came back.
 - [x] `sudo systemctl disable --now bluetooth` — no controller left after
-      `disable-bt`.
+      `disable-bt`. Since the S3 moved to UART3 the radio is back, and only the
+      Bluetooth receiver menu starts it: the base step masks `bluetooth`,
+      `bluealsa` and `bluealsa-aplay`, and the menu starts units of its own
+      (`pi_config/bluetooth/README.md`).
 - [x] `sudo systemctl disable --now apt-daily.timer apt-daily-upgrade.timer
       man-db.timer` — no background apt or man-db runs mid-set competing with
       the audio thread for CPU and card IO. Update by hand instead.
