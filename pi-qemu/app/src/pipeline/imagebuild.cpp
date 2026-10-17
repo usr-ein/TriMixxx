@@ -27,6 +27,7 @@
 #include <QTemporaryDir>
 #include <QTextStream>
 
+#include <csignal>
 #include <cstdio>
 
 namespace imagebuild {
@@ -189,7 +190,8 @@ namespace {
 QString now() { return QDateTime::currentDateTimeUtc().toString(Qt::ISODate); }
 
 void write(const QString& deck, const Attempt& a) {
-    QJsonObject o{{"state", a.state}, {"pid", a.pid}, {"started", a.started}, {"source", a.source.json()}};
+    QJsonObject o{{"state", a.state}, {"pid", a.pid}, {"started", a.started}, {"source", a.source.json()},
+                  {"stuck_after_min", a.stuckAfter}};
     if (!a.ended.isEmpty()) o["ended"] = a.ended;
     if (!a.why.isEmpty()) o["why"] = a.why;
     const QString file = attemptFile(deck), next = file + ".new";
@@ -212,10 +214,51 @@ Attempt attempt(const QString& deck) {
     a.ended = o.value("ended").toString();
     a.why = o.value("why").toString();
     a.source = source::Record::fromJson(o.value("source").toObject());
+    a.stuckAfter = o.value("stuck_after_min").toInt();
     return a;
 }
 
+int stuckAfter() {
+    const int m = qEnvironmentVariableIntValue("PI_QEMU_STUCK_AFTER_MIN");
+    return m > 0 ? m : 60;
+}
+
+qint64 Attempt::minutes() const {
+    const QDateTime t = QDateTime::fromString(started, Qt::ISODate);
+    return state == "building" && t.isValid() ? t.secsTo(QDateTime::currentDateTimeUtc()) / 60 : 0;
+}
+
+bool Attempt::stuck() const { return state == "building" && minutes() >= (stuckAfter > 0 ? stuckAfter : 60); }
+
 bool running(const QString& deck) { return lockedNow(lockFile(deck)); }
+
+void stop(const QString& deck, const QString& why, const QString& program) {
+    const QString name = program.isEmpty() ? QString(kTool) : program;
+    Attempt a = attempt(deck);
+    if (!running(deck)) fail("no build of " + deck + " runs");
+    if (!a.stuck())
+        fail(QString("the build of %1 has run %2 min, not past the %3 it may: it doesn't look stuck")
+                 .arg(deck).arg(a.minutes()).arg(a.stuckAfter > 0 ? a.stuckAfter : 60));
+    if (proc::name(a.pid) != name) fail(QString("pid %1 is not %2: left alone").arg(a.pid).arg(name));
+    print() << "stopping the build of " << deck << " (pid " << a.pid << ", " << a.minutes() << " min)\n";
+    ::kill(pid_t(a.pid), SIGTERM); // it winds up, its machine off, if it can
+    for (int i = 0; i < 80 && proc::name(a.pid) == name; i++) proc::sleep(250);
+    if (proc::name(a.pid) == name) ::kill(pid_t(a.pid), SIGKILL);
+    for (int i = 0; i < 20 && proc::name(a.pid) == name; i++) proc::sleep(250);
+    if (proc::name(a.pid) == name) fail(QString("pid %1 would not stop").arg(a.pid));
+    Instance vm("build-" + deck);
+    if (vm.exists()) vm.kill();
+    // Written under the deck's lock: a build started meanwhile keeps its own.
+    try {
+        const Lock lock(deck);
+        a.state = "failed";
+        a.why = why;
+        a.ended = now();
+        write(deck, a);
+    } catch (const Failure&) {
+    }
+    print() << "the build of " << deck << " is stopped; its attempt says: " << why << "\n";
+}
 
 Lock::Lock(const QString& deck) : m_lock(FileLock::tryTake(lockFile(deck), FileLock::Exclusive)) {
     if (m_lock.held()) return;
@@ -327,7 +370,7 @@ QString make(const QString& deck, const Options& o, bool& booted) {
 
 QString build(const QString& deck, const Options& o) {
     const QString checkout = paths::checkout();
-    Attempt a{"building", QCoreApplication::applicationPid(), now(), {}, {}, source::of(checkout)};
+    Attempt a{"building", QCoreApplication::applicationPid(), now(), {}, {}, source::of(checkout), stuckAfter()};
     write(deck, a);
     bool booted = false;
     try {

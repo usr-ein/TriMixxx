@@ -60,8 +60,10 @@ RAM; if `list` already shows about 4 running, ask before starting another.
   more when much of Mixxx is rebuilt, with its steps as they go. Give it a
   long timeout (10 min, or run it in the background); if your shell gives up
   first, run `up` again: it waits for the same remake. When the golden can't
-  be made (main doesn't build, the main checkout isn't at main), `up` says so
-  and starts from the last golden: say so in your results.
+  be made (main doesn't build, the main checkout isn't at main, a remake that
+  looks stuck), `up` says so and starts from the last golden: say so in your
+  results, and tell the nightman (or Sam) about a stuck one; stopping it is
+  theirs.
 - **A stopped deck may start fresh.** If main moved on while your deck was
   stopped, its next `up` starts it from the new golden, saying first what it
   loses: what you deployed, files you put on it, its saved state. Deploy your

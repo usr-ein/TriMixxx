@@ -690,23 +690,28 @@ Emulated decks run what main has now, not a snapshot of an old deck. The
 golden says what code it holds, in `.cache/golden/trimixxx0.json`: the commit
 its card was built from, and whether the checkout held exactly that commit's
 code. Whenever origin/main has moved on in what goes onto a deck
-(`pi-qemu/deploy`, `pi-qemu/image`, `pi_config`, `mixxx`, `mixxx_config`,
-`trimixxx-launcher`, `doom`; not `website/` or `docs/`), the golden is made
-again: `image build trimixxx0` in the main checkout, then the golden from its
-card. Its base is cached, so that takes a few minutes (2-4 measured), more
+(`pi-qemu/deploy`, `pi-qemu/image`, image build's own code, `pi_config`,
+`mixxx`, `mixxx_config`, `trimixxx-launcher`, `doom`; not `website/` or
+`docs/`), the golden is made again: `image build trimixxx0` in the main
+checkout, then the golden from its card. Its base is cached, so that takes a few minutes (2-4 measured), more
 when the base or most of Mixxx is built again.
 
 ```sh
-pi-qemu image golden --check       # main's latest, being made again, failed, or to be made again
+pi-qemu image golden --check       # main's latest, being made again, failed, stuck, or to be made again
 pi-qemu image golden               # made main's latest now, if it isn't; waits for it
-pi-qemu image golden --background  # the same, without waiting (crew merge runs this after a merge)
+pi-qemu image golden --background  # left to a keeper that goes on until it is (crew merge runs this)
+pi-qemu image golden --clear       # stops a remake that looks stuck (the nightman's or a person's)
 ```
 
 - **`deck up` sees to it.** Before a deck starts from the golden, `up`
   fetches origin/main. If main has moved on, it has the golden made again and
-  waits, or waits for the remake already running. A shell that gives up
-  waiting (an agent's 10-minute limit) can run `up` again: it waits for the
-  same remake. `up` ends by saying where the deck's card came from:
+  waits, or waits for the remake already running. After each wait it reads
+  origin/main again: a merge meanwhile (two back to back) has the golden made
+  for the newer main. A shell that gives up waiting (an agent's 10-minute
+  limit) can run `up` again: it waits for the same remake. `--background`
+  leaves it to a keeper (`image golden --keeper`, one at a time), which does
+  the same and goes on until the golden is main's latest; its output is in
+  `.cache/golden/trimixxx0.keeper.out`. `up` ends by saying where the deck's card came from:
   `(restored in 2 s, from 5f0b01a of 2026-10-16 15:20: main's latest)`.
 - **Only main's code, from the main checkout.** The remake builds the main
   checkout itself, and only while it holds main's code for the deck: those
@@ -730,6 +735,13 @@ pi-qemu image golden --background  # the same, without waiting (crew merge runs 
   moves on it is, or now with `image golden --retry`. A build that could not
   start (Docker not running, the key not in the agent) is tried again at the
   next check.
+- **A remake that never ends holds nobody up.** A build says how long it may
+  run, 60 minutes (well past a base and all of Mixxx built again;
+  `PI_QEMU_STUCK_AFTER_MIN` for a test's). Past that it looks stuck: nobody
+  waits for it, decks start from the last golden with a line saying so, and
+  `crew resources` holds no build for it. It is left running, for a look,
+  until `image golden --clear` stops it (the nightman's or a person's: its
+  process, then its machine); that main then counts as failed.
 - **One build of a deck at a time.** A build holds `.cache/build/DECK.lock`
   while it runs, and keeps its attempt in `DECK.build.json`: building, built,
   failed, unready or interrupted, with its process and times (what `crew

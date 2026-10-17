@@ -20,9 +20,10 @@
 // exactly that commit's code for the deck, before the build and after it).
 // Each build also keeps its attempt, .cache/build/DECK.build.json: building,
 // built, failed, or unready (it stopped before the first boot: Docker, the
-// key, QEMU), with its process and times. One build of a deck runs at a
-// time (Lock): two would share build-DECK, the first's machine pulled from
-// under it.
+// key, QEMU), with its process and times, and how long it may run before it
+// looks stuck (60 min, well past the longest real one: a base and all of
+// Mixxx built again). One build of a deck runs at a time (Lock): two would
+// share build-DECK, the first's machine pulled from under it.
 
 #include "pipeline/source.h"
 #include "util/filelock.h"
@@ -60,9 +61,19 @@ struct Attempt {
     QString started, ended; // ISO 8601, UTC
     QString why;            // a failure's message
     source::Record source;  // what the checkout held when it started
+    int     stuckAfter = 0; // minutes it may run before it looks stuck; 0: the default
+
+    qint64 minutes() const; // how long it has run, while building
+    bool   stuck() const;   // building, for longer than it may
 };
 Attempt attempt(const QString& deck);     // .cache/build/DECK.build.json
 QString attemptFile(const QString& deck);
 QString logFile(const QString& deck);     // .cache/build/DECK.log
+int stuckAfter(); // minutes: $PI_QEMU_STUCK_AFTER_MIN (a test's), else 60
+
+// A build of `deck` that looks stuck stopped: its process (pi-qemu, nothing
+// else: `program`, a test's stand-in), then its machine; its attempt says it
+// failed, and why. Fails if none runs, or it doesn't look stuck.
+void stop(const QString& deck, const QString& why, const QString& program = {});
 
 } // namespace imagebuild

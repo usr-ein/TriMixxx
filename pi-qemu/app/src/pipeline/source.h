@@ -16,8 +16,9 @@ namespace source {
 
 // The paths whose content goes onto a deck's card: what image build and the
 // deploy steps read (the submodules mixxx, its lib/prolink, and
-// mixxx_config/ttymidi with them). Two commits that agree there make the
-// same deck.
+// mixxx_config/ttymidi with them), and image build itself, which seeds,
+// sets up and seals the card. Two commits that agree there make the same
+// deck.
 QStringList deckPaths();
 
 struct Record {

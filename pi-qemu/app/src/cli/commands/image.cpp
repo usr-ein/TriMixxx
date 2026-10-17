@@ -7,6 +7,8 @@
 #include "pipeline/imagebuild.h"
 #include "util/buildlog.h"
 #include "util/paths.h"
+#include "util/print.h"
+#include "util/tool.h"
 
 namespace {
 
@@ -22,14 +24,29 @@ int build(cli::Args& a) {
 
 int goldenVerb(cli::Args& a) {
     a.done();
-    golden::Options o;
-    o.start = !a.has("check");
-    o.wait = !a.has("background") && !a.has("check");
-    o.retry = a.has("retry");
-    const golden::State s = golden::ensure(o).state;
-    return s == golden::State::Current || (s == golden::State::Remaking && !o.wait) ? 0
-         : s == golden::State::Stale                                                ? 3
-                                                                                    : 1;
+    if (a.has("clear")) {
+        golden::clear();
+        return 0;
+    }
+    const bool retry = a.has("retry");
+    golden::State s;
+    if (a.has("keeper")) {
+        s = golden::keep(retry).state;
+    } else if (a.has("background")) {
+        s = golden::keepInBackground(retry).state;
+        if (s == golden::State::Stale) s = golden::State::Remaking; // its keeper has it
+    } else if (a.has("check")) {
+        golden::Options o;
+        o.start = o.wait = false;
+        o.retry = retry;
+        s = golden::ensure(o).state;
+        if (s == golden::State::Stale) print() << "  " << tool("image golden") << " makes it now, or the next deck up\n";
+    } else {
+        golden::Options o;
+        o.retry = retry;
+        s = golden::ensure(o).state;
+    }
+    return s == golden::State::Current || s == golden::State::Remaking ? 0 : s == golden::State::Stale ? 3 : 1;
 }
 
 } // namespace
@@ -57,25 +74,33 @@ void addImage(cli::Registry& r) {
         .run = build,
     });
     r.add({
-        .group = "image", .name = "golden", .synopsis = "[--background | --check] [--retry]",
+        .group = "image", .name = "golden", .synopsis = "[--background | --check | --clear] [--retry]",
         .summary = "the golden every emulated deck starts from, made main's latest if it isn't",
         .help = "origin/main is fetched and compared with what the golden holds (.cache/golden/trimixxx0.json),\n"
-                "in what goes onto a deck (pi-qemu/deploy, pi-qemu/image, pi_config, mixxx, mixxx_config,\n"
-                "trimixxx-launcher, doom). When main has moved on there, the golden is made again: image\n"
-                "build trimixxx0 in the main checkout, as a process of its own (a few minutes; its log:\n"
-                ".cache/build/trimixxx0.log), then the golden from its card. This waits for it, or for one\n"
-                "running already, and says how it went; deck up does the same before a deck starts from\n"
-                "the golden, and crew merge starts one after a merge (--background).\n"
+                "in what goes onto a deck (pi-qemu/deploy, pi-qemu/image, image build's own code, pi_config,\n"
+                "mixxx, mixxx_config, trimixxx-launcher, doom). When main has moved on there, the golden\n"
+                "is made again: image build trimixxx0 in the main checkout, as a process of its own (a\n"
+                "few minutes; its log: .cache/build/trimixxx0.log), then the golden from its card. This\n"
+                "waits for it, or for one running already, and says how it went. origin/main is read\n"
+                "again after each wait: a main that moved on meanwhile is the one it is made for. deck up\n"
+                "does the same before a deck starts from the golden; crew merge leaves it to a keeper\n"
+                "(--background).\n"
                 "\n"
                 "Only main's code: the main checkout must hold it for the deck (its files, untracked ones\n"
                 "too, and its submodules, as origin/main has them; its branch does not matter), or the\n"
-                "golden stays as it is and this says why. A main whose build failed is not tried again\n"
-                "by itself: --retry. Exit status: 0 main's latest (or a remake started, --background),\n"
-                "3 to be made again (--check), 1 it could not be.",
+                "golden stays as it is and this says why. And only by main's pi-qemu, the one on PATH.\n"
+                "A main whose build failed is not tried again by itself: --retry. A remake running past\n"
+                "the time it may take (60 min) looks stuck: nobody waits for it, and decks start from\n"
+                "the last golden until --clear stops it (the nightman's or a person's).\n"
+                "\n"
+                "Exit status: 0 main's latest, or being made (--background, --check); 3 to be made\n"
+                "again (--check); 1 it can't be now (failed, stuck, the main checkout).",
         .options = {
-            {"background", {}, "start the remake if it is needed, and return"},
-            {"check", {}, "only say: main's latest, running, failed, or to be made again"},
+            {"background", {}, "leave it to a keeper, which goes on until the golden is main's latest; return"},
+            {"check", {}, "only say: main's latest, being made, failed, stuck, or to be made again"},
+            {"clear", {}, "stop a remake that looks stuck (the nightman's or a person's call)"},
             {"retry", {}, "a main whose build failed: try it again"},
+            {"keeper", {}, "what --background runs: the same as no option, one keeper at a time"},
         },
         .run = goldenVerb,
     });

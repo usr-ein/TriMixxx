@@ -31,19 +31,24 @@ QString firstLine(const QByteArray& text) {
     return t.isEmpty() ? QString("no answer") : t.section('\n', 0, 0);
 }
 
-// origin/main, fetched first: what the golden is compared with. A fetch that
-// fails (no network) leaves origin/main as last fetched, and says so. Empty
-// when the main checkout has neither origin/main nor main.
-QString fetchMain() {
+// origin/main as last fetched, in the main checkout: crew merge's fetch and
+// push keep it current. Its main where it has no origin; empty: neither.
+QString mainNow() {
     const QString repo = paths::mainCheckout();
+    const QString main = git::tryOut(repo, {"rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"});
+    return main.isEmpty() ? git::tryOut(repo, {"rev-parse", "--verify", "--quiet", "refs/heads/main"}) : main;
+}
+
+// origin/main, fetched first: what the golden is compared with. A fetch that
+// fails (no network) leaves origin/main as last fetched, and says so.
+QString fetchMain() {
     proc::Options o;
     o.quiet = true;
     o.timeoutMs = 30000;
     o.env["GIT_TERMINAL_PROMPT"] = "0";
     o.env["GIT_SSH_COMMAND"] = "ssh -o BatchMode=yes -o ConnectTimeout=10";
-    const proc::Result f = proc::capture("git", {"-C", repo, "fetch", "--quiet", "origin", "main"}, o);
-    QString main = git::tryOut(repo, {"rev-parse", "--verify", "--quiet", "refs/remotes/origin/main"});
-    if (main.isEmpty()) main = git::tryOut(repo, {"rev-parse", "--verify", "--quiet", "refs/heads/main"});
+    const proc::Result f = proc::capture("git", {"-C", paths::mainCheckout(), "fetch", "--quiet", "origin", "main"}, o);
+    const QString main = mainNow();
     if (!f.ok() && !main.isEmpty())
         print() << "golden: could not fetch origin (" << (f.status == -1 && f.err.isEmpty() ? "timed out" : firstLine(f.err))
                 << "): main as last fetched, " << main.left(7) << "\n";
@@ -74,6 +79,8 @@ QString clock(const QString& iso) {
 bool alive(qint64 pid) { return pid > 0 && (::kill(pid_t(pid), 0) == 0 || errno == EPERM); }
 
 QString outFile() { return paths::golden() + ".remake.out"; }
+QString keeperOut() { return paths::golden() + ".keeper.out"; }
+QString keeperLock() { return paths::golden() + ".keeper.lock"; }
 
 // The golden everyone's decks start from is made by main's pi-qemu (the
 // main checkout's build, on PATH), never by a worktree's build of it run by
@@ -86,19 +93,20 @@ QString foreignTool() {
     return self == mains ? QString() : self;
 }
 
-// The image build, in the main checkout, a process of its own: it goes on
-// if the command that started it is stopped. What it says before its log
-// takes over (a refusal, a failure to start) goes to outFile().
-qint64 spawn() {
-    QDir().mkpath(QFileInfo(outFile()).absolutePath());
-    files::write(outFile(), {});
+// This pi-qemu with `args`, in the main checkout, a process of its own: it
+// goes on if the command that started it is stopped. Its stderr (and its
+// stdout, unless `quietOut`) goes to `out`.
+qint64 detach(const QStringList& args, const QString& out, bool quietOut) {
+    QDir().mkpath(QFileInfo(out).absolutePath());
+    files::write(out, {});
     QProcess p;
     p.setProgram(paths::binary());
-    p.setArguments({"image", "build", kDeck, "--no-window"});
+    p.setArguments(args);
     p.setWorkingDirectory(paths::mainCheckout());
     p.setStandardInputFile(QProcess::nullDevice());
-    p.setStandardOutputFile(QProcess::nullDevice()); // the log has it all
-    p.setStandardErrorFile(outFile());
+    if (quietOut) p.setStandardOutputFile(QProcess::nullDevice());
+    else p.setStandardOutputFile(out, QIODevice::Append);
+    p.setStandardErrorFile(out, QIODevice::Append);
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert("BUILD_WINDOW", "0");
     p.setProcessEnvironment(env);
@@ -110,6 +118,10 @@ qint64 spawn() {
     if (!p.startDetached(&pid)) fail("cannot start " + paths::binary() + ": " + p.errorString());
     return pid;
 }
+
+// The remake: the image build, its log taking over all but what it says
+// before (a refusal, a failure to start), which goes to outFile().
+qint64 spawnBuild() { return detach({"image", "build", kDeck, "--no-window"}, outFile(), true); }
 
 // The step lines ("==> [HH:MM:SS] deploy 004_mixxx") written to `log` since
 // `offset`, which moves past them; a log emptied by a new build starts again.
@@ -128,8 +140,9 @@ QStringList newSteps(const QString& log, qint64& offset) {
     return steps;
 }
 
-// Until the build of trimixxx0 lets go of its lock: its steps as they start,
-// and a word every five minutes when none does.
+// Until the build of trimixxx0 lets go of its lock, or has run past the time
+// it may and looks stuck: its steps as they start, and a word every five
+// minutes when none does.
 void waitFor() {
     const QString log = imagebuild::logFile(kDeck);
     qint64 offset = 0;
@@ -138,7 +151,7 @@ void waitFor() {
     QElapsedTimer quiet, all;
     quiet.start();
     all.start();
-    while (imagebuild::running(kDeck)) {
+    while (imagebuild::running(kDeck) && !imagebuild::attempt(kDeck).stuck()) {
         proc::sleep(2000);
         for (const QString& s : newSteps(log, offset)) {
             print() << "golden: " << s << "\n";
@@ -157,6 +170,15 @@ QString tail(const QString& file) {
     if (!f.open(QIODevice::ReadOnly)) return {};
     const QStringList all = QString::fromUtf8(f.readAll()).trimmed().split('\n');
     return all.mid(qMax(0, all.size() - 5)).join("\n  ");
+}
+
+// A remake running past the time it may take: not waited for.
+void sayStuck(const imagebuild::Attempt& a, const source::Record& g) {
+    eprint() << "golden: " << golden(g) << ", NOT main's latest: its remake has run " << a.minutes() << " min (image build "
+             << kDeck << ", pid " << a.pid << ", since " << clock(a.started) << "; its log: " << imagebuild::logFile(kDeck)
+             << "), past the " << (a.stuckAfter > 0 ? a.stuckAfter : imagebuild::stuckAfter())
+             << " min it may take: it looks stuck. Decks start from the last golden until the nightman or a person "
+             << "stops it: " << tool("image golden --clear") << "\n";
 }
 
 // A remake that is over without making the golden main's latest: why, and
@@ -209,12 +231,21 @@ Outcome ensure(const Options& o) {
         print() << "golden: no main in " << repo << " to compare it with: " << golden(out.golden) << "\n";
         return out;
     }
-    const source::Record main = commitAt(out.main);
-    qint64 ours = 0; // a remake this started
+    source::Record main = commitAt(out.main);
+    const std::function<qint64()> spawn = o.spawn ? o.spawn : spawnBuild;
+    qint64 ours = 0; // a remake this started, for this main
     int starts = 0;
     bool waited = false; // for a remake someone else started
     QElapsedTimer took;
     for (;;) {
+        // A merge while it waited: the new main is the one to make it for.
+        if (const QString now = mainNow(); !now.isEmpty() && now != out.main) {
+            out.main = now;
+            main = commitAt(now);
+            print() << "golden: main moved on meanwhile, to " << main.describe() << "\n";
+            ours = 0;
+            starts = 0;
+        }
         out.golden = record();
         if (out.golden.known() && source::same(repo, out.golden.commit, out.main)) {
             out.state = State::Current;
@@ -224,8 +255,13 @@ Outcome ensure(const Options& o) {
             return out;
         }
         if (imagebuild::running(kDeck)) {
-            out.state = State::Remaking;
             const imagebuild::Attempt a = imagebuild::attempt(kDeck);
+            if (a.stuck()) {
+                out.state = State::Stuck;
+                sayStuck(a, out.golden);
+                return out;
+            }
+            out.state = State::Remaking;
             if (a.pid != ours)
                 print() << "golden: " << golden(out.golden) << ", being made again"
                         << (a.state == "building" ? QString(" from %1 since %2 (pid %3)").arg(a.source.describe(), clock(a.started)).arg(a.pid)
@@ -271,14 +307,6 @@ Outcome ensure(const Options& o) {
             return out;
         }
         const QString why = source::differs(repo, out.main);
-        if (!o.start) {
-            out.state = State::Stale;
-            print() << "golden: " << golden(out.golden) << "; main is at " << main.describe() << ": to be made again"
-                    << (why.isEmpty() ? " (" + tool("image golden") + ", or the next deck up)"
-                                      : ", once the main checkout holds main's code for the deck: " + why)
-                    << "\n";
-            return out;
-        }
         if (!why.isEmpty()) {
             out.state = State::Waiting;
             eprint() << "golden: " << golden(out.golden) << ", NOT main's latest (" << main.describe() << "): it is made "
@@ -286,7 +314,12 @@ Outcome ensure(const Options& o) {
                      << "doesn't now: " << why << "\n";
             return out;
         }
-        if (const QString self = foreignTool(); !self.isEmpty()) {
+        if (!o.start) {
+            out.state = State::Stale;
+            print() << "golden: " << golden(out.golden) << "; main is at " << main.describe() << ": to be made again\n";
+            return out;
+        }
+        if (const QString self = o.spawn ? QString() : foreignTool(); !self.isEmpty()) {
             out.state = State::Waiting;
             eprint() << "golden: " << golden(out.golden) << ", NOT main's latest (" << main.describe() << "): it is made "
                      << "again by main's pi-qemu, not by this build of it (" << self << "): " << kTool
@@ -306,6 +339,47 @@ Outcome ensure(const Options& o) {
         // Until it holds the deck's lock and has said so in its attempt, or is gone.
         for (int i = 0; i < 120 && alive(ours) && imagebuild::attempt(kDeck).pid != ours; i++) proc::sleep(250);
     }
+}
+
+Outcome keepInBackground(bool retry) {
+    Options check;
+    check.start = check.wait = false;
+    check.retry = retry;
+    const Outcome now = ensure(check);
+    if (now.state != State::Stale && now.state != State::Remaking) return now;
+    if (const QString self = foreignTool(); !self.isEmpty()) {
+        eprint() << "golden: made again by main's pi-qemu, not by this build of it (" << self << "): " << kTool
+                 << " image golden --background (on PATH)\n";
+        return now;
+    }
+    if (lockedNow(keeperLock())) {
+        print() << "golden: a keeper is on it already (its output: " << keeperOut() << ")\n";
+        return now;
+    }
+    QStringList args{"image", "golden", "--keeper"};
+    if (retry) args << "--retry";
+    const qint64 pid = detach(args, keeperOut(), false);
+    print() << "golden: made main's latest in the background, by a keeper that goes on until it is (pid " << pid
+            << "; its output: " << keeperOut() << ")\n";
+    return now;
+}
+
+Outcome keep(bool retry) {
+    const FileLock lock = FileLock::tryTake(keeperLock(), FileLock::Exclusive);
+    if (!lock.held()) {
+        print() << "golden: another keeper is on it\n";
+        return {State::Remaking, {}, record()};
+    }
+    Options o;
+    o.retry = retry;
+    return ensure(o);
+}
+
+void clear() {
+    const imagebuild::Attempt a = imagebuild::attempt(kDeck);
+    imagebuild::stop(kDeck, QString("stopped by %1 image golden --clear after %2 min: it looked stuck").arg(kTool).arg(a.minutes()));
+    print() << "golden: stays " << golden(record()) << ". The main it was made for counts as failed: it is tried again "
+            << "when main moves on, or now: " << tool("image golden --retry") << "\n";
 }
 
 } // namespace golden

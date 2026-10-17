@@ -42,7 +42,8 @@ const Sub kSubs[] = {{"mixxx", {}}, {"mixxx/lib/prolink", "mixxx"}, {"mixxx_conf
 } // namespace
 
 QStringList deckPaths() {
-    return {"pi-qemu/deploy", "pi-qemu/image", "pi_config", "mixxx", "mixxx_config", "trimixxx-launcher", "doom"};
+    return {"pi-qemu/deploy", "pi-qemu/image", "pi-qemu/app/src/pipeline/imagebuild.cpp", "pi_config", "mixxx",
+            "mixxx_config", "trimixxx-launcher", "doom"};
 }
 
 QString Record::describe() const {
