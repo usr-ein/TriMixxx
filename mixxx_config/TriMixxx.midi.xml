@@ -49,20 +49,22 @@
         <midino>0x3C</midino>
         <options><script-binding/></options>
       </control>
-      <!-- Cue: note 0x3D -> cue_default, momentary (press 0x90 + release 0x80) -->
+      <!-- Cue: note 0x3D -> cue_default, momentary (press 0x90 + release 0x80),
+           through the script's TriMixxx.button so the Bluetooth receiver can
+           stop it, as every button below that sets one control is. -->
       <control>
         <group>[Channel1]</group>
-        <key>cue_default</key>
+        <key>TriMixxx.button</key>
         <status>0x90</status>
         <midino>0x3D</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>cue_default</key>
+        <key>TriMixxx.button</key>
         <status>0x80</status>
         <midino>0x3D</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
 
       <!-- ===================== Loop ===================== -->
@@ -74,40 +76,40 @@
            Cue is mapped the same way (0x90 + 0x80). -->
       <control>
         <group>[Channel1]</group>
-        <key>loop_in</key>
+        <key>TriMixxx.button</key>
         <status>0x90</status>
         <midino>0x3E</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>loop_in</key>
+        <key>TriMixxx.button</key>
         <status>0x80</status>
         <midino>0x3E</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>loop_out</key>
+        <key>TriMixxx.button</key>
         <status>0x90</status>
         <midino>0x3F</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>loop_out</key>
+        <key>TriMixxx.button</key>
         <status>0x80</status>
         <midino>0x3F</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <!-- Reloop is a toggle: it acts on the press only, so the release (Note-Off)
            is intentionally left unmapped (mapping it would double-toggle). -->
       <control>
         <group>[Channel1]</group>
-        <key>reloop_toggle</key>
+        <key>TriMixxx.button</key>
         <status>0x90</status>
         <midino>0x40</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
 
       <!-- ===================== Track select (encoder) ===================== -->
@@ -214,32 +216,32 @@
       <!-- A3 8-beat loop / A4 4-beat loop: beatloop toggles (press only) -->
       <control>
         <group>[Channel1]</group>
-        <key>beatloop_8_toggle</key>
+        <key>TriMixxx.button</key>
         <status>0x90</status>
         <midino>0x02</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>beatloop_4_toggle</key>
+        <key>TriMixxx.button</key>
         <status>0x90</status>
         <midino>0x03</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <!-- A5 double / A6 halve the active loop -->
       <control>
         <group>[Channel1]</group>
-        <key>loop_double</key>
+        <key>TriMixxx.button</key>
         <status>0x90</status>
         <midino>0x04</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <control>
         <group>[Channel1]</group>
-        <key>loop_halve</key>
+        <key>TriMixxx.button</key>
         <status>0x90</status>
         <midino>0x05</midino>
-        <options><normal/></options>
+        <options><script-binding/></options>
       </control>
       <!-- A7 back: library view / focus (script).
 
@@ -359,48 +361,10 @@
 
     </controls>
     <outputs>
-      <!-- Play LED: note 0x3C <- play_indicator -->
-      <output>
-        <group>[Channel1]</group>
-        <key>play_indicator</key>
-        <status>0x90</status>
-        <midino>0x3C</midino>
-        <on>0x7F</on>
-        <off>0x00</off>
-        <minimum>0.5</minimum>
-      </output>
-      <!-- Cue LED: note 0x3D <- cue_indicator -->
-      <output>
-        <group>[Channel1]</group>
-        <key>cue_indicator</key>
-        <status>0x90</status>
-        <midino>0x3D</midino>
-        <on>0x7F</on>
-        <off>0x00</off>
-        <minimum>0.5</minimum>
-      </output>
-      <!-- Loop LEDs: notes 0x3E/0x3F <- loop_enabled (both light while a loop is active) -->
-      <output>
-        <group>[Channel1]</group>
-        <key>loop_enabled</key>
-        <status>0x90</status>
-        <midino>0x3E</midino>
-        <on>0x7F</on>
-        <off>0x00</off>
-        <minimum>0.5</minimum>
-      </output>
-      <output>
-        <group>[Channel1]</group>
-        <key>loop_enabled</key>
-        <status>0x90</status>
-        <midino>0x3F</midino>
-        <on>0x7F</on>
-        <off>0x00</off>
-        <minimum>0.5</minimum>
-      </output>
-      <!-- Ring A/B button LEDs are driven as COLOURED SysEx from the script
-           (see ledConnect / paintAll in TriMixxx.scripts.js), not as Note-On
-           outputs, so there are no ring <output> entries here. -->
+      <!-- None. PLAY, CUE and the loop LEDs (notes 0x3C..0x3F, Note-On
+           velocity) are driven from the script (TriMixxx.noteLed), and so are
+           the rings' coloured SysEx (ledConnect / paintAll), so that the
+           Bluetooth receiver's screen off can put every light out. -->
     </outputs>
   </controller>
 </MixxxControllerPreset>

@@ -201,6 +201,7 @@ TriMixxx.hueWheel = function(pos) {
 // One node -> both its LEDs, via the 6-nibble short-form ring-LED SysEx.
 TriMixxx.level = function(v) { return Math.round(v * TriMixxx.RING_DUTY); };
 TriMixxx.ringLed = function(cmd, node, r, g, b) {
+    if (TriMixxx.lightsOff) { return; } // the screen is off: every light with it
     node = TriMixxx.physicalNode(cmd, node);
     r = TriMixxx.level(r); g = TriMixxx.level(g); b = TriMixxx.level(b);
     midi.sendSysexMsg(
@@ -216,6 +217,7 @@ TriMixxx.ringLed = function(cmd, node, r, g, b) {
 // Half-lighting a node is the dimmest a pad on this deck can be, well below
 // what scaling one colour can reach. See KEY_SYNC_DIM.
 TriMixxx.ringLedPair = function(cmd, node, a, b) {
+    if (TriMixxx.lightsOff) { return; }
     node = TriMixxx.physicalNode(cmd, node);
     // Copies: callers pass shared palette constants, which must not dim in place.
     a = a.map(TriMixxx.level); b = b.map(TriMixxx.level);
@@ -328,6 +330,18 @@ TriMixxx.init = function(id, debugging) {
     TriMixxx.watch("[ProLink]", "key_shift", TriMixxx.ledB6);
     TriMixxx.watch("[ProLink]", "key_sync_available", TriMixxx.ledB6);
     TriMixxx.ledConnect("loop_enabled", TriMixxx.ledLoopMods);
+    // PLAY, CUE and the loop pads' own lights, which used to be the XML's
+    // <output>s: here, so that the screen off can put them out as well.
+    TriMixxx.ledConnect("play_indicator", function(v) { TriMixxx.noteLed(0x3C, v); });
+    TriMixxx.ledConnect("cue_indicator", function(v) { TriMixxx.noteLed(0x3D, v); });
+    TriMixxx.ledConnect("loop_enabled", function(v) {
+        TriMixxx.noteLed(0x3E, v);
+        TriMixxx.noteLed(0x3F, v);
+    });
+    // The Bluetooth receiver's screen off takes every light with it. A Mixxx
+    // without the receiver has no [Bluetooth] controls, and the controls'
+    // gate then never asks after them.
+    TriMixxx.hasBluetooth = !!TriMixxx.watch("[Bluetooth]", "screen_off", TriMixxx.onScreenOff);
     TriMixxx.ledConnect("beatloop_8_enabled", function() { TriMixxx.ledBeatloop(8, 2); });
     TriMixxx.ledConnect("beatloop_4_enabled", function() { TriMixxx.ledBeatloop(4, 3); });
     TriMixxx.ledConnect("slip_enabled", TriMixxx.ledSlip);
@@ -346,9 +360,9 @@ TriMixxx.shutdown = function() {
     if (TriMixxx.slipTimer) { engine.stopTimer(TriMixxx.slipTimer); TriMixxx.slipTimer = 0; }
     for (var i = 0; i < TriMixxx.conns.length; i++) { TriMixxx.conns[i].disconnect(); }
     if (TriMixxx.trackLoadedConn) { TriMixxx.trackLoadedConn.disconnect(); }
-    // Clear every ring button LED (SysEx off).
-    for (var a = 0; a < TriMixxx.RING_A_N; a++) { TriMixxx.ringLed(0x01, a, 0, 0, 0); }
-    for (var b = 0; b < TriMixxx.RING_B_N; b++) { TriMixxx.ringLed(0x03, b, 0, 0, 0); }
+    // Clear every light: the rings (SysEx off), and PLAY, CUE and the loops.
+    TriMixxx.lightsOff = false;
+    TriMixxx.allLightsOut();
 };
 
 // ---- Tempo fader: the one thing that writes `rate` from the fader ----------
@@ -514,6 +528,9 @@ TriMixxx.tempoFaderMsb = function(channel, control, value, status, group) {
 };
 
 TriMixxx.tempoFaderLsb = function(channel, control, value, status, group) {
+    // The fader goes on being heard in the Bluetooth receiver, or its owner
+    // would lose track of where it is; moving it still wakes the screen.
+    TriMixxx.btTakes(1, TriMixxx.BT_PASSIVE);
     TriMixxx.faderLsb = value;
     TriMixxx.publishFader();
 };
@@ -523,6 +540,7 @@ TriMixxx.tempoFaderLsb = function(channel, control, value, status, group) {
 
 // A1 Tempo range: step the pitch-fader range through RATE_RANGES (wraps).
 TriMixxx.tempoRange = function(channel, control, value, status, group) {
+    if (TriMixxx.btTakes(value, TriMixxx.BT_DECK)) { return; }
     if (!value) { return; } // press only
     var cur = engine.getValue(TriMixxx.DECK, "rateRange"), idx = 0;
     for (var i = 0; i < TriMixxx.RATE_RANGES.length; i++) {
@@ -541,6 +559,7 @@ TriMixxx.tempoRange = function(channel, control, value, status, group) {
 // semitone shift: KeyControl zeroes pitch_adjust on the toggle and the fork's
 // KEY SYNC puts it straight back (owner decision 8).
 TriMixxx.keylock = function(channel, control, value, status, group) {
+    if (TriMixxx.btTakes(value, TriMixxx.BT_DECK)) { return; }
     if (!value) { return; }
     engine.setValue(TriMixxx.DECK, "keylock", !engine.getValue(TriMixxx.DECK, "keylock"));
 };
@@ -554,6 +573,7 @@ TriMixxx.keylock = function(channel, control, value, status, group) {
 // held pad must not hand one half of a press to each.
 TriMixxx.b6Job = null;
 TriMixxx.sortKey = function(channel, control, value, status, group) {
+    if (TriMixxx.btTakes(value, TriMixxx.BT_DECK)) { return; }
     if (value) {
         TriMixxx.b6Job = engine.getValue("[Master]", "show_library")
             ? TriMixxx.sortButton
@@ -634,6 +654,7 @@ TriMixxx.sortButton = function(value) {
 
 // B5 Slip mode: toggle on press.
 TriMixxx.slip = function(channel, control, value, status, group) {
+    if (TriMixxx.btTakes(value, TriMixxx.BT_DECK)) { return; }
     if (!value) { return; }
     engine.setValue(TriMixxx.DECK, "slip_enabled", !engine.getValue(TriMixxx.DECK, "slip_enabled"));
 };
@@ -655,6 +676,7 @@ TriMixxx.backLastAt = 0;
 // As with SORT, the distinction can only be made on the RELEASE: a long press
 // is knowable only by nothing having happened yet.
 TriMixxx.back = function(channel, control, value, status, group) {
+    if (TriMixxx.btTakes(value, TriMixxx.BT_NAV)) { return; }
     if (value) {
         // The debounce goes on the PRESS, not on the action, because the press
         // is what arms the hold timer -- and it was the second timer, armed by
@@ -854,6 +876,7 @@ TriMixxx.watch = function(group, control, cb) {
     } else {
         print("TriMixxx: no such control, LED not connected: " + group + "," + control);
     }
+    return conn;
 };
 
 TriMixxx.ledConnect = function(control, cb) {
@@ -875,8 +898,95 @@ TriMixxx.paintAll = function() {
     TriMixxx.ledB6();
 };
 
+// ---- the Bluetooth receiver ([Bluetooth]) -----------------------------------
+// While the deck is a Bluetooth receiver ([Bluetooth],active: its menu is open)
+// it plays a phone, and Mixxx has let go of the sound card: the deck's own
+// controls do nothing to it (the [for Sam] call in the receiver's PR). The
+// encoder and BACK still move through the menus, and the tempo fader is still
+// followed. With the screen off ([Bluetooth],screen_off) every light on the S3
+// is out too, and any control wakes both and does nothing else (Sam: "back on
+// whenever a control is touched"). Every control also says it was touched
+// ([Bluetooth],wake), which keeps the screen on three minutes more.
+//
+// A release always goes through: it only ever ends what a press began, and a
+// press taken here began nothing.
+TriMixxx.BT_NAV = 1;      // the encoder and BACK: the menus
+TriMixxx.BT_PASSIVE = 2;  // heard whatever happens: the tempo fader
+TriMixxx.BT_DECK = 3;     // everything that would play or change the deck
+TriMixxx.lightsOff = false;
+TriMixxx.hasBluetooth = false;
+TriMixxx.btTakes = function(value, kind) {
+    if (!value || !TriMixxx.hasBluetooth || !(engine.getValue("[Bluetooth]", "active") > 0)) {
+        return false;
+    }
+    if (engine.getValue("[Bluetooth]", "screen_off") > 0) {
+        engine.setValue("[Bluetooth]", "screen_off", 0);
+        return kind !== TriMixxx.BT_PASSIVE;
+    }
+    engine.setValue("[Bluetooth]", "wake", 1);
+    return kind === TriMixxx.BT_DECK;
+};
+
+// PLAY, CUE and the loop pads light by Note-On velocity, at the note their LED
+// answers to on this deck (`lights`; the XML's <output>s were remapped the same
+// way by units/apply.py).
+TriMixxx.noteLed = function(note, value) {
+    if (TriMixxx.lightsOff) { return; }
+    var physical = TriMixxx.UNIT.lights[note];
+    midi.sendShortMsg(0x90, physical === undefined ? note : physical, value >= 0.5 ? 0x7F : 0x00);
+};
+TriMixxx.NOTE_LEDS = [0x3C, 0x3D, 0x3E, 0x3F];
+
+// Every light out, now.
+TriMixxx.allLightsOut = function() {
+    for (var a = 0; a < TriMixxx.RING_A_N; a++) { TriMixxx.ringLed(0x01, a, 0, 0, 0); }
+    for (var b = 0; b < TriMixxx.RING_B_N; b++) { TriMixxx.ringLed(0x03, b, 0, 0, 0); }
+    for (var n = 0; n < TriMixxx.NOTE_LEDS.length; n++) { TriMixxx.noteLed(TriMixxx.NOTE_LEDS[n], 0); }
+};
+
+// The screen off: the lights go with it, and nothing lights them until it is
+// on again, when they are all painted as they stand.
+TriMixxx.onScreenOff = function(value) {
+    if (value > 0) {
+        TriMixxx.lightsOff = false;
+        TriMixxx.allLightsOut();
+        TriMixxx.lightsOff = true;
+    } else if (TriMixxx.lightsOff) {
+        TriMixxx.lightsOff = false;
+        TriMixxx.paintAll();
+    }
+};
+
+// ---- the deck's own buttons that set one control each -------------------
+// CUE, LOOP IN/OUT, RELOOP and ring A's loop pads, by canonical note: the
+// momentary ones follow the button (1 down, 0 up), the others act on the
+// press. Bound in the XML to this rather than to their controls directly, so
+// that the Bluetooth receiver can stop them.
+TriMixxx.BUTTONS = {
+    0x3D: ["cue_default", true],
+    0x3E: ["loop_in", true],      // released, a loop point stops being dragged
+    0x3F: ["loop_out", true],
+    0x40: ["reloop_toggle", false],
+    0x02: ["beatloop_8_toggle", false],
+    0x03: ["beatloop_4_toggle", false],
+    0x04: ["loop_double", false],
+    0x05: ["loop_halve", false]
+};
+TriMixxx.button = function(channel, control, value, status, group) {
+    var press = (status & 0xF0) === 0x90 && value > 0;
+    if (TriMixxx.btTakes(press ? 1 : 0, TriMixxx.BT_DECK)) { return; }
+    var button = TriMixxx.BUTTONS[TriMixxx.canonicalNote(control)];
+    if (!button) { return; }
+    if (button[1]) {
+        engine.setValue(group, button[0], press ? 1 : 0);
+    } else if (press) {
+        engine.setValue(group, button[0], 1);
+    }
+};
+
 // ---- Play/pause: toggle on press ----
 TriMixxx.play = function(channel, control, value, status, group) {
+    if (TriMixxx.btTakes(value, TriMixxx.BT_DECK)) { return; }
     if (value) {
         engine.setValue(group, "play", !engine.getValue(group, "play"));
     }
@@ -884,6 +994,7 @@ TriMixxx.play = function(channel, control, value, status, group) {
 
 // ---- Track browse encoder: firmware sends 1 = up, 127 = down (one per detent). ----
 TriMixxx.browse = function(channel, control, value, status, group) {
+    if (TriMixxx.btTakes(value, TriMixxx.BT_NAV)) { return; }
     if (TriMixxx.keyPickerOpen()) {
         // The key list, while it is up, the way the library goes: up is up
         // the list, towards +6.
@@ -905,6 +1016,7 @@ TriMixxx.browse = function(channel, control, value, status, group) {
 // because that path never runs this handler.
 TriMixxx.HOTCUE_COLORS = [0xFE0000, 0xFDFE02, 0x0BFF01, 0x011EFE, 0xFE00F6];
 TriMixxx.hotcue = function(channel, control, value, status, group) {
+    if (TriMixxx.btTakes(value, TriMixxx.BT_DECK)) { return; }
     var idx = TriMixxx.canonicalNote(control) - 0x42; // note 0x43 -> hotcue 1
     if (!value) {
         engine.setValue(group, "hotcue_" + idx + "_activate", 0); // end any preview
@@ -924,6 +1036,7 @@ TriMixxx.hotcue = function(channel, control, value, status, group) {
 // [Library],focused_widget to tell a sidebar from a track table; the browser
 // has one focus and one selection, so there is nothing left to disambiguate.
 TriMixxx.encoderPush = function(channel, control, value, status, group) {
+    if (TriMixxx.btTakes(value, TriMixxx.BT_NAV)) { return; }
     if (!value) { return; } // press only
 
     if (TriMixxx.keyPickerOpen()) {
@@ -942,6 +1055,7 @@ TriMixxx.encoderPush = function(channel, control, value, status, group) {
 
 // ---- Jog touch: enable scratch while held, pitch-bend when released ----
 TriMixxx.jogTouch = function(channel, control, value, status, group) {
+    if (TriMixxx.btTakes(value, TriMixxx.BT_DECK)) { return; }
     if (value) {
         // ticks/rev, 33.3 rpm vinyl. Gearing goes through ticks/rev rather than
         // through the tick delta: scratchTick() takes an *int*, so a scaled
@@ -966,6 +1080,7 @@ TriMixxx.jogTouch = function(channel, control, value, status, group) {
 //      The firmware counts the opposite way to Mixxx's scratch/bend sense, so
 //      negate here -- this flips scratch and pitch-bend together. ----
 TriMixxx.jog = function(channel, control, value, status, group) {
+    if (TriMixxx.btTakes(value, TriMixxx.BT_DECK)) { return; }
     var delta = -((value < 64) ? value : value - 128);
     if (TriMixxx.UNIT.jogReversed) {
         delta = -delta; // this deck's encoder is wired the other way round

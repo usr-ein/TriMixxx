@@ -13,7 +13,7 @@ deck's rendering for a release card (`/usr/share/trimixxx/decks`), and restarts
 Mixxx, so a mapping tweak can never disturb the deck's system config.
 
 ## Files
-- `TriMixxx.midi.xml` — the deck mapping (inputs, LED outputs).
+- `TriMixxx.midi.xml` — the deck mapping (inputs; every LED is the script's).
 - `TriMixxx.scripts.js` — scripting for the jog (scratch/bend), the browse
   encoder, play toggle, the ring buttons and their RGB LED indicators, and the
   startup rainbow-wave animation.
@@ -79,9 +79,9 @@ On the deck itself, the config step does all of this:
 | Control | MIDI | Mixxx |
 |---|---|---|
 | Play | note `0x3C` | `play` (toggle); LED ← `play_indicator` |
-| Cue | note `0x3D` | `cue_default` (momentary); LED ← `cue_indicator` |
-| Loop in / out | notes `0x3E` / `0x3F` | `loop_in` / `loop_out`; both LEDs ← `loop_enabled` |
-| Reloop | note `0x40` | `reloop_toggle` (no LED) |
+| Cue | note `0x3D` | `cue_default` (momentary, `TriMixxx.button`); LED ← `cue_indicator` |
+| Loop in / out | notes `0x3E` / `0x3F` | `loop_in` / `loop_out` (`TriMixxx.button`); both LEDs ← `loop_enabled` |
+| Reloop | note `0x40` | `reloop_toggle` (`TriMixxx.button`, no LED) |
 | Track encoder | CC `0x10` + note `0x41` | browse library; push = open / `GoToItem` / `LoadSelectedTrack` (see below) |
 | Jog | CC `0x11` + note `0x42` | scratch when touched, pitch bend otherwise |
 | Tempo | CC `0x12`/`0x32` (14-bit) | `rate` |
@@ -218,6 +218,21 @@ each 8-bit channel split into two data bytes so a 7-bit payload still carries
 0..255. `TriMixxx.ringLed()` is the one place that formats it; `TriMixxx.led()` /
 `dim()` normalise the palette so entries only need correct hue *ratios*.
 
+### Every light is the script's
+PLAY, CUE and the loop LEDs (Note-On velocity on notes `0x3C`…`0x3F`) are lit
+by `TriMixxx.noteLed()` from the same controls the XML's `<output>`s used to
+follow, at the note `lights` maps them to on this deck, and the buttons that
+set one control each (CUE, LOOP IN/OUT, RELOOP, A3–A6) go through
+`TriMixxx.button()` rather than straight to their controls. Both so that the
+Bluetooth receiver can have them: while its menu is open
+(`[Bluetooth],active`) the deck's own controls do nothing (it plays a phone,
+and Mixxx has let go of the sound card), the encoder and BACK still move
+through the menus, and the tempo fader is still followed; with its screen off
+(`[Bluetooth],screen_off`) every light is out, and any control wakes the screen
+and the lights and does nothing else. Every control sets `[Bluetooth],wake`,
+which keeps the screen on for three more minutes (`TriMixxx.btTakes()`;
+`pi_config/bluetooth/README.md` has the receiver).
+
 ### A deck wired in a different order (`units/`)
 Ring pads are numbered by their place in the daisy chain, and PLAY/CUE by the
 GPIO they land on, so a deck wired differently sends the right MIDI for the
@@ -251,7 +266,8 @@ selection and breadcrumb until the fork is rebuilt.
 The config step looks the deck's hostname up, and if there is a file, runs
 `units/apply.py` on the way out: it renumbers the XML's note bindings and
 outputs (nothing else in the file changes), and fills the script's
-`// @unit-wiring` line, which `ringLed()` and the hot-cue handler consult. The
+`// @unit-wiring` line, which `ringLed()`, `noteLed()` and the handlers that
+read meaning off the note consult. The
 files here stay canonical; a deck with no unit file gets them untouched.
 `pi-qemu deck press` (and `down`, `up`) reads the same file, so its named
 controls still press the control they name.
