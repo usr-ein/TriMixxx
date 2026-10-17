@@ -181,6 +181,14 @@ bool qemuCurrent(const QString& qemu) {
     return QString::fromLatin1(stamp.readAll()).trimmed() == sha256(paths::piq() + "/qemu/trimixxx-patches.py");
 }
 
+bool qemuHasUart3(const QString& qemu) {
+    const QString built = QFileInfo(qemu).symLinkTarget();
+    if (built.isEmpty()) return false;
+    // Patch 22 gives the peripherals the OR gate UART0 and UART2-5 share.
+    QFile peripherals(QFileInfo(built).absolutePath() + "/../hw/arm/bcm2838_peripherals.c");
+    return peripherals.open(QIODevice::ReadOnly) && peripherals.readAll().contains("uart_irq_orgate");
+}
+
 QString lockFile(const QString& deck) { return cacheDir() + "/build/" + deck + ".lock"; }
 QString attemptFile(const QString& deck) { return cacheDir() + "/build/" + deck + ".build.json"; }
 QString logFile(const QString& deck) { return cacheDir() + "/build/" + deck + ".log"; }

@@ -1,7 +1,11 @@
-// board/firmware: which UART the S3 is on, from a board's device tree.
+// board/firmware: which UART the S3 is on, from a board's device tree; and
+// whether a QEMU can give it UART3 (pipeline/imagebuild's qemuHasUart3).
 
 #include "board/firmware.h"
+#include "pipeline/imagebuild.h"
 
+#include <QDir>
+#include <QFile>
 #include <QProcess>
 #include <QTemporaryDir>
 #include <QTest>
@@ -30,6 +34,25 @@ QString tree(const QTemporaryDir& dir, const QString& serial0, const QString& ua
     return dtb;
 }
 
+// A QEMU build as build.sh leaves one: the binary a symlink into the patched
+// tree's build/, the tree's hw/arm/bcm2838_peripherals.c beside it.
+QString fakeQemu(const QTemporaryDir& dir, const QString& name, const QByteArray& peripherals) {
+    const QString tree = dir.filePath(name);
+    QDir().mkpath(tree + "/build");
+    QDir().mkpath(tree + "/hw/arm");
+    QFile binary(tree + "/build/qemu-system-aarch64");
+    if (!binary.open(QIODevice::WriteOnly)) return {};
+    binary.close();
+    QFile source(tree + "/hw/arm/bcm2838_peripherals.c");
+    if (!source.open(QIODevice::WriteOnly)) return {};
+    source.write(peripherals);
+    source.close();
+    QDir().mkpath(tree + "/bin");
+    const QString link = tree + "/bin/qemu-system-aarch64";
+    QFile::link("../build/qemu-system-aarch64", link);
+    return link;
+}
+
 } // namespace
 
 class TestFirmware : public QObject {
@@ -48,6 +71,16 @@ private slots:
         // dtoverlay=uart3: GPIO 4/5, whatever serial0 is.
         QCOMPARE(s3UartOf(tree(dir, "/soc/serial@7e215040", "okay")), BootPlan::S3Uart::Uart3);
         QCOMPARE(s3UartOf(tree(dir, "/soc/serial@7e201000", "okay")), BootPlan::S3Uart::Uart3);
+    }
+    // Patch 22 in the build, whatever else its patches hold: a later patch, or
+    // a worktree on another patches file, still has UART3.
+    void uart3IsPatch22ItselfNotThisCheckoutsPatches() {
+        QTemporaryDir dir;
+        QVERIFY(imagebuild::qemuHasUart3(fakeQemu(dir, "with22",
+                "    object_initialize_child(obj, \"uart_irq_orgate\", &s->uart_irq_orgate,\n")));
+        QVERIFY(!imagebuild::qemuHasUart3(fakeQemu(dir, "before22", "    /* UART0 */\n")));
+        // Not a build pi-qemu can read: no UART3 rather than a guess.
+        QVERIFY(!imagebuild::qemuHasUart3(dir.filePath("nowhere/qemu-system-aarch64")));
     }
 };
 

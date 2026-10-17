@@ -27,7 +27,7 @@ extern std::atomic<pid_t> g_qemuPid;
 
 struct MachineOptions {
     QString card, runDir, qemu, dtmerge;
-    bool    qemuCurrent = true; // qemu built from this checkout's patches (UART3 needs 22)
+    bool    qemuHasUart3 = true; // qemu has the BCM2711's UART2-5 (patch 22)
     QString accel = "hvf";      // tcg: a real Cortex-A72 model, slow
     QString display = "window"; // window | vnc | none
     QString audio = "none";     // none | speakers | wav:FILE -- none is silent

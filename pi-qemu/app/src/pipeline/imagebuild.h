@@ -42,6 +42,10 @@ QString card(const QString& deck);      // .cache/build/DECK.img
 // (qemu/trimixxx-patches.py): its source tree keeps their hash in .patched,
 // beside the build the binary links to.
 bool qemuCurrent(const QString& qemu);
+// Whether a qemu-system-aarch64 has the BCM2711's UART2-5 (patch 22), which a
+// card with the S3 on UART3 needs: asked of the patched source beside the
+// build, so that a QEMU built from other patches that include it will do.
+bool qemuHasUart3(const QString& qemu);
 QStringList plan(const QString& deck);  // the steps, for the build window
 // The card's path. The caller holds the deck's Lock, from before its log is emptied.
 QString build(const QString& deck, const Options& o);

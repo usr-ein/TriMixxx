@@ -65,7 +65,7 @@ int run(cli::Args& a) {
     const QString tools = a.value("tools", paths::tools());
     o.qemu = tools + "/qemu-system-aarch64";
     o.dtmerge = tools + "/dtmerge";
-    o.qemuCurrent = imagebuild::qemuCurrent(o.qemu);
+    o.qemuHasUart3 = imagebuild::qemuHasUart3(o.qemu);
     o.display = a.value("display", "window");
     o.audio = a.value("audio", "none");
     o.mac = a.value("mac", o.mac);

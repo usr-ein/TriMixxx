@@ -105,7 +105,7 @@ bool Machine::powerOn(QString* error) {
       << "-serial" << (p.s3Uart == S3Uart::Mini ? "chardev:s3" : other);
     if (p.s3Uart == S3Uart::Uart3) {
         // A QEMU from before patch 22 has no UART3: the S3 would reach nothing.
-        if (!m_o.qemuCurrent) {
+        if (!m_o.qemuHasUart3) {
             *error = "this card puts the S3 on UART3, which this QEMU lacks: pi-qemu/build.sh qemu";
             return false;
         }
