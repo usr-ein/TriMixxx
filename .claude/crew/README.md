@@ -69,7 +69,8 @@ Sam's pitch ─▶ minion: worktree + deck, plan, Sam's calls, build, test, drif
                  ▼  review:approved
                crew merge: fast-forward main, prolink → mixxx → ttymidi → CDJ emulator → TriMixxx, push each
                  (only the approved commit, or the same change rebased; never a [for Sam] decision);
-                 a merge that changes pi-qemu rebuilds the main checkout's, the one on PATH
+                 a merge that changes pi-qemu rebuilds the main checkout's, the one on PATH;
+                 then the golden's remake starts, when the merge reaches a deck (pi-qemu image golden)
                crew clean: sessions, decks, CDJs, worktree, branches gone (the PR's screenshot links first
                  pointed at the merged commit); notes kept in .crew/archive/
 ```
@@ -157,6 +158,9 @@ dispatch and every 20 minutes, and minions check before starting a deck
   two cores from boot on, idle or not
 - CPU: dispatch while the 5-minute load is under 0.75 × cores; shed above
   1.5 × (15-minute)
+- image builds: while one runs (the golden's remake, or `pi-qemu image
+  build`), no new build starts (`--for build` holds); its build machine,
+  `build-DECK`, counts among the decks
 - memory pressure
 - free disk: 40 GB to dispatch; shed below 20
 - free disk in Docker's VM, where Mixxx builds and their cache live: 8 GB to
@@ -250,6 +254,13 @@ It moves a detached submodule in the main checkout only from where main
 pointed before. A merge that changes pi-qemu rebuilds the main checkout's,
 the `pi-qemu` on PATH (`pi-qemu/build.sh app`). It only reports a change to
 QEMU's patches: `build.sh qemu` waits until no deck runs.
+
+Emulated decks start from the golden, which is main's latest: after a merge,
+`crew merge` runs `pi-qemu image golden --background`, which starts the
+golden's remake (an image build of trimixxx0 in the main checkout, a few
+minutes) when the merge changed what goes onto a deck, and returns. Not while
+`crew resources` says shed: the next `deck up` makes it then, and waits for
+it. Nothing about it can fail the merge.
 
 A minion's branch starts from origin/main, and is measured against it: by
 its drift checks, by its bitch, and by `crew merge`. The local main can lag

@@ -47,6 +47,7 @@ if __name__ == "__main__":
 
 import argparse
 import datetime as dt
+import fcntl
 import json
 import re
 import shlex
@@ -382,6 +383,34 @@ def cdjs() -> list[tuple[str, str]]:
     return found
 
 
+def image_builds() -> list[dict]:
+    """The image builds running now: `pi-qemu image build`, or the golden's remake that `pi-qemu image golden`, `deck
+    up` or crew merge started (an image build of trimixxx0 in the main checkout: minutes of a build VM and Docker
+    builds). A build holds .cache/build/DECK.lock while it runs, and says what it builds in DECK.build.json."""
+    found = []
+    for lock in sorted((MAIN / ".cache" / "build").glob("*.lock")):
+        try:
+            fd = os.open(lock, os.O_RDONLY)
+        except OSError:
+            continue
+        try:
+            fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            continue  # free: nothing builds that deck
+        except OSError:
+            pass  # held: a build runs
+        finally:
+            os.close(fd)
+        deck = lock.name[:-len(".lock")]
+        try:
+            a = json.loads(lock.with_name(f"{deck}.build.json").read_text())
+        except (OSError, ValueError):
+            a = {}
+        src = a.get("source") if isinstance(a.get("source"), dict) else {}
+        found.append({"deck": deck, "pid": a.get("pid"), "started": a.get("started"),
+                      "commit": str(src.get("commit") or "")[:7]})
+    return found
+
+
 def docker_vm_up() -> bool:
     """Whether Docker Desktop's Linux VM runs now. Its hypervisor, com.docker.sailor (Docker VMM, Docker Desktop 4.86+),
     is a process only while it does: Resource Saver stops it once Docker has been idle for its timeout. By its path,
@@ -456,6 +485,7 @@ def snapshot() -> dict:
     return {
         "ncpu": ncpu, "load": load, "pressure": pressure, "mem_free_pct": mem_free, "swap_gb": swap_gb,
         "disk_gb": disk_gb, "docker_gb": docker_gb, "docker_at": docker_at, "decks": decks(), "cdjs": cdjs(),
+        "image_builds": image_builds(),
         "minions": [session_name(r) for r in regs if r["role"] == "minion"],
         "bitches": [session_name(r) for r in regs if r["role"] == "bitch"],
         "sessions": [{k: s.get(k) for k in ("name", "kind", "status", "cwd")} for s in sessions],
@@ -482,6 +512,8 @@ def verdict(snap: dict, lim: dict, purpose: str) -> tuple[str, list[str]]:
         hold.append(f"{docker:.1f} GB free in Docker's VM < {lim.get('DOCKER_MIN_GB', 8):.0f}: no new builds")
     if l15 > lim["LOAD_SHED"] * n:
         shed.append(f"15-min load {l15:.1f} > {lim['LOAD_SHED'] * n:.0f}")
+    if purpose == "build" and snap.get("image_builds"):
+        hold.append(f"{image_builds_text(snap['image_builds'])} runs: no new build on top of it")
     if l5 > lim["LOAD_MAX"] * n:
         hold.append(f"5-min load {l5:.1f} > {lim['LOAD_MAX'] * n:.0f}")
     if purpose == "minion":
@@ -499,6 +531,20 @@ def verdict(snap: dict, lim: dict, purpose: str) -> tuple[str, list[str]]:
     return ("shed", shed + hold) if shed else ("hold", hold) if hold else ("ok", [])
 
 
+def image_builds_text(builds: list[dict]) -> str:
+    """'the golden's remake (image build trimixxx0, from 5f0b01a, since 13:40)', and any other image build."""
+    def one(b):
+        since = ""
+        try:
+            since = dt.datetime.fromisoformat(str(b.get("started")).replace("Z", "+00:00")).astimezone().strftime(
+                ", since %H:%M")
+        except ValueError:
+            pass
+        what = f"image build {b['deck']}" + (f", from {b['commit']}" if b.get("commit") else "") + since
+        return f"the golden's remake ({what})" if b["deck"] == "trimixxx0" else what
+    return " and ".join(one(b) for b in builds)
+
+
 def describe(snap: dict, lim: dict) -> str:
     running = [d for d, s in snap["decks"] if s == "running"]
     running_cdjs = [c for c, s in snap["cdjs"] if s == "running"]
@@ -511,7 +557,8 @@ def describe(snap: dict, lim: dict) -> str:
                   f" (read {age / 60:.0f} min ago);" if age >= 600 else ";")) +
             f" decks running {len(running)}/{lim['MAX_DECKS']:.0f} ({', '.join(running) or 'none'});"
             f" CDJs running {len(running_cdjs)}/{lim['MAX_CDJS']:.0f} ({', '.join(running_cdjs) or 'none'});"
-            f" minions {len(snap['minions'])}/{lim['MAX_MINIONS']:.0f}")
+            f" minions {len(snap['minions'])}/{lim['MAX_MINIONS']:.0f}" +
+            (f"; building: {image_builds_text(snap['image_builds'])}" if snap.get("image_builds") else ""))
 
 
 def cmd_resources(a) -> int:
@@ -1097,6 +1144,7 @@ def cmd_merge(a) -> int:
             print(f"note: {child} in the main checkout is at {now[:7]}, not at {want[:7]} as main records; left as it is")
 
     rebuild_pi_qemu(was_main, tips.get("."))
+    remake_golden()
 
     for path, repo, d, t, what in plan:
         p = prs.get(path)
@@ -1137,6 +1185,25 @@ def rebuild_pi_qemu(was: str | None, now: str | None):
     else:
         print("note: pi-qemu's rebuild failed, so the one on PATH runs older code: `pi-qemu/build.sh app` in the main "
               f"checkout\n{(r.stderr or r.stdout).strip()[-800:]}")
+
+
+def remake_golden():
+    """Emulated decks start from the golden, which is main's latest (Sam, 2026-10-16): after a merge, `pi-qemu image
+    golden --background` starts its remake when main's change reaches a deck (an image build of trimixxx0 in the
+    main checkout, a few minutes), and returns. Not while the Mac sheds load (the nightman, 2026-10-17): the next `deck
+    up` makes it then, waiting for it. Nothing here can fail the merge."""
+    try:
+        v, why = verdict(snapshot(), limits(), "build")
+        if v == "shed":
+            print("note: the golden is not made again now, the Mac sheds load (" + "; ".join(why) + "): the next "
+                  "`pi-qemu deck up` does it, or `pi-qemu image golden`")
+            return
+        r = run(["pi-qemu", "image", "golden", "--background"], cwd=MAIN, check=False, timeout=180)
+        text = (r.stdout + r.stderr).strip()
+    except Fail as e:
+        text = f"note: `pi-qemu image golden --background` failed: {e}"
+    if text:
+        print(text)
 
 
 def pin_links(b: str) -> set[str]:

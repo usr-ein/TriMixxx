@@ -6,6 +6,7 @@ on throwaway repositories (a parent with a submodule, as TriMixxx and the Mixxx 
 
 import argparse
 import contextlib
+import fcntl
 import importlib.machinery
 import importlib.util
 import io
@@ -50,7 +51,8 @@ class Sandbox(unittest.TestCase):
         os.environ.update(GIT_CONFIG_GLOBAL=str(cfg), GIT_CONFIG_NOSYSTEM="1")
         self.saved = {k: getattr(crew, k) for k in ("MAIN", "CREW", "find_prs", "gh_json", "limits", "approved_commit",
                                                     "run", "live_session", "claude_sessions", "resolve_host", "locks",
-                                                    "gh", "snapshot", "gh_env", "decks", "cdjs", "docker_disk")}
+                                                    "gh", "snapshot", "gh_env", "decks", "cdjs", "docker_disk",
+                                                    "image_builds")}
         crew.CREW = self.tmp / "crewstate"
         crew.resolve_host = lambda name: name.lower()  # not this Mac's ~/.ssh/config
 
@@ -350,6 +352,21 @@ class VerdictTest(unittest.TestCase):
         text = crew.describe(snapshot(cdjs=[("a-a", "running"), ("b-a", "stopped")]), self.LIM)
         self.assertIn("decks running 0/3 (none); CDJs running 1/4 (a-a); minions 0/2", text)
 
+    def test_an_image_build_holds_new_builds(self):
+        """The golden's remake runs 10-30 min (the nightman, 2026-10-17: no minion's build on top of it). Its build
+        machine, build-trimixxx0, counts among the decks already."""
+        remake = [{"deck": "trimixxx0", "pid": 4242, "started": "2026-10-17T11:40:00Z", "commit": "5f0b01a"}]
+        self.assertEqual([self.verdict(p, image_builds=remake) for p in self.PURPOSES], ["ok", "hold", "ok", "ok"])
+        why = crew.verdict(snapshot(image_builds=remake), self.LIM, "build")[1]
+        self.assertEqual(len(why), 1)
+        self.assertRegex(why[0], r"^the golden's remake \(image build trimixxx0, from 5f0b01a, since \d\d:\d\d\) runs: "
+                                 r"no new build on top of it$")
+        self.assertIn("; building: the golden's remake (image build trimixxx0, from 5f0b01a, since ",
+                      crew.describe(snapshot(image_builds=remake), self.LIM))
+        other = [{"deck": "scratch", "pid": 1, "started": None, "commit": ""}]
+        self.assertIn("building: image build scratch", crew.describe(snapshot(image_builds=other), self.LIM))
+        self.assertNotIn("building", crew.describe(snapshot(), self.LIM))
+
 
 class ResourcesTest(Sandbox):
     def test_an_ended_session_is_no_minion(self):
@@ -364,6 +381,31 @@ class ResourcesTest(Sandbox):
         crew.decks = crew.cdjs = lambda: []
         crew.docker_disk = lambda: (20.0, time.time())
         self.assertEqual(sorted(crew.snapshot()["minions"]), ["feat", "other"])
+
+
+class ImageBuildsTest(Sandbox):
+    """A build holds .cache/build/DECK.lock (pi-qemu's imagebuild::Lock, an flock) while it runs, and says what it
+    builds in DECK.build.json: what crew resources shows, and holds builds for."""
+
+    def test_a_build_is_its_held_lock(self):
+        crew.MAIN = self.tmp / "main"
+        build = crew.MAIN / ".cache" / "build"
+        build.mkdir(parents=True)
+        self.assertEqual(crew.image_builds(), [])
+        (build / "trimixxx0.build.json").write_text(json.dumps({
+            "state": "building", "pid": 4242, "started": "2026-10-17T11:40:00Z",
+            "source": {"commit": "5f0b01a2c0ffee", "clean": True}}))
+        lock = build / "trimixxx0.lock"
+        lock.write_text("")
+        self.assertEqual(crew.image_builds(), [])  # its lock free: a build that died, or one over
+        fd = os.open(lock, os.O_RDWR)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            self.assertEqual(crew.image_builds(), [{"deck": "trimixxx0", "pid": 4242, "started": "2026-10-17T11:40:00Z",
+                                                    "commit": "5f0b01a"}])
+        finally:
+            os.close(fd)
+        self.assertEqual(crew.image_builds(), [])
 
 
 class CdjListTest(Sandbox):
@@ -1459,6 +1501,17 @@ class MergeTest(Sandbox):
                                          "labels": self.labels, "body": self.body, "headRefOid": "x", "url": "u"}}
         crew.approved_commit = lambda pr: self.approved
         crew.gh_json = lambda args, repo=None: {"state": "MERGED"}
+        # pi-qemu is never really run here (the golden's remake would be): its calls are kept, and answered.
+        self.mac = snapshot()
+        crew.snapshot = lambda: self.mac
+        self.piqemu, real = [], crew.run
+
+        def run(cmd, cwd=None, check=True, **kw):
+            if cmd[0] == "pi-qemu":
+                self.piqemu.append([str(x) for x in cmd[1:]])
+                return subprocess.CompletedProcess(cmd, 0, "golden: making it again from the main checkout\n", "")
+            return real(cmd, cwd=cwd, check=check, **kw)
+        crew.run = run
 
     def feature(self, mixxx=True, bump=True, change="skin.xml") -> dict:
         """A minion's branch feat: a commit in mixxx, and in the parent a change plus the bump."""
@@ -1599,7 +1652,7 @@ class MergeTest(Sandbox):
         self.assert_refused(4, "unpushed")
 
     def builds(self) -> list:
-        built, real = [], self.saved["run"]
+        built, real = [], crew.run
 
         def run(cmd, cwd=None, check=True, **kw):
             if str(cmd[0]).endswith("pi-qemu/build.sh"):
@@ -1625,6 +1678,37 @@ class MergeTest(Sandbox):
             self.assertEqual(self.merge(), 0)
         self.assertEqual(built, [])
         self.assertIn("`pi-qemu/build.sh qemu`", out.getvalue())  # QEMU itself: once no deck runs, by hand
+
+    def test_starts_the_golden_after_a_merge(self):
+        """Emulated decks run main's latest (Sam, 2026-10-16): pi-qemu decides whether the merge reaches a deck, and
+        starts the golden's remake in the background if so."""
+        self.feature()
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(self.merge(), 0)
+        self.assertEqual(self.piqemu, [["image", "golden", "--background"]])
+        self.assertIn("golden: making it again", out.getvalue())
+
+    def test_no_golden_while_the_mac_sheds_load(self):
+        self.feature()
+        self.mac = snapshot(load=[19, 19, 19])
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(self.merge(), 0)
+        self.assertEqual(self.piqemu, [])
+        self.assertIn("the golden is not made again now, the Mac sheds load (15-min load 19.0 > 18", out.getvalue())
+
+    def test_a_golden_that_fails_to_start_never_fails_the_merge(self):
+        tips = self.feature()
+        real = crew.run
+
+        def run(cmd, cwd=None, check=True, **kw):
+            if cmd[0] == "pi-qemu":
+                crew.die("timed out after 180 s: pi-qemu image golden --background")
+            return real(cmd, cwd=cwd, check=check, **kw)
+        crew.run = run
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(self.merge(), 0)
+        self.assertEqual(git(self.tmp / "origin" / "parent.git", "rev-parse", "main"), tips["."])
+        self.assertIn("note: `pi-qemu image golden --background` failed: timed out", out.getvalue())
 
     def emulator(self) -> Path:
         """A second submodule, cdj2000-emulator, as TriMixxx has since 2026-10-10."""

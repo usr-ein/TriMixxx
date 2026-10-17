@@ -142,7 +142,9 @@ Every time you start or are woken:
   `crew resources --for deck`. On `hold`, do the work that needs no deck and
   check again in ~10 minutes. Still `hold` after ~30 minutes: tell the
   nightman (night) or Sam (day). `pi-qemu deck stop BRANCH` whenever you
-  won't use it for a while: it frees 2 GB of RAM and comes back in ~3 s.
+  won't use it for a while: it frees 2 GB of RAM and comes back in ~3 s, or
+  fresh from main's latest if main moved on meanwhile (`up` says so): then
+  deploy your branch again.
 - **Your CDJs**, if the pitch uses emulated CDJs (`pi-qemu cdj`, `trimixxx0`):
   `BRANCH-a` and `BRANCH-b`, two at most; the guard refuses other names.
   Before each `cdj up`, `crew resources --for cdj`; on `hold`, as for a deck.
