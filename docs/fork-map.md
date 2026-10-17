@@ -105,6 +105,10 @@ Beside them, upstream's `rekordboxconstants.h`, which the analysis reads.
 | `inputcapture.{h,cpp}` | `InputCapture`: the DAC's line input into an MP3, on a thread of its own: ALSA's capture of `hw:CARD=CODEC` opened only while it records, beside the output the engine holds; each block's L and R peaks; LAME at 320 kbit/s CBR straight into the file. |
 | `deckrecorder.{h,cpp}` | `DeckRecorder`: "Record set". One recording at a time in `/var/lib/rauc/trimixxx-recording` (p8 on a release card, emptied every boot), its state in `recording.json`; the room on the card, the three hours and the silence prompt (`[TriMixxx],record_silence`, the skin's overlay) watched; the deck's own sticks from the kernel's mount table; the set and its track list (from `DeckHistory`) written by `sudo -n dj-usb write`. |
 | `camelot.h` | Camelot order and compatibility. |
+| `bluetoothreceiver.{h,cpp}` | `BluetoothReceiver`: the deck as a Bluetooth audio receiver while the browser's "Bluetooth receiver" page is open. Pauses the deck and holds it paused, lets go of the sound card (`SoundManager::releaseDevices()`), brings the radio up through `sudo -n trimixxx-bluetooth up` (pi_config/bluetooth), and the reverse on closing, the card taken back with retries and a toast. What plays from BlueZ over D-Bus (MediaPlayer1, MediaTransport1, Device1; the cover through obexd's BIP); visible on Pair; known phones asked to reconnect. Its `[Bluetooth]` controls (`active`, `screen_off`, `wake`) are made with it, before any mapping or skin; it takes down a radio a crash left up before the sound card opens. |
+| `bluetoothagent.{h,cpp}` | `BluetoothAgent`: org.bluez.Agent1 on the system bus, DisplayYesNo: the pairing code waits for Confirm / Cancel on the deck. |
+| `bluetoothstate.{h,cpp}` | The receiver's rules: its status from the facts, the times and the code as they read, a playing track's position between BlueZ's reports, the three-minute screen off. Pure. |
+| `screenpower.{h,cpp}` | The panel's light off and back for the receiver's screen off: the backlight's `brightness` (video group) or DPMS through `xset`, what it was kept in `$XDG_RUNTIME_DIR` so a crash never leaves it dark. |
 
 ### `src/widget/deck/`: the deck's widgets
 
@@ -116,6 +120,8 @@ Beside them, upstream's `rekordboxconstants.h`, which the analysis reads.
 | `wdeckkeypicker` | `<DeckKeyPicker>`: the key list over the deck (B6 held), built like the sort menu; `[KeyPicker]` drives it, and a pick writes `[ProLink] key_shift`. |
 | `wdeckdiagnostics`, `decklevels`, `deckrelease` | Diagnostics, with the output level and backlight it adjusts and the release and A/B slots it reports. |
 | `wdecktoast` | `<DeckToast>`: the notification stack over everything. |
+| `wdeckbluetooth` | The Bluetooth receiver's page in the browser's stack: shown is on, hidden is off. What plays (cover or the rune, title, artist, album, position), Pair / Screen off, the pairing code with Confirm / Cancel; the screen off (a black cover over the window, the panel's light, `[Bluetooth],screen_off` for the S3's), at once or after three minutes, woken by a touch or a control. |
+| `deckrune.h` | The Bluetooth rune, drawn: the home list's mark and the page's cover when the phone sends none. |
 | `wdeckautoplaybadge` | `<DeckAutoplay>`: autoplay's badge over the waveform. |
 | `menubarreveal.{h,cpp}` | `MenuBarReveal`: the main window's menu bar, hidden, and shown only while a real mouse hovers the top edge. |
 | `deckaccent.h`, `deckbezel.h` | The accent colour and the bezel, as the TriMixxx skin declares them, for widgets that paint themselves. |
@@ -154,7 +160,11 @@ CoreServices                                    (upstream; owns one fork member)
      ├─ DeckLoader                                 │
      ├─ DeckAutoplay           ────────────────────┘
      ├─ DeckHistory            the History; its store on a thread of its own
-     └─ DeckRecorder           "Record set"; InputCapture on a thread of its own
+     ├─ DeckRecorder           "Record set"; InputCapture on a thread of its own
+     │
+     │   made with DeckServices, gone with it (shutdown() first in stop()):
+     └─ BluetoothReceiver      the [Bluetooth] controls; the radio and the
+                               sound card while its page is open
 
 the skin (rebuilt on a skin reload; the services above are not)
  ├─ WDeckToast, WDeckAutoplayBadge     handed the services by parseDeckNode()
@@ -217,6 +227,9 @@ Everything above runs on the GUI thread except:
 - **the History's store** (`HistoryStore`), on `DeckHistory`'s own thread: a
   commit waits for the card. Opening it at start and closing it at the end are
   waited for; every write in between is queued;
+- **the Bluetooth receiver's radio**: another process, `sudo -n
+  trimixxx-bluetooth up|down`, watched from the GUI thread, as is BlueZ over
+  D-Bus;
 - **"Record set"'s capture** (`InputCapture`), on `DeckRecorder`'s own thread:
   a read waits for the sound card's input, and each block is encoded there;
   levels and the end come back queued. Writing a set to a stick is another
@@ -235,7 +248,8 @@ newer Mixxx means replaying these.
 |---|---|
 | `CMakeLists.txt`, `cmake/modules/ProlinkRust.cmake` | The fork's sources; `lib/prolink` linked statically; ALSA on Linux, for "Record set"'s capture. |
 | `library/rekordbox/rekordboxfeature.{h,cpp}`, `lib/kaitai/`, `lib/rekordbox-metadata/` | Deleted: the deck reads sticks itself, through `lib/prolink`, and the Kaitai parsers went with the feature. `.pre-commit-config.yaml` loses their exclusion. |
-| `coreservices.{h,cpp}` | Makes and drops `DeckServices`. Never writes `mixxx.cfg`. `--log-path`. |
+| `coreservices.{h,cpp}` | Makes and drops `DeckServices`, and hands it the `SoundManager` (the Bluetooth receiver lets go of the card). Never writes `mixxx.cfg`. `--log-path`. |
+| `soundio/soundmanager.{h,cpp}` | `releaseDevices()`: every device closed, the configuration untouched, until `setupDevices()` (the Bluetooth receiver; `setConfig()` would write `soundconfig.xml`). |
 | `util/cmdlineargs.{h,cpp}`, `dialog/dlgdevelopertools.cpp`, `dialog/dlgdevelopertoolsdlg.ui` | `--log-path`, and the log found there; a "ProLink only" filter. |
 | `main.cpp` | Installs `PosixSignalHandler`. |
 | `mixxxmainwindow.cpp` | Hands the menu bar to `MenuBarReveal`. |
