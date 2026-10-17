@@ -147,6 +147,10 @@ pi-qemu deck where NAME                   # the pointer's position
   It hears silence again after `deck stop` and `up`: give it the file again.
   "A stick the deck writes to" and "The line input" in `pi-qemu/README.md`
   have the rest.
+- **The Bluetooth receiver** (the home list's row): QEMU has no radio, so
+  its page says so. `pi_config/bluetooth/bluez-standin.py` plays BlueZ in
+  bluetoothd's place, with a phone that pairs, connects and plays, driven
+  with busctl: `pi_config/bluetooth/README.md`, "On an emulated deck".
 - **A slow stick:** `stick NAME speed ID 4M` (or `4M/300` for reads a
   second too, `full` to lift it), before or while it is in. Sticks range
   from ~3 MB/s to over 100, so try what you change at a few speeds.
