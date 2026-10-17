@@ -14,15 +14,19 @@ then, from any shell on the deck:
     s Pair s "Pixel 9"              # a phone asks to pair (Pair pressed first)
     s Connect s "Pixel 9"           # a paired phone connects
     s Play sssuu "Title" "Artist" "Album" 245000 61000   # ms: duration, position
-    s Cover s /tmp/cover.jpg        # what the cover fetch would have landed
+    s Cover s /tmp/cover.png        # the phone offers this picture as the cover
     s Pause
     s Disconnect
 
 It answers the deck's own calls as BlueZ would: the agent's registration, a
 phone's Connect (refused: no radio), Discoverable/Pairable/Trusted set, the
-Pair window closing after DiscoverableTimeout.
+Pair window closing after DiscoverableTimeout. The covers themselves come
+through obexd, which obexd-standin.py stands in for: `Cover` stages the
+picture for it, under the handle the track then carries.
 """
 
+import os
+import shutil
 import sys
 
 from gi.repository import Gio, GLib
@@ -30,6 +34,8 @@ from gi.repository import Gio, GLib
 ADAPTER = "/org/bluez/hci0"
 DISCOVERABLE_TIMEOUT_S = 120
 PASSKEY = 123456
+COVER_PSM = 4103                # where a phone's cover server listens: any but 0
+STAGED = "/tmp/standin-covers"  # obexd-standin.py serves these, by handle
 
 INTROSPECTION = """
 <node>
@@ -96,6 +102,8 @@ objects = {}       # path -> {interface: {property: GLib.Variant}}
 registrations = {}  # path -> [registration ids]
 agent = None       # (bus name, object path) of the deck's agent
 phone = None       # the phone's device path, once paired
+track = {}         # the playing track, as its player's Track
+covers = 0         # covers offered so far; from the first, the player has ObexPort
 discoverable_timer = 0
 
 
@@ -134,6 +142,15 @@ def remove(path):
                     GLib.Variant("(oas)", (path, names)))
 
 
+def player_props(device, position=0, status="stopped"):
+    """A phone's player as BlueZ makes it: ObexPort only when the phone offers
+    covers, which BlueZ reads once, as the player appears (so does mpris-proxy)."""
+    props = {"Track": track, "Position": position, "Status": status, "Device": device}
+    if covers:
+        props["ObexPort"] = COVER_PSM
+    return props
+
+
 def device_path(name):
     return ADAPTER + "/dev_" + "".join(c if c.isalnum() else "_" for c in name).upper()[:17]
 
@@ -165,7 +182,7 @@ def fail(invocation, what):
 
 
 def on_method(conn, sender, path, interface, method, params, invocation):
-    global agent, phone
+    global agent, phone, track, covers
     args = params.unpack()
     print(f"call {interface}.{method}{args} from {sender}", flush=True)
     if interface == "org.freedesktop.DBus.ObjectManager":
@@ -188,8 +205,8 @@ def on_method(conn, sender, path, interface, method, params, invocation):
         remove(path + "/player0")  # connected already: anew
         remove(path + "/sep1/fd0")
         changed(path, "org.bluez.Device1", Connected=True)
-        add(path + "/player0", {"org.bluez.MediaPlayer1": {
-            "Track": {}, "Position": 0, "Status": "stopped", "Device": path, "ObexPort": 0}})
+        track = {}
+        add(path + "/player0", {"org.bluez.MediaPlayer1": player_props(path)})
         add(path + "/sep1/fd0", {"org.bluez.MediaTransport1": {"State": "idle", "Device": path}})
         invocation.return_value(None)
     elif method == "Play":
@@ -209,8 +226,25 @@ def on_method(conn, sender, path, interface, method, params, invocation):
         changed(phone + "/sep1/fd0", "org.bluez.MediaTransport1", State="idle")
         invocation.return_value(None)
     elif method == "Cover":
-        print("Cover: the receiver fetches covers through obexd, which a stand-in has none of",
-              flush=True)
+        if not phone:
+            return fail(invocation, "no phone connected")
+        covers += 1
+        handle = str(1000000 + covers)
+        os.makedirs(STAGED, mode=0o755, exist_ok=True)
+        shutil.copyfile(args[0], os.path.join(STAGED, handle))
+        os.chmod(os.path.join(STAGED, handle), 0o644)
+        track = dict(track, ImgHandle=GLib.Variant("s", handle))
+        player = phone + "/player0"
+        now = objects[player]["org.bluez.MediaPlayer1"]
+        if "ObexPort" in now:
+            changed(player, "org.bluez.MediaPlayer1", Track=track)
+        else:
+            # The first cover: a player with ObexPort, as BlueZ would have made
+            # it from the start for a phone that offers covers.
+            position, status = now["Position"].unpack(), now["Status"].unpack()
+            remove(player)
+            add(player, {"org.bluez.MediaPlayer1": player_props(phone, position, status)})
+        print(f"cover {handle}: {args[0]}", flush=True)
         invocation.return_value(None)
     elif method == "Disconnect":
         if phone:

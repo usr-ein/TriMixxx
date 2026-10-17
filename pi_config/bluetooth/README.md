@@ -48,6 +48,7 @@ opens the sound card. A screen left off by a crash is lit again then too.
 | `trimixxx-bluealsa-aplay.service` | `/etc/systemd/system/` | bluez-alsa's player, to the DAC |
 | `bluetooth-main.conf` | `/usr/local/share/trimixxx/bluetooth-main.conf` | bluetoothd's `-f`: a loudspeaker, visible 2 min after Pair |
 | `bluez-standin.py` | never | a stand-in for bluetoothd on an emulated deck (below) |
+| `obexd-standin.py` | never | a stand-in for obexd's cover client, with it (below) |
 
 The deploy step is `002_system` (`pi-qemu deck deploy TARGET system`), and the
 packages come with the base step: `bluez` (on Raspberry Pi OS already),
@@ -103,7 +104,20 @@ pi-qemu deck ssh NAME 'busctl call org.bluez /org/bluez org.trimixxx.StandIn Con
 pi-qemu deck ssh NAME 'busctl call org.bluez /org/bluez org.trimixxx.StandIn Play sssuu "Title" "Artist" "Album" 245000 61000'
 ```
 
-Its header lists the rest. The audio switch can be checked on an emulated deck
+Its header lists the rest. Covers come through obexd, on the deck user's
+session bus: `obexd-standin.py` stands in for it, and `Cover s FILE` on the
+BlueZ stand-in offers FILE as the playing track's cover. Like Android's cover
+server, the stand-in serves one client at all, and Pi OS's own `mpris-proxy`
+(running in every session) opens a session for any phone that offers covers,
+so Mixxx takes that one:
+
+```sh
+scp pi_config/bluetooth/obexd-standin.py cover.png NAME:/tmp/
+pi-qemu deck ssh NAME 'systemctl --user stop obex.service; nohup python3 /tmp/obexd-standin.py >/tmp/obex-standin.log 2>&1 &'
+pi-qemu deck ssh NAME 'busctl call org.bluez /org/bluez org.trimixxx.StandIn Cover s /tmp/cover.png'
+```
+
+The audio switch can be checked on an emulated deck
 without it: with the deck started as `deck up NAME -- --audio wav:FILE`, play
 a tone to `plughw:CARD=CODEC,DEV=0` while the menu is open, and Mixxx's sound
 either side of it lands in the same file.
