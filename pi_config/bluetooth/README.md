@@ -88,9 +88,7 @@ partition (p8), over it, and `up` makes that folder the first time. The star
 is a file beside them, `trimixxx-starred` (one address), which `star` writes
 whole (a new file renamed over the old) and `up` reads back (`starred
 ADDRESS` on its output). They are written when a device pairs, is picked (its
-trust), is starred or unstarred, or forgotten, never at a normal start (but
-once: experimental mode's admin-policy driver writes its empty allowlist,
-`admin_policy_settings`, the first time bluetoothd starts with it). On a
+trust), is starred or unstarred, or forgotten, never at a normal start. On a
 dev card there is no p8, and `/var/lib/bluetooth` on the root keeps them.
 
 ## What plays: the track, its position, its cover, and the controls
