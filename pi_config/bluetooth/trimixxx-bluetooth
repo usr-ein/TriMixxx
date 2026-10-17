@@ -3,10 +3,14 @@
 # (Mixxx's BluetoothReceiver runs this as root, through sudo -n:
 # trimixxx-bluetooth.sudoers). README.md beside it has the whole picture.
 #
-#   trimixxx-bluetooth up PID    the radio on, the phone's stream to the DAC;
+#   trimixxx-bluetooth up PID    the radio on, the device's stream to the DAC;
 #                                PID is the Mixxx asking: if it dies (a crash),
-#                                everything here goes down with it
+#                                everything here goes down with it. Says the
+#                                starred device: "starred ADDRESS"
 #   trimixxx-bluetooth down      all of it off, the radio blocked, the DAC free
+#   trimixxx-bluetooth star ADDRESS|none
+#                                the device the DJ starred, kept with the
+#                                pairings: the deck connects it by itself
 #   trimixxx-bluetooth status    up or down
 #
 # Nothing here starts at boot: the units have no [Install], and the packages'
@@ -15,16 +19,22 @@ set -euo pipefail
 
 SELF=/usr/local/sbin/trimixxx-bluetooth
 GUARD=trimixxx-bluetooth-guard.service
-# The phones the deck has paired with, on a release card's state partition
+# The devices the deck has paired with, on a release card's state partition
 # (p8, /var/lib/rauc): its root is read-only, RAM over squashfs, and would
 # forget them at every start. trimixxx-bluetoothd.service binds it over
 # /var/lib/bluetooth. On a dev card there is no p8, and /var/lib/bluetooth on
 # the root keeps them.
 PAIRINGS=/var/lib/rauc/trimixxx-bluetooth
+# The starred device's address, one line, beside the pairings (BlueZ reads
+# only its adapters' folders there).
+STARRED=trimixxx-starred
 
 usage() { sed -n '/^#   /s/^#   //p' "$0" >&2; exit 2; }
 
 is_mixxx() { [ "$(cat "/proc/$1/comm" 2>/dev/null)" = mixxx ]; }
+
+# Where the pairings are kept, as this side of the bind sees them.
+store() { if mountpoint -q /var/lib/rauc; then echo "$PAIRINGS"; else echo /var/lib/bluetooth; fi; }
 
 down() {
     # The guard is the one that called this when Mixxx died: it is left to
@@ -45,6 +55,8 @@ up)
     systemctl start trimixxx-bluetooth.target
     systemctl stop "$GUARD" 2>/dev/null || true
     systemd-run --quiet --unit="$GUARD" --collect "$SELF" guard "$pid"
+    starred="$(store)/$STARRED"
+    if [ -f "$starred" ]; then echo "starred $(head -n 1 "$starred")"; fi
     ;;
 down)
     down
@@ -57,6 +69,24 @@ guard)
     [[ "$pid" =~ ^[0-9]+$ ]] || usage
     while is_mixxx "$pid"; do sleep 1; done
     down --from-guard
+    ;;
+star)
+    # Written only when the DJ stars or unstars a device, or forgets the one
+    # starred: whole or not at all (a new file renamed over the old), as a
+    # power cut can come at any time.
+    address="${2:-}"
+    [[ "$address" =~ ^([0-9A-F]{2}:){5}[0-9A-F]{2}$ || "$address" = none ]] || usage
+    dir="$(store)"
+    install -d -m 0700 "$dir"
+    if [ "$address" = none ]; then
+        rm -f "$dir/$STARRED"
+    else
+        tmp="$(mktemp "$dir/.$STARRED.XXXXXX")"
+        echo "$address" > "$tmp"
+        sync "$tmp"
+        mv -f "$tmp" "$dir/$STARRED"
+    fi
+    sync "$dir"
     ;;
 status)
     if systemctl is-active --quiet trimixxx-bluetoothd.service; then echo up; else echo down; fi

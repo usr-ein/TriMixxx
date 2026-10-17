@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """obexd's stand-in, for an emulated deck: the covers' half of
-bluez-standin.py. A phone's cover comes over Bluetooth through obexd's BIP
+bluez-standin.py. A device's cover comes over Bluetooth through obexd's BIP
 client, which needs a radio; this plays that client on the deck user's session
 bus, enough for the receiver's cover fetch and for mpris-proxy's: sessions to
-the stand-in's phones, and the image `s Cover` staged, for its handle. Like
-the phones it stands for, each serves one client at all (Android's cover
-server does): a second CreateSession to a phone is refused while a session to
-it is open. A test tool, never installed on a deck by any deploy step.
+the stand-in's devices, and the image `s Cover` staged, by its handle. Like
+the devices it stands for, each serves one client at all (Android's cover
+server does): a second CreateSession to a device is refused while a session to
+it is open. It tells bluez-standin.py when a session opens or ends, as a
+device gives a track's handle only while one is open. A test tool, never
+installed on a deck by any deploy step.
 
 As the deck user, with bluez-standin.py up:
 
@@ -120,10 +122,27 @@ def fail(invocation, what):
     invocation.return_dbus_error("org.bluez.obex.Error.Failed", what)
 
 
+def tell_bluez(destination, opened):
+    """bluez-standin.py's half of the iPhone's rule: a handle only while a
+    cover session is open. Not waited for; a BlueZ stand-in not there is said
+    and no matter."""
+    def told(conn, result):
+        try:
+            conn.call_finish(result)
+        except GLib.Error as e:
+            print(f"the BlueZ stand-in was not told: {e.message}", flush=True)
+    system = Gio.bus_get_sync(Gio.BusType.SYSTEM)
+    system.call("org.bluez", "/org/bluez", "org.trimixxx.StandIn", "CoverSession",
+                GLib.Variant("(sb)", (destination, opened)), None, Gio.DBusCallFlags.NONE,
+                5000, None, told)
+
+
 def end_session(path):
     owner = owners.pop(path, None)
     if owner:
         Gio.bus_unwatch_name(owner[1])
+    if path in objects:
+        tell_bluez(objects[path]["org.bluez.obex.Session1"]["Destination"].unpack(), False)
     for transfer in [p for p in objects if p.startswith(path + "/")]:
         remove(transfer)
     remove(path)
@@ -132,7 +151,7 @@ def end_session(path):
 
 def transfer(session, target, handle, invocation):
     """A transfer as obexd's: queued, then complete a moment later, as if the
-    phone had sent it."""
+    device had sent it."""
     global counter
     staged = os.path.join(STAGED, handle)
     if not os.path.isfile(staged):
@@ -168,7 +187,7 @@ def on_method(conn, sender, path, interface, method, params, invocation):
             return fail(invocation, "the stand-in serves covers only (Target bip-avrcp)")
         if any(objects[open_]["org.bluez.obex.Session1"]["Destination"].unpack() == destination
                for open_ in owners):
-            # One client at all, as Android's cover server: the phone refuses.
+            # One client at all, as Android's cover server: the device refuses.
             return fail(invocation, "Connection refused (111)")
         counter += 1
         session = f"{ROOT}/client/session{counter}"
@@ -182,6 +201,7 @@ def on_method(conn, sender, path, interface, method, params, invocation):
             lambda c, n, s=session: end_session(s))
         owners[session] = (sender, watch)
         print(f"session {session} to {destination}, for {sender}", flush=True)
+        tell_bluez(destination, True)
         invocation.return_value(GLib.Variant("(o)", (session,)))
     elif method == "RemoveSession":
         if args[0] not in owners:

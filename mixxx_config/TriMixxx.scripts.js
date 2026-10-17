@@ -332,7 +332,7 @@ TriMixxx.init = function(id, debugging) {
     TriMixxx.ledConnect("loop_enabled", TriMixxx.ledLoopMods);
     // PLAY, CUE and the loop pads' own lights, which used to be the XML's
     // <output>s: here, so that the screen off can put them out as well.
-    TriMixxx.ledConnect("play_indicator", function(v) { TriMixxx.noteLed(0x3C, v); });
+    TriMixxx.ledConnect("play_indicator", TriMixxx.ledPlay);
     TriMixxx.ledConnect("cue_indicator", function(v) { TriMixxx.noteLed(0x3D, v); });
     TriMixxx.ledConnect("loop_enabled", function(v) {
         TriMixxx.noteLed(0x3E, v);
@@ -342,6 +342,11 @@ TriMixxx.init = function(id, debugging) {
     // without the receiver has no [Bluetooth] controls, and the controls'
     // gate then never asks after them.
     TriMixxx.hasBluetooth = !!TriMixxx.watch("[Bluetooth]", "screen_off", TriMixxx.onScreenOff);
+    if (TriMixxx.hasBluetooth) {
+        // In the receiver, PLAY's light is the device's playing.
+        TriMixxx.watch("[Bluetooth]", "active", TriMixxx.ledPlay);
+        TriMixxx.watch("[Bluetooth]", "playing", TriMixxx.ledPlay);
+    }
     TriMixxx.ledConnect("beatloop_8_enabled", function() { TriMixxx.ledBeatloop(8, 2); });
     TriMixxx.ledConnect("beatloop_4_enabled", function() { TriMixxx.ledBeatloop(4, 3); });
     TriMixxx.ledConnect("slip_enabled", TriMixxx.ledSlip);
@@ -900,8 +905,11 @@ TriMixxx.paintAll = function() {
 
 // ---- the Bluetooth receiver ([Bluetooth]) -----------------------------------
 // While the deck is a Bluetooth receiver ([Bluetooth],active: its menu is open)
-// it plays a phone, and Mixxx has let go of the sound card: the deck's own
-// controls do nothing to it (the [for Sam] call in the receiver's PR). The
+// it plays a device (a phone, a Mac), and Mixxx has let go of the sound card:
+// the deck's own controls do nothing to it (the [for Sam] call in the
+// receiver's PR), but for three that drive the device instead (Sam): PLAY
+// plays or pauses it, loop halve goes to its previous track and loop double to
+// its next ([Bluetooth],play_pause / previous / next; *remote* below). The
 // encoder and BACK still move through the menus, and the tempo fader is still
 // followed. With the screen off ([Bluetooth],screen_off) every light on the S3
 // is out too, and any control wakes both and does nothing else (Sam: "back on
@@ -915,7 +923,7 @@ TriMixxx.BT_PASSIVE = 2;  // heard whatever happens: the tempo fader
 TriMixxx.BT_DECK = 3;     // everything that would play or change the deck
 TriMixxx.lightsOff = false;
 TriMixxx.hasBluetooth = false;
-TriMixxx.btTakes = function(value, kind) {
+TriMixxx.btTakes = function(value, kind, remote) {
     if (!value || !TriMixxx.hasBluetooth || !(engine.getValue("[Bluetooth]", "active") > 0)) {
         return false;
     }
@@ -924,7 +932,25 @@ TriMixxx.btTakes = function(value, kind) {
         return kind !== TriMixxx.BT_PASSIVE;
     }
     engine.setValue("[Bluetooth]", "wake", 1);
+    if (remote) {
+        engine.setValue("[Bluetooth]", remote, 1);
+    }
     return kind === TriMixxx.BT_DECK;
+};
+
+// What the deck's own buttons ask of the device in the receiver, by canonical
+// note: loop double (A5) its next track, loop halve (A6) its previous one.
+TriMixxx.BT_REMOTE = {
+    0x04: "next",
+    0x05: "previous"
+};
+
+// PLAY's light: the deck's play_indicator, or in the receiver whether the
+// device plays.
+TriMixxx.ledPlay = function() {
+    var bt = TriMixxx.hasBluetooth && engine.getValue("[Bluetooth]", "active") > 0;
+    TriMixxx.noteLed(0x3C, bt ? engine.getValue("[Bluetooth]", "playing")
+                              : engine.getValue(TriMixxx.DECK, "play_indicator"));
 };
 
 // PLAY, CUE and the loop pads light by Note-On velocity, at the note their LED
@@ -974,8 +1000,9 @@ TriMixxx.BUTTONS = {
 };
 TriMixxx.button = function(channel, control, value, status, group) {
     var press = (status & 0xF0) === 0x90 && value > 0;
-    if (TriMixxx.btTakes(press ? 1 : 0, TriMixxx.BT_DECK)) { return; }
-    var button = TriMixxx.BUTTONS[TriMixxx.canonicalNote(control)];
+    var note = TriMixxx.canonicalNote(control);
+    if (TriMixxx.btTakes(press ? 1 : 0, TriMixxx.BT_DECK, TriMixxx.BT_REMOTE[note])) { return; }
+    var button = TriMixxx.BUTTONS[note];
     if (!button) { return; }
     if (button[1]) {
         engine.setValue(group, button[0], press ? 1 : 0);
@@ -984,9 +1011,9 @@ TriMixxx.button = function(channel, control, value, status, group) {
     }
 };
 
-// ---- Play/pause: toggle on press ----
+// ---- Play/pause: toggle on press; in the receiver, the device's ----
 TriMixxx.play = function(channel, control, value, status, group) {
-    if (TriMixxx.btTakes(value, TriMixxx.BT_DECK)) { return; }
+    if (TriMixxx.btTakes(value, TriMixxx.BT_DECK, "play_pause")) { return; }
     if (value) {
         engine.setValue(group, "play", !engine.getValue(group, "play"));
     }
