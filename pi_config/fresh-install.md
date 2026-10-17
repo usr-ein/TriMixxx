@@ -140,15 +140,11 @@ and in `cmdline.txt`, `console=serial0,115200 ` removed (it stays one line).
       stock Pi, for the Bluetooth receiver. Wiring: the Pi's TX (pin 7) to the
       S3's RX (IO44), the Pi's RX (pin 29) to the S3's TX (IO43), GND as
       before. Until 2026-10 the S3 was on GPIO 14/15 with `enable_uart=1` +
-      `dtoverlay=disable-bt` (the PL011 as `/dev/serial0`, Bluetooth off); a
-      deck keeps pins 8/10 wired as well (a Y) until both of its slots run a
-      release with UART3, so either release reaches its S3. While both are
-      wired, never `enable_uart=1`: the mini UART would drive GPIO 14 against
-      UART3's TX. The Y is safe only if a UART3 release leaves GPIO 14/15 as
-      inputs: on a deck's first UART3 start, before anything relies on the Y,
-      `pinctrl get 4,5,14,15` must show 4/5 as TXD3/RXD3 and 14/15 as inputs.
-      An emulated deck on 1.0.2-bt1 shows exactly that, but only for the
-      kernel: what the firmware does with the pins is seen on a Pi alone.
+      `dtoverlay=disable-bt` (the PL011 as `/dev/serial0`, Bluetooth off). The
+      move is a plain one, made once with no way back (Sam): a deck moved to
+      pins 7/29 runs releases with UART3 only, and an older release in its
+      other slot has no S3. On a UART3 release, `pinctrl get 4,5,14,15` shows
+      4/5 as TXD3/RXD3 and 14/15 as inputs (trimixxx2, 2026-10-17).
 - [x] **Serial console off:** `console=serial0,115200` removed from
       `cmdline.txt`, which would otherwise fight ttymidi for the port.
 - [x] **One sound card:** `dtparam=audio=off` and `dtoverlay=vc4-kms-v3d,noaudio`

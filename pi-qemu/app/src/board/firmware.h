@@ -33,8 +33,9 @@ struct BootPlan {
 
 bool prepareBoot(Card& card, const FirmwareOptions& o, BootPlan* plan, QString* error);
 
-// Which UART a board's device tree, config.txt applied, puts the S3 on. The S3
-// is wired to GPIO 14/15, and on a deck moved to UART3 (pi_config/
-// fresh-install.md 1.3) to GPIO 4/5 as well: UART3 when the tree enables it,
-// else serial0's UART, the PL011 or the mini UART.
+// Which UART a board's device tree, config.txt applied, puts the S3 on: UART3
+// (GPIO 4/5, where the decks' S3 has been since its move, pi_config/
+// fresh-install.md 1.3) when the tree enables it, else serial0's UART, the
+// PL011 or the mini UART on GPIO 14/15, where it was before. Both, unlike a
+// deck, so that a card from before the move still has its S3 in the emulator.
 BootPlan::S3Uart s3UartOf(const QString& dtb);
