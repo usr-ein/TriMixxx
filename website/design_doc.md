@@ -314,10 +314,9 @@ flourishes are the CRT on power-on and Shut down.
 ## Where it stands (27 Oct)
 
 All of it is built and swapped in: the first site is gone, and this one is
-published from `main`. The deck's model is in the media repository. The
-published site plays the stand-in loop: "On / Offline" stays on Sam's machine
-until the site may publish it. The workflow installs ffmpeg, which
-`npm run build` needs to make the stand-in. Left:
+published from `main`. The deck's model and its track, "On / Offline", are in
+the media repository. The workflow installs ffmpeg, which `npm run build`
+needs to make the stand-in loop when there is no track. Left:
 
 - Sam's words: the features' texts (`src/data/features.ts`) are placeholders,
   and the posts are the first site's, to be rewritten.
@@ -330,8 +329,6 @@ until the site may publish it. The workflow installs ffmpeg, which
   so the insides show through a little. All bright (an X-ray), or only the
   outside (a technical drawing), are one number each in `lib/landing/model.ts`.
 - Clicks on the knob and buttons, or silent? Silent until decided.
-- The demo track: "On / Offline" (Anetha, UFO95) is on the local demo only. It
-  can go to the media repository, and so on the site, only with its rights.
 
 ## Decided
 
@@ -349,6 +346,8 @@ until the site may publish it. The workflow installs ffmpeg, which
   lines made by `scripts/deck-model.mjs` into the media repository.
 - 27 Oct: "On / Offline" plays in the local demo, for now (Sam). Its grid was
   found by `scripts/track.mjs`: 150.00 BPM, first downbeat at 3.458 s.
+- 27 Oct: "On / Offline" goes on the site, with UFO95's written agreement
+  (Sam), credited on Why build it.
 - 27 Oct, while building: the idle deck shows its boot splash rather than a
   waveform, so the dive lands on the splash and the name appears only on the
   deck itself.
