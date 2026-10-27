@@ -1,0 +1,40 @@
+---
+// A row of the root list, or of any list a row of which opens another: the
+// deck's ">" for "goes in", its icon, its name, and what it holds.
+import Icon, { type IconName } from "./Icon.astro";
+
+interface Props {
+  href: string;
+  label: string;
+  icon?: IconName | undefined;
+  meta?: string | undefined;
+  /** A source's number, before its name, as the deck numbers its sticks. */
+  number?: string | undefined;
+  /** Whether the row opens another list (the deck's ">"). */
+  goesIn?: boolean | undefined;
+  /** What the row does instead of going somewhere. */
+  action?: "shutdown" | undefined;
+}
+
+const { href, label, icon, meta, number, goesIn = false, action } = Astro.props;
+---
+
+<a class="row" href={href} data-row data-action={action}>
+  <span class="row__in" aria-hidden="true">
+    {goesIn ? ">" : ""}
+  </span>
+  {icon ? <Icon name={icon} class="row__icon" /> : <span class="row__icon" />}
+  <span class="row__title">
+    {number && <span class="row__number">{number}</span>}
+    {label}
+  </span>
+  {meta && <span class="row__meta">{meta}</span>}
+</a>
+
+<style>
+  .row__number {
+    display: inline-block;
+    min-width: 2.2ch;
+    margin-right: 1.4ch;
+  }
+</style>

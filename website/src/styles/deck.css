@@ -1,0 +1,896 @@
+/* The deck's look. The screen is drawn the way its skin draws it
+   (mixxx_config/TriMixxx_skin); the frame around it the way its printed body
+   looks in the photographs, measured in its own millimetres
+   (ref_sizes/dims_v2_model.md). */
+
+@font-face {
+  font-family: Meslo;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/meslo-lgl-regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: Meslo;
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/meslo-lgl-bold.woff2") format("woff2");
+}
+
+/* One millimetre of the deck, on this screen. Registered, so it is worked out
+   once on the housing and handed down as a length. */
+@property --mm {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 4px;
+}
+
+/* One pixel of the deck's 1280 × 800 panel, on this screen. */
+@property --dp {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 1px;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* The skin. */
+  --black: #000;
+  --ground: #0c0c0c;
+  --row: #0a0a0a;
+  --bar: #111312;
+  --rule: #1c1c1c;
+  --rule-strong: #2a2a2a;
+  --control: #1f1f1f;
+  --text: #e0e0e0;
+  --dim: #909090;
+  --faint: #5a5a5a;
+  --accent: #ff7092;
+  --on-accent: #0c0c0c;
+  --low: #26f;
+  --mid: #fc0;
+  --high: #fff;
+  --beat: #ccc;
+  --downbeat: #f00;
+  --cue: #f03;
+  --segment: #f80;
+  --range: #6c6;
+  --key-sync: #b06cff;
+
+  /* The printed body. */
+  --plastic: #141414;
+  --pink: #e2559a;
+  --font: meslo, menlo, "DejaVu Sans Mono", ui-monospace, monospace;
+
+  /* The first site's names, which the posts' figures, callouts and viewers
+     still use, in the deck's colours. */
+  --lime: var(--accent);
+  --lime-line: color-mix(in srgb, var(--accent) 40%, transparent);
+  --cyan: #00c8ff;
+  --amber: var(--segment);
+  --text-muted: var(--dim);
+  --text-faint: var(--faint);
+  --line: var(--rule);
+  --line-strong: var(--rule-strong);
+  --panel: #111;
+  --bg-raised: #141414;
+  --diagram: #0b0c0b;
+  --radius-sm: 4px;
+  --shadow: 0 1rem 3rem rgb(0 0 0 / 70%);
+  --font-mono: var(--font);
+  --font-sans: var(--font);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background: var(--black);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- The frame ---------------------------------------------------------- */
+
+/* The window, holding the deck's screen housing as large as it fits. */
+.stage {
+  position: fixed;
+  inset: 0;
+  container-type: size;
+  display: grid;
+  place-items: center;
+  padding: max(2.5vmin, env(safe-area-inset-top)) max(2.5vmin, env(safe-area-inset-right))
+    max(2.5vmin, env(safe-area-inset-bottom)) max(2.5vmin, env(safe-area-inset-left));
+  background: radial-gradient(ellipse at 50% 40%, #0d0d0d 0%, #050505 55%, #000 100%), var(--black);
+}
+
+/* The top of the V2's screen housing: 329 mm across, the glass 239 × 147 mm,
+   SORT/INFO and the USB port to its left, BACK and the knob to its right. */
+.housing {
+  --mm: min(100cqw / 329, 100cqh / 171);
+
+  position: relative;
+  width: calc(var(--mm) * 329);
+  height: calc(var(--mm) * 171);
+  border-radius: calc(var(--mm) * 5);
+  background:
+    url("/textures/print.svg"),
+    repeating-linear-gradient(0deg, rgb(255 255 255 / 2.2%) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, #1c1c1c 0%, #141414 30%, #101010 100%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 12%),
+    inset 0 0 0 1px rgb(255 255 255 / 4%),
+    inset 0 calc(var(--mm) * -1.5) calc(var(--mm) * 3) rgb(0 0 0 / 50%),
+    0 calc(var(--mm) * 1) 0 #070707,
+    0 calc(var(--mm) * 12) calc(var(--mm) * 30) rgb(0 0 0 / 90%);
+  transform-origin: var(--origin, 50% 50%);
+}
+
+.housing__glass {
+  position: absolute;
+  top: calc(var(--mm) * 12);
+  left: calc(var(--mm) * 46);
+  width: calc(var(--mm) * 239);
+  height: calc(var(--mm) * 147.1);
+
+  /* The panel's own black border round its picture. */
+  padding: calc(var(--mm) * 6) calc(var(--mm) * 11) calc(var(--mm) * 5.5) calc(var(--mm) * 12);
+  border-radius: calc(var(--mm) * 3.6);
+  background: #050505;
+  box-shadow:
+    0 0 0 calc(var(--mm) * 0.8) #090909,
+    0 0 0 calc(var(--mm) * 1.1) rgb(255 255 255 / 5%),
+    inset 0 0 0 1px rgb(255 255 255 / 5%);
+}
+
+/* The glass catches the room. */
+.housing__glass::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    118deg,
+    rgb(255 255 255 / 6%) 0%,
+    rgb(255 255 255 / 1.5%) 28%,
+    transparent 29%,
+    transparent 72%,
+    rgb(255 255 255 / 2%) 100%
+  );
+  content: "";
+  pointer-events: none;
+}
+
+/* The controls under the screen when the deck is held upright; beside it
+   otherwise, where the chin is no box at all. */
+.housing__chin {
+  display: contents;
+}
+
+.wing {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.wing--left {
+  left: 0;
+  width: calc(var(--mm) * 46);
+  gap: calc(var(--mm) * 3.2);
+  padding-top: calc(var(--mm) * 13);
+}
+
+.wing--right {
+  right: 0;
+  width: calc(var(--mm) * 44);
+  gap: calc(var(--mm) * 3.2);
+  padding-top: calc(var(--mm) * 40);
+}
+
+.wing__group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--mm) * 2.6);
+}
+
+.wing__knob {
+  margin-top: calc(var(--mm) * 10);
+}
+
+/* A printed label plate: white letters, a white outline, the black body. */
+.plate {
+  padding: calc(var(--mm) * 0.9) calc(var(--mm) * 1.7);
+  border-radius: calc(var(--mm) * 1.3);
+  background: #0c0c0c;
+  box-shadow:
+    inset 0 0 0 calc(var(--mm) * 0.3) #cfcfcf,
+    0 calc(var(--mm) * 0.3) calc(var(--mm) * 0.5) rgb(0 0 0 / 60%);
+  color: #f4f4f4;
+  font-size: calc(var(--mm) * 2.5);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* A 15 mm button, printed in translucent filament: frosted, silvery, its
+   infill showing as rings. */
+.cap {
+  position: relative;
+  width: calc(var(--mm) * 15);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background:
+    repeating-radial-gradient(
+      circle at 50% 50%,
+      transparent 0 calc(var(--mm) * 0.32),
+      rgb(255 255 255 / 9%) calc(var(--mm) * 0.32) calc(var(--mm) * 0.48)
+    ),
+    radial-gradient(circle at 38% 30%, #f3f5f7 0%, #c4c9ce 45%, #8c9399 100%);
+  box-shadow:
+    inset 0 calc(var(--mm) * 0.35) calc(var(--mm) * 0.6) rgb(255 255 255 / 70%),
+    inset 0 calc(var(--mm) * -0.8) calc(var(--mm) * 1.2) rgb(0 0 0 / 30%),
+    0 calc(var(--mm) * 0.7) 0 #5d6267,
+    0 calc(var(--mm) * 0.9) 0 #0a0a0a,
+    0 calc(var(--mm) * 2) calc(var(--mm) * 2.5) rgb(0 0 0 / 75%);
+  transition:
+    transform 60ms ease-out,
+    box-shadow 60ms ease-out,
+    filter 60ms ease-out;
+}
+
+.cap--press:active,
+.cap--press.is-pressed {
+  box-shadow:
+    inset 0 calc(var(--mm) * 0.3) calc(var(--mm) * 0.6) rgb(255 255 255 / 50%),
+    inset 0 calc(var(--mm) * -0.5) calc(var(--mm) * 1) rgb(0 0 0 / 35%),
+    0 calc(var(--mm) * 0.15) 0 #5d6267,
+    0 calc(var(--mm) * 0.3) 0 #0a0a0a,
+    0 calc(var(--mm) * 0.8) calc(var(--mm) * 1.2) rgb(0 0 0 / 70%);
+  filter: brightness(0.92);
+  transform: translateY(calc(var(--mm) * 0.55));
+}
+
+/* A 3 mm LED, clear when off. */
+.led {
+  width: calc(var(--mm) * 3);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff 0 10%, #5b5f63 30%, #1a1b1c 75%);
+  box-shadow: 0 0 0 calc(var(--mm) * 0.45) #070707;
+}
+
+.led--on {
+  background: radial-gradient(circle at 35% 30%, #fff 0 12%, var(--accent) 38%, #7a1f3d 90%);
+  box-shadow:
+    0 0 0 calc(var(--mm) * 0.45) #070707,
+    0 0 calc(var(--mm) * 2.2) var(--accent);
+}
+
+/* Two USB 3.0 sockets, one above the other: a steel shell, blue tongues. */
+.usb {
+  display: grid;
+  gap: calc(var(--mm) * 1.3);
+  padding: calc(var(--mm) * 1.1);
+  border-radius: calc(var(--mm) * 0.7);
+  background: linear-gradient(180deg, #d2d6da, #8f959b);
+  box-shadow:
+    inset 0 0 0 calc(var(--mm) * 0.3) #6b7177,
+    0 calc(var(--mm) * 0.6) calc(var(--mm) * 1.2) rgb(0 0 0 / 70%);
+}
+
+.usb__port {
+  position: relative;
+  width: calc(var(--mm) * 12.5);
+  height: calc(var(--mm) * 5);
+  border-radius: calc(var(--mm) * 0.4);
+  background: #050505;
+  box-shadow: inset 0 calc(var(--mm) * 0.5) calc(var(--mm) * 0.7) rgb(0 0 0 / 90%);
+}
+
+.usb__port::after {
+  position: absolute;
+  top: 18%;
+  right: 9%;
+  left: 9%;
+  height: 42%;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #3b78ff, #1647b8);
+  content: "";
+}
+
+/* The browse encoder's knob: a knurled skirt, a smooth top, a white line. */
+.knob {
+  position: relative;
+  width: calc(var(--mm) * 17);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  touch-action: none;
+}
+
+.knob__body {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle, #191919 0 60%, transparent 61%),
+    repeating-conic-gradient(#303030 0deg 3.5deg, #0a0a0a 3.5deg 7.5deg);
+  box-shadow:
+    0 0 0 calc(var(--mm) * 0.5) #050505,
+    0 calc(var(--mm) * 1.6) calc(var(--mm) * 2.4) rgb(0 0 0 / 80%);
+  transform: rotate(var(--angle, 0deg));
+  transition: transform 70ms ease-out;
+}
+
+.knob__body::after {
+  position: absolute;
+  top: 9%;
+  left: calc(50% - var(--mm) * 0.45);
+  width: calc(var(--mm) * 0.9);
+  height: 34%;
+  border-radius: calc(var(--mm) * 0.45);
+  background: #f2f2f2;
+  content: "";
+}
+
+/* Light from above, which does not turn with the knob. */
+.knob__shine {
+  position: absolute;
+  inset: 20%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 25%, rgb(255 255 255 / 16%), transparent 60%);
+  pointer-events: none;
+}
+
+.knob:active .knob__body,
+.knob.is-pressed .knob__body {
+  box-shadow:
+    0 0 0 calc(var(--mm) * 0.5) #050505,
+    0 calc(var(--mm) * 0.6) calc(var(--mm) * 1) rgb(0 0 0 / 80%);
+  scale: 0.97;
+}
+
+/* Held upright, the screen takes the whole width and the controls drop
+   below it, under the thumb. */
+@media (aspect-ratio < 1) {
+  .stage {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+  }
+
+  .housing {
+    --mm: clamp(3px, 100cqw / 108, 4.8px);
+
+    display: flex;
+    flex-direction: column;
+    width: 100cqw;
+    height: 100cqh;
+    padding: calc(var(--mm) * 2.5) calc(var(--mm) * 2.5) 0;
+    border-radius: 0;
+  }
+
+  .housing__glass {
+    position: relative;
+    inset: auto;
+    flex: 1;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    padding: calc(var(--mm) * 2.5) calc(var(--mm) * 2);
+  }
+
+  .wing {
+    position: static;
+    flex-direction: row;
+    width: auto;
+    padding: 0;
+  }
+
+  .housing__chin {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(var(--mm) * 4) calc(var(--mm) * 3) calc(var(--mm) * 4.5);
+  }
+
+  .wing--left,
+  .wing--right {
+    width: auto;
+    padding: 0;
+    gap: calc(var(--mm) * 4);
+  }
+
+  .wing__knob {
+    margin-top: 0;
+  }
+
+  .usb {
+    grid-auto-flow: column;
+    gap: calc(var(--mm) * 1);
+  }
+
+  .usb__port {
+    width: calc(var(--mm) * 5);
+    height: calc(var(--mm) * 12.5);
+  }
+
+  .usb__port::after {
+    inset: 9% 18% 9% auto;
+    width: 42%;
+    height: auto;
+  }
+}
+
+/* Wide and short: a phone on its side. */
+@media (aspect-ratio >= 1) and (height <= 30rem) {
+  .stage {
+    padding: max(1.5vmin, env(safe-area-inset-top)) max(1.5vmin, env(safe-area-inset-right))
+      max(1.5vmin, env(safe-area-inset-bottom)) max(1.5vmin, env(safe-area-inset-left));
+  }
+}
+
+/* ---- The screen ---------------------------------------------------------- */
+
+.screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  container-type: size;
+  border-radius: calc(var(--mm) * 0.5);
+  background: var(--ground);
+}
+
+/* Everything on the screen is sized in the panel's pixels, with a floor so
+   text stays readable on a phone. */
+.ui {
+  --dp: min(100cqh / 800, 100cqw / 700);
+
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  font-size: max(13px, calc(var(--dp) * 26));
+  line-height: 1.35;
+}
+
+.ui__body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+
+/* The breadcrumb, as on the deck: the house, then where you are. */
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--dp) * 18);
+  min-height: max(36px, calc(var(--dp) * 60));
+  padding-inline: calc(var(--dp) * 34);
+  overflow: hidden;
+  border-bottom: 1px solid #1e201f;
+  background: var(--bar);
+  color: var(--accent);
+  font-size: max(13px, calc(var(--dp) * 24));
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.topbar__home {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: max(26px, calc(var(--dp) * 40));
+  height: max(26px, calc(var(--dp) * 40));
+  margin-inline: calc(var(--dp) * -8);
+  color: var(--accent);
+}
+
+.topbar__home svg {
+  width: 72%;
+  height: 72%;
+}
+
+.topbar__sep {
+  flex: none;
+  color: color-mix(in srgb, var(--accent) 50%, transparent);
+  font-weight: 400;
+}
+
+.topbar__crumb {
+  overflow: hidden;
+  color: var(--accent);
+  text-decoration: none;
+  text-overflow: ellipsis;
+}
+
+.topbar__crumb:last-child {
+  flex-shrink: 1;
+}
+
+/* A list: one column, one selection. */
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: max(10px, calc(var(--dp) * 18)) auto minmax(0, 1fr) auto;
+  gap: calc(var(--dp) * 22);
+  align-items: center;
+  min-height: max(46px, calc(var(--dp) * 100));
+  padding: calc(var(--dp) * 10) calc(var(--dp) * 22) calc(var(--dp) * 10) calc(var(--dp) * 10);
+  border-bottom: 1px solid var(--rule);
+  background: var(--row);
+  color: var(--text);
+  text-decoration: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.row.is-selected {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.row__in {
+  color: var(--text);
+  font-weight: 700;
+  text-align: center;
+}
+
+.row.is-selected .row__in {
+  color: var(--on-accent);
+}
+
+.row__icon {
+  width: max(22px, calc(var(--dp) * 36));
+  height: max(22px, calc(var(--dp) * 36));
+}
+
+.row__title {
+  overflow: hidden;
+  font-size: max(14px, calc(var(--dp) * 28));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row__meta {
+  color: var(--dim);
+  font-size: max(12px, calc(var(--dp) * 22));
+  white-space: nowrap;
+}
+
+.row.is-selected .row__meta {
+  color: var(--on-accent);
+}
+
+/* ---- Text pages ----------------------------------------------------------- */
+
+.page {
+  width: min(100%, 74ch);
+  margin-inline: auto;
+  padding: calc(var(--dp) * 44) max(16px, calc(var(--dp) * 48)) calc(var(--dp) * 120);
+  font-size: max(14px, calc(var(--dp) * 23));
+  line-height: 1.65;
+}
+
+.page h1,
+.page h2,
+.page h3 {
+  margin: 1.6em 0 0.6em;
+  color: #fff;
+  line-height: 1.25;
+}
+
+.page h1 {
+  margin-top: 0;
+  font-size: 1.55em;
+}
+
+.page h2 {
+  font-size: 1.2em;
+}
+
+.page h3 {
+  font-size: 1em;
+}
+
+.page p,
+.page ul,
+.page ol {
+  margin: 0 0 1em;
+}
+
+.page a {
+  color: var(--accent);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.page code {
+  padding: 0.05em 0.3em;
+  border-radius: 3px;
+  background: #1a1a1a;
+  font-size: 0.92em;
+}
+
+.page pre {
+  overflow-x: auto;
+  padding: 1em;
+  border: 1px solid var(--rule-strong);
+  font-size: 0.85em;
+}
+
+.page pre code {
+  padding: 0;
+  background: none;
+}
+
+.page table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9em;
+}
+
+.page th,
+.page td {
+  padding: 0.45em 0.6em;
+  border-bottom: 1px solid var(--rule-strong);
+  text-align: left;
+  vertical-align: top;
+}
+
+.page hr {
+  margin: 2em 0;
+  border: 0;
+  border-top: 1px solid var(--rule-strong);
+}
+
+.page blockquote {
+  margin: 0 0 1em;
+  padding-left: 1em;
+  border-left: 2px solid var(--accent);
+  color: var(--dim);
+}
+
+.page__kicker {
+  margin: 0 0 0.6em;
+  color: var(--dim);
+  font-size: 0.85em;
+}
+
+.dim {
+  color: var(--dim);
+}
+
+/* ---- The CRT: power on, power off ----------------------------------------- */
+
+.crt {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.crt.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.crt.is-fading {
+  opacity: 0;
+  transition: opacity 320ms ease-out;
+}
+
+.crt__tube {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(ellipse at center, #04130a 0%, #010603 65%, #000 100%);
+  transform: scale(0, 0.004);
+}
+
+/* The tube's lines. */
+.crt__tube::after {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(180deg, rgb(0 0 0 / 30%) 0 1px, transparent 1px 3px);
+  content: "";
+}
+
+.crt__splash {
+  width: min(80vw, 150vh);
+  opacity: 0;
+  filter: drop-shadow(0 0 1.4vmin rgb(90 255 170 / 30%));
+}
+
+.crt.is-warming .crt__tube {
+  animation: crt-warm 700ms cubic-bezier(0.25, 0.9, 0.3, 1) forwards;
+}
+
+.crt.is-warming .crt__splash {
+  animation: crt-splash 1200ms 420ms linear forwards;
+}
+
+.crt.is-dark .crt__tube {
+  animation: none;
+  transform: scale(0, 0);
+}
+
+/* Lit already: the landing's camera has brought the splash this far. */
+.crt.is-steady .crt__tube {
+  transform: none;
+}
+
+.crt.is-steady .crt__splash {
+  position: absolute;
+  top: var(--splash-y, 50%);
+  left: var(--splash-x, 50%);
+  width: var(--splash-w, min(80vw, 150vh));
+  max-width: none;
+  opacity: 1;
+  translate: -50% -50%;
+}
+
+.crt.is-switching .crt__tube {
+  animation: crt-switch 260ms steps(4, end) forwards;
+}
+
+@keyframes crt-switch {
+  0% {
+    filter: brightness(1);
+  }
+
+  40% {
+    filter: brightness(2.4);
+  }
+
+  70% {
+    filter: brightness(0.3);
+  }
+
+  100% {
+    filter: brightness(1.6);
+  }
+}
+
+@keyframes crt-warm {
+  0% {
+    filter: brightness(6);
+    transform: scale(0, 0.004);
+  }
+
+  30% {
+    filter: brightness(6);
+    transform: scale(1, 0.004);
+  }
+
+  62% {
+    filter: brightness(2.2);
+    transform: scale(1, 1);
+  }
+
+  100% {
+    filter: brightness(1);
+    transform: scale(1, 1);
+  }
+}
+
+@keyframes crt-splash {
+  0% {
+    opacity: 0;
+  }
+
+  8% {
+    opacity: 0.85;
+  }
+
+  12% {
+    opacity: 0.3;
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+/* Shut down: the picture folds to a line, then to a dot. */
+.screen.is-collapsing {
+  animation: crt-off 560ms cubic-bezier(0.6, 0, 0.9, 0.5) forwards;
+}
+
+@keyframes crt-off {
+  0% {
+    filter: brightness(1);
+    transform: scale(1, 1);
+  }
+
+  45% {
+    filter: brightness(4);
+    transform: scale(1, 0.006);
+  }
+
+  80% {
+    opacity: 1;
+    filter: brightness(8);
+    transform: scale(0.02, 0.006);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(0, 0);
+  }
+}

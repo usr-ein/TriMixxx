@@ -63,6 +63,18 @@ export function start(id: string): void {
   document.head.append(script);
 }
 
+/**
+ * Counts a page the client router changed to without a load: gtag.js counts
+ * the page it loaded on by itself, and nothing after.
+ */
+export function pageView(id: string): void {
+  window.gtag?.("event", "page_view", {
+    page_location: location.href,
+    page_title: document.title,
+    send_to: id,
+  });
+}
+
 /** Stops counting, and deletes the cookies gtag.js set. */
 export function stop(id: string): void {
   disable(id, true);

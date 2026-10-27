@@ -1,7 +1,9 @@
 ---
-// The analytics consent banner: shown on the published site to a visitor who
-// hasn't chosen yet, and again from the footer's "Analytics settings". Google
-// Analytics loads only once they accept (src/lib/analytics.ts).
+// Asking before Google Analytics counts a visit, as one of the deck's toasts:
+// top right, over whatever is on screen (docs/browser-prd.md §13), with the
+// two answers. Only on the published site, only until answered; "Analytics
+// settings" on Why build it asks again. GA loads only on yes
+// (src/lib/analytics.ts). It stays put from page to page.
 import { site } from "../data/site";
 ---
 
@@ -11,104 +13,109 @@ import { site } from "../data/site";
   data-consent
   data-id={site.analytics}
   data-host={new URL(site.url).hostname}
+  transition:persist="consent"
   hidden
 >
   <p class="consent__text">
     May this site count your visit? It uses Google Analytics, which sets cookies. Nothing is sent
-    unless you accept.
+    unless you say yes.
   </p>
   <div class="consent__buttons">
     <button type="button" class="consent__button consent__button--yes" data-consent-accept>
-      Accept
+      Yes
     </button>
     <button type="button" class="consent__button" data-consent-decline>
-      Decline
+      No
     </button>
   </div>
 </aside>
 
 <script>
-  import { start, stop, store, storedChoice } from "../lib/analytics";
+  import { pageView, start, stop, store, storedChoice } from "../lib/analytics";
 
   const banner = document.querySelector<HTMLElement>("[data-consent]");
-  const accept = banner?.querySelector<HTMLButtonElement>("[data-consent-accept]");
-  const decline = banner?.querySelector<HTMLButtonElement>("[data-consent-decline]");
   const id = banner?.dataset["id"];
-
   // Only where analytics would run at all: not on a local build or preview.
-  if (banner && accept && decline && id && location.hostname === banner.dataset["host"]) {
+  const live = banner !== null && id !== undefined && location.hostname === banner.dataset["host"];
+
+  if (banner && id && live) {
     const choice = storedChoice();
     if (choice === "granted") start(id);
     banner.hidden = choice !== undefined;
-
-    accept.addEventListener("click", () => {
+    banner.querySelector("[data-consent-accept]")?.addEventListener("click", () => {
       store("granted");
       banner.hidden = true;
       start(id);
     });
-    decline.addEventListener("click", () => {
+    banner.querySelector("[data-consent-decline]")?.addEventListener("click", () => {
       store("denied");
       banner.hidden = true;
       stop(id);
     });
-    for (const button of document.querySelectorAll<HTMLButtonElement>("[data-consent-open]")) {
-      button.hidden = false;
-      button.addEventListener("click", () => {
+    document.addEventListener("click", (event) => {
+      if (event.target instanceof Element && event.target.closest("[data-consent-open]")) {
         banner.hidden = false;
-        accept.focus();
-      });
-    }
+        banner.querySelector<HTMLElement>("[data-consent-accept]")?.focus();
+      }
+    });
   }
+
+  let first = true;
+  document.addEventListener("astro:page-load", () => {
+    if (!live) return;
+    for (const button of document.querySelectorAll<HTMLElement>("[data-consent-open]")) {
+      button.hidden = false;
+    }
+    // The first page was counted when gtag.js loaded; the rest, as they come.
+    if (!first && id && storedChoice() === "granted") pageView(id);
+    first = false;
+  });
 </script>
 
 <style>
   .consent {
     position: fixed;
-    right: 1rem;
-    bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+    top: max(16px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
     z-index: 50;
     display: grid;
-    gap: 0.75rem;
-    max-width: min(26rem, calc(100vw - 2rem));
-    padding: 1rem 1.1rem;
-    border: 1px solid var(--line-strong);
-    border-radius: var(--radius-sm);
-    background: var(--panel);
-    box-shadow: var(--shadow);
+    gap: 12px;
+    width: min(400px, calc(100vw - 32px));
+    padding: 14px 16px;
+    border: 1px solid #2a2a2a;
+    border-left: 4px solid var(--accent);
+    background: #141414;
+    box-shadow: 0 12px 40px rgb(0 0 0 / 70%);
+    font-family: var(--font);
   }
 
   .consent__text {
-    color: var(--text-muted);
-    font-size: 0.88rem;
+    margin: 0;
+    color: var(--text);
+    font-size: 13px;
     line-height: 1.5;
   }
 
   .consent__buttons {
     display: flex;
-    gap: 0.5rem;
+    gap: 8px;
   }
 
   .consent__button {
-    min-height: 2.5rem;
-    padding: 0 1.1rem;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--text);
-    font: inherit;
-    font-size: 0.85rem;
-    cursor: pointer;
+    min-width: 88px;
+    min-height: 40px;
+    padding: 0 16px;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    background: #1f1f1f;
+    color: #e0e0e0;
+    font-size: 14px;
+    font-weight: 700;
   }
 
   .consent__button--yes {
-    border-color: var(--lime);
-    background: var(--lime);
-    color: #0b0c0b;
-    font-weight: 600;
-  }
-
-  .consent__button:focus-visible {
-    outline: 2px solid var(--lime);
-    outline-offset: 2px;
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
   }
 </style>

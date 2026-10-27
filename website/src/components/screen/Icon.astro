@@ -1,0 +1,101 @@
+---
+// The deck's line icons: drawn on a 24 px grid with a 1.8 px stroke, in the
+// colour of the text around them.
+export type IconName =
+  | "home"
+  | "stick"
+  | "history"
+  | "pictures"
+  | "question"
+  | "info"
+  | "power"
+  | "folder"
+  | "play"
+  | "film"
+  | "board";
+
+interface Props {
+  name: IconName;
+  class?: string;
+}
+
+const { name, class: className } = Astro.props;
+---
+
+<svg
+  class:list={[className]}
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.8"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  aria-hidden="true"
+>
+  {name === "home" && (
+    <path
+      d="M12 3.2 2.6 11.4h2.6v9.1h5.2v-5.9h3.2v5.9h5.2v-9.1h2.6z"
+      fill="currentColor"
+      stroke="none"
+    />
+  )}
+  {name === "stick" && (
+    <>
+      <rect x="7" y="8.5" width="10" height="13" rx="1.6" />
+      <path d="M9.4 8.5V3.2h5.2v5.3" />
+    </>
+  )}
+  {name === "history" && (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 6.4V12h5.2" />
+    </>
+  )}
+  {name === "pictures" && (
+    <>
+      <rect x="3" y="4.8" width="18" height="14.4" rx="1.6" />
+      <circle cx="8.6" cy="9.8" r="1.7" />
+      <path d="m3.6 17.8 5.6-5.4 4 3.8 2.6-2.4 4.6 4.2" />
+    </>
+  )}
+  {name === "question" && (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.4 9.4a2.7 2.7 0 1 1 3.8 2.5c-.8.4-1.2 1-1.2 1.9v.5" />
+      <circle cx="12" cy="17.1" r=".5" fill="currentColor" />
+    </>
+  )}
+  {name === "info" && (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v6" />
+      <circle cx="12" cy="7.7" r=".5" fill="currentColor" />
+    </>
+  )}
+  {name === "power" && (
+    <>
+      <path d="M12 3.2v8" />
+      <path d="M6.6 6.6a7.6 7.6 0 1 0 10.8 0" />
+    </>
+  )}
+  {name === "folder" && <path d="M3 6.2h6.2l2 2.2H21v10.4H3z" />}
+  {name === "play" && (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="m10 8.4 5.4 3.6-5.4 3.6z" />
+    </>
+  )}
+  {name === "film" && (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="1.6" />
+      <path d="M7 5v14M17 5v14M3 9.7h4M3 14.3h4M17 9.7h4M17 14.3h4" />
+    </>
+  )}
+  {name === "board" && (
+    <>
+      <rect x="3.5" y="3.5" width="17" height="17" rx="1.4" />
+      <rect x="9" y="9" width="6" height="6" />
+      <path d="M12 3.5V9M12 15v5.5M3.5 12H9M15 12h5.5" />
+    </>
+  )}
+</svg>

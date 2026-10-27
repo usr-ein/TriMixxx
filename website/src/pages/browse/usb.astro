@@ -1,0 +1,87 @@
+---
+// The stick in the deck: one track, the demo's. Loading it puts it on the
+// deck view, as on the deck.
+import Deck from "../../layouts/Deck.astro";
+import { demoTrack } from "../../lib/deck/track";
+
+const track = demoTrack();
+---
+
+<Deck title="USB 1" kind="list" back="/browse/" crumbs={[{ label: "USB 1", href: "/browse/usb/" }]}>
+  <h1 class="visually-hidden">The tracks on the stick</h1>
+  <ul class="list" data-list>
+    <li>
+      <a class="track" href="/deck/" data-row>
+        <span class="track__cover" aria-hidden="true">
+          {track.cover ? (
+            <img src={track.cover} alt="" />
+          ) : (
+            <svg viewBox="0 0 90 90">
+              <rect width="90" height="90" fill="#5c625f" />
+              <circle cx="45" cy="45" r="27" fill="#4a4f4c" />
+              <circle cx="45" cy="45" r="2.2" fill="#1d201e" />
+            </svg>
+          )}
+        </span>
+        <span class="track__title">{track.title}</span>
+        <span class="track__artist">{track.artist}</span>
+        <span class="track__bpm">{track.bpm.toFixed(1)}</span>
+        <span class="track__key">{track.key}</span>
+      </a>
+    </li>
+  </ul>
+</Deck>
+
+<style>
+  .track {
+    --cover: max(40px, calc(var(--dp) * 70));
+
+    display: grid;
+    grid-template-columns: var(--cover) minmax(0, 1.4fr) minmax(0, 1fr) auto auto;
+    gap: calc(var(--dp) * 22);
+    align-items: center;
+    min-height: max(52px, calc(var(--dp) * 90));
+    padding: calc(var(--dp) * 10) calc(var(--dp) * 22) calc(var(--dp) * 10) calc(var(--dp) * 20);
+    border-bottom: 1px solid var(--rule);
+    background: var(--row);
+    color: var(--text);
+    font-size: max(13px, calc(var(--dp) * 28));
+    text-decoration: none;
+  }
+
+  .track:global(.is-selected) {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+
+  .track__cover {
+    aspect-ratio: 1;
+  }
+
+  .track__cover img,
+  .track__cover svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  .track__title,
+  .track__artist {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .track__artist {
+    color: var(--dim);
+  }
+
+  .track:global(.is-selected) .track__artist {
+    color: var(--on-accent);
+  }
+
+  .track__bpm,
+  .track__key {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+</style>

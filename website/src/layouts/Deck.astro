@@ -1,0 +1,51 @@
+---
+// A screen of the deck, in its frame. What the knob and BACK do on it
+// depends on its kind (lib/deck/controls.ts):
+//   list   the knob moves the selection, a push goes in
+//   info   the same, and the selected row fills the panel beside the list
+//   page   the knob scrolls
+//   deck   the deck view: the knob zooms, a push or BACK opens the root list
+import type { ImageMetadata } from "astro";
+
+import Housing from "../components/deck/Housing.astro";
+import Lightbox from "../components/Lightbox.astro";
+import ModelViewer from "../components/ModelViewer.astro";
+import TopBar, { type Crumb } from "../components/screen/TopBar.astro";
+import Shell from "./Shell.astro";
+
+interface Props {
+  title?: string | undefined;
+  description?: string | undefined;
+  image?: ImageMetadata | undefined;
+  imageAlt?: string | undefined;
+  article?: { published: Date; tags?: readonly string[] } | undefined;
+  kind: "list" | "info" | "page" | "deck";
+  /** The breadcrumb after the house; none on the deck view. */
+  crumbs?: readonly Crumb[] | undefined;
+  /** Where BACK goes: one level up. */
+  back?: string | undefined;
+}
+
+const { title, description, image, imageAlt, article, kind, crumbs, back } = Astro.props;
+---
+
+<Shell title={title} description={description} image={image} imageAlt={imageAlt} article={article}>
+  <Housing>
+    <div class="ui" data-ui data-kind={kind} data-back={back}>
+      {crumbs && <TopBar crumbs={crumbs} />}
+      <main class="ui__body" id="main" data-scroll>
+        <slot />
+      </main>
+    </div>
+  </Housing>
+  <!-- The posts' lightbox and board viewer: their scripts hold on to their
+       dialogs, so the dialogs stay from page to page. -->
+  <div transition:persist="viewers">
+    <Lightbox />
+    <ModelViewer />
+  </div>
+</Shell>
+
+<script>
+  import "../lib/deck/controls";
+</script>

@@ -36,14 +36,20 @@ const pruneOriginals: AstroIntegration = {
 export default defineConfig({
   site: "https://trimixxx.e1n.sh",
   trailingSlash: "ignore",
+  // Its bar would sit over the deck's frame.
+  devToolbar: { enabled: false },
   integrations: [mdx(), sitemap(), pruneOriginals],
+  // The first site's pages, sent to where their content went.
+  redirects: {
+    "/features": "/what-can-it-do/",
+    "/gallery": "/pictures/",
+    "/about": "/why/",
+    "/hardware": "/pictures/boards/",
+    "/architecture": "/blog/",
+  },
   image: {
-    // Every picture is laid out responsively: srcset in the widths below,
-    // sizes from the layout, never upscaled past its source.
     layout: "constrained",
     responsiveStyles: true,
-    // Four widths cover phones to retina desktops; Astro never upscales past
-    // the source, so small pictures get fewer.
     breakpoints: [480, 800, 1200, 1800],
   },
   markdown: {
@@ -51,6 +57,22 @@ export default defineConfig({
       theme: "vitesse-dark",
     },
   },
+  vite: {
+    // three.js's add-ons are imported only once someone opens a model; known
+    // up front, the dev server doesn't stop to re-bundle them mid-visit.
+    optimizeDeps: {
+      include: [
+        "three",
+        "three/addons/controls/OrbitControls.js",
+        "three/addons/environments/RoomEnvironment.js",
+        "three/addons/libs/meshopt_decoder.module.js",
+        "three/addons/loaders/GLTFLoader.js",
+        "three/addons/utils/BufferGeometryUtils.js",
+      ],
+    },
+  },
+  // The client router swaps only what changes between two screens, so the
+  // music, the knob and the frame carry on across them.
   prefetch: {
     prefetchAll: true,
     defaultStrategy: "hover",

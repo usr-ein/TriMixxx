@@ -1,0 +1,36 @@
+---
+// The deck's breadcrumb: the house, which opens the root list, then where
+// you are.
+import Icon from "./Icon.astro";
+
+export interface Crumb {
+  label: string;
+  href: string;
+}
+
+interface Props {
+  crumbs: readonly Crumb[];
+}
+
+const { crumbs } = Astro.props;
+---
+
+<nav class="topbar" aria-label="Where you are">
+  <a class="topbar__home" href="/browse/" aria-label="Home">
+    <Icon name="home" />
+  </a>
+  {crumbs.map((crumb, i) => (
+    <>
+      <span class="topbar__sep" aria-hidden="true">
+        ›
+      </span>
+      <a
+        class="topbar__crumb"
+        href={crumb.href}
+        aria-current={i === crumbs.length - 1 ? "page" : undefined}
+      >
+        {crumb.label}
+      </a>
+    </>
+  ))}
+</nav>

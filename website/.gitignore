@@ -5,3 +5,6 @@ node_modules/
 
 # The photo library, cloned from its own repository by `npm run media`
 media/
+
+# The stand-in demo track, made by `npm run track:standin`
+public/track/

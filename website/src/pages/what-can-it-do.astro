@@ -1,0 +1,107 @@
+---
+// What can it do? Sam's two lists, in the info layout: the features down the
+// left, the selected one's animation where a track's artwork goes, its few
+// words under it. Pushed, the animation plays again from the start.
+import Info from "../components/screen/Info.astro";
+import { features } from "../data/features";
+import Deck from "../layouts/Deck.astro";
+
+const groups = features.map((group, g) => ({
+  ...group,
+  items: group.items.map((item, i) => ({
+    ...item,
+    index: features.slice(0, g).reduce((sum, earlier) => sum + earlier.items.length, 0) + i,
+  })),
+}));
+const all = groups.flatMap((group) => group.items);
+---
+
+<Deck
+  title="What can it do?"
+  description="Everything a Pioneer CDJ is able to do, and a lot more: what the TriMixxx deck does, each with a little animation."
+  kind="info"
+  back="/browse/"
+  crumbs={[{ label: "What can it do?", href: "/what-can-it-do/" }]}
+>
+  <h1 class="visually-hidden">What can it do?</h1>
+  <Info>
+    <Fragment slot="list">
+      {groups.map((group) => (
+        <>
+          <li class="group">
+            <h2 class="group__title">{group.title}</h2>
+          </li>
+          {group.items.map((item) => (
+            <li>
+              <a
+                class="line"
+                href={`#${item.id}`}
+                data-row
+                data-index={item.index}
+                data-action="open"
+              >
+                <span class="line__title">{item.title}</span>
+              </a>
+            </li>
+          ))}
+        </>
+      ))}
+    </Fragment>
+    <Fragment slot="panel">
+      {all.map((item) => (
+        <div class="feature" id={item.id} data-art={item.index} hidden={item.index !== 0}>
+          <canvas class="feature__canvas" data-feature={item.id} aria-hidden="true" />
+          <h3 class="feature__title">{item.title}</h3>
+          <p class="feature__text">{item.text}</p>
+        </div>
+      ))}
+    </Fragment>
+  </Info>
+</Deck>
+
+<script>
+  import "../lib/features/run";
+</script>
+
+<style>
+  .group__title {
+    margin: 0;
+    font: inherit;
+  }
+
+  .feature {
+    display: grid;
+    gap: calc(var(--dp) * 16);
+  }
+
+  .feature__canvas {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    max-height: 56cqh;
+    border: 1px solid var(--rule-strong);
+    background: #000;
+  }
+
+  .feature__title {
+    margin: 0;
+    color: #fff;
+    font-size: 1em;
+  }
+
+  .feature__text {
+    margin: 0;
+    color: var(--dim);
+    font-size: 0.86em;
+    line-height: 1.55;
+  }
+
+  @container (aspect-ratio < 1) {
+    .feature__canvas {
+      max-height: 30cqh;
+    }
+
+    .feature__title {
+      display: none;
+    }
+  }
+</style>

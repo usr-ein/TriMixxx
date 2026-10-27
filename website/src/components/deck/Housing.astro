@@ -1,0 +1,53 @@
+---
+// The top of the V2's screen housing: the glass, SORT/INFO and the USB port
+// on its left (for looks), BACK and the browse knob on its right (they work).
+// Its look and its millimetres are in styles/deck.css.
+---
+
+<div class="stage" data-stage>
+  <div class="housing" data-housing>
+    <div class="housing__glass">
+      <div class="screen" data-screen>
+        <slot />
+      </div>
+    </div>
+    <div class="housing__chin">
+      <div class="wing wing--left" aria-hidden="true">
+        <span class="wing__group">
+          <span class="plate">SORT/INFO</span>
+          <span class="cap"></span>
+        </span>
+        <span class="led led--on"></span>
+        <span class="usb">
+          <span class="usb__port"></span>
+          <span class="usb__port"></span>
+        </span>
+        <span class="led"></span>
+      </div>
+      <div class="wing wing--right">
+        <span class="wing__group">
+          <span class="plate" aria-hidden="true">
+            BACK
+          </span>
+          <button
+            type="button"
+            class="cap cap--press"
+            data-back-button
+            aria-label="Back. Hold to return to the track."
+            aria-keyshortcuts="Escape"
+          ></button>
+        </span>
+        <button
+          type="button"
+          class="knob wing__knob"
+          data-knob
+          aria-label="Browse knob. Turn it with the arrow keys or the wheel; press it to choose."
+          aria-keyshortcuts="ArrowUp ArrowDown Enter"
+        >
+          <span class="knob__body"></span>
+          <span class="knob__shine"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

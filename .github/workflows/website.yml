@@ -3,9 +3,10 @@
 # the custom domain is set there too).
 #
 # The checkout is sparse: the site never reads the rest of the repository
-# (~340 MB of KiCad files, captures and binaries). The photographs come from
-# their own repository, cloned shallow by `npm run media`; without it the site
-# still builds, with no photos.
+# (~340 MB of KiCad files, captures and binaries). The photographs and the
+# deck's 3D model come from their own repository, cloned shallow by
+# `npm run media`; without it the site still builds, with no photos and a
+# stand-in deck.
 #
 # Actions are pinned to the commit of a release, with the release as a comment.
 name: website
@@ -63,6 +64,11 @@ jobs:
 
       - name: Photos
         run: npm run media
+
+      # The deck view's demo track, when the media repository has none, is a
+      # loop the build synthesises and encodes with ffmpeg (scripts/track.mjs).
+      - name: ffmpeg
+        run: command -v ffmpeg || { sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ffmpeg; }
 
       # Prettier, ESLint, Stylelint and astro check, with no warning allowed.
       - name: Lint

@@ -1,0 +1,104 @@
+---
+// The deck's info layout (docs/browser-prd.md §8.2): the list on the left, and
+// on the right everything about the selected row, its picture where a
+// track's artwork goes. Rows carry data-index; the panel's items, data-art.
+// Held upright, the panel sits above the list.
+---
+
+<div class="info" data-info>
+  <ul class="list info__list" data-list>
+    <slot name="list" />
+  </ul>
+  <div class="info__panel">
+    <slot name="panel" />
+  </div>
+</div>
+
+<script>
+  import "../../lib/deck/info";
+</script>
+
+<style>
+  .info {
+    display: grid;
+    grid-template-columns: minmax(0, 56fr) minmax(0, 44fr);
+    height: 100%;
+  }
+
+  .info__list {
+    min-height: 0;
+    overflow-y: auto;
+    border-right: 1px solid var(--rule-strong);
+    scrollbar-width: none;
+  }
+
+  .info__panel {
+    min-height: 0;
+    overflow-y: auto;
+    padding: calc(var(--dp) * 26) calc(var(--dp) * 30);
+    scrollbar-width: none;
+  }
+
+  /* One line a row, the title and, on the right, one thing more. */
+  .info__list :global(.line) {
+    display: flex;
+    gap: calc(var(--dp) * 18);
+    align-items: center;
+    justify-content: space-between;
+    min-height: max(40px, calc(var(--dp) * 64));
+    padding: calc(var(--dp) * 8) calc(var(--dp) * 22);
+    border-bottom: 1px solid var(--rule);
+    background: var(--row);
+    color: var(--text);
+    font-size: max(13px, calc(var(--dp) * 25));
+    text-decoration: none;
+    user-select: none;
+  }
+
+  .info__list :global(.line.is-selected) {
+    background: var(--accent);
+    color: var(--on-accent);
+  }
+
+  .info__list :global(.line__title) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .info__list :global(.line__meta) {
+    flex: none;
+    color: var(--dim);
+    font-size: 0.85em;
+  }
+
+  .info__list :global(.line.is-selected .line__meta) {
+    color: var(--on-accent);
+  }
+
+  .info__list :global(.group) {
+    padding: calc(var(--dp) * 22) calc(var(--dp) * 22) calc(var(--dp) * 10);
+    border-bottom: 1px solid var(--rule-strong);
+    background: var(--ground);
+    color: var(--accent);
+    font-size: max(12px, calc(var(--dp) * 21));
+    font-weight: 700;
+  }
+
+  @container (aspect-ratio < 1) {
+    .info {
+      grid-template-rows: minmax(0, 46fr) minmax(0, 54fr);
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .info__panel {
+      grid-row: 1;
+      border-bottom: 1px solid var(--rule-strong);
+    }
+
+    .info__list {
+      grid-row: 2;
+      border-right: 0;
+    }
+  }
+</style>

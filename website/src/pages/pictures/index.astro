@@ -1,0 +1,32 @@
+---
+// Pictures, filed as the deck files music: a row a category.
+import Row from "../../components/screen/Row.astro";
+import Deck from "../../layouts/Deck.astro";
+import { categories } from "../../lib/pictures";
+
+const all = await categories();
+const icons = { clips: "film", boards: "board" } as const;
+---
+
+<Deck
+  title="Pictures"
+  description="TriMixxx in pictures: the decks, the booth, the build, the boards in 3D, the screens and the drawings."
+  kind="list"
+  back="/browse/"
+  crumbs={[{ label: "Pictures", href: "/pictures/" }]}
+>
+  <h1 class="visually-hidden">Pictures</h1>
+  <ul class="list" data-list>
+    {all.map((category) => (
+      <li>
+        <Row
+          href={`/pictures/${category.id}/`}
+          icon={icons[category.id as keyof typeof icons] ?? "folder"}
+          goesIn
+          label={category.title}
+          meta={String(category.items.length)}
+        />
+      </li>
+    ))}
+  </ul>
+</Deck>

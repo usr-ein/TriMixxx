@@ -1,35 +1,28 @@
 ---
-import SevenSeg from "../components/SevenSeg.astro";
-import Base from "../layouts/Base.astro";
+// Not found, said the way the deck says a stick has nothing it can read.
+import Row from "../components/screen/Row.astro";
+import Deck from "../layouts/Deck.astro";
 ---
 
-<Base title="Not found" description="This page isn't on the stick.">
-  <section class="wrap section lost">
-    <SevenSeg class="lost__code" value="404" label="Error 404" />
-    <h1>This track isn't on the stick.</h1>
-    <p class="lede">The page you asked for doesn't exist, or it moved.</p>
-    <div class="btn-row">
-      <a class="btn" href="/">
-        Back to the deck
-      </a>
-      <a class="btn btn--ghost" href="/blog/">
-        The build log
-      </a>
-    </div>
-  </section>
-</Base>
+<Deck title="Not found" kind="list" back="/browse/" crumbs={[{ label: "Not found", href: "/404" }]}>
+  <h1 class="missing">Nothing at this address on the stick.</h1>
+  <ul class="list" data-list>
+    <li>
+      <Row href="/browse/" icon="home" goesIn label="Home" />
+    </li>
+    <li>
+      <Row href="/deck/" icon="play" label="Back to the track" />
+    </li>
+  </ul>
+</Deck>
 
 <style>
-  .lost {
-    display: grid;
-    gap: 1.5rem;
-    justify-items: start;
-    min-height: 60vh;
-    align-content: center;
-  }
-
-  .lost :global(.lost__code) {
-    height: clamp(4rem, 14vw, 8rem);
-    color: var(--orange);
+  .missing {
+    margin: 0;
+    padding: calc(var(--dp) * 60) calc(var(--dp) * 40);
+    border-bottom: 1px solid var(--rule-strong);
+    color: var(--dim);
+    font-size: max(15px, calc(var(--dp) * 30));
+    font-weight: 400;
   }
 </style>

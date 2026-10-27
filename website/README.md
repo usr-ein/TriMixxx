@@ -1,185 +1,121 @@
 # website
 
-TriMixxx's site, [trimixxx.e1n.sh](https://trimixxx.e1n.sh): what the deck is,
-how it works, its hardware, a gallery, and the build log. Static,
-[Astro](https://astro.build) 7, published by GitHub Pages from
-`.github/workflows/website.yml` on every push to `main` that touches
-`website/`.
+TriMixxx's site, [trimixxx.e1n.sh](https://trimixxx.e1n.sh). The site is the
+deck: the landing is the V2 in 3D, drawn in lines; a tap switches it on, and
+every page after that is a screen of the deck, in its frame, worked with its
+knob and its BACK button. Why it looks like this, and what it must not turn
+into again: `design_doc.md`. Static, [Astro](https://astro.build) 7, published
+by GitHub Pages from `.github/workflows/website.yml`.
 
 ## Working on it
 
-Node 22.12 or newer (`.nvmrc` says 24).
+Node 22.12 or newer (`.nvmrc` says 24), and ffmpeg.
 
 ```sh
 npm ci
-npm run media      # optional: the photographs, see below
+npm run media      # the photographs, the boards' and the deck's models, the demo track
 npm run dev        # http://localhost:4321
 npm run build && npm run preview
 ```
 
-## Lint and format: strict, everywhere
-
-`npm run lint` runs, with no warning allowed:
-
-|                | Checks                                                                                                                                                                                                                                                                                   |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `format:check` | Prettier, with the Astro plugin, over everything (`npm run format` fixes)                                                                                                                                                                                                                |
-| `lint:js`      | ESLint: typescript-eslint's strictest type-checked rules on `.ts`; the Astro plugin's recommended rules, its strict accessibility rules (jsx-a11y) and typescript-eslint's strict rules on `.astro`; MDX parsed, its code blocks linted, and remark-lint on the prose (`.remarkrc.json`) |
-| `lint:css`     | Stylelint's standard config, on `.css` and on every `<style>` in `.astro`                                                                                                                                                                                                                |
-| `lint:sh`      | shellcheck on `scripts/*.sh` (`brew install shellcheck`; GitHub's runners have it)                                                                                                                                                                                                       |
-| `lint:types`   | `astro check` against Astro's `strictest` tsconfig, failing on warnings                                                                                                                                                                                                                  |
-
-The same gates run in CI before every deploy, and as prek pre-commit hooks
-(`.pre-commit-config.yaml` at the repo's root: `prek install` once): Prettier
-formats the staged files, then the linters run.
-
 ## Where things are
 
-| Path                | What                                                                                               |
-| ------------------- | -------------------------------------------------------------------------------------------------- |
-| `src/pages/`        | the pages: home, features, architecture, hardware, gallery, about, the build log, RSS, 404         |
-| `src/content/blog/` | the build log, one MDX file per post                                                               |
-| `src/components/`   | the site's pieces; `diagrams/` are the hand-drawn SVG and HTML diagrams; `mdx/` what posts can use |
-| `src/assets/`       | pictures the site ships, as WebP; Astro makes AVIF/WebP in responsive widths at build              |
-| `src/data/site.ts`  | the name, the pitch, the navigation, the contact address, the repositories                         |
-| `public/`           | served as is: the schematics (SVG), the routing video, `og.png`, the favicons, `CNAME`             |
-| `scripts/`          | the scripts that make the generated assets and fetch or add photos                                 |
+| Path                     | What                                                                                                |
+| ------------------------ | --------------------------------------------------------------------------------------------------- |
+| `src/pages/`             | the landing, the deck view (`deck`), the root list (`browse/`), the four pages, the posts, RSS, 404 |
+| `src/layouts/`           | `Shell` (every page's document, the client router, the CRT), `Deck` (a screen in its frame)         |
+| `src/components/deck/`   | the frame (`Housing`) and the deck view                                                             |
+| `src/components/screen/` | what the deck's screen is made of: the breadcrumb, rows, the info layout, icons, seven segments     |
+| `src/lib/deck/`          | the controls (knob, BACK, keys, touch), the sound (`engine`, `processor`), the waveforms, the CRT   |
+| `src/lib/landing/`       | the landing's 3D scene, the deck's model and its stand-in                                           |
+| `src/lib/features/`      | What can it do?'s animations, one file each, drawn with `kit.ts`                                    |
+| `src/data/`              | the site, the features' words, the boards                                                           |
+| `src/content/blog/`      | the build log, one MDX file per post                                                                |
+| `src/styles/deck.css`    | the deck's look: the skin's colours, the printed frame in millimetres, the screen's rows            |
+| `public/`                | the fonts (the deck's Meslo), the boot splash, the schematics, `og.png`, the favicons               |
+| `scripts/`               | the deck's model, the demo track, and the photos' and boards' tools                                 |
+
+## How the deck works here
+
+The controls are the deck's (`docs/browser-prd.md` §4). The knob, turned with
+a drag around it, the wheel or ↑ ↓, moves the selection; pushed (a click,
+Enter), it goes in. BACK (Esc) goes up a level, and from the root list back to
+the track; held, straight back to the track. On a phone, a swipe to the right
+is BACK. In the deck view, a tap on the waveform plays or stops, a drag
+scratches, a tap on the strip under it jumps, the knob zooms, Space plays.
+
+The client router keeps the sound alive between pages, so the track plays on
+while you browse; every page is still a real page, which reads without
+JavaScript.
+
+## The deck's model
+
+The landing draws `media/trimixxx/models/deck-v2.gzbin`, made from Fusion's OBJ
+export of the whole V2 assembly:
+
+```sh
+npm run model -- ~/Downloads/Trimixxx-V2.obj
+git -C media add trimixxx/models/deck-v2.gzbin && git -C media commit -m "trimixxx: the V2's lines" && git -C media push
+```
+
+It keeps each body's edges where its faces meet at more than 26°, leaves out
+the copper and anything under 10 mm, keeps the outer bodies as the solid that
+hides the lines behind it and catches taps, and finds the screen's rectangle
+and the jog's hole (the model has no jog; the landing draws the CDJ's into
+it). Without the file, the landing draws a stand-in from the deck's
+dimensions.
+
+## The demo track
+
+The deck view plays `media/trimixxx/track/`: the audio, its three bands and
+grid (`track.wave`, `track.json`) and its cover, made by `scripts/track.mjs`:
+
+```sh
+npm run track -- song.mp3 --bpm 150 --title "…" --artist "…" --key 3A
+```
+
+It finds the grid itself (the BPM to a hundredth around `--bpm`, the first
+downbeat on the first kick) unless given `--first-beat`. A track goes to the
+media repository, and so onto the public site, **only if the site may publish
+it**. Without one, `npm run dev` and `npm run build` synthesise a stand-in loop
+into `public/track/` (ignored by git).
+
+## Lint and format: strict, everywhere
+
+`npm run lint` runs, with no warning allowed: Prettier, ESLint
+(typescript-eslint's strictest type-checked rules on `.ts`, the Astro plugin's
+strict accessibility rules on `.astro`, MDX parsed and remark-linted),
+Stylelint, shellcheck on `scripts/*.sh`, the inline-space check and
+`astro check`. The same gates run in CI before every deploy.
 
 ## Writing a post
 
-A post is `src/content/blog/<slug>.mdx`:
-
-```mdx
----
-title: The post's title
-description: One or two sentences, shown on cards and in search results.
-date: 2026-10-15 # when its phase ended; posts are ordered by it
-period: Oct 2026 # what the post covers, as shown above its title
-tags: [hardware, firmware]
-cover: ../../assets/renders/deck-v2-render.webp
-coverAlt: What the cover shows, for someone who can't see it.
-coverPhoto: 2026-10-04-img-8410 # optional: a photo's id, used instead when the photos are there
----
-
-import Figure from "../../components/Figure.astro";
-import picture from "../../assets/screens/history-plain-plays.webp";
-
-Text in Markdown.
-
-<Figure src={picture} alt="…" caption="…" frame="screen" zoom="post" />
-```
-
-What a post can use:
-
-- `Figure` (`src/components/Figure.astro`): a picture with a caption.
-  `frame` is `none`, `screen` (a black bezel, for screenshots), `diagram` (for
-  diagrams and schematics, drawn on the site's near-black, `--diagram`) or
-  `dark` (for renders on transparent backgrounds). `zoom` opens it in the lightbox; pictures with the same `zoom`
-  value form a set the arrow keys step through.
-- `Gallery` (`mdx/Gallery.astro`): two or three figures side by side.
-- `Callout` (`mdx/Callout.astro`): an aside; `kind` is `note`, `verify` (for
-  what has only been shown on emulated decks) or `quote`.
-- `Video` (`mdx/Video.astro`): a silent loop with a poster frame.
-- `Photo` (`mdx/Photo.astro`): a photograph from the media repository, by id.
-- `Clip` (`mdx/Clip.astro`): a short silent clip from the media repository, by id.
-- `BoardModel` (`src/components/BoardModel.astro`): a board's render that opens
-  the board in 3D, by its id on the hardware page (`board="one-button"`); with
-  a `caption`, framed for a post.
-- The diagrams in `src/components/diagrams/`.
+A post is `src/content/blog/<slug>.mdx`, with `title`, `description`, `date`,
+`period`, `tags`, `cover`, `coverAlt` and optionally `coverPhoto` in its front
+matter. It can use `Figure`, `mdx/Gallery`, `mdx/Callout` (`note`, `verify`,
+`quote`), `mdx/Video`, `mdx/Photo` and `mdx/Clip` (by id, from the media
+repository), `BoardModel` (a board in 3D) and the diagrams in
+`components/diagrams/`. On the deck it is a row of the build log, like a track
+in its History, and opens as a page the knob scrolls.
 
 **What doesn't go on the site:** secrets, hostnames, IP or MAC addresses,
 serial numbers, ssh aliases or Wi-Fi names or passwords. A screenshot of a
-CDJ's interface (its firmware, Pioneer's, draws it) only comes from the media
-repository, never this one, with a disclaimer in its caption. Say when
-something has only been shown on emulated decks.
+CDJ's interface (Pioneer's firmware draws it) only comes from the media
+repository, with a disclaimer in its caption. Say when something has only been
+shown on emulated decks.
 
-## Photographs
+## Photographs, clips and boards
 
-The photos don't live in this repository. They are in
-[usr-ein/static-resources](https://github.com/usr-ein/static-resources), in
-`trimixxx/photos/`: a JPEG and a YAML file per photo. `npm run media` clones
-that folder, shallow and sparse, into `media/` (ignored here); the build reads
-it as a content collection, and Astro makes the responsive AVIF/WebP versions.
-Without the clone the site builds with no photos; in CI a failed clone fails
-the build.
+They live in [usr-ein/static-resources](https://github.com/usr-ein/static-resources),
+`trimixxx/`, cloned into `media/` by `npm run media`. `scripts/add-photos.sh`
+and `scripts/add-video.sh` add them, stripped of their metadata;
+`scripts/export-boards.sh` makes the boards' renders, schematics and models.
+A photo's first tag files it in Pictures (`deck`, `event`, `build`, `boards`,
+`detail`; `screen` keeps it out).
 
-To add photos:
+## Analytics
 
-```sh
-npm run media
-sh scripts/add-photos.sh --tag event ~/Downloads/IMG_8410.HEIC ...
-# --crop L,T,R,B keeps a rectangle, in percent of the upright photo; --rotate 90|-90|180
-sh scripts/add-photos.sh --tag event --crop 0,32,100,74 ~/Downloads/IMG_9281.HEIC
-# fill in each new media/trimixxx/photos/*.yaml: alt (required), caption, tags
-npm run build                    # checks every YAML against the schema
-git -C media add trimixxx && git -C media commit -m "trimixxx: …" && git -C media push
-```
-
-`add-photos.sh` turns each original upright, resizes it to at most 2560 px,
-re-encodes it as a JPEG, and strips **all** of its metadata, the GPS position
-included, refusing any photo where GPS data survives. The YAML gets the capture
-date from the original. A photo's `tags` place it in the gallery (its first tag
-picks the section: `deck`, `event`, `build`, `boards` or `detail`; `screen` keeps
-a screenshot out of it); a post shows one with `<Photo id="…" />`, or uses one
-as its cover with `coverPhoto`.
-
-### Clips
-
-Short clips sit beside the photos, in `trimixxx/video/`: an MP4, its poster
-frame and a YAML file. `scripts/add-video.sh` makes them:
-
-```sh
-FFMPEG=/path/to/working/ffmpeg sh scripts/add-video.sh --from 00:00:03 --to 00:00:12 ~/Downloads/IMG_7047.MOV
-# fill in media/trimixxx/video/<id>.yaml: label (required), caption, tags
-```
-
-It cuts the clip, scales it to at most 1280 px wide, drops the sound unless
-`--keep-audio`, drops all metadata (a phone's video records where it was
-filmed) and refuses the clip if a location survives. A post plays one, muted
-and looping, with `<Clip id="…" />`.
-
-### Board models
-
-Each board on the hardware page opens in 3D from its render: a GLB in
-`trimixxx/models/<board id>.glb`, beside the photos. `sh scripts/export-boards.sh
-models` makes them with KiCad's GLB export; `scripts/kicad-glb-colors.mjs` then
-decodes the colours KiCad writes as sRGB where glTF wants linear, and gltfpack
-compresses them (24 MB to 1.4 MB for the controller). Commit them to the media
-repository like photos. The viewer (`ModelViewer.astro`, `src/lib/board-viewer.ts`)
-is three.js, downloaded only when someone opens a board.
-
-## Generated assets
-
-Made on a Mac, then committed:
-
-- `sh scripts/export-boards.sh [renders] [schematics] [models]`: each board's
-  3D render, its schematics (in KiCad's Vampire theme, on the site's
-  near-black) and its model, from the KiCad sources in `../boards`; the
-  never-built main board's model from the last commit that had it (needs
-  KiCad 10, `rsvg-convert`, `cwebp`).
-- `node scripts/dark-figures.mjs`: the A/B diagrams in `src/assets/figures/`,
-  the SVGs of `pi-qemu/rauc-pi-4-report.html` in its dark palette (needs
-  `npm install --no-save puppeteer-core@25.12.0` and Chrome).
-- `node scripts/make-covers.mjs`: the build log's drawn covers and
-  `public/og.png`, the picture shown when a link to the site is shared.
-
-## Link previews
-
-A shared link shows the page's title, its description and a picture, cut to
-1200 × 630 by `Base.astro`: a post's cover (its `coverPhoto` when the photos
-are there), the photo a page passes as `image`, or else `public/og.png`. A new
-page passes one with `image={share?.data.image} imageAlt={share?.data.alt}`,
-where `share` is a photo by id.
-
-## Publishing
-
-Pushing to `main` runs the workflow: install, fetch the photos, lint, build,
-deploy. GitHub Pages' source is "GitHub Actions" and its custom domain is
-`trimixxx.e1n.sh`, whose DNS points at GitHub Pages. A pull request touching
-`website/` gets the same lint and build, without the deploy.
-
-Visits are counted by Google Analytics (`analytics` in `src/data/site.ts`),
-only once a visitor accepts it in the consent banner (`Consent.astro`,
-`src/lib/analytics.ts`), and only on `trimixxx.e1n.sh`: local builds and test
-runs are never counted. The choice is kept in the browser; the footer's
-"Analytics settings" asks again, and declining then deletes GA's cookies.
+Google Analytics (`analytics` in `src/data/site.ts`) counts a visit only once
+the visitor says yes to the deck's toast, and only on `trimixxx.e1n.sh`. The
+choice is kept in the browser; "Analytics settings", on Why build it, asks
+again.

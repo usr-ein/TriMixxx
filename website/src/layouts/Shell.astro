@@ -1,0 +1,110 @@
+---
+// Every page's document: its head, the client router that keeps the music
+// and the frame alive between pages, and the CRT the deck switches on and off
+// through.
+import "../styles/deck.css";
+
+import type { ImageMetadata } from "astro";
+import { getImage } from "astro:assets";
+import { ClientRouter } from "astro:transitions";
+
+import Consent from "../components/Consent.astro";
+import { site } from "../data/site";
+
+interface Props {
+  title?: string | undefined;
+  description?: string | undefined;
+  /** The picture a shared link shows; without one, the site's own card. */
+  image?: ImageMetadata | undefined;
+  imageAlt?: string | undefined;
+  article?: { published: Date; tags?: readonly string[] } | undefined;
+}
+
+const { title, description = site.description, image, imageAlt, article } = Astro.props;
+
+const fullTitle = title ? `${title} · ${site.name}` : site.name;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+// Link previews are 1.91:1. Cut to that here, so no platform crops the
+// picture its own way.
+const shared = image
+  ? await getImage({ src: image, width: 1200, height: 630, fit: "cover", format: "jpeg" })
+  : undefined;
+const ogImage = new URL(shared ? shared.src : "/og.png", Astro.site);
+const ogAlt = image ? (imageAlt ?? title ?? site.name) : "The TriMixxx deck, drawn in lines.";
+---
+
+<!doctype html>
+<html lang="en" transition:animate="none">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!-- Scripts run here: the landing draws the deck rather than showing its
+         photograph. Again after each page change, which resets this element. -->
+    <script is:inline>
+      document.documentElement.classList.add("js");
+      document.addEventListener("astro:after-swap", function () {
+        document.documentElement.classList.add("js");
+      });
+    </script>
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta name="theme-color" content="#000000" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title={`${site.name} build log`}
+      href={new URL("/rss.xml", Astro.site)}
+    />
+    <link
+      rel="preload"
+      href="/fonts/meslo-lgl-regular.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/meslo-lgl-bold.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+
+    <meta property="og:site_name" content={site.name} />
+    <meta property="og:type" content={article ? "article" : "website"} />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content="en_GB" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:type" content={shared ? "image/jpeg" : "image/png"} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={ogAlt} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image:alt" content={ogAlt} />
+    {article && (
+      <meta property="article:published_time" content={article.published.toISOString()} />
+    )}
+    {article?.tags?.map((tag) => (
+      <meta property="article:tag" content={tag} />
+    ))}
+    <ClientRouter fallback="swap" />
+  </head>
+  <body>
+    <slot />
+    <div class="crt" id="crt" transition:persist aria-hidden="true">
+      <div class="crt__tube">
+        <img class="crt__splash" src="/splash.svg" alt="" width="690" height="250" />
+      </div>
+    </div>
+    <Consent />
+  </body>
+</html>

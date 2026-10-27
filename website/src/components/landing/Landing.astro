@@ -1,0 +1,118 @@
+---
+// The deck in 3D, drawn in lines (lib/landing/scene.ts). Without WebGL, a
+// photograph of it, which switches it on all the same.
+import { Picture } from "astro:assets";
+
+import { demoTrack } from "../../lib/deck/track";
+import { photo } from "../../lib/photos";
+
+const track = demoTrack();
+const meta = {
+  title: track.title,
+  artist: track.artist,
+  key: track.key,
+  bpm: track.bpm,
+  firstBeat: track.firstBeat,
+  cue: track.cue,
+  duration: track.duration,
+  rate: track.rate,
+  points: track.points,
+};
+const still = await photo("2026-10-02-img-9266");
+
+// The deck's own model, from the media repository (scripts/deck-model.mjs);
+// without it, a stand-in drawn from the deck's dimensions.
+const models = import.meta.glob<string>("/media/trimixxx/models/deck-v2.gzbin", {
+  query: "?url",
+  import: "default",
+  eager: true,
+});
+const model = models["/media/trimixxx/models/deck-v2.gzbin"];
+---
+
+<div
+  class="landing"
+  data-landing
+  data-track={JSON.stringify(meta)}
+  data-wave={track.wave}
+  data-audio={track.audio}
+  data-model={model}
+>
+  <canvas
+    class="landing__canvas"
+    data-landing-canvas
+    tabindex="0"
+    role="button"
+    aria-label="The TriMixxx deck, in 3D. Drag to turn it, pinch to zoom. Press it to switch it on."
+  ></canvas>
+  <a class="landing__still" href="/deck/">
+    {still && (
+      <Picture
+        src={still.data.image}
+        alt={still.data.alt}
+        formats={["avif"]}
+        fallbackFormat="webp"
+        sizes="100vw"
+      />
+    )}
+    <span class="visually-hidden">Switch it on</span>
+  </a>
+</div>
+
+<script>
+  import "../../lib/landing/scene";
+</script>
+
+<style>
+  .landing {
+    position: fixed;
+    inset: 0;
+    background: #000;
+  }
+
+  /* Without scripts, or without WebGL, the deck is a photograph, and the
+     photograph switches it on. */
+  .landing__still {
+    display: grid;
+    place-items: center;
+    height: 100%;
+  }
+
+  .landing__canvas {
+    display: none;
+    width: 100%;
+    height: 100%;
+    outline: none;
+    touch-action: none;
+    cursor: grab;
+  }
+
+  .landing__canvas:global(.is-over) {
+    cursor: pointer;
+  }
+
+  .landing__canvas:active {
+    cursor: grabbing;
+  }
+
+  :global(.js) .landing__still {
+    display: none;
+  }
+
+  :global(.js) .landing__canvas {
+    display: block;
+  }
+
+  :global(.js) .landing:global(.is-flat) .landing__canvas {
+    display: none;
+  }
+
+  :global(.js) .landing:global(.is-flat) .landing__still {
+    display: grid;
+  }
+
+  .landing__still :global(img) {
+    max-height: 100vh;
+    object-fit: contain;
+  }
+</style>

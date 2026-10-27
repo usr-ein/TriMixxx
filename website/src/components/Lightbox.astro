@@ -51,19 +51,25 @@
       count.textContent = `${String(index + 1)} / ${String(set.length)}`;
     };
 
-    document.addEventListener("click", (event) => {
-      const target = event.target;
-      if (!(target instanceof Element)) return;
-      const link = target.closest<HTMLAnchorElement>("a[data-lightbox]");
-      if (!link || event.metaKey || event.ctrlKey || event.shiftKey) return;
-      event.preventDefault();
-      const group = link.dataset["lightbox"] ?? "";
-      set = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[data-lightbox]")).filter(
-        (a) => (a.dataset["lightbox"] ?? "") === group,
-      );
-      show(set.indexOf(link));
-      dialog.showModal();
-    });
+    // Caught on the way down, before the client router takes the link for a
+    // page to go to.
+    document.addEventListener(
+      "click",
+      (event) => {
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        const link = target.closest<HTMLAnchorElement>("a[data-lightbox]");
+        if (!link || event.metaKey || event.ctrlKey || event.shiftKey) return;
+        event.preventDefault();
+        const group = link.dataset["lightbox"] ?? "";
+        set = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[data-lightbox]")).filter(
+          (a) => (a.dataset["lightbox"] ?? "") === group,
+        );
+        show(set.indexOf(link));
+        dialog.showModal();
+      },
+      true,
+    );
 
     prev.addEventListener("click", () => {
       show(index - 1);
@@ -97,7 +103,7 @@
     padding: calc(1rem + env(safe-area-inset-top, 0px)) 1rem
       calc(1rem + env(safe-area-inset-bottom, 0px));
     border: 0;
-    background: rgb(4 5 4 / 94%);
+    background: rgb(0 0 0 / 96%);
     color: var(--text);
   }
 
@@ -141,20 +147,23 @@
     gap: 0.5rem;
   }
 
+  /* The deck's own prompt buttons. */
   .lightbox__button {
-    min-width: 2.75rem;
+    min-width: 3.5rem;
     height: 2.75rem;
-    border: 1px solid var(--line-strong);
-    border-radius: 999px;
-    background: var(--panel);
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    background: #1f1f1f;
     color: var(--text);
     font-size: 1rem;
+    font-weight: 700;
     cursor: pointer;
   }
 
   .lightbox__button:hover {
-    border-color: var(--lime);
-    color: var(--lime);
+    border-color: var(--accent);
+    background: var(--accent);
+    color: var(--on-accent);
   }
 
   .lightbox__count {

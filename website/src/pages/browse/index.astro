@@ -1,0 +1,56 @@
+---
+// The root list: the deck's level 0, its stick first, then the site's pages
+// where the deck lists Autoplay and History, and Shut down last.
+import { getCollection } from "astro:content";
+
+import Row from "../../components/screen/Row.astro";
+import { features } from "../../data/features";
+import Deck from "../../layouts/Deck.astro";
+import { pictureCount } from "../../lib/pictures";
+
+const posts = await getCollection("blog", ({ data }) => !data.draft);
+const pictures = await pictureCount();
+const things = features.reduce((sum, group) => sum + group.items.length, 0);
+---
+
+<Deck title="Home" kind="list" back="/deck/" crumbs={[]}>
+  <h1 class="visually-hidden">TriMixxx</h1>
+  <ul class="list" data-list>
+    <li>
+      <Row href="/browse/usb/" icon="stick" goesIn number="1" label="TRIMIXXX" meta="1 track" />
+    </li>
+    <li>
+      <Row
+        href="/blog/"
+        icon="history"
+        goesIn
+        label="Build log"
+        meta={`${String(posts.length)} posts`}
+      />
+    </li>
+    <li>
+      <Row
+        href="/pictures/"
+        icon="pictures"
+        goesIn
+        label="Pictures"
+        meta={`${String(pictures)} pictures`}
+      />
+    </li>
+    <li>
+      <Row
+        href="/what-can-it-do/"
+        icon="question"
+        goesIn
+        label="What can it do?"
+        meta={`${String(things)} things`}
+      />
+    </li>
+    <li>
+      <Row href="/why/" icon="info" goesIn label="Why build it" />
+    </li>
+    <li>
+      <Row href="/" icon="power" label="Shut down" action="shutdown" />
+    </li>
+  </ul>
+</Deck>

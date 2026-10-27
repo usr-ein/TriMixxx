@@ -1,0 +1,194 @@
+---
+// Why build it: the first site's About, as one page the knob scrolls.
+import { repositories, site } from "../data/site";
+import Deck from "../layouts/Deck.astro";
+import { photo } from "../lib/photos";
+
+const credits = [
+  {
+    name: "Mixxx",
+    href: site.mixxx,
+    what: "The free, open-source DJ software the deck runs. TriMixxx is a fork of Mixxx 2.5.6; everything that makes a deck play music starts there.",
+  },
+  {
+    name: "ttymidi",
+    href: "https://github.com/usr-ein/ttymidi",
+    what: "varal's serial-to-ALSA MIDI bridge, forked to carry SysEx both ways: the only thing between the controller's UART and Mixxx.",
+  },
+  {
+    name: "ch32fun",
+    href: "https://github.com/cnlohr/ch32fun",
+    what: "cnlohr's bare-metal toolkit for the CH32V003, and its minichlink flasher. Every pad node runs on it.",
+  },
+  {
+    name: "cdj2000-emulator",
+    href: "https://github.com/cdj2k-revival/cdj2000-emulator",
+    what: "cdj2k-revival's emulator of the CDJ-2000, which boots the player's own firmware. TriMixxx's fork puts emulated CDJ-2000NXS players on the decks' network.",
+  },
+  {
+    name: "RAUC",
+    href: "https://rauc.io",
+    what: "The update framework behind the deck's A/B slots and its signed bundles.",
+  },
+  {
+    name: "Chocolate Doom",
+    href: "https://www.chocolate-doom.org",
+    what: "The faithful DOOM port the deck boots into when PLAY is held, unmodified.",
+  },
+  {
+    name: "Raspberry Pi OS, KiCad, PlatformIO",
+    href: "https://www.kicad.org",
+    what: "The system the deck boots, the tool every board was drawn in, and the build system of its controller firmware.",
+  },
+  {
+    name: "The Pro DJ Link community",
+    href: "https://github.com/Deep-Symmetry/dysentery",
+    what: "Deep Symmetry's dysentery and the other published Pro DJ Link projects were the starting map. TriMixxx's own implementation was then written from captures of its own hardware, without their code.",
+  },
+] as const;
+
+const share = await photo("2026-10-02-img-9266");
+---
+
+<Deck
+  title="Why build it"
+  description="Why build a DJ deck at all: who makes TriMixxx, what it stands on, its repositories and licences."
+  image={share?.data.image}
+  imageAlt={share?.data.alt}
+  kind="page"
+  back="/browse/"
+  crumbs={[{ label: "Why build it", href: "/why/" }]}
+>
+  <article class="page">
+    <h1>Why build a deck at all</h1>
+    <p>
+      Pioneer DJ's CDJs are the industry standard. Thousands of venues already have them set up, and
+      DJs expect to find them when they walk into a booth: players that read the rekordbox stick
+      they brought, with an interface they all know how to use.
+    </p>
+    <p>
+      That standard has made Pioneer a monopoly in all but name, and a monopoly holds back what
+      anyone else might invent. Its players are closed to the people who own them, too: there is no
+      upgrading the hardware and no adding to what it can do. I believe that whoever buys and owns a
+      piece of hardware should be free to do whatever they want with it, and never be locked out of
+      it.
+    </p>
+    <p>
+      I also wanted to learn, for myself, every skill it takes to put a finished product together:
+      mechanical design and 3D printing, PCB design, embedded electronics and firmware, C++, audio
+      processing, and the rest.
+    </p>
+    <p>
+      A CDJ is not much more complex than a very large iPod. It plays music files out of a socket;
+      the jog wheel, the buttons and the screen around it are interface. By building TriMixxx in the
+      open, I want to give everyone curious about it a known base to build on and to iterate from,
+      and to show the problems I ran into and how I solved them, so that building something like it
+      yourself looks a lot less daunting.
+    </p>
+    <p class="signature">{site.author}</p>
+
+    <h2>Built on</h2>
+    <dl class="credits">
+      {credits.map((credit) => (
+        <>
+          <dt>
+            <a href={credit.href} rel="noopener">
+              {credit.name}
+            </a>
+          </dt>
+          <dd>{credit.what}</dd>
+        </>
+      ))}
+    </dl>
+
+    <h2>Source</h2>
+    <p>
+      Everything is on GitHub under free licences. The deck's own repository is GPL-3.0-or-later,
+      hardware sources and documentation included; the projects it forks keep theirs.
+    </p>
+    <dl class="credits">
+      {repositories.map((repo) => (
+        <>
+          <dt>
+            <a href={repo.href} rel="noopener">
+              {repo.name}
+            </a>{" "}
+            <span class="dim">{repo.licence}</span>
+          </dt>
+          <dd>{repo.what}</dd>
+        </>
+      ))}
+    </dl>
+
+    <h2>Get in touch</h2>
+    <p>
+      About the project, a collaboration, an event or the press:{" "}
+      <a href={`mailto:${site.email}`}>{site.email}</a>. Bugs and code go to{" "}
+      <a href={`${site.repo}/issues`} rel="noopener">
+        GitHub issues
+      </a>
+      .
+    </p>
+
+    <h2>Fine print</h2>
+    <p>
+      TriMixxx is an independent project, with no affiliation with, sponsorship by or endorsement
+      from AlphaTheta Corporation (formerly Pioneer DJ) or the Mixxx project.
+    </p>
+    <p>
+      CDJ, rekordbox, Pro DJ Link, DJM, NXS and Pioneer DJ are trademarks of AlphaTheta Corporation.
+      They appear here only to say which equipment TriMixxx works with, which protocol it speaks,
+      and which decks it was measured against. Mixxx is the name of the independent open-source
+      project at{" "}
+      <a href={site.mixxx} rel="noopener">
+        mixxx.org
+      </a>
+      ; TriMixxx is this project's own name, not a Mixxx product.
+    </p>
+    <p>
+      The Pro DJ Link work is reverse engineering for interoperability, from network traffic between
+      devices the author owns. Protocol facts are not copyrightable, and no code from any other
+      implementation was copied. No Pioneer firmware is, or will be, in any TriMixxx repository.
+    </p>
+    <p>
+      The build log shows an emulated CDJ-2000NXS at work. Its screen and lamps are drawn by
+      AlphaTheta's own firmware, supplied by the player's owner; they appear only to document the
+      emulator.
+    </p>
+    <p>
+      <button type="button" class="settings" data-consent-open hidden>
+        Analytics settings
+      </button>
+    </p>
+  </article>
+</Deck>
+
+<style>
+  .signature {
+    color: var(--dim);
+  }
+
+  .signature::before {
+    content: "— ";
+  }
+
+  .credits {
+    margin: 0 0 1em;
+  }
+
+  .credits dt {
+    margin-top: 0.9em;
+    font-weight: 700;
+  }
+
+  .credits dd {
+    margin: 0.2em 0 0;
+    color: var(--dim);
+  }
+
+  .settings {
+    color: var(--dim);
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
+</style>

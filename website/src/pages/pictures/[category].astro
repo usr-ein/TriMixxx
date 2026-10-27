@@ -1,0 +1,143 @@
+---
+// A category of pictures, in the info layout: the captions down the left, the
+// selected picture on the right. Pushed, a picture opens full size, a board
+// turns in 3D, a clip plays.
+import type { GetStaticPaths } from "astro";
+import { getImage } from "astro:assets";
+
+import BoardModel from "../../components/BoardModel.astro";
+import Figure from "../../components/Figure.astro";
+import Info from "../../components/screen/Info.astro";
+import Deck from "../../layouts/Deck.astro";
+import { type Category, categories } from "../../lib/pictures";
+
+export const getStaticPaths = (async () =>
+  (await categories()).map((category) => ({
+    params: { category: category.id },
+    props: { category },
+  }))) satisfies GetStaticPaths;
+
+const { category } = Astro.props as { category: Category };
+const posters = await Promise.all(
+  category.items.map((item) =>
+    item.video ? getImage({ src: item.src, width: 1280, format: "webp" }) : undefined,
+  ),
+);
+const sizes = "(aspect-ratio < 1) 100vw, 40vw";
+---
+
+<Deck
+  title={category.title}
+  description={`TriMixxx in pictures: ${category.title.toLowerCase()}.`}
+  image={category.items[0]?.src}
+  imageAlt={category.items[0]?.alt}
+  kind="info"
+  back="/pictures/"
+  crumbs={[
+    { label: "Pictures", href: "/pictures/" },
+    { label: category.title, href: `/pictures/${category.id}/` },
+  ]}
+>
+  <h1 class="visually-hidden">{category.title}</h1>
+  <Info>
+    <Fragment slot="list">
+      {category.items.map((item, i) => (
+        <li>
+          <a class="line" href={`#picture-${String(i)}`} data-row data-index={i} data-action="open">
+            <span class="line__title">{item.caption || item.alt}</span>
+            {item.date && <span class="line__meta">{item.date}</span>}
+          </a>
+        </li>
+      ))}
+    </Fragment>
+    <Fragment slot="panel">
+      {category.note && <p class="note">{category.note}</p>}
+      {category.items.map((item, i) => (
+        <div class="art" id={`picture-${String(i)}`} data-art={i} hidden={i !== 0}>
+          {item.board ? (
+            <BoardModel
+              board={item.board.id}
+              name={item.board.name}
+              src={item.src}
+              alt={item.alt}
+              side={item.board.side}
+              sizes={sizes}
+            />
+          ) : item.video ? (
+            <video
+              class="art__video"
+              src={item.video}
+              poster={posters[i]?.src}
+              aria-label={item.alt}
+              muted
+              loop
+              playsinline
+              controls
+              preload="none"
+            />
+          ) : (
+            <Figure
+              src={item.src}
+              alt={item.alt}
+              zoom={category.id}
+              sizes={sizes}
+              frame={item.diagram ? "diagram" : "none"}
+            />
+          )}
+          <p class="art__caption">{item.caption}</p>
+          {item.date && <p class="art__date">{item.date}</p>}
+          {item.board && item.board.schematics.length > 0 && (
+            <p class="art__links">
+              {item.board.schematics.map((sheet) => (
+                <a href={sheet.href}>{sheet.label}</a>
+              ))}
+            </p>
+          )}
+        </div>
+      ))}
+    </Fragment>
+  </Info>
+</Deck>
+
+<style>
+  .note {
+    margin: 0 0 1em;
+    color: var(--dim);
+    font-size: 0.8em;
+  }
+
+  .art {
+    display: grid;
+    gap: calc(var(--dp) * 14);
+  }
+
+  .art :global(img),
+  .art__video {
+    width: 100%;
+    max-height: 62cqh;
+    object-fit: contain;
+  }
+
+  .art__caption {
+    margin: 0;
+    font-size: 0.9em;
+  }
+
+  .art__date {
+    margin: 0;
+    color: var(--dim);
+    font-size: 0.8em;
+  }
+
+  .art__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4em 1.2em;
+    margin: 0;
+    font-size: 0.85em;
+  }
+
+  .art__links a {
+    color: var(--accent);
+  }
+</style>

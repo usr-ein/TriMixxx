@@ -1,0 +1,323 @@
+---
+// The deck view, as the deck draws it (website/src/assets/screens/
+// deck-build-and-drop.webp): the header, the waveform with the tempo box over
+// it, and the whole track along the bottom. Tap the waveform to play or stop,
+// drag it to scratch, tap the bottom strip to jump.
+import { demoTrack } from "../../lib/deck/track";
+import Icon from "../screen/Icon.astro";
+import SevenSeg from "../screen/SevenSeg.astro";
+
+const track = demoTrack();
+const meta = {
+  title: track.title,
+  artist: track.artist,
+  key: track.key,
+  bpm: track.bpm,
+  firstBeat: track.firstBeat,
+  cue: track.cue,
+  duration: track.duration,
+  rate: track.rate,
+  points: track.points,
+};
+const bpm = track.bpm.toFixed(2);
+const clock = (seconds: number): string =>
+  `${String(Math.floor(seconds / 60))}:${String(Math.floor(seconds % 60)).padStart(2, "0")}.${String(Math.floor((seconds % 1) * 100)).padStart(2, "0")}`;
+---
+
+<div
+  class="dv"
+  data-deck-view
+  data-audio={track.audio}
+  data-wave={track.wave}
+  data-track={JSON.stringify(meta)}
+>
+  <header class="dv__head">
+    <a class="dv__home" href="/browse/" aria-label="Home">
+      <Icon name="home" />
+    </a>
+    <div class="dv__cover" aria-hidden="true">
+      {track.cover ? (
+        <img src={track.cover} alt="" />
+      ) : (
+        <svg viewBox="0 0 90 90">
+          <rect width="90" height="90" fill="#5c625f" />
+          <circle cx="45" cy="45" r="27" fill="#4a4f4c" />
+          <circle cx="45" cy="45" r="2.2" fill="#1d201e" />
+        </svg>
+      )}
+    </div>
+    <div class="dv__titles">
+      <p class="dv__title">{track.title}</p>
+      <p class="dv__sub">
+        <span class="dv__key">{track.key}</span>
+        <span class="dv__artist">{track.artist}</span>
+      </p>
+    </div>
+    <div class="dv__phase" aria-hidden="true">
+      <span></span>
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+    <div class="dv__modes" aria-hidden="true">
+      <span class="dv__mode">
+        <svg viewBox="0 0 24 24">
+          <path d="M5 8.5h12.5l-3-3M19 15.5H6.5l3 3"></path>
+        </svg>
+      </span>
+      <span class="dv__mode">
+        <svg viewBox="0 0 24 24">
+          <path d="M6 18.5V6l6 8 6-8v12.5"></path>
+        </svg>
+      </span>
+    </div>
+    <p class="dv__times">
+      <span class="dv__elapsed" data-elapsed>
+        0:00.00
+      </span>
+      <span class="dv__remaining" data-remaining>
+        -{clock(track.duration)}
+      </span>
+    </p>
+  </header>
+  <div
+    class="dv__wave"
+    data-wave-area
+    role="button"
+    tabindex="0"
+    aria-pressed="false"
+    aria-label={`${track.title} by ${track.artist}. Tap to play or stop, drag sideways to scratch.`}
+  >
+    <canvas class="dv__canvas" data-wave-canvas></canvas>
+    <div class="dv__tempo" aria-hidden="true">
+      <span class="dv__pitch">+0.00%</span>
+      <span class="dv__range">6%</span>
+      <SevenSeg class="dv__bpm" value={bpm} label={`${bpm} BPM`} />
+    </div>
+  </div>
+  <div class="dv__overview">
+    <canvas
+      class="dv__canvas"
+      data-overview-canvas
+      aria-label="The whole track: tap to jump"
+    ></canvas>
+  </div>
+</div>
+
+<script>
+  import "../../lib/deck/view";
+</script>
+
+<style>
+  .dv {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) max(34px, calc(var(--dp) * 72));
+    height: 100%;
+    background: #000;
+  }
+
+  .dv__head {
+    display: flex;
+    gap: calc(var(--dp) * 14);
+    align-items: center;
+    min-height: max(48px, calc(var(--dp) * 100));
+    padding: calc(var(--dp) * 5);
+    border-bottom: 1px solid #1c3a46;
+    background: #141414;
+  }
+
+  .dv__home {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: max(28px, calc(var(--dp) * 44));
+    height: max(28px, calc(var(--dp) * 44));
+    color: var(--accent);
+  }
+
+  .dv__home :global(svg) {
+    width: 70%;
+    height: 70%;
+  }
+
+  .dv__cover {
+    flex: none;
+    width: max(38px, calc(var(--dp) * 90));
+    aspect-ratio: 1;
+  }
+
+  .dv__cover img,
+  .dv__cover svg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .dv__titles {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .dv__title,
+  .dv__sub {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dv__title {
+    color: #fff;
+    font-size: max(15px, calc(var(--dp) * 30));
+    font-weight: 700;
+  }
+
+  .dv__sub {
+    margin-top: calc(var(--dp) * 6);
+    font-size: max(12px, calc(var(--dp) * 22));
+  }
+
+  .dv__key {
+    margin-right: 1.2ch;
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .dv__artist {
+    color: var(--dim);
+  }
+
+  .dv__phase {
+    display: grid;
+    flex: 0 1 calc(var(--dp) * 440);
+    grid-template-columns: repeat(4, 1fr);
+    gap: calc(var(--dp) * 6);
+    align-self: stretch;
+    margin-block: calc(var(--dp) * 10);
+    padding: calc(var(--dp) * 8);
+    background: #0b0b0b;
+  }
+
+  .dv__phase span {
+    border-bottom: 2px solid #2d2d2d;
+  }
+
+  .dv__phase :global(span.is-on) {
+    border-bottom-color: var(--low);
+    background: linear-gradient(0deg, rgb(34 102 255 / 35%), transparent 70%);
+  }
+
+  .dv__modes {
+    display: flex;
+    flex: none;
+    gap: calc(var(--dp) * 6);
+  }
+
+  .dv__mode {
+    display: grid;
+    place-items: center;
+    width: max(26px, calc(var(--dp) * 62));
+    aspect-ratio: 1;
+    border: 1px solid #3a3a3a;
+    border-radius: calc(var(--dp) * 10);
+    background: #1e1e1e;
+    color: #8a8a8a;
+  }
+
+  .dv__mode svg {
+    width: 70%;
+    fill: none;
+    stroke: currentcolor;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-width: 2.4;
+  }
+
+  .dv__times {
+    display: grid;
+    flex: none;
+    justify-items: end;
+    margin: 0;
+    font-size: max(13px, calc(var(--dp) * 30));
+    font-variant-numeric: tabular-nums;
+    line-height: 1.25;
+  }
+
+  .dv__elapsed {
+    color: #fff;
+  }
+
+  .dv__remaining {
+    color: #fff;
+  }
+
+  .dv__wave {
+    position: relative;
+    min-height: 0;
+    touch-action: none;
+    cursor: grab;
+    user-select: none;
+  }
+
+  .dv__wave:active {
+    cursor: grabbing;
+  }
+
+  .dv__canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  .dv__tempo {
+    position: absolute;
+    right: calc(var(--dp) * 38);
+    bottom: calc(var(--dp) * 14);
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: calc(var(--dp) * 34);
+    align-items: center;
+    padding: calc(var(--dp) * 10) calc(var(--dp) * 18);
+    border: 1px solid #333;
+    border-radius: calc(var(--dp) * 6);
+    background: rgb(10 10 10 / 92%);
+    font-size: max(11px, calc(var(--dp) * 22));
+    pointer-events: none;
+  }
+
+  .dv__pitch {
+    grid-column: 1;
+    color: #ddd;
+  }
+
+  .dv__range {
+    grid-column: 1;
+    color: var(--range);
+    text-align: right;
+  }
+
+  .dv__tempo :global(.dv__bpm) {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    height: max(22px, calc(var(--dp) * 56));
+  }
+
+  .dv__overview {
+    position: relative;
+    border-top: 1px solid #1a1a1a;
+    background: #0c0c0c;
+    touch-action: none;
+    cursor: pointer;
+  }
+
+  @container (aspect-ratio < 1) {
+    .dv__phase,
+    .dv__modes {
+      display: none;
+    }
+
+    .dv__tempo {
+      right: 8px;
+      bottom: 8px;
+    }
+  }
+</style>
