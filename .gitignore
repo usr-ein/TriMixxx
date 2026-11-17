@@ -134,8 +134,6 @@ node_modules/
 
 # Agents' git worktrees (CLAUDE.md, pi-qemu worktree)
 .claude/worktrees/
-# The crew's state, in the main checkout and in each worktree (.claude/crew/README.md)
-/.crew/
 
 # Pioneer's firmware updates (a CDJ's C2KNXS.UPD, ...): never in the
 # repository. `pi-qemu cdj firmware` extracts them outside every checkout.

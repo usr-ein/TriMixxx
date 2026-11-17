@@ -92,8 +92,7 @@ his words:
 > From then on, versioning will be following this scheme:
 > X.Y.Z . X is for "large" change, such as new feature etc. Y is for more minor new features and refactors, and Z is for bug fixes. It's subjective and I will decide.
 
-So each version is his to give: ask him which part goes up (at night, the
-nightman asks him). 0.0.1, 0.1.0 and 0.1.1 came before the scheme.
+So each version is his to give: ask him which part goes up. 0.0.1, 0.1.0 and 0.1.1 came before the scheme.
 
 ## Releases
 
@@ -121,7 +120,7 @@ A release is made in this order:
 5. **A rehearsal on emulated decks** (below): a deck on the last release
    takes the new bundle and keeps it, and the new release's card boots.
 6. **The GitHub release,** once 5 has passed:
-   `crew gh -R usr-ein/TriMixxx release create pi/vX.Y.Z --target SHA --title "TriMixxx X.Y.Z" --notes-file docs/releases/X.Y.Z.md`.
+   `GH_TOKEN=$(gh auth token --user usr-ein) gh -R usr-ein/TriMixxx release create pi/vX.Y.Z --target SHA --title "TriMixxx X.Y.Z" --notes-file docs/releases/X.Y.Z.md`.
    The notes only: the cards and the bundle stay in `archives/releases/`
    (Sam's call for 1.0.0; the repo is public). Then
    `git ls-remote origin refs/tags/pi/vX.Y.Z` must print SHA: that is
